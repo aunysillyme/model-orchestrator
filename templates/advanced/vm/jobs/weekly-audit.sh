@@ -3,7 +3,7 @@
 # Rendered at install time: the install directory and the audit lane below came from your selection.
 # rc 10/12/13 means no report was produced; the timer's journal shows it.
 set -uo pipefail
-INSTALL_DIR="{{INSTALL_DIR}}"
+INSTALL_DIR={{INSTALL_DIR_SH}}
 AUDIT_LANE="{{AUDIT_LANE}}"
 {{AUDIT_LANE_GUARD}}
 cd "$INSTALL_DIR" || { echo "weekly-audit: $INSTALL_DIR missing" >&2; exit 2; }

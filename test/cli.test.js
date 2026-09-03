@@ -180,3 +180,40 @@ test('a directory named like a binary is not detected as installed', () => {
   assert.match(next, /not on PATH/);
   rmSync(d, { recursive: true, force: true });
 });
+
+// ---- audit round 2 fixes ----
+test('cli-run: value flags need values, one prompt only, no stray positionals', () => {
+  const r = (args) => spawnSync(process.execPath, [CLI_RUN, ...args], { encoding: 'utf8', env: { PATH: '', HOME: tmpdir() } });
+  assert.equal(r(['qwen', 'p', '--model']).status, 2);
+  const eaten = r(['qwen', 'p', '--model', '--safe-mode']);
+  assert.equal(eaten.status, 2, 'a flag was consumed as the model id');
+  assert.match(eaten.stderr, /--model requires a value/);
+  assert.equal(r(['grok', 'p', 'ignored']).status, 2);
+  const d = mkdtempSync(join(tmpdir(), 'orch-brief-'));
+  writeFileSync(join(d, 'b.md'), 'brief');
+  assert.equal(r(['grok', 'p', '--brief', join(d, 'b.md')]).status, 2, 'prompt and --brief together must be refused');
+  rmSync(d, { recursive: true, force: true });
+});
+
+test('cli-run: provider message text reaches stderr but never the durable log', () => {
+  const d = mkdtempSync(join(tmpdir(), 'orch-plog-'));
+  const bin = join(d, 'bin');
+  mkdirSync(bin);
+  writeFileSync(join(bin, 'qwen'), `#!/bin/sh\necho '[{"type":"result","subtype":"error","error":{"message":"PRIVATE_MARKER_FROM_PROVIDER"}}]'\n`, { mode: 0o755 });
+  const r = spawnSync(process.execPath, [CLI_RUN, 'qwen', 'p'], { encoding: 'utf8', env: { PATH: bin, HOME: d } });
+  assert.equal(r.status, 10, r.stderr);
+  assert.match(r.stderr, /PRIVATE_MARKER_FROM_PROVIDER/, 'the operator should still see the provider message on stderr');
+  const log = readFileSync(join(d, '.ai-orchestrator', 'cli-run.log.jsonl'), 'utf8');
+  assert.doesNotMatch(log, /PRIVATE_MARKER_FROM_PROVIDER/);
+  assert.match(log, /"reason":"subtype=\\"error\\""/);
+  rmSync(d, { recursive: true, force: true });
+});
+
+test('--no-tools with --tools is a usage error, and the filesystem root is refused as --dir', () => {
+  const c = run(['--yes', '--level', '1', '--ais', 'codex', '--no-tools', '--tools', 'nope', '--dry']);
+  assert.equal(c.status, 2);
+  assert.match(c.stderr, /contradict/);
+  const root = run(['--yes', '--level', '1', '--ais', 'codex', '--no-tools', '--dir', '/', '--force', '--dry']);
+  assert.equal(root.status, 2);
+  assert.match(root.stderr, /filesystem root/);
+});

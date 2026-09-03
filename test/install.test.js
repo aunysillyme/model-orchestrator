@@ -156,13 +156,13 @@ test('the weekly audit is rendered for an enabled lane, the install dir, and ref
   const withLane = planFiles({ level: 3, selected: sel('codex'), primary: byId.codex, dir: '/opt/custom-orch' });
   const sh = withLane.find((f) => f.rel === 'vm/jobs/weekly-audit.sh').content;
   assert.match(sh, /AUDIT_LANE="codex"/);
-  assert.match(sh, /INSTALL_DIR="\/opt\/custom-orch"/);
+  assert.match(sh, /INSTALL_DIR='\/opt\/custom-orch'/);
   assert.match(sh, /audit-brief-.*\.md/, 'the composed brief is what the lane reads');
   assert.match(sh, /live-state\.md/);
   assert.doesNotMatch(sh, /exit 13/, 'guard must be empty when a lane exists');
   const svc = withLane.find((f) => f.rel === 'vm/jobs/weekly-audit.service').content;
   assert.match(svc, /WorkingDirectory=\/opt\/custom-orch/);
-  assert.match(svc, /ExecStart=\/bin\/bash \/opt\/custom-orch\/vm\/jobs\/weekly-audit\.sh/);
+  assert.match(svc, /ExecStart=\/bin\/bash "\/opt\/custom-orch\/vm\/jobs\/weekly-audit\.sh"/);
   const noLane = planFiles({ level: 3, selected: sel('claude-code', 'ollama'), primary: byId['claude-code'], dir: '/x' });
   const sh2 = noLane.find((f) => f.rel === 'vm/jobs/weekly-audit.sh').content;
   assert.match(sh2, /AUDIT_LANE="none"/);
@@ -175,7 +175,7 @@ test('the weekly audit refuses a gateway key that would inject curl config', () 
   const sh = planFiles({ level: 3, selected: sel('codex'), primary: byId.codex, dir: '/x' }).find((f) => f.rel === 'vm/jobs/weekly-audit.sh').content;
   const d = mkdtempSync(join(tmpdir(), 'orch-key-'));
   const script = join(d, 'a.sh');
-  writeFileSync(script, sh.replace('INSTALL_DIR="/x"', `INSTALL_DIR="${d}"`));
+  writeFileSync(script, sh.replace("INSTALL_DIR='/x'", `INSTALL_DIR='${d}'`));
   const r = spawnSync('bash', [script], { encoding: 'utf8', env: { HOME: d, GATEWAY_MASTER_KEY: 'marker"\nheader = "X-Injected: yes' } });
   assert.equal(r.status, 2, r.stdout + r.stderr);
   assert.match(r.stderr, /must match/);
@@ -194,4 +194,75 @@ test('codecalc: selected writes CODECALC.md and snippets; the numbers-and-logic 
   const nl = without.find((f) => f.rel === 'protocols/numbers-and-logic.md').content;
   assert.match(nl, /not selected/);
   assert.match(nl, /github\.com\/The-40-Thieves\/codecalc/);
+});
+
+// ---- audit round 2 fixes ----
+import { shellQuote, systemdEscape, dirProblems, realRoot } from '../src/install.js';
+import { realpathSync } from 'node:fs';
+
+test('--dir is data in the rendered script and unit, never syntax', () => {
+  const dir = '/tmp/safe"; echo DIR_INJECTED >&2; #';
+  const files = planFiles({ level: 3, selected: sel('codex'), primary: byId.codex, dir, tools: [] });
+  const sh = files.find((f) => f.rel === 'vm/jobs/weekly-audit.sh').content;
+  const r = spawnSync('bash', ['-s'], { input: sh, encoding: 'utf8', env: { HOME: '/nonexistent' } });
+  // An executed injection prints a line that is exactly the marker. The
+  // script's own "missing" message legitimately echoes the directory name as
+  // data, marker included, so the oracle is the whole line, not a substring.
+  assert.ok(!r.stderr.split('\n').includes('DIR_INJECTED'), 'the directory name executed as a command:\n' + r.stderr);
+  assert.match(r.stderr, /weekly-audit: .*DIR_INJECTED.* missing/, 'the directory should appear as data in the missing-dir message');
+  assert.match(sh, /INSTALL_DIR='\/tmp\/safe"; echo DIR_INJECTED >&2; #'/);
+  assert.equal(shellQuote("it's"), "'it'\\''s'");
+  assert.equal(systemdEscape('/a/100%/b'), '/a/100%%/b');
+  const svc = planFiles({ level: 3, selected: sel('codex'), primary: byId.codex, dir: '/opt/100% sure', tools: [] }).find((f) => f.rel === 'vm/jobs/weekly-audit.service').content;
+  assert.match(svc, /WorkingDirectory=\/opt\/100%% sure/);
+  assert.match(svc, /ExecStart=\/bin\/bash "\/opt\/100%% sure\/vm\/jobs\/weekly-audit\.sh"/);
+});
+
+test('a target with control characters or the filesystem root is refused before planning', () => {
+  assert.match(dirProblems('/tmp/bad\nname').join(' '), /control characters/);
+  assert.match(dirProblems('/').join(' '), /filesystem root/);
+  assert.deepEqual(dirProblems('/tmp/fine dir'), []);
+  assert.throws(() => writeFiles([{ rel: 'README.md', content: 'x', mode: 0o644 }], { dir: '/', dry: true }), /filesystem root/);
+});
+
+test('a symlinked or file --dir root is handled: followed to its real path, or refused when not a directory', () => {
+  const base = mkdtempSync(join(tmpdir(), 'orch-root-'));
+  try {
+    const outside = mkdtempSync(join(tmpdir(), 'orch-outside-'));
+    const target = join(base, 'target');
+    symlinkSync(outside, target);
+    // The user chose a link; writes land in its real location and containment is checked there.
+    assert.equal(realRoot(target).root, realpathSync(outside));
+    writeFiles([{ rel: 'a.md', content: 'x', mode: 0o644 }], { dir: target });
+    assert.ok(existsSync(join(outside, 'a.md')));
+    assert.throws(() => writeFiles([{ rel: '../escape.md', content: 'x', mode: 0o644 }], { dir: target, dry: true }), /outside the target/);
+    // A regular file as the root is refused.
+    const file = join(base, 'file');
+    writeFileSync(file, 'not a dir');
+    assert.throws(() => writeFiles([{ rel: 'a.md', content: 'x', mode: 0o644 }], { dir: file }), /not a directory/);
+    // A root that does not exist yet resolves through its deepest existing ancestor.
+    const fresh = join(base, 'deep', 'er', 'path');
+    assert.equal(realRoot(fresh).exists, false);
+    assert.ok(realRoot(fresh).root.endsWith(join('deep', 'er', 'path')));
+    rmSync(outside, { recursive: true, force: true });
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+});
+
+test('--force never leaves an overwritten file changed when a later target is a directory', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'orch-force-'));
+  try {
+    writeFileSync(join(dir, 'first.md'), 'original');
+    mkdirSync(join(dir, 'second.md'));
+    const files = [
+      { rel: 'first.md', content: 'overwritten', mode: 0o644 },
+      { rel: 'second.md', content: 'x', mode: 0o644 }
+    ];
+    assert.match(preflight(files, dir).join(' '), /not a regular file/);
+    assert.throws(() => writeFiles(files, { dir, force: true }), /not a regular file/);
+    assert.equal(readFileSync(join(dir, 'first.md'), 'utf8'), 'original');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

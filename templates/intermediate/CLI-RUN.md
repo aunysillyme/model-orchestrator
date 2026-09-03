@@ -48,7 +48,7 @@ qwen is the lane whose own success flags lie: an upstream 400 comes back as exit
 
 ## Log
 
-`~/.ai-orchestrator/cli-run.log.jsonl`, one line per run: lane, verdict, rc, signal, seconds, raw bytes, deliverable bytes, detail, a 12-hex sha256 prefix of the prompt and its length. Never the prompt text: briefs can carry material that should not sit in a durable file. "This lane is flaky" becomes a query instead of an argument.
+`~/.ai-orchestrator/cli-run.log.jsonl`, one line per run: lane, verdict, rc, signal, seconds, raw bytes, deliverable bytes, the structural reason (`stopReason=cancelled`, `no terminal result event`, `success flag lied, result is an API error`), a 12-hex sha256 prefix of the prompt and its length. Never the prompt text and never a provider's message text: both can carry material that should not sit in a durable file. The full detail goes to stderr, where you are. "This lane is flaky" becomes a query instead of an argument.
 
 ## The prompt travels in argv
 

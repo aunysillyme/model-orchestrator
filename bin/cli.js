@@ -10,7 +10,7 @@ import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { which } from '../src/detect.js';
 import { AIS, LEVELS, TOOLS, aisForLevel, agentCandidates, byId } from '../src/catalog.js';
-import { planFiles, writeFiles, resolveSelection, resolveTools } from '../src/install.js';
+import { planFiles, writeFiles, resolveSelection, resolveTools, dirProblems } from '../src/install.js';
 
 // One strict parse. Unknown flags, missing values and duplicates are usage
 // errors (exit 2) before anything is planned, so a typo like --dryy can never
@@ -178,6 +178,7 @@ async function main() {
 
   // 3b. Companion tools (not AIs: things the AIs call)
   let tools = [];
+  if (flag('no-tools') && opt('tools')) bad('--no-tools and --tools contradict each other');
   if (!flag('no-tools')) {
     if (opt('tools')) {
       const r = resolveTools(opt('tools').split(',').map((s) => s.trim()).filter(Boolean));
@@ -195,6 +196,8 @@ async function main() {
 
   // 4. Target
   const dir = resolve(opt('dir') || (await ask('\nWrite into [./ai-orchestrator]: ', './ai-orchestrator')));
+  const dirBad = dirProblems(dir);
+  if (dirBad.length) bad(dirBad.join('; '));
 
   // 5. Plan
   const files = planFiles({ level, selected, primary, dir, tools });

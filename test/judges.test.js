@@ -90,3 +90,14 @@ test('self-check: an accept-everything judge is caught', () => {
   const noop = () => ({ text: 'always', detail: 'noop' });
   assert.throws(() => no(noop(0, '[null]'), 'noop'));
 });
+
+// ---- audit round 2: bounded scanning on large output ----
+test('agy/codex judges find the terminal event in a large stream and refuse when it is absent', () => {
+  const filler = '{"event":"step_update","data":"' + 'x'.repeat(2000) + '"}\n';
+  const big = filler.repeat(4000) + '{"event":"result","result":{"status":"SUCCESS","response":"done"}}\n';
+  ok(judgeAgy(0, big));
+  ok(judgeCodex(0, filler.replace('step_update', 'item.completed').repeat(4000) + '{"type":"turn.completed"}\n', '', 'findings'));
+  no(judgeAgy(0, filler.repeat(10)), 'no terminal event in a large stream');
+  // a single absurdly long line is skipped, not parsed
+  no(judgeAgy(0, '{"event":"result","result":{"status":"SUCCESS","response":"' + 'y'.repeat(1_100_000) + '"}}\n'), 'oversized line skipped');
+});

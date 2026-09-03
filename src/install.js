@@ -1,5 +1,5 @@
-import { readFileSync, existsSync, mkdirSync, writeFileSync, chmodSync, readdirSync, statSync, lstatSync, unlinkSync } from 'node:fs';
-import { join, dirname, relative, resolve, sep } from 'node:path';
+import { readFileSync, existsSync, mkdirSync, writeFileSync, chmodSync, readdirSync, statSync, lstatSync, unlinkSync, realpathSync } from 'node:fs';
+import { join, dirname, relative, resolve, sep, parse as parsePath } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { render } from './render.js';
 import { AIS, LEVELS, TOOLS, byId, toolById } from './catalog.js';
@@ -165,6 +165,25 @@ export function composeOllama(selected) {
   ].join('\n');
 }
 
+// --dir is rendered into a bash script and a systemd unit. It is data there,
+// never syntax: single-quoted for bash (the only character that needs care
+// inside single quotes is the quote itself), and %-escaped for systemd, whose
+// specifiers begin with %. Control characters and newlines are refused outright
+// because no quoting convention survives them in both grammars.
+export function shellQuote(v) {
+  return "'" + String(v).replace(/'/g, "'\\''") + "'";
+}
+export function systemdEscape(v) {
+  return String(v).replace(/%/g, '%%');
+}
+export function dirProblems(dir) {
+  const abs = resolve(dir);
+  const problems = [];
+  if (/[\x00-\x1f\x7f]/.test(abs)) problems.push('the target path contains control characters or a newline');
+  if (abs === parsePath(abs).root) problems.push('the target is the filesystem root; pick a folder');
+  return problems;
+}
+
 // The lane the generated weekly audit calls: the first ENABLED cli-run lane
 // in this preference order. None enabled means the job refuses at run time
 // (exit 13) instead of calling a lane the installer disabled.
@@ -182,6 +201,8 @@ function vars(opts) {
   const codecalc = tools.some((t) => t.id === 'codecalc');
   return {
     INSTALL_DIR: resolve(opts.dir || 'ai-orchestrator'),
+    INSTALL_DIR_SH: shellQuote(resolve(opts.dir || 'ai-orchestrator')),
+    INSTALL_DIR_SYSTEMD: systemdEscape(resolve(opts.dir || 'ai-orchestrator')),
     AUDIT_LANE: lane || 'none',
     AUDIT_LANE_GUARD: lane
       ? ''
@@ -285,9 +306,30 @@ export function planFiles(opts) {
 //   parent type  an existing component that must be a directory is one
 // Then files are written with an exclusive create unless --force, and any file
 // this run created is removed again if a later write fails.
+// Resolve the target root through whatever part of it already exists. A
+// symlinked ancestor (macOS /tmp -> /private/tmp, a user's ~/projects link) is
+// the user's own choice and is followed; the resolved real path is what every
+// containment check compares against. A root that exists and is not a
+// directory is refused.
+export function realRoot(dir) {
+  const abs = resolve(dir);
+  const missing = [];
+  let cur = abs;
+  while (!existsSync(cur)) {
+    missing.unshift(cur.slice(dirname(cur).length + (dirname(cur).endsWith(sep) ? 0 : 1)));
+    const up = dirname(cur);
+    if (up === cur) break;
+    cur = up;
+  }
+  const real = realpathSync(cur);
+  return { root: missing.length ? join(real, ...missing) : real, exists: missing.length === 0 };
+}
+
 export function preflight(files, dir) {
-  const root = resolve(dir);
-  const problems = [];
+  const problems = dirProblems(dir);
+  if (problems.length) return problems;
+  const { root, exists } = realRoot(dir);
+  if (exists && !statSync(root).isDirectory()) return [`the target exists and is not a directory: ${resolve(dir)}`];
   for (const f of files) {
     const abs = resolve(root, f.rel);
     if (abs === root || !abs.startsWith(root + sep)) {
@@ -304,12 +346,17 @@ export function preflight(files, dir) {
       } catch {
         break; // nothing below here exists yet
       }
+      const last = i === parts.length - 1;
       if (st.isSymbolicLink()) {
         problems.push(`${f.rel}: ${relative(root, cur)} is a symlink`);
         break;
       }
-      if (i < parts.length - 1 && !st.isDirectory()) {
+      if (!last && !st.isDirectory()) {
         problems.push(`${f.rel}: ${relative(root, cur)} exists and is not a directory`);
+        break;
+      }
+      if (last && !st.isFile()) {
+        problems.push(`${f.rel}: exists and is not a regular file`);
         break;
       }
     }
@@ -319,16 +366,17 @@ export function preflight(files, dir) {
 
 export function writeFiles(files, opts) {
   const { dir, force = false, dry = false } = opts;
-  const root = resolve(dir);
-  const problems = preflight(files, root);
+  const problems = preflight(files, dir);
   if (problems.length) {
     const e = new Error('refusing to write:\n  ' + problems.join('\n  '));
     e.code = 'PREFLIGHT';
     throw e;
   }
+  const { root } = realRoot(dir);
   const written = [];
   const skipped = [];
   const created = [];
+  const originals = new Map(); // abs -> {content, mode} of files --force overwrote, restored on failure
   try {
     for (const f of files) {
       const abs = resolve(root, f.rel);
@@ -338,6 +386,7 @@ export function writeFiles(files, opts) {
         continue;
       }
       if (!dry) {
+        if (exists) originals.set(abs, { content: readFileSync(abs), mode: statSync(abs).mode });
         mkdirSync(dirname(abs), { recursive: true });
         writeFileSync(abs, f.content, { flag: exists ? 'w' : 'wx' });
         if (!exists) created.push(abs);
@@ -349,6 +398,14 @@ export function writeFiles(files, opts) {
     for (const abs of created.reverse()) {
       try {
         unlinkSync(abs);
+      } catch {
+        /* best effort */
+      }
+    }
+    for (const [abs, o] of originals) {
+      try {
+        writeFileSync(abs, o.content);
+        chmodSync(abs, o.mode);
       } catch {
         /* best effort */
       }

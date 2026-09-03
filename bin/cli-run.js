@@ -58,18 +58,30 @@ function which(bin) {
   return null;
 }
 
-function jsonLines(out) {
-  const objs = [];
-  for (const line of String(out).split('\n')) {
+// Scan JSON-lines output for the LAST line that satisfies `want`, parsing only
+// candidate lines (a cheap substring test first) and retaining one object.
+// Untrusted CLI output can be large; retaining every parsed object is what
+// turned a big stream into an out-of-memory abort.
+function lastJsonLine(out, needle, want) {
+  let found = null;
+  let start = 0;
+  const text = String(out);
+  while (start < text.length) {
+    let end = text.indexOf('\n', start);
+    if (end === -1) end = text.length;
+    const line = text.slice(start, end);
+    start = end + 1;
+    if (line.length > 1_000_000 || line.indexOf(needle) === -1) continue;
     const t = line.trim();
     if (!t.startsWith('{')) continue;
     try {
-      objs.push(JSON.parse(t));
+      const o = JSON.parse(t);
+      if (want(o)) found = o;
     } catch {
       /* not JSON, skip */
     }
   }
-  return objs;
+  return found;
 }
 
 // --- judges: (rc, out, err, extra) -> { text: string|null, detail: string } ---
@@ -92,16 +104,16 @@ export function judgeGrok(rc, out) {
 }
 
 export function judgeCodex(rc, out, err, fileText) {
-  const completed = jsonLines(out).some((o) => o && o.type === 'turn.completed');
+  const completed = lastJsonLine(out, 'turn.completed', (o) => o && o.type === 'turn.completed') !== null;
   const text = typeof fileText === 'string' ? fileText.trim() : '';
   if (!completed) return { text: null, detail: 'no terminal turn.completed event' };
   return text ? { text, detail: 'turn.completed' } : { text: null, detail: 'turn.completed but -o file empty' };
 }
 
 export function judgeAgy(rc, out) {
-  let term = null;
-  for (const o of jsonLines(out)) if (o && o.event === 'result') term = o.result && typeof o.result === 'object' ? o.result : {};
-  if (term === null) return { text: null, detail: 'no terminal result event' };
+  const ev = lastJsonLine(out, '"result"', (o) => o && o.event === 'result');
+  if (ev === null) return { text: null, detail: 'no terminal result event' };
+  const term = ev.result && typeof ev.result === 'object' && !Array.isArray(ev.result) ? ev.result : {};
   const status = term.status;
   const text = typeof term.response === 'string' ? term.response.trim() : '';
   if (status !== 'SUCCESS') return { text: null, detail: `status=${JSON.stringify(status)}` };
@@ -238,22 +250,33 @@ function usage(msg) {
 }
 
 export function main(argv) {
+  // Strict: a value flag needs a value that is not itself a flag, every flag is
+  // known, and there is exactly one prompt (positional or --brief, not both).
+  // `qwen p --model --safe-mode` must not read "--safe-mode" as the model id.
+  const VALUE = new Set(['--brief', '--timeout', '--model']);
+  const BOOL = new Set(['--quiet', '--audit', '--safe-mode']);
   const args = [...argv];
   const opts = { timeout: 900, quiet: false, audit: false, model: null, safeMode: false, brief: null };
   const positional = [];
   while (args.length) {
     const a = args.shift();
-    if (a === '--brief') opts.brief = args.shift();
-    else if (a === '--timeout') opts.timeout = Number(args.shift());
-    else if (a === '--quiet') opts.quiet = true;
-    else if (a === '--audit') opts.audit = true;
-    else if (a === '--model') opts.model = args.shift();
-    else if (a === '--safe-mode') opts.safeMode = true;
-    else if (a.startsWith('--')) return usage('unknown flag ' + a);
+    if (VALUE.has(a)) {
+      const v = args.shift();
+      if (v === undefined || v.startsWith('--')) return usage(`${a} requires a value`);
+      if (a === '--brief') opts.brief = v;
+      else if (a === '--timeout') opts.timeout = Number(v);
+      else opts.model = v;
+    } else if (BOOL.has(a)) {
+      if (a === '--quiet') opts.quiet = true;
+      else if (a === '--audit') opts.audit = true;
+      else opts.safeMode = true;
+    } else if (a.startsWith('--')) return usage('unknown flag ' + a);
     else positional.push(a);
   }
   const lane = positional[0];
   if (!LANES.includes(lane)) return usage('lane must be one of ' + LANES.join(', '));
+  if (positional.length > 2) return usage('unexpected extra argument: ' + positional.slice(2).join(' '));
+  if (positional[1] !== undefined && opts.brief) return usage('give a prompt OR --brief, not both');
   let prompt = positional[1];
   if (opts.brief) {
     try {
@@ -296,7 +319,7 @@ export function main(argv) {
     // writes a zero-byte file while looking alive. The wall clock is ours
     // because macOS ships no `timeout`.
     // SIGKILL on timeout: an agent CLI mid-tool-call can ignore SIGTERM and outlive the wall clock.
-    const r = spawnSync(cmd[0], cmd.slice(1), { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: opts.timeout * 1000, killSignal: 'SIGKILL', maxBuffer: 64 * 1024 * 1024 });
+    const r = spawnSync(cmd[0], cmd.slice(1), { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: opts.timeout * 1000, killSignal: 'SIGKILL', maxBuffer: 16 * 1024 * 1024 });
     const secs = (Date.now() - t0) / 1000;
     const out = r.stdout || '';
     const err = r.stderr || '';
@@ -323,7 +346,11 @@ export function main(argv) {
     // The log keeps a digest of the prompt, never its text: briefs can carry
     // material that should not sit in a durable file.
     const digest = createHash('sha256').update(prompt).digest('hex').slice(0, 12);
-    log({ lane, verdict, rc: code, cli_rc: r.status, signal: r.signal || null, seconds: Math.round(secs * 100) / 100, raw_bytes: out.length, deliverable_bytes: text.length, detail, prompt_sha256_12: digest, prompt_chars: prompt.length });
+    // The durable log keeps the structural class of the verdict (the part of
+    // `detail` before the first colon), never provider-supplied message text,
+    // which can echo whatever the prompt or the upstream error contained.
+    const reason = String(detail).split(':')[0].slice(0, 80);
+    log({ lane, verdict, rc: code, cli_rc: r.status, signal: r.signal || null, seconds: Math.round(secs * 100) / 100, raw_bytes: out.length, deliverable_bytes: text.length, reason, prompt_sha256_12: digest, prompt_chars: prompt.length });
     return code;
   } finally {
     rmSync(tmp, { recursive: true, force: true });
