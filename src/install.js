@@ -6,7 +6,7 @@ import { AIS, LEVELS, TOOLS, byId, toolById } from './catalog.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const TEMPLATES = join(HERE, '..', 'templates');
-export const CLI_RUN_SRC = join(HERE, '..', 'bin', 'cli-run.js');
+export const CLI_RUN_SRC = join(HERE, '..', 'bin', 'cli-run.mjs');
 
 function walk(dir, base = dir) {
   const out = [];
@@ -277,7 +277,7 @@ export function planFiles(opts) {
 
   if (level >= 2) {
     addTemplates('intermediate');
-    add(join('bin', 'cli-run.js'), readFileSync(CLI_RUN_SRC, 'utf8'), 0o755);
+    add(join('bin', 'cli-run.mjs'), readFileSync(CLI_RUN_SRC, 'utf8'), 0o755);
     add(
       join('bin', 'lanes.json'),
       JSON.stringify(

@@ -49,7 +49,7 @@ BRIEF="reports/audit-brief-$(date -u +%F).md"
   echo; echo "# Live state"; cat reports/live-state.md
 } > "$BRIEF"
 
-node bin/cli-run.js "$AUDIT_LANE" --brief "$BRIEF" --timeout 600 --quiet < /dev/null > "reports/audit-$(date -u +%F).md"
+node bin/cli-run.mjs "$AUDIT_LANE" --brief "$BRIEF" --timeout 600 --quiet < /dev/null > "reports/audit-$(date -u +%F).md"
 rc=$?
 echo "audit rc=$rc lane=$AUDIT_LANE"
 exit $rc

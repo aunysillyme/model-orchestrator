@@ -358,7 +358,7 @@ export function main(argv) {
 }
 
 // Run main only when this file is the entry point. Compare real paths, so a
-// symlink such as ~/.local/bin/cli-run -> bin/cli-run.js still runs.
+// symlink such as ~/.local/bin/cli-run -> bin/cli-run.mjs still runs.
 function isEntryPoint() {
   if (!process.argv[1]) return false;
   try {

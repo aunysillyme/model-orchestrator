@@ -20,9 +20,9 @@ Run each engine as one `cli-run` call with a task bundle in `--brief`. A run tha
 
 ```bash
 BRIEF=research/brief.md      # purpose, sub-questions, source standard, report contract, exit parameters
-node bin/cli-run.js agy   --brief "$BRIEF" --timeout 900 > research/out-agy.md
-node bin/cli-run.js codex --audit --brief "$BRIEF" --timeout 900 > research/out-codex.md
-node bin/cli-run.js grok  --brief "$BRIEF" --timeout 900 > research/out-grok.md
+node bin/cli-run.mjs agy   --brief "$BRIEF" --timeout 900 > research/out-agy.md
+node bin/cli-run.mjs codex --audit --brief "$BRIEF" --timeout 900 > research/out-codex.md
+node bin/cli-run.mjs grok  --brief "$BRIEF" --timeout 900 > research/out-grok.md
 ```
 
 Then the orchestrator reads the three outputs, opens every primary source that carries a decision, and writes one dated brief with marks: **CONFIRMED** (two engines + primary source) · **DISAGREEMENT** (both readings kept) · **REPORTED** (someone's own post, quoted not trusted) · **UNVERIFIED**.

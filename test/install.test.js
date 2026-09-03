@@ -75,7 +75,7 @@ test('writing to a temp dir produces the plan; a second run keeps existing files
     assert.equal(first.written.length, files.length);
     assert.equal(first.skipped.length, 0);
     for (const f of files) assert.ok(existsSync(join(dir, f.rel)), 'missing ' + f.rel);
-    assert.ok(statSync(join(dir, 'bin', 'cli-run.js')).mode & 0o100, 'cli-run.js is executable');
+    assert.ok(statSync(join(dir, 'bin', 'cli-run.mjs')).mode & 0o100, 'cli-run.mjs is executable');
 
     writeFileSync(join(dir, 'README.md'), 'mine');
     const second = writeFiles(files, { dir });
@@ -125,9 +125,9 @@ test('preflight refuses a path that escapes --dir and a symlinked component', ()
     assert.throws(() => writeFiles([{ rel: '../escape', content: 'x', mode: 0o644 }], { dir, dry: true }), /outside the target/);
     const elsewhere = mkdtempSync(join(tmpdir(), 'orch-elsewhere-'));
     symlinkSync(elsewhere, join(dir, 'bin'));
-    assert.match(preflight([{ rel: 'bin/cli-run.js', content: 'x', mode: 0o755 }], dir).join(' '), /is a symlink/);
-    assert.throws(() => writeFiles([{ rel: 'bin/cli-run.js', content: 'x', mode: 0o755 }], { dir }), /symlink/);
-    assert.ok(!existsSync(join(elsewhere, 'cli-run.js')), 'write followed the symlink');
+    assert.match(preflight([{ rel: 'bin/cli-run.mjs', content: 'x', mode: 0o755 }], dir).join(' '), /is a symlink/);
+    assert.throws(() => writeFiles([{ rel: 'bin/cli-run.mjs', content: 'x', mode: 0o755 }], { dir }), /symlink/);
+    assert.ok(!existsSync(join(elsewhere, 'cli-run.mjs')), 'write followed the symlink');
     rmSync(elsewhere, { recursive: true, force: true });
   } finally {
     rmSync(dir, { recursive: true, force: true });

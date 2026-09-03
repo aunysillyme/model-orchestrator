@@ -8,6 +8,6 @@ Written at level 2 and above, on top of `common/` and `beginner/`.
 | `TIERS.md` | capability tiers, the three cost levers, the escalation rule, slotting rules |
 | `DELEGATION_MATRIX.md` | task → lane → pick, generated from the user's selection |
 | `RESEARCH_TRIAGE.md` | three engines in parallel, one triager |
-| `CLI-RUN.md` | how `bin/cli-run.js` judges each lane |
+| `CLI-RUN.md` | how `bin/cli-run.mjs` judges each lane |
 
-`bin/cli-run.js` and `bin/lanes.json` are written by the installer from `bin/cli-run.js` in this repo and the user's selection; they are not templates.
+`bin/cli-run.mjs` and `bin/lanes.json` are written by the installer from `bin/cli-run.mjs` in this repo and the user's selection; they are not templates.

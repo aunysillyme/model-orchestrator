@@ -11,7 +11,7 @@ Read-only audit. Report findings only; do not modify files. Rank by severity. Fo
 - Every file under this repository root: `bin/`, `src/`, `templates/`, `test/`, `scripts/`, `docs/`, `package.json`, `README.md`.
 - Anything outside this repository is out of scope. Do not widen it on your own judgment.
 
-**Capabilities.** read files, run `npm test`, run `node bin/cli.js` with `--dry`, run `node bin/cli-run.js` with bad arguments, run scripts against a temp directory under /tmp.
+**Capabilities.** read files, run `npm test`, run `node bin/cli.js` with `--dry`, run `node bin/cli-run.mjs` with bad arguments, run scripts against a temp directory under /tmp.
 
 **Denied actions.** Do not modify, create or delete any file in this repository. Do not run `npm install -g`. Do not run any vendor installer. Do not commit, push, or publish. Do not read files outside this repository except /tmp scratch you created. Do not call any network service.
 - Anything absent from Capabilities is denied. Absence is not permission.
@@ -23,16 +23,16 @@ Read-only audit. Report findings only; do not modify files. Rank by severity. Fo
 **Exit parameters.** Stop after 12 minutes of wall clock or after reading every file once and running at most 30 commands, whichever comes first. If you hit a bound, report what you have and name what you did not cover. Never return nothing.
 
 ## What this is
-An npm package (`npx model-orchestrator`) that asks a user which level (1/2/3) and which AIs they have access to, then writes markdown + config templates into a folder, and optionally runs `npm install -g <pkg>` for known packages after an explicit per-package yes. It also ships `bin/cli-run.js`, a wrapper that runs one of five agent CLIs (grok, codex, agy, hermes, qwen) and exits non-zero unless the lane produced a deliverable.
+An npm package (`npx model-orchestrator`) that asks a user which level (1/2/3) and which AIs they have access to, then writes markdown + config templates into a folder, and optionally runs `npm install -g <pkg>` for known packages after an explicit per-package yes. It also ships `bin/cli-run.mjs`, a wrapper that runs one of five agent CLIs (grok, codex, agy, hermes, qwen) and exits non-zero unless the lane produced a deliverable.
 
 ## Runtime
 Node >= 18, ESM, zero dependencies. Runs on a stranger's laptop (macOS/Linux) with their PATH and HOME. Level 3 writes shell/systemd/compose templates the user will run on a Linux box.
 
 ## Threat model
 - The user is not an adversary but is careless: runs it in the wrong directory, passes odd flags, has files with the same names.
-- Untrusted input reaches `cli-run.js` through CLI stdout (JSON from third-party binaries) and through `lanes.json` on disk.
+- Untrusted input reaches `cli-run.mjs` through CLI stdout (JSON from third-party binaries) and through `lanes.json` on disk.
 - The installer must never: write a secret value anywhere, overwrite a user file without --force, run a remote shell script, escape the target dir (path traversal via template rel paths or --dir), or leave a placeholder unrendered.
-- `cli-run.js` must never: throw on malformed CLI output (a throw is misreported as a usage error), pass a secret in argv, leave temp files, hang on stdin, or report success without a deliverable.
+- `cli-run.mjs` must never: throw on malformed CLI output (a throw is misreported as a usage error), pass a secret in argv, leave temp files, hang on stdin, or report success without a deliverable.
 - Generated templates (`vm/setup-vm.sh`, `vm/jobs/weekly-audit.sh`, `docker-compose.yml`, `gateway.config.yaml`) must not put a key in argv, bind to 0.0.0.0, or pipe a remote script into bash.
 
 ## Already verified (do not repeat)
@@ -44,7 +44,7 @@ Node >= 18, ESM, zero dependencies. Runs on a stranger's laptop (macOS/Linux) wi
 1. `bin/cli.js` argument parsing: `opt()` takes the next argv token; what happens with `--dir --force`, `--ais ""`, duplicate flags, `--level 2.5`, unicode, a `--dir` that is a file, a `--dir` of `/`?
 2. `src/install.js` `writeFiles`: path traversal if a template rel path or the --dir resolves outside; symlink in the target dir; mode handling on Windows; partial writes.
 3. `src/detect.js` `which`: PATH entries that are files, empty PATH, relative PATH entries, a directory named like the binary.
-4. `bin/cli-run.js`: `jsonLines` on huge output; `maxBuffer`; `spawnSync` with `timeout` and `killSignal` behaviour; `enabledLanes()` with a malicious lanes.json; `--brief` pointing at a directory or a huge file; prompt containing newlines; the codex `-o` temp file when the CLI writes elsewhere; the `import.meta.url === pathToFileURL(argv[1])` main guard when invoked via a symlink; rc pass-through logic (`if (r.status !== 0 && code === OK) code = r.status`).
+4. `bin/cli-run.mjs`: `jsonLines` on huge output; `maxBuffer`; `spawnSync` with `timeout` and `killSignal` behaviour; `enabledLanes()` with a malicious lanes.json; `--brief` pointing at a directory or a huge file; prompt containing newlines; the codex `-o` temp file when the CLI writes elsewhere; the `import.meta.url === pathToFileURL(argv[1])` main guard when invoked via a symlink; rc pass-through logic (`if (r.status !== 0 && code === OK) code = r.status`).
 5. Templates: `vm/setup-vm.sh` (set -euo pipefail, the for loop over {{NPM_PACKAGES}} when empty), `vm/jobs/weekly-audit.sh` (curl --config - header injection if GATEWAY_MASTER_KEY contains a quote or newline), `docker-compose.yml` env pass-through, systemd unit paths.
 6. Anything that could make the installer write outside `--dir` or read a file it should not.
 

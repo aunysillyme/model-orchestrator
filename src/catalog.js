@@ -16,7 +16,7 @@
 //   auth       how you sign in, always the vendor's own flow, never a key typed into this tool
 //   rulesFile  the instructions file that agent reads from a project root, if any
 //   agentsDir  where that agent keeps project-level subagent definitions, if any
-//   cliRun     true when bin/cli-run.js has a judge for this lane
+//   cliRun     true when bin/cli-run.mjs has a judge for this lane
 
 export const LEVELS = [
   {

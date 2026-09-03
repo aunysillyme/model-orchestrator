@@ -12,7 +12,7 @@ Rule of thumb: never spend a frontier token on a task a cheap tier finishes corr
 
 ## Decision tree (first match wins)
 
-0. **Is there a cheaper or better external lane for this?** Check `DELEGATION_MATRIX.md`. The free tier for rough drafts and divergent reads; the cheapest metered lane for structured bulk (never for anything citing a line, number or source); the live-data CLI for X and web reads; the second-coder CLI for adversarial audits. Call every one of them through `bin/cli-run.js`.
+0. **Is there a cheaper or better external lane for this?** Check `DELEGATION_MATRIX.md`. The free tier for rough drafts and divergent reads; the cheapest metered lane for structured bulk (never for anything citing a line, number or source); the live-data CLI for X and web reads; the second-coder CLI for adversarial audits. Call every one of them through `bin/cli-run.mjs`.
 1. **Bulk and mechanical?** → fast tier, or the free / cheapest-metered lane if the data may leave your machine. Many independent items each needing its own agent turn → a concurrent fan-out lane if you have one.
 2. **Needs live data?** → the live-data CLI first ($0), then standard tier with web tools.
 3. **Reviewing without changing?** → standard tier read-only. Security-critical → deep tier, or the second-coder CLI in audit (read-only) mode.

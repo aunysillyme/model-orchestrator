@@ -1,16 +1,16 @@
 # CLI-RUN.md: exit 0 means the deliverable exists
 
-`bin/cli-run.js` is one entrypoint for the agent CLI lanes. It builds the right invocation per lane, reads that lane's native terminal event, and exits non-zero unless a real deliverable came back.
+`bin/cli-run.mjs` is one entrypoint for the agent CLI lanes. It builds the right invocation per lane, reads that lane's native terminal event, and exits non-zero unless a real deliverable came back.
 
 Enabled lanes (edit `bin/lanes.json`): {{CLI_RUN_LANES}}
 
 ```bash
-node bin/cli-run.js <grok|codex|agy|hermes|qwen> "<prompt>" [--brief FILE] [--timeout SECS] [--quiet]
-node bin/cli-run.js codex --audit "<prompt>"                  # read-only sandbox, the audit shape
-node bin/cli-run.js qwen [--model ID] [--safe-mode] "<prompt>"
+node bin/cli-run.mjs <grok|codex|agy|hermes|qwen> "<prompt>" [--brief FILE] [--timeout SECS] [--quiet]
+node bin/cli-run.mjs codex --audit "<prompt>"                  # read-only sandbox, the audit shape
+node bin/cli-run.mjs qwen [--model ID] [--safe-mode] "<prompt>"
 ```
 
-Put it on your PATH if you like: `ln -s "$PWD/bin/cli-run.js" ~/.local/bin/cli-run`.
+Put it on your PATH if you like: `ln -s "$PWD/bin/cli-run.mjs" ~/.local/bin/cli-run`.
 
 ## Why it exists
 

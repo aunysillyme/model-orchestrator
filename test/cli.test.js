@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 const CLI = fileURLToPath(new URL('../bin/cli.js', import.meta.url));
-const CLI_RUN = fileURLToPath(new URL('../bin/cli-run.js', import.meta.url));
+const CLI_RUN = fileURLToPath(new URL('../bin/cli-run.mjs', import.meta.url));
 const run = (args, opts = {}) => spawnSync(process.execPath, [CLI, ...args], { encoding: 'utf8', ...opts });
 
 test('--help and --list exit 0 and mention every level', () => {
@@ -24,7 +24,7 @@ test('non-interactive install writes a level 3 tree into a temp dir and refuses 
   try {
     const r = run(['--yes', '--level', '3', '--ais', 'claude-code,codex,agy,grok,hermes,qwen,ollama', '--primary', 'claude-code', '--dir', dir, '--no-install']);
     assert.equal(r.status, 0, r.stderr + r.stdout);
-    for (const f of ['README.md', 'ORCHESTRATOR.md', 'ROUTING.md', 'DELEGATION_MATRIX.md', 'bin/cli-run.js', 'bin/lanes.json', 'vm/gateway.config.yaml', 'vm/jobs/weekly-audit.timer', '.claude/agents/bulk-worker.md', 'CLAUDE.snippet.md']) {
+    for (const f of ['README.md', 'ORCHESTRATOR.md', 'ROUTING.md', 'DELEGATION_MATRIX.md', 'bin/cli-run.mjs', 'bin/lanes.json', 'vm/gateway.config.yaml', 'vm/jobs/weekly-audit.timer', '.claude/agents/bulk-worker.md', 'CLAUDE.snippet.md']) {
       assert.ok(existsSync(join(dir, f)), 'missing ' + f);
     }
     const readme = readFileSync(join(dir, 'README.md'), 'utf8');
@@ -128,7 +128,7 @@ test('cli-run: a malformed lanes.json refuses every lane without spawning anythi
   mkdirSync(bin);
   const marker = join(d, 'spawned');
   writeFileSync(join(bin, 'grok'), `#!/bin/sh\ntouch "${marker}"\necho '{"stopReason":"end_turn","text":"hi"}'\n`, { mode: 0o755 });
-  const copy = join(d, 'cli-run.js');
+  const copy = join(d, 'cli-run.mjs');
   writeFileSync(copy, readFileSync(CLI_RUN));
   writeFileSync(join(d, 'lanes.json'), '{bad');
   const r = spawnSync(process.execPath, [copy, 'grok', 'p', '--quiet'], { encoding: 'utf8', env: { PATH: bin, HOME: d } });

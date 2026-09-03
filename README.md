@@ -73,7 +73,7 @@ ai-orchestrator/
   CLAUDE.snippet.md         the block to paste into your CLAUDE.md
   ROUTING.md                multi-lane decision tree (level 2+)
   TIERS.md  DELEGATION_MATRIX.md  RESEARCH_TRIAGE.md  CLI-RUN.md
-  bin/cli-run.js  bin/lanes.json
+  bin/cli-run.mjs  bin/lanes.json
   vm/                       gateway config, compose, box rules, privacy gates, jobs/ (level 3)
 ```
 
@@ -81,7 +81,7 @@ ai-orchestrator/
 
 | Folder | What |
 |---|---|
-| [`bin/`](bin/README.md) | `cli.js` (the installer) and `cli-run.js` (the lane runner) |
+| [`bin/`](bin/README.md) | `cli.js` (the installer) and `cli-run.mjs` (the lane runner) |
 | [`src/`](src/README.md) | the catalog, the pure planner, detection, rendering |
 | [`templates/`](templates/README.md) | everything the installer can write, by level, plus `tools/` for companions |
 | [`docs/`](docs/README.md) | the three parts and the catalog |

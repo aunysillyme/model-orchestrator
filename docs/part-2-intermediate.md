@@ -24,7 +24,7 @@ One driver, no second AI in the mix: the orchestrator invokes the CLIs; it never
 
 ## 3. Exit 0 is a lie on every lane
 
-Every agent CLI can report success and deliver nothing. `bin/cli-run.js` builds the right invocation per lane, reads that lane's **native** terminal event, and exits `10` when a run produced no deliverable, `12` on timeout, `13` when the lane is missing. Byte count is not a check either; a run can emit hundreds of kilobytes and no conclusion. One lane's own success flags lie outright (an upstream 400 reported as success), so its judge reads the two honest signals instead.
+Every agent CLI can report success and deliver nothing. `bin/cli-run.mjs` builds the right invocation per lane, reads that lane's **native** terminal event, and exits `10` when a run produced no deliverable, `12` on timeout, `13` when the lane is missing. Byte count is not a check either; a run can emit hundreds of kilobytes and no conclusion. One lane's own success flags lie outright (an upstream 400 reported as success), so its judge reads the two honest signals instead.
 
 Every call goes through it. "This lane is flaky" becomes a query over its log instead of an argument.
 
@@ -54,7 +54,7 @@ Measured on the cheapest metered lane: conclusions right, 0 of 11 line citations
 
 ## What the installer gives you at this level
 
-Everything from Part 1, plus `ROUTING.md` · `TIERS.md` · `DELEGATION_MATRIX.md` (generated from your selection) · `RESEARCH_TRIAGE.md` · `CLI-RUN.md` · `bin/cli-run.js` · `bin/lanes.json`.
+Everything from Part 1, plus `ROUTING.md` · `TIERS.md` · `DELEGATION_MATRIX.md` (generated from your selection) · `RESEARCH_TRIAGE.md` · `CLI-RUN.md` · `bin/cli-run.mjs` · `bin/lanes.json`.
 
 ## When you have outgrown it
 
