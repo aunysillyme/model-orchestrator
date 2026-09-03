@@ -62,7 +62,8 @@ test('README lists every catalog id', () => {
 test('companion tools have a repo, an install command, and README links the repo', () => {
   for (const t of TOOLS) {
     assert.match(t.repo, /^https:\/\/github\.com\//, t.id);
-    assert.ok(t.install && t.requires && t.role && Array.isArray(t.autoClients), t.id);
+    assert.ok(t.install && t.requires && t.role && t.optionalNote && Array.isArray(t.autoClients), t.id);
+    assert.equal(typeof t.recommended, 'boolean', t.id);
   }
   const readme = readFileSync(new URL('../README.md', import.meta.url), 'utf8');
   for (const t of TOOLS) assert.ok(readme.includes(t.repo), 'README missing ' + t.repo);

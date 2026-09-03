@@ -218,7 +218,19 @@ export const TOOLS = [
     install: "uvx 'codecalc[full]' setup --write",
     requires: 'uv (https://docs.astral.sh/uv/) and Python 3.10+',
     autoClients: ['Claude Code', 'Claude Desktop', 'Cursor', 'VS Code', 'Zed'],
-    recommended: true
+    recommended: true,
+    optionalNote: 'Optional. Needs Python 3.10+ and uv. Everything else runs offline.'
+  },
+  {
+    id: 'obsidian-tc',
+    name: 'obsidian-tc (governed memory: an agent-ready MCP server over an Obsidian vault)',
+    repo: 'https://github.com/The-40-Thieves/obsidian-tc',
+    role: 'durable memory and record for your agents: hybrid retrieval (BM25 + dense + link graph), backlinks, compare-and-swap writes with a confirmation gate, folder ACLs, a poison scan on inferred writes; 163 tools, local by default',
+    install: 'npm install -g obsidian-tc && obsidian-tc /path/to/your/vault',
+    requires: 'an Obsidian vault folder (the Obsidian app itself is only needed for live plugin bridges); Node 24+ or Bun 1.1+ (stricter than this installer); Ollama with `nomic-embed-text` for local embeddings, or a cloud embeddings key; the Local REST API plugin only for bridge tools',
+    autoClients: ['Cursor', 'VS Code'],
+    recommended: false,
+    optionalNote: 'Optional and heavier than codecalc. Skip it if you do not keep notes in Obsidian. AGPL-3.0.'
   }
 ];
 export const toolById = Object.fromEntries(TOOLS.map((t) => [t.id, t]));

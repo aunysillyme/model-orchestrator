@@ -20,6 +20,8 @@ Every delegation carries an `ai-orchestrator/TASK_BUNDLE.md` brief. A subagent h
 Never silently retry a failed attempt at the same tier. Escalate once and say so.
 
 Numbers, comparisons, complexity and equivalence claims go through codecalc (or any tool that computes), never your head: `ai-orchestrator/protocols/numbers-and-logic.md`.
+
+Anything durable is searched for before it is written and its folder index is corrected in the same pass; one writer per run: `ai-orchestrator/protocols/memory-and-record.md`.
 ```
 
 Subagents were written to `.claude/agents/`. Claude Code picks them up from the project root.

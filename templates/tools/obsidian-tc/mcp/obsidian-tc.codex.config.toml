@@ -1,0 +1,7 @@
+# Merge into ~/.codex/config.toml
+[mcp_servers.obsidian-tc]
+command = "npx"
+args = ["-y", "obsidian-tc"]
+
+[mcp_servers.obsidian-tc.env]
+OBSIDIAN_TC_CONFIG = "/ABSOLUTE/PATH/TO/obsidian-tc.config.json"

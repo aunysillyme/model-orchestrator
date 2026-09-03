@@ -1,6 +1,6 @@
 # protocols/
 
-Five procedures. Each one is a list of questions whose answers can be wrong.
+Six procedures. Each one is a list of questions whose answers can be wrong.
 
 | File | Fires when | The gate |
 |---|---|---|
@@ -9,5 +9,6 @@ Five procedures. Each one is a list of questions whose answers can be wrong.
 | `gap-analysis.md` | You finished something comprehensive | A second pass that hunts for what is MISSING, ideally by a different model |
 | `deep-research.md` | The source set is unknown and the answer will be cited later | Parallel engines, then triage; disagreement is the signal |
 | `numbers-and-logic.md` | You are about to state a number, a comparison, a complexity, an equivalence | Computed by a tool (codecalc) or not stated |
+| `memory-and-record.md` | You are about to write anything durable | Searched first, indexed in the same pass, one writer (obsidian-tc when selected) |
 
 Not for lookups, prose edits, bulk classification or one-line config. Those get none of this.

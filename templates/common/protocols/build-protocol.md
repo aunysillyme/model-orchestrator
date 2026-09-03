@@ -88,7 +88,7 @@ Route by shape: security-shaped diffs (auth, tokens, routes, deletion, bulk muta
 3. Are the docs, indexes, memory and tracker updated with evidence rather than claims?
 4. Is the plan doc deleted?
 
-**Gate:** the end-to-end doc exists at a named path; the watcher is named or its absence is written down; the tracker is Done with evidence and read back; then the plan doc is deleted, not archived. "Nothing watches it" is a valid answer and usually the valuable one: writing it down turns an invisible gap into a tracked one.
+**Gate:** the end-to-end doc exists at a named path in the folder that owns the domain, with that folder's index corrected in the same pass (`protocols/memory-and-record.md`); the watcher is named or its absence is written down; the tracker is Done with evidence and read back; then the plan doc is deleted, not archived. "Nothing watches it" is a valid answer and usually the valuable one: writing it down turns an invisible gap into a tracked one.
 
 ## Roles, as capabilities
 

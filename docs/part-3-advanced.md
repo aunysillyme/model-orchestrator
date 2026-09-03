@@ -52,6 +52,10 @@ What and why · trigger · invocation chain · dependencies · reads · writes �
 
 Runs as a stdio MCP server next to the orchestrator CLI: offline, no key, nothing to bind. The weekly audit's figures (lane counts, version deltas, spend) are computed there, not estimated by the free lane that drafts the report. See [codecalc](https://github.com/The-40-Thieves/codecalc).
 
+## 9. obsidian-tc on the box
+
+Stdio next to the orchestrator, or the upstream Docker service against a bind-mounted vault. Embeddings on the box's Ollama, so nothing leaves the machine. HTTP transport stays off unless every caller is on the private mesh and auth is on.
+
 ## What the installer gives you at this level
 
 Everything from Parts 1 and 2, plus `vm/README.md` · `vm/setup-vm.sh` · `vm/docker-compose.yml` · `vm/gateway.config.yaml` (one lane per provider you selected, keys by name only) · `vm/ENVIRONMENT.md` · `vm/box-CLAUDE.md` · `vm/PRIVACY_GATES.md` · `vm/jobs/` (a weekly audit timer + service, and an index that names what watches each job).

@@ -81,7 +81,7 @@ Flags
   --level 1|2|3      1 beginner (one agent), 2 intermediate (many CLIs), 3 advanced (plus a VM)
   --ais a,b,c        catalog ids you have access to (see --list)
   --primary id       level 1 only: the one agent that will run the system
-  --tools a,b        companion tools to set up (default: codecalc); --no-tools for none
+  --tools a,b        companion tools to set up, all optional (default with --yes: codecalc only); --no-tools for none
   --dir path         where to write (default ./ai-orchestrator)
   --yes              skip confirmations
   --force            overwrite files that already exist
@@ -99,8 +99,8 @@ if (flag('list')) {
     const here = a.bin ? (which(a.bin) ? 'installed' : 'not on PATH') : 'app';
     console.log(`${a.id.padEnd(13)} ${a.name}\n${''.padEnd(13)} level ${a.minLevel}+ · ${a.access} · ${here}\n${''.padEnd(13)} ${a.role}`);
   }
-  console.log('\ncompanion tools (--tools):');
-  for (const t of TOOLS) console.log(`${t.id.padEnd(13)} ${t.name}\n${''.padEnd(13)} ${t.role}\n${''.padEnd(13)} ${t.repo}`);
+  console.log('\ncompanion tools (--tools a,b), all optional:');
+  for (const t of TOOLS) console.log(`${t.id.padEnd(13)} ${t.name}\n${''.padEnd(13)} ${t.role}\n${''.padEnd(13)} needs: ${t.requires}\n${''.padEnd(13)} ${t.optionalNote}\n${''.padEnd(13)} ${t.repo}`);
   process.exit(0);
 }
 
@@ -187,10 +187,13 @@ async function main() {
     } else if (yes) {
       tools = TOOLS.filter((t) => t.recommended);
     } else {
-      console.log('\nCompanion tools: things your agent calls so it computes instead of guessing.');
-      for (const t of TOOLS) console.log(`  ${t.id}: ${t.role}\n    ${t.repo}`);
-      const a = await ask('\nSet up codecalc (writes config snippets + the numbers-and-logic rule; installs nothing) [Y/n]: ', 'y');
-      if (/^y/i.test(a)) tools = TOOLS.filter((t) => t.id === 'codecalc');
+      console.log('\nCompanion tools (all optional): things your agents call. Selecting one writes docs and config snippets; it installs nothing.');
+      for (const t of TOOLS) {
+        console.log(`\n  ${t.id}: ${t.role}\n    ${t.repo}\n    needs: ${t.requires}\n    ${t.optionalNote}`);
+        const def = t.recommended ? 'y' : 'n';
+        const a = await ask(`  Set up ${t.id}? [${t.recommended ? 'Y/n' : 'y/N'}]: `, def);
+        if (/^y/i.test(a)) tools.push(t);
+      }
     }
   }
 
@@ -249,7 +252,8 @@ async function main() {
   }
 
   for (const t of tools) {
-    console.log(`\n${t.name}\n  needs: ${t.requires}\n  run:   ${t.install}\n  registers itself with: ${t.autoClients.join(', ')}. Other agents: see ${dir}/CODECALC.md`);
+    const doc = t.id.toUpperCase() + '.md';
+    console.log(`\n${t.name}\n  optional: ${t.optionalNote}\n  needs:    ${t.requires}\n  run:      ${t.install}\n  one-click or self-registering for: ${t.autoClients.join(', ')}. Other agents and the details: ${dir}/${doc}`);
   }
   console.log(`\nNext: open ${dir}/README.md. It is written for level ${level} and the AIs you picked.\n`);
   rl && rl.close();

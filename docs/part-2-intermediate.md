@@ -52,6 +52,10 @@ Name the lanes that never see private notes, client data or personal records. An
 
 Measured on the cheapest metered lane: conclusions right, 0 of 11 line citations correct, fabricated arithmetic attached to true observations. That survives a skim. So a number from a lane is a lead until a tool computes it: [codecalc](https://github.com/The-40-Thieves/codecalc) on the orchestrator's side, registered for Codex, Antigravity and Qwen Code with the snippets in `CODECALC.md`.
 
+## 10. One writer, and a store the lanes can all read
+
+With several lanes proposing, the store is where they meet. obsidian-tc (optional) gives every CLI the same `semantic_search`, `get_backlinks` and compare-and-swap `write_note`, with folder ACLs so a research lane can read what it needs and write nothing. The orchestrator stays the one writer.
+
 ## What the installer gives you at this level
 
 Everything from Part 1, plus `ROUTING.md` · `TIERS.md` · `DELEGATION_MATRIX.md` (generated from your selection) · `RESEARCH_TRIAGE.md` · `CLI-RUN.md` · `bin/cli-run.mjs` · `bin/lanes.json`.

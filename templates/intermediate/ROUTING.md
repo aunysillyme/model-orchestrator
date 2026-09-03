@@ -47,6 +47,10 @@ Caps: two deep-tier checkpoints per build. CLI lanes are $0 and do not count.
 
 Every number, comparison, complexity or equivalence claim goes through a tool that computes (`protocols/numbers-and-logic.md`; companion: codecalc, {{CODECALC_STATUS}}). A lane's figure is re-derived before it is repeated: the cheapest metered lane measured 0 of 11 line citations correct while its conclusions were right.
 
+## Memory and record
+
+One writer per run; every other lane proposes. Search before writing, index in the same pass (`protocols/memory-and-record.md`; companion, optional: obsidian-tc, {{OBSIDIAN_TC_STATUS}}).
+
 ## Modifier rules
 
 - **Plan big, execute small**, within a build: deep tier plans at Checkpoint 1, the orchestrator executes, bulk and wide searches go down.

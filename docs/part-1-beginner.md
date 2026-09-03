@@ -52,9 +52,13 @@ The one thing tiers and gates cannot fix: a model confident about `0.1 + 0.2` do
 
 Logic flow follows the same rule. Reasoning scaffolds help models with no native reasoning mode and add nothing to ones that already think first. The authorising evidence is the computed outcome, never the thought log.
 
+## 8. Memory and record
+
+Every protocol ends in a write. Search before you write (duplicates are how a store starts lying), correct the folder index in the same pass, one writer per session, mark inferred content as inferred. The optional companion for that is [obsidian-tc](https://github.com/The-40-Thieves/obsidian-tc), a governed MCP server over an Obsidian vault: hybrid search, backlinks, compare-and-swap writes, folder ACLs. It needs an Obsidian vault, Node 24+ or Bun, and Ollama or a cloud embeddings key, so it is off by default; without it the rule still binds against a notes folder and `grep`.
+
 ## What the installer gives you at this level
 
-`README.md` (start here) · `ORCHESTRATOR.md` · `TASK_BUNDLE.md` · `protocols/{build-protocol, propagate, gap-analysis, deep-research, numbers-and-logic}.md` · `CODECALC.md` and `mcp/` snippets if you selected codecalc · the loading surface for your primary agent (Claude Code subagents, Antigravity custom agents, a rules-file snippet, or a paste block for a chat app).
+`README.md` (start here) · `ORCHESTRATOR.md` · `TASK_BUNDLE.md` · `protocols/{build-protocol, propagate, gap-analysis, deep-research, numbers-and-logic, memory-and-record}.md` · `CODECALC.md` and `OBSIDIAN-TC.md` with `mcp/` snippets for the companion tools you selected · the loading surface for your primary agent (Claude Code subagents, Antigravity custom agents, a rules-file snippet, or a paste block for a chat app).
 
 ## When you have outgrown it
 

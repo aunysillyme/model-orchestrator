@@ -42,9 +42,13 @@ Subagents, a fresh chat, a second window: each one holds none of these rules. Ev
 
 Any figure someone will act on, any comparison you state, any complexity, equivalence or speedup claim: computed, not estimated. `protocols/numbers-and-logic.md` names when calling is mandatory. Companion tool: codecalc ({{CODECALC_STATUS}}).
 
-## The five protocols
+## Memory and record
 
-`protocols/build-protocol.md` · `protocols/propagate.md` · `protocols/gap-analysis.md` · `protocols/deep-research.md` · `protocols/numbers-and-logic.md`. Each is a set of questions that can be answered wrong. That is the design, not a flaw.
+Anything durable is searched for before it is written, its folder index is corrected in the same pass, and one writer records. `protocols/memory-and-record.md`. Companion tool (optional, needs an Obsidian vault): obsidian-tc, {{OBSIDIAN_TC_STATUS}}.
+
+## The six protocols
+
+`protocols/build-protocol.md` · `protocols/propagate.md` · `protocols/gap-analysis.md` · `protocols/deep-research.md` · `protocols/numbers-and-logic.md` · `protocols/memory-and-record.md`. Each is a set of questions that can be answered wrong. That is the design, not a flaw.
 
 ## When you outgrow this
 

@@ -103,3 +103,11 @@ Generated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrite
 - **Registers itself with:** Claude Code, Claude Desktop, Cursor, VS Code, Zed; snippets for the rest are written to `mcp/`
 - **Default:** selected
 
+### `obsidian-tc` · obsidian-tc (governed memory: an agent-ready MCP server over an Obsidian vault)
+
+- **Repo:** https://github.com/The-40-Thieves/obsidian-tc
+- **Gives:** durable memory and record for your agents: hybrid retrieval (BM25 + dense + link graph), backlinks, compare-and-swap writes with a confirmation gate, folder ACLs, a poison scan on inferred writes; 163 tools, local by default
+- **Install:** `npm install -g obsidian-tc && obsidian-tc /path/to/your/vault` (needs an Obsidian vault folder (the Obsidian app itself is only needed for live plugin bridges); Node 24+ or Bun 1.1+ (stricter than this installer); Ollama with `nomic-embed-text` for local embeddings, or a cloud embeddings key; the Local REST API plugin only for bridge tools)
+- **Registers itself with:** Cursor, VS Code; snippets for the rest are written to `mcp/`
+- **Default:** not selected
+

@@ -209,6 +209,7 @@ function vars(opts) {
       : 'echo "weekly-audit: no cli-run lane was enabled at install time; enable one in bin/lanes.json and edit AUDIT_LANE" >&2; exit 13',
     TOOLS_LIST: tools.length ? tools.map((t) => '- ' + t.name + ': ' + t.role).join('\n') : '- none selected (re-run the installer with --tools codecalc to add the calculator and code runner)',
     CODECALC_STATUS: codecalc ? 'installed alongside this folder (see `CODECALC.md`)' : 'not selected; the rule below still binds, do the arithmetic with any tool that computes rather than guesses',
+    OBSIDIAN_TC_STATUS: tools.some((t) => t.id === 'obsidian-tc') ? 'selected (see `OBSIDIAN-TC.md`); the tool names below are live calls' : 'not selected; the rule below still binds against whatever store you keep (a notes folder, a wiki, a repo of markdown), the tool names are what obsidian-tc would give you',
     DATE: new Date().toISOString().slice(0, 10),
     LEVEL_ID: String(level),
     LEVEL_NAME: lvl.name,
@@ -271,8 +272,8 @@ export function planFiles(opts) {
     add('PASTE-INTO-YOUR-AGENT.md', render(readFileSync(join(TEMPLATES, 'agents', 'snippets', 'chat.md'), 'utf8'), v));
   }
 
-  if ((opts.tools || []).some((t) => t.id === 'codecalc')) {
-    addTemplates('tools/codecalc');
+  for (const t of opts.tools || []) {
+    if (existsSync(join(TEMPLATES, 'tools', t.id))) addTemplates(join('tools', t.id));
   }
 
   if (level >= 2) {

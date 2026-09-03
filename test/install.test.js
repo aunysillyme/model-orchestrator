@@ -266,3 +266,26 @@ test('--force never leaves an overwritten file changed when a later target is a 
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+// ---- obsidian-tc companion ----
+test('obsidian-tc: optional, off by default, writes its doc and snippets only when selected; memory-and-record is always written', () => {
+  const { tools } = resolveTools(['obsidian-tc']);
+  assert.equal(tools[0].recommended, false, 'obsidian-tc must not be a default');
+  assert.match(tools[0].requires, /Obsidian vault/);
+  assert.match(tools[0].requires, /Node 24/);
+  assert.match(tools[0].requires, /nomic-embed-text/);
+  const withTool = planFiles({ level: 1, selected: sel('codex'), primary: byId.codex, tools }).map((f) => f.rel);
+  assert.ok(withTool.includes('OBSIDIAN-TC.md'));
+  assert.ok(withTool.includes('mcp/obsidian-tc.codex.config.toml'));
+  assert.ok(withTool.includes('protocols/memory-and-record.md'));
+  const without = planFiles({ level: 1, selected: sel('codex'), primary: byId.codex, tools: [] });
+  assert.ok(!without.some((f) => f.rel === 'OBSIDIAN-TC.md'));
+  const mr = without.find((f) => f.rel === 'protocols/memory-and-record.md').content;
+  assert.match(mr, /not selected/);
+  assert.match(mr, /github\.com\/The-40-Thieves\/obsidian-tc/);
+  const both = planFiles({ level: 2, selected: sel('claude-code'), primary: byId['claude-code'], tools: resolveTools(['codecalc', 'obsidian-tc']).tools }).map((f) => f.rel);
+  assert.ok(both.includes('CODECALC.md') && both.includes('OBSIDIAN-TC.md'));
+  const doc = planFiles({ level: 1, selected: sel('codex'), primary: byId.codex, tools }).find((f) => f.rel === 'OBSIDIAN-TC.md').content;
+  assert.match(doc, /\*\*Optional\.\*\*/);
+  assert.match(doc, /What you need first/);
+});

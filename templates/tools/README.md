@@ -5,5 +5,6 @@ Companion tools: not AIs, but things the AIs call. Each subfolder is written onl
 | Folder | Written | Contents |
 |---|---|---|
 | `codecalc/` | when codecalc is selected (recommended, default yes) | `CODECALC.md` (install, per-client registration, the skill) and `mcp/` snippets for the agents its own `setup --write` does not cover |
+| `obsidian-tc/` | when obsidian-tc is selected (optional, default no; needs an Obsidian vault, Node 24+, Ollama or a cloud embeddings key) | `OBSIDIAN-TC.md` (what you need first, install, per-agent registration, security posture) and `mcp/` snippets |
 
-The rule the tool serves, `protocols/numbers-and-logic.md`, is in `common/` and is written at every level whether or not the tool was selected: the rule binds, the tool makes it cheap to follow.
+The rules the tools serve, `protocols/numbers-and-logic.md` and `protocols/memory-and-record.md`, are in `common/` and are written at every level whether or not a tool was selected: the rule binds, the tool makes it cheap to follow. `src/install.js` writes `templates/tools/<id>/` for every selected tool that has a folder here.

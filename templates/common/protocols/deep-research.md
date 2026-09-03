@@ -15,7 +15,7 @@ Two research lanes, not three. The old "quick fact / known source / deep" split 
                                               produces a confident report about the wrong thing
 2 RUN       fan out to independent engines
 3 TRIAGE    reconcile disagreement against primary sources you open yourself
-4 DEDUPE    check what you already have BEFORE writing
+4 DEDUPE    check what you already have BEFORE writing (semantic search; see memory-and-record.md)
 5 BRIEF     one dated artifact with marks (below)
 6 ROUTE     adopt / prototype / watch / pass / no action
 ```

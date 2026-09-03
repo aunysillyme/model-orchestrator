@@ -6,7 +6,7 @@ This is retrieval work. It stays with the orchestrator (or a cheap worker for th
 
 ## 1. Map the blast radius (before editing anything)
 
-- **Docs and notes:** backlinks to the thing being renamed; literal search for the old term and its link forms.
+- **Docs and notes:** backlinks to the thing being renamed; literal search for the old term and its link forms. With obsidian-tc: `get_backlinks`, `search_text`, then `find_unresolved_links` after the change (`protocols/memory-and-record.md`).
 - **Memory / instructions:** grep every instructions file your agents read (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `QWEN.md`, custom instructions) and any memory store.
 - **Code / config:** grep the repos, settings files, hooks, scheduled jobs, CI, and the files this installer wrote.
 - **Other people's surfaces:** anything that consumes the old name from outside (webhooks, dashboards, bookmarks).

@@ -24,7 +24,9 @@ Every task goes to the cheapest AI that does it well, and every gate on the way 
 | `protocols/gap-analysis.md` | You just finished something comprehensive and want the second pass that hunts for what is missing. |
 | `protocols/deep-research.md` | The source set is unknown, several sources must be reconciled, and the answer will be cited later. |
 | `protocols/numbers-and-logic.md` | You are about to state a number, a comparison, a complexity or an equivalence. Compute it. |
+| `protocols/memory-and-record.md` | You are about to write anything durable. Search first, keep the index true, one writer. |
 | `CODECALC.md` | Present when you selected codecalc: install, per-agent registration, the skill. |
+| `OBSIDIAN-TC.md` | Present when you selected obsidian-tc: what you need first, install, per-agent registration, the security posture. |
 
 Level 2 adds `ROUTING.md`, `TIERS.md`, `DELEGATION_MATRIX.md`, `RESEARCH_TRIAGE.md`, `CLI-RUN.md` and `bin/cli-run.mjs`. Level 3 adds `vm/`. If those files are here, read `ROUTING.md` instead of `ORCHESTRATOR.md`: it is the multi-lane version.
 

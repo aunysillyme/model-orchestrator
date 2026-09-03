@@ -20,7 +20,7 @@ It never writes a secret, never runs a vendor shell script for you, and never ov
 
 | Level | You have | You get |
 |---|---|---|
-| **1 · Beginner** | one LLM or one agent | tiers, task classification, the two build checkpoints, five protocols (build, propagate, gap analysis, deep research, numbers and logic), a task-bundle template, and your agent set up to follow them |
+| **1 · Beginner** | one LLM or one agent | tiers, task classification, the two build checkpoints, six protocols (build, propagate, gap analysis, deep research, numbers and logic, memory and record), a task-bundle template, and your agent set up to follow them |
 | **2 · Intermediate** | several AIs with CLIs | everything above, plus `cli-run` (exit 0 means the deliverable exists), a delegation matrix generated from your selection, three-engine research triage |
 | **3 · Advanced** | a virtual machine | everything above, plus a gateway config where only one process holds keys, a compose file, box rules, privacy gates, and a weekly gap-analysis job with "what watches it" written down |
 
@@ -41,9 +41,16 @@ Read the thinking behind each level in [docs/](docs/README.md): [Part 1](docs/pa
 
 `npx model-orchestrator --list` prints the catalog with install and sign-in notes. Details: [docs/catalog.md](docs/catalog.md).
 
-## Companion tool: codecalc
+## Companion tools (both optional)
 
-An orchestrator routes work; it does not make a model stop guessing numbers. [codecalc](https://github.com/The-40-Thieves/codecalc) does: an offline, self-hosted MCP server that gives any agent exact arithmetic, code execution in 31 languages, SMT logic checks, complexity measurement, and two proofs (`verify_translation`, `verify_optimization`). The installer asks whether to set it up (default yes, `--tools codecalc` or `--no-tools`), writes `CODECALC.md` with the one-command install (`uvx 'codecalc[full]' setup --write` registers it with Claude Code, Claude Desktop, Cursor, VS Code and Zed) plus config snippets for Codex, Antigravity and Qwen Code, and every level carries `protocols/numbers-and-logic.md`: when calling is mandatory, how to report a computed figure, and why a thought log is not evidence.
+An orchestrator routes work. It does not make a model stop guessing numbers, and it does not give it a memory. Two tools from the same maintainer close those gaps. The installer asks about each one separately; selecting one writes a doc and config snippets, it installs nothing. `--tools codecalc,obsidian-tc` or `--no-tools` for scripted runs; `--yes` alone selects only the recommended one.
+
+| Tool | Closes | Default | You need first |
+|---|---|---|---|
+| [codecalc](https://github.com/The-40-Thieves/codecalc) | guessed numbers, comparisons, complexity and equivalence claims: exact arithmetic, code execution in 31 languages, SMT logic checks, `verify_translation` / `verify_optimization`; offline, no key | yes | Python 3.10+ and `uv`. `uvx 'codecalc[full]' setup --write` registers it with Claude Code, Claude Desktop, Cursor, VS Code, Zed; snippets for Codex, Antigravity, Qwen Code are written for you |
+| [obsidian-tc](https://github.com/The-40-Thieves/obsidian-tc) | no durable memory: hybrid search, backlinks, compare-and-swap writes with a confirmation gate, folder ACLs, a poison scan on inferred writes; 163 tools, local by default; AGPL-3.0 | no | an Obsidian vault folder; Node 24+ or Bun 1.1+ (stricter than this installer); Ollama with `nomic-embed-text` or a cloud embeddings key; the Obsidian app and its Local REST API plugin only for live bridge tools. Skip it if you do not keep notes in Obsidian |
+
+Whether or not you select them, every level carries the two rules they serve: `protocols/numbers-and-logic.md` (when calling a calculator is mandatory, how to report a computed figure, why a thought log is not evidence) and `protocols/memory-and-record.md` (search before writing, the folder index is part of the change, one writer, inferred content marked as inferred).
 
 ## Run it straight from GitHub
 
@@ -67,8 +74,8 @@ ai-orchestrator/
   README.md                 start here, written for your level and your AIs
   ORCHESTRATOR.md           single-agent routing rules (level 1)
   TASK_BUNDLE.md            the brief every delegation carries
-  protocols/                build-protocol · propagate · gap-analysis · deep-research · numbers-and-logic
-  CODECALC.md  mcp/         codecalc install + per-agent registration snippets (if selected)
+  protocols/                build-protocol · propagate · gap-analysis · deep-research · numbers-and-logic · memory-and-record
+  CODECALC.md  OBSIDIAN-TC.md  mcp/   companion-tool install docs + per-agent registration snippets (if selected)
   .claude/agents/           five subagents, one per tier (if Claude Code is primary)
   CLAUDE.snippet.md         the block to paste into your CLAUDE.md
   ROUTING.md                multi-lane decision tree (level 2+)
@@ -93,6 +100,7 @@ ai-orchestrator/
 2. **A gate you cannot fail is not a gate.** Every checkpoint is a question that can come back wrong.
 3. **Exit 0 is not a deliverable.** Check for the artifact, not the status line.
 6. **Numbers are computed, never guessed.** A tool that calculates beats a model that feels finished.
+7. **A write nobody can find again did not happen.** Search first, keep the index true, one writer.
 4. **The orchestrator owns the main build.** Delegates hold none of your rules; they get bounded sub-parts and a brief.
 5. **Only one process holds keys.** Names in the environment, values in a secrets manager, never in a file here.
 

@@ -69,7 +69,7 @@ test('cli-run: usage errors and unavailable lanes exit with their documented cod
 
 test('interactive path accepts piped answers and aborts on EOF instead of defaulting', () => {
   const dir = join(mkdtempSync(join(tmpdir(), 'orch-int-')), 'out');
-  const ok = run(['--no-install'], { input: `2\n1,2\n1\ny\n${dir}\ny\n` }); // level, AIs, primary, codecalc?, dir, confirm
+  const ok = run(['--no-install'], { input: `2\n1,2\n1\ny\nn\n${dir}\ny\n` }); // level, AIs, primary, codecalc?, obsidian-tc?, dir, confirm
   assert.equal(ok.status, 0, ok.stderr + ok.stdout);
   assert.ok(existsSync(join(dir, 'ROUTING.md')), 'level 2 file missing after interactive run');
   const eof = run(['--no-install'], { input: '2\n' });
@@ -216,4 +216,18 @@ test('--no-tools with --tools is a usage error, and the filesystem root is refus
   const root = run(['--yes', '--level', '1', '--ais', 'codex', '--no-tools', '--dir', '/', '--force', '--dry']);
   assert.equal(root.status, 2);
   assert.match(root.stderr, /filesystem root/);
+});
+
+test('--tools obsidian-tc is accepted, --yes alone does not select it, --list says it is optional and what it needs', () => {
+  const l = run(['--list']);
+  assert.match(l.stdout, /obsidian-tc/);
+  assert.match(l.stdout, /Optional and heavier/);
+  assert.match(l.stdout, /Obsidian vault/);
+  const dflt = run(['--yes', '--level', '1', '--ais', 'codex', '--dry']);
+  assert.match(dflt.stdout, /tools    codecalc\n/);
+  assert.doesNotMatch(dflt.stdout, /OBSIDIAN-TC\.md/);
+  const both = run(['--yes', '--level', '1', '--ais', 'codex', '--tools', 'codecalc,obsidian-tc', '--dry']);
+  assert.equal(both.status, 0, both.stderr);
+  assert.match(both.stdout, /OBSIDIAN-TC\.md/);
+  assert.match(both.stdout, /mcp\/obsidian-tc\.mcpServers\.json/);
 });

@@ -17,6 +17,8 @@ AFTER ANY COMPREHENSIVE TASK: a second pass in a fresh turn that hunts for what 
 
 NUMBERS AND LOGIC: any figure someone will act on, any comparison you state, any complexity or equivalence claim is computed with a tool (a code interpreter, a calculator), never estimated. Give the exact form and the decimal and name the tool. Trivial single-digit sums are exempt; nothing else is.
 
+MEMORY AND RECORD: before writing anything durable, search for it; after writing, correct the index that lists it; one writer per session; mark inferred content as inferred.
+
 A gate you cannot fail is not a gate. Exit 0 is not a deliverable.
 ```
 
