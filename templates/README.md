@@ -1,0 +1,14 @@
+# templates/
+
+Everything the installer can write, organized by the level that adds it. Files are rendered with `{{PLACEHOLDERS}}` filled from `src/catalog.js` and the user's answers (`src/install.js` computes every value; templates contain no logic).
+
+| Folder | Written at | Contents |
+|---|---|---|
+| `common/` | every level | the start-here README, `TASK_BUNDLE.md`, `protocols/` (build, propagate, gap analysis, deep research) |
+| `beginner/` | every level | `ORCHESTRATOR.md`, the single-agent routing rules |
+| `agents/` | every level, one variant | the primary agent's loading surface: Claude Code subagents, Antigravity custom agents, or a paste snippet |
+| `intermediate/` | level 2+ | `ROUTING.md`, `TIERS.md`, `DELEGATION_MATRIX.md`, `RESEARCH_TRIAGE.md`, `CLI-RUN.md` |
+| `advanced/` | level 3 | `vm/`: gateway config, compose file, box rules, privacy gates, scheduled jobs |
+| `tools/` | when selected | companion tools the AIs call; today `codecalc/` (install doc + MCP snippets). See `tools/README.md` |
+
+A `README.md` at the root of a tier folder (like this one) documents the repo and is not installed. `common/README.md` is the exception: it is the user's start-here file. READMEs deeper in (`protocols/`, `vm/`, `vm/jobs/`) are installed as folder indexes.

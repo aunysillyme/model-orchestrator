@@ -1,0 +1,4 @@
+node_modules/
+tmp-dry-run/
+*.log
+.DS_Store

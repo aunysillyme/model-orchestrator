@@ -1,0 +1,19 @@
+# The gateway is the ONLY holder of provider credentials on this box.
+# It is bound to loopback. Put it behind a private mesh network if other
+# machines need it; never publish it on 0.0.0.0.
+services:
+  gateway:
+    image: ghcr.io/berriai/litellm:main-latest
+    container_name: gateway
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4000:4000"
+    volumes:
+      - ./gateway.config.yaml:/app/config.yaml:ro
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    environment:
+      # Names only. Values come from the environment you start compose in
+      # (a secrets manager's `run` wrapper, or a systemd EnvironmentFile outside this repo).
+      - LITELLM_MASTER_KEY=${GATEWAY_MASTER_KEY}
+{{COMPOSE_ENV}}
+{{COMPOSE_OLLAMA}}

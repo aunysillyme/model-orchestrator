@@ -1,0 +1,49 @@
+{
+  "name": "model-orchestrator",
+  "version": "0.1.0",
+  "description": "A model orchestrator you can npm run: route every task to the cheapest AI that does it well, across one agent, many CLIs, or a whole virtual machine. Three levels, one installer that asks what you have access to.",
+  "type": "module",
+  "bin": {
+    "model-orchestrator": "bin/cli.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "templates",
+    "docs",
+    "README.md",
+    "LICENSE",
+    "scripts"
+  ],
+  "scripts": {
+    "start": "node bin/cli.js",
+    "test": "node --test",
+    "dry-run": "node bin/cli.js --yes --level 2 --ais claude-code,codex,grok --dir ./tmp-dry-run --dry",
+    "gen:catalog": "node scripts/gen-catalog.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aunysillyme/model-orchestrator.git"
+  },
+  "homepage": "https://github.com/aunysillyme/model-orchestrator#readme",
+  "bugs": {
+    "url": "https://github.com/aunysillyme/model-orchestrator/issues"
+  },
+  "keywords": [
+    "ai",
+    "orchestrator",
+    "model-router",
+    "claude-code",
+    "codex",
+    "antigravity",
+    "grok",
+    "ollama",
+    "litellm",
+    "multi-agent",
+    "cli"
+  ],
+  "license": "MIT"
+}

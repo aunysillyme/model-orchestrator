@@ -1,0 +1,20 @@
+name: test
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        node: [18, 20, 22]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: npm test
+      - run: node bin/cli.js --yes --level 3 --ais claude-code,codex,agy,grok,hermes,qwen,ollama --primary claude-code --dir "${{ runner.temp }}/l3" --no-install
+      - run: node bin/cli.js --yes --level 1 --ais chatgpt-app --no-tools --dir "${{ runner.temp }}/l1" --no-install

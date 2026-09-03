@@ -1,0 +1,8 @@
+{
+  "servers": {
+    "codecalc": {
+      "command": "uvx",
+      "args": ["codecalc[full]"]
+    }
+  }
+}

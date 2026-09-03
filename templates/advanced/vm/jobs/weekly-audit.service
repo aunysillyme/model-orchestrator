@@ -1,0 +1,13 @@
+[Unit]
+Description=ai-orchestrator weekly gap-analysis audit
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory={{INSTALL_DIR}}
+# Names come from a file OUTSIDE this repo, mode 600. Edit the path.
+EnvironmentFile=%h/.config/ai-orchestrator/gateway.env
+ExecStart=/bin/bash {{INSTALL_DIR}}/vm/jobs/weekly-audit.sh
+
+[Install]
+WantedBy=default.target
