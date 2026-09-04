@@ -2,9 +2,14 @@
 // Regenerates docs/catalog.md from src/catalog.js. The test suite checks they agree.
 import { writeFileSync } from 'node:fs';
 import { AIS, LEVELS, TOOLS } from '../src/catalog.js';
+import { readdirSync } from 'node:fs';
+
+export function protocolCount() {
+  return readdirSync(new URL('../templates/common/protocols/', import.meta.url)).filter((f) => f.endsWith('.md') && f !== 'README.md').length;
+}
 
 export function catalogMarkdown() {
-  let md = '# Catalog\n\nGenerated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrites it.\n\n## Levels\n\n| Level | Name | Tagline | Gives |\n|---|---|---|---|\n';
+  let md = '# Catalog\n\nGenerated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrites it. Protocols shipped at every level: ' + protocolCount() + ' (counted from `templates/common/protocols/`).\n\n## Levels\n\n| Level | Name | Tagline | Gives |\n|---|---|---|---|\n';
   for (const l of LEVELS) md += `| ${l.id} | ${l.name} | ${l.tagline} | ${l.gives} |\n`;
   md += '\n## AIs\n\n';
   for (const a of AIS) {

@@ -7,17 +7,17 @@
 import { stdin, stdout } from 'node:process';
 import { makeAsker } from '../src/prompt.js';
 import { spawnSync } from 'node:child_process';
-import { resolve } from 'node:path';
+import { resolve, join } from 'node:path';
 import { which } from '../src/detect.js';
-import { AIS, LEVELS, TOOLS, aisForLevel, agentCandidates, byId } from '../src/catalog.js';
-import { planFiles, writeFiles, resolveSelection, resolveTools, dirProblems } from '../src/install.js';
+import { AIS, LEVELS, TOOLS, PROVIDERS, aisForLevel, agentCandidates, byId } from '../src/catalog.js';
+import { planFiles, writeFiles, resolveSelection, resolveTools, resolveApis, dirProblems } from '../src/install.js';
 
 // One strict parse. Unknown flags, missing values and duplicates are usage
 // errors (exit 2) before anything is planned, so a typo like --dryy can never
 // turn a dry run into a real one.
 const SPEC = {
-  level: 'value', ais: 'value', primary: 'value', dir: 'value', tools: 'value',
-  yes: 'bool', force: 'bool', dry: 'bool', 'no-install': 'bool', 'no-tools': 'bool', list: 'bool', help: 'bool', h: 'bool'
+  level: 'value', ais: 'value', primary: 'value', dir: 'value', project: 'value', tools: 'value', apis: 'value',
+  yes: 'bool', force: 'bool', dry: 'bool', 'no-install': 'bool', 'no-tools': 'bool', 'no-apis': 'bool', list: 'bool', help: 'bool', h: 'bool'
 };
 export function parseArgs(argv) {
   const out = {};
@@ -82,7 +82,10 @@ Flags
   --ais a,b,c        catalog ids you have access to (see --list)
   --primary id       level 1 only: the one agent that will run the system
   --tools a,b        companion tools to set up, all optional (default with --yes: codecalc only); --no-tools for none
-  --dir path         where to write (default ./ai-orchestrator)
+  --apis a,b         level 3 only: metered API keys you HOLD (anthropic,openai,google,xai,openrouter); --no-apis for none.
+                     Asked separately from the CLIs because a subscription is not an API key.
+  --dir path         where to write the docs and protocols (default ./ai-orchestrator)
+  --project path     the project root your agent runs from; subagent definitions go here (default: current directory)
   --yes              skip confirmations
   --force            overwrite files that already exist
   --dry              print the plan, write nothing
@@ -99,6 +102,8 @@ if (flag('list')) {
     const here = a.bin ? (which(a.bin) ? 'installed' : 'not on PATH') : 'app';
     console.log(`${a.id.padEnd(13)} ${a.name}\n${''.padEnd(13)} level ${a.minLevel}+ · ${a.access} · ${here}\n${''.padEnd(13)} ${a.role}`);
   }
+  console.log('\nmetered API providers (--apis a,b, level 3 gateway only):');
+  for (const prov of PROVIDERS) console.log(`${prov.id.padEnd(13)} ${prov.name}  (variable name: ${prov.envName})`);
   console.log('\ncompanion tools (--tools a,b), all optional:');
   for (const t of TOOLS) console.log(`${t.id.padEnd(13)} ${t.name}\n${''.padEnd(13)} ${t.role}\n${''.padEnd(13)} needs: ${t.requires}\n${''.padEnd(13)} ${t.optionalNote}\n${''.padEnd(13)} ${t.repo}`);
   process.exit(0);
@@ -165,6 +170,8 @@ async function main() {
     if (!primary || !candidates.includes(primary)) bad('--primary must be one of: ' + candidates.map((a) => a.id).join(', '));
   } else if (candidates.length === 1) {
     primary = candidates[0];
+  } else if (candidates.length === 0) {
+    bad('pick at least one agent or chat app to be the orchestrator; a local model runtime on its own cannot run the system');
   } else if (candidates.length > 1) {
     if (yes) primary = candidates.find((a) => a.id === 'claude-code') || candidates[0];
     else {
@@ -197,17 +204,49 @@ async function main() {
     }
   }
 
-  // 4. Target
-  const dir = resolve(opt('dir') || (await ask('\nWrite into [./ai-orchestrator]: ', './ai-orchestrator')));
+  // 3c. Level 3: which metered API keys the user HOLDS. Separate from the CLI
+  // question on purpose: a Claude Code plan is not an Anthropic API key.
+  let apis = [];
+  if (flag('no-apis') && opt('apis')) bad('--no-apis and --apis contradict each other');
+  if (level >= 3 && !flag('no-apis')) {
+    if (opt('apis')) {
+      const r = resolveApis(opt('apis').split(',').map((s) => s.trim()).filter(Boolean));
+      if (r.unknown.length) bad('unknown provider id(s): ' + r.unknown.join(', ') + ' (see --list)');
+      apis = r.apis;
+    } else if (!yes) {
+      console.log('\nLevel 3 gateway: which metered API keys do you HOLD? (numbers, comma-separated, or none)');
+      console.log('  This is separate from the CLIs above: a subscription is not an API key. Only variable NAMES are written; you keep the values in your secrets manager.');
+      PROVIDERS.forEach((prov, i) => console.log(`  ${String(i + 1).padStart(2)}   ${prov.name}  (${prov.envName})`));
+      const a = await ask('\nYour keys [none]: ', '');
+      apis = a
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .map((n) => {
+          const prov = PROVIDERS[Number(n) - 1];
+          if (!prov) bad(`no provider numbered ${n}`);
+          return prov;
+        });
+    }
+  } else if (level < 3 && opt('apis')) {
+    bad('--apis only applies at level 3 (the gateway)');
+  }
+
+  // 4. Targets: the docs folder, and the project root the agent runs from
+  const dir = resolve(opt('dir') || (await ask('\nWrite docs and protocols into [./ai-orchestrator]: ', './ai-orchestrator')));
   const dirBad = dirProblems(dir);
   if (dirBad.length) bad(dirBad.join('; '));
+  const project = resolve(opt('project') || (primary && primary.agentsDir && !yes ? await ask(`\nProject root your agent runs from (subagents go in ${primary.agentsDir}/ there) [.]: `, '.') : '.'));
+  const projectBad = dirProblems(project);
+  if (projectBad.length) bad('--project: ' + projectBad.join('; '));
 
   // 5. Plan
-  const files = planFiles({ level, selected, primary, dir, tools });
+  const files = planFiles({ level, selected, primary, dir, project, tools, apis });
   const lvl = LEVELS.find((l) => l.id === level);
-  console.log(`\nPlan\n  level    ${lvl.id} ${lvl.name}\n  access   ${selected.map((a) => a.id).join(', ')}\n  primary  ${primary ? primary.id : 'none'}\n  tools    ${tools.map((t) => t.id).join(', ') || 'none'}\n  folder   ${dir}\n  files    ${files.length}`);
+  const agentFiles = files.filter((f) => f.root === 'project');
+  console.log(`\nPlan\n  level    ${lvl.id} ${lvl.name}\n  access   ${selected.map((a) => a.id).join(', ')}\n  primary  ${primary ? primary.id : 'none'}\n  tools    ${tools.map((t) => t.id).join(', ') || 'none'}` + (level >= 3 ? `\n  api keys ${apis.map((p) => p.id).join(', ') || 'none'}` : '') + `\n  folder   ${dir}\n  project  ${project}${agentFiles.length ? ' (' + agentFiles.length + ' subagent files go here)' : ''}\n  files    ${files.length}`);
   if (flag('dry')) {
-    for (const f of files) console.log('  - ' + f.rel);
+    for (const f of files) console.log('  - ' + (f.root === 'project' ? '[project] ' : '') + f.rel);
     console.log('\n--dry: nothing written.');
     rl && rl.close();
     return;
@@ -221,7 +260,7 @@ async function main() {
 
   let written, skipped;
   try {
-    ({ written, skipped } = writeFiles(files, { dir, force: flag('force') }));
+    ({ written, skipped } = writeFiles(files, { dir, project, force: flag('force') }));
   } catch (e) {
     if (e && e.code === 'PREFLIGHT') bad(e.message);
     throw e;
@@ -255,7 +294,21 @@ async function main() {
     const doc = t.id.toUpperCase() + '.md';
     console.log(`\n${t.name}\n  optional: ${t.optionalNote}\n  needs:    ${t.requires}\n  run:      ${t.install}\n  one-click or self-registering for: ${t.autoClients.join(', ')}. Other agents and the details: ${dir}/${doc}`);
   }
-  console.log(`\nNext: open ${dir}/README.md. It is written for level ${level} and the AIs you picked.\n`);
+
+  // 7. Activation summary: writing the folder is half the job. Say exactly what
+  // turns it on, in order, with one command that proves it.
+  const snippet = files.find((f) => /\.snippet\.md$|^PASTE-INTO-YOUR-AGENT\.md$/.test(f.rel));
+  const steps = [];
+  if (snippet && primary && primary.rulesFile) steps.push(`copy the block in ${join(dir, snippet.rel)} into ${join(project, primary.rulesFile)} (create it if missing)`);
+  else if (snippet) steps.push(`paste ${join(dir, snippet.rel)} into ${primary.name}'s custom instructions or Project`);
+  if (primary && primary.agentsDir) steps.push(`subagents are in ${join(project, primary.agentsDir)}; run ${primary.bin} from ${project} to pick them up`);
+  for (const a of selected.filter((a) => a.bin && a.kind === 'agent-cli')) steps.push(`sign in to ${a.name}: ${a.auth}`);
+  for (const t of tools) steps.push(`${t.id}: ${t.install}`);
+  if (level >= 2) steps.push(`smoke test: node ${join(dir, 'bin', 'cli-run.mjs')} --doctor   (add --run to send each lane one tiny prompt)`);
+  if (level >= 3) steps.push(`box: read ${join(dir, 'vm', 'README.md')}; keys named in vm/ENVIRONMENT.md go in your secrets manager, never a file`);
+  console.log('\nTo activate, in order:');
+  steps.forEach((st, i) => console.log(`  ${i + 1}. ${st}`));
+  console.log(`\nStart here: ${join(dir, 'README.md')} (written for level ${level} and the AIs you picked).\n`);
   rl && rl.close();
 }
 

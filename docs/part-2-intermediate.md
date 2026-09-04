@@ -26,7 +26,7 @@ One driver, no second AI in the mix: the orchestrator invokes the CLIs; it never
 
 Every agent CLI can report success and deliver nothing. `bin/cli-run.mjs` builds the right invocation per lane, reads that lane's **native** terminal event, and exits `10` when a run produced no deliverable, `12` on timeout, `13` when the lane is missing. Byte count is not a check either; a run can emit hundreds of kilobytes and no conclusion. One lane's own success flags lie outright (an upstream 400 reported as success), so its judge reads the two honest signals instead.
 
-Every call goes through it. "This lane is flaky" becomes a query over its log instead of an argument.
+Every call goes through it. "This lane is flaky" becomes a query over its log instead of an argument. `node bin/cli-run.mjs --doctor` is the first thing to run after install: enabled lanes, binaries on PATH, and with `--run` a one-word canary per lane.
 
 ## 4. Every delegation carries a task bundle, on both surfaces
 

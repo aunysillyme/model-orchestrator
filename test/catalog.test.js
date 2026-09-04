@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { AIS, LEVELS, TOOLS, aisForLevel, agentCandidates, byId } from '../src/catalog.js';
-import { catalogMarkdown } from '../scripts/gen-catalog.js';
+import { catalogMarkdown, protocolCount } from '../scripts/gen-catalog.js';
+import { PROVIDERS, IMAGES } from '../src/catalog.js';
 
 test('levels are 1, 2, 3 with names and taglines', () => {
   assert.deepEqual(LEVELS.map((l) => l.id), [1, 2, 3]);
@@ -67,4 +68,19 @@ test('companion tools have a repo, an install command, and README links the repo
   }
   const readme = readFileSync(new URL('../README.md', import.meta.url), 'utf8');
   for (const t of TOOLS) assert.ok(readme.includes(t.repo), 'README missing ' + t.repo);
+});
+
+test('docs count protocols from source, providers carry only variable NAMES, images are pinned', () => {
+  const n = protocolCount();
+  assert.ok(n >= 6, 'expected at least six protocols, found ' + n);
+  const readme = readFileSync(new URL('../README.md', import.meta.url), 'utf8');
+  assert.doesNotMatch(readme, /\b(four|five|six|seven) protocols\b/, 'README must not hardcode a protocol count');
+  const changelog = readFileSync(new URL('../CHANGELOG.md', import.meta.url), 'utf8');
+  assert.doesNotMatch(changelog, /\b\d+ (cases|tests)\b/, 'CHANGELOG must not carry a test count');
+  for (const p of PROVIDERS) {
+    assert.match(p.envName, /^[A-Z_]+_KEY$/, p.id);
+    assert.ok(p.lanes.length >= 1, p.id);
+  }
+  for (const img of Object.values(IMAGES)) assert.match(img, /:v?\d+\.\d+\.\d+$/, img + ' is not pinned');
+  for (const a of AIS) if (a.install.npm) assert.match(a.install.pin || '', /^\d+\.\d+\.\d+$/, a.id + ' npm install is not pinned');
 });

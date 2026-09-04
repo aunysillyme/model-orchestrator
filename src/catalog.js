@@ -24,7 +24,7 @@ export const LEVELS = [
     key: 'beginner',
     name: 'Beginner',
     tagline: 'one LLM or agent, routed well',
-    gives: 'tiers, task classification, the four protocols, one agent set up to follow them'
+    gives: 'tiers, task classification, every protocol, one agent set up to follow them'
   },
   {
     id: 2,
@@ -53,7 +53,7 @@ export const AIS = [
     lane: 'A',
     role: 'orchestrator: routes, maps, builds, verifies, records',
     minLevel: 1,
-    install: { npm: '@anthropic-ai/claude-code' },
+    install: { npm: '@anthropic-ai/claude-code', pin: '2.1.260' },
     auth: 'run `claude` once and sign in with your Anthropic account',
     rulesFile: 'CLAUDE.md',
     agentsDir: '.claude/agents',
@@ -70,7 +70,7 @@ export const AIS = [
     lane: 'A',
     role: 'second coder and adversarial auditor (a different model family reading your diff)',
     minLevel: 1,
-    install: { npm: '@openai/codex' },
+    install: { npm: '@openai/codex', pin: '0.153.2' },
     auth: '`codex login` (add `--device-auth` on a machine with no browser)',
     rulesFile: 'AGENTS.md',
     agentsDir: null,
@@ -91,6 +91,7 @@ export const AIS = [
     rulesFile: 'GEMINI.md',
     agentsDir: '.agents/agents',
     cliRun: true,
+    models: { deep: 'pro', standard: 'flash', fast: 'flash' },
     note: 'Gemini CLI was retired by Google in June 2026. agy is the successor. Do not install `gemini`.'
   },
   {
@@ -135,7 +136,7 @@ export const AIS = [
     lane: 'B',
     role: 'cheapest metered bulk lane for structured output; never for anything that cites a line, a number or a source',
     minLevel: 2,
-    install: { npm: '@qwen-code/qwen-code' },
+    install: { npm: '@qwen-code/qwen-code', pin: '0.23.0' },
     auth: 'a provider key in an environment variable, named (not stored) in ~/.qwen/settings.json. There is no free Qwen cloud tier any more.',
     rulesFile: 'QWEN.md',
     agentsDir: null,
@@ -216,6 +217,7 @@ export const TOOLS = [
     repo: 'https://github.com/The-40-Thieves/codecalc',
     role: 'exact arithmetic, code execution in 31 languages, SMT logic checks, complexity and equivalence proofs; offline, no key, no telemetry',
     install: "uvx 'codecalc[full]' setup --write",
+    pin: '0.5.0',
     requires: 'uv (https://docs.astral.sh/uv/) and Python 3.10+',
     autoClients: ['Claude Code', 'Claude Desktop', 'Cursor', 'VS Code', 'Zed'],
     recommended: true,
@@ -227,6 +229,7 @@ export const TOOLS = [
     repo: 'https://github.com/The-40-Thieves/obsidian-tc',
     role: 'durable memory and record for your agents: hybrid retrieval (BM25 + dense + link graph), backlinks, compare-and-swap writes with a confirmation gate, folder ACLs, a poison scan on inferred writes; 163 tools, local by default',
     install: 'npm install -g obsidian-tc && obsidian-tc /path/to/your/vault',
+    pin: '1.26.0',
     requires: 'an Obsidian vault folder (the Obsidian app itself is only needed for live plugin bridges); Node 24+ or Bun 1.1+ (stricter than this installer); Ollama with `nomic-embed-text` for local embeddings, or a cloud embeddings key; the Local REST API plugin only for bridge tools',
     autoClients: ['Cursor', 'VS Code'],
     recommended: false,
@@ -234,6 +237,25 @@ export const TOOLS = [
   }
 ];
 export const toolById = Object.fromEntries(TOOLS.map((t) => [t.id, t]));
+
+// Metered API providers for the level 3 gateway. Separate from the AI list on
+// purpose: a Claude Code subscription is not an Anthropic API key, and a user
+// can truthfully have one without the other. Only NAMES of variables live here.
+export const PROVIDERS = [
+  { id: 'anthropic', name: 'Anthropic API', envName: 'ANTHROPIC_API_KEY', lanes: [['standard', 'anthropic/claude-sonnet-5'], ['deep', 'anthropic/claude-opus-5']] },
+  { id: 'openai', name: 'OpenAI API', envName: 'OPENAI_API_KEY', lanes: [['second-opinion', 'openai/gpt-5.6-terra']] },
+  { id: 'google', name: 'Google Gemini API', envName: 'GEMINI_API_KEY', lanes: [['long-context', 'gemini/gemini-3.1-pro']] },
+  { id: 'xai', name: 'xAI API', envName: 'XAI_API_KEY', lanes: [['live-fast', 'xai/grok-4.1-fast']] },
+  { id: 'openrouter', name: 'OpenRouter (many cheap models, one key)', envName: 'OPENROUTER_API_KEY', lanes: [['bulk-cheap', 'openrouter/qwen/qwen3.7-flash']] }
+];
+export const providerById = Object.fromEntries(PROVIDERS.map((p) => [p.id, p]));
+
+// Container image pins for the level 3 templates. Bump deliberately; a
+// reviewed box should not change underneath the user on a restart.
+export const IMAGES = {
+  litellm: 'ghcr.io/berriai/litellm:v1.99.1',
+  ollama: 'ollama/ollama:0.33.3'
+};
 
 export const byId = Object.fromEntries(AIS.map((a) => [a.id, a]));
 

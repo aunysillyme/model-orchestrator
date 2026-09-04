@@ -1,12 +1,12 @@
 # Catalog
 
-Generated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrites it.
+Generated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrites it. Protocols shipped at every level: 6 (counted from `templates/common/protocols/`).
 
 ## Levels
 
 | Level | Name | Tagline | Gives |
 |---|---|---|---|
-| 1 | Beginner | one LLM or agent, routed well | tiers, task classification, the four protocols, one agent set up to follow them |
+| 1 | Beginner | one LLM or agent, routed well | tiers, task classification, every protocol, one agent set up to follow them |
 | 2 | Intermediate | several LLMs and agents, called through their CLIs | everything in Beginner plus cli-run, a delegation matrix, task bundles and three-engine research triage |
 | 3 | Advanced | everything above, plus a virtual machine that runs it unattended | everything in Intermediate plus a gateway config, scheduled jobs, a dispatch layer and privacy gates for a box |
 

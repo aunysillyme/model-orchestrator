@@ -1,6 +1,10 @@
 # ENVIRONMENT.md: names the gateway expects
 
-Generated {{DATE}} from your selection. These are variable **names**. The values live in a secrets manager and are injected at start time (for example `<manager> run -- docker compose up -d`, or a systemd `EnvironmentFile=` that lives outside this folder with mode 600).
+Generated {{DATE}} from the metered API keys you said you hold (asked separately from your subscription CLIs, because a Claude Code plan is not an Anthropic API key):
+
+{{APIS_LIST}}
+
+These are variable **names**. The values live in a secrets manager and are injected at start time (for example `<manager> run -- docker compose up -d`, or a systemd `EnvironmentFile=` that lives outside this folder with mode 600).
 
 {{ENV_NAMES}}
 

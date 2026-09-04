@@ -14,15 +14,15 @@ The installer asks three things, then writes a folder:
 2. **Which AIs do you have access to?** (it marks the ones already on your PATH)
 3. **Which one is your primary agent?** (the one that runs the system)
 
-It never writes a secret, never runs a vendor shell script for you, and never overwrites a file you already have unless you pass `--force`. Delete the folder to uninstall.
+It never writes a secret, never runs a vendor shell script for you, and never overwrites a file you already have unless you pass `--force`. Docs and protocols go to `--dir` (default `./ai-orchestrator`); subagent definitions go to the project root your agent runs from (`--project`, default the current directory), because that is the only place Claude Code and Antigravity read them. It ends with an activation summary: what to copy where, which sign-ins, and one smoke command. Uninstall: delete the folder, the subagent folder it named, and `~/.ai-orchestrator/cli-run.log.jsonl` if you used `cli-run`.
 
 ## The three levels
 
 | Level | You have | You get |
 |---|---|---|
-| **1 · Beginner** | one LLM or one agent | tiers, task classification, the two build checkpoints, six protocols (build, propagate, gap analysis, deep research, numbers and logic, memory and record), a task-bundle template, and your agent set up to follow them |
+| **1 · Beginner** | one LLM or one agent | tiers, task classification, the two build checkpoints, the protocols (build, propagate, gap analysis, deep research, numbers and logic, memory and record), a task-bundle template, and your agent set up to follow them |
 | **2 · Intermediate** | several AIs with CLIs | everything above, plus `cli-run` (exit 0 means the deliverable exists), a delegation matrix generated from your selection, three-engine research triage |
-| **3 · Advanced** | a virtual machine | everything above, plus a gateway config where only one process holds keys, a compose file, box rules, privacy gates, and a weekly gap-analysis job with "what watches it" written down |
+| **3 · Advanced** | a virtual machine | everything above, plus a gateway config rendered from the API keys you hold (asked separately from your CLIs), pinned images, box rules, privacy gates, and a weekly gap-analysis job with "what watches it" written down |
 
 Read the thinking behind each level in [docs/](docs/README.md): [Part 1](docs/part-1-beginner.md) · [Part 2](docs/part-2-intermediate.md) · [Part 3](docs/part-3-advanced.md).
 
@@ -64,7 +64,8 @@ npx github:aunysillyme/model-orchestrator
 
 ```bash
 npx model-orchestrator --yes --level 2 --ais claude-code,codex,grok --primary claude-code --dir ./ai-orchestrator
-npx model-orchestrator --yes --level 3 --ais claude-code,codex,agy,grok,hermes,qwen,ollama --dry   # print the plan, write nothing
+npx model-orchestrator --yes --level 3 --ais claude-code,codex,agy,grok,hermes,qwen,ollama --apis anthropic,openrouter --dry   # print the plan, write nothing
+npx model-orchestrator --yes --level 2 --ais claude-code,codex --project ~/my-app --dir ~/my-app/ai-orchestrator  # subagents into ~/my-app/.claude/agents
 ```
 
 ## What gets written (level 3, everything)
@@ -76,11 +77,11 @@ ai-orchestrator/
   TASK_BUNDLE.md            the brief every delegation carries
   protocols/                build-protocol · propagate · gap-analysis · deep-research · numbers-and-logic · memory-and-record
   CODECALC.md  OBSIDIAN-TC.md  mcp/   companion-tool install docs + per-agent registration snippets (if selected)
-  .claude/agents/           five subagents, one per tier (if Claude Code is primary)
+  <project>/.claude/agents/ five subagents, one per tier, at the PROJECT root (if Claude Code is primary)
   CLAUDE.snippet.md         the block to paste into your CLAUDE.md
   ROUTING.md                multi-lane decision tree (level 2+)
   TIERS.md  DELEGATION_MATRIX.md  RESEARCH_TRIAGE.md  CLI-RUN.md
-  bin/cli-run.mjs  bin/lanes.json
+  bin/cli-run.mjs  bin/lanes.json          (node bin/cli-run.mjs --doctor is the smoke test)
   vm/                       gateway config, compose, box rules, privacy gates, jobs/ (level 3)
 ```
 

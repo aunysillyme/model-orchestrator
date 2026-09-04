@@ -245,8 +245,37 @@ function usage(msg) {
   if (msg) console.error('cli-run: ' + msg);
   console.error(`usage: cli-run <${LANES.join('|')}> "<prompt>" [--brief FILE] [--timeout SECS] [--quiet]
        cli-run codex --audit "<prompt>"          read-only sandbox (audit shape)
-       cli-run qwen [--model ID] [--safe-mode] "<prompt>"`);
+       cli-run qwen [--model ID] [--safe-mode] "<prompt>"
+       cli-run --doctor [--run]                  enabled lanes, binaries on PATH; --run sends each a tiny prompt`);
   return USAGE;
+}
+
+// --doctor: the first thing to run after install. Which lanes are enabled,
+// which binaries are on PATH, and with --run whether each lane returns a
+// deliverable for a one-word prompt. Exit 0 only when every enabled lane is
+// present (and, with --run, answered).
+export function doctor(run) {
+  const enabled = enabledLanes();
+  if (enabled === null) {
+    console.error('doctor: lanes.json exists but is malformed; fix it first');
+    return USAGE;
+  }
+  let bad = 0;
+  console.log(`doctor: ${enabled.length} enabled lane(s): ${enabled.join(', ') || 'none'}`);
+  for (const lane of LANES) {
+    const on = enabled.includes(lane);
+    const bin = which(lane);
+    let line = `  ${lane.padEnd(7)} ${on ? 'enabled ' : 'disabled'} ${bin ? 'binary ok' : 'binary MISSING'}`;
+    if (on && !bin) bad++;
+    if (on && bin && run) {
+      const rc = main([lane, 'Reply with exactly the word OK and nothing else.', '--timeout', '120', '--quiet']);
+      line += rc === OK ? '  canary ok' : `  canary FAILED rc=${rc}`;
+      if (rc !== OK) bad++;
+    }
+    console.log(line);
+  }
+  console.log(bad ? `doctor: ${bad} problem(s)` : 'doctor: all enabled lanes ' + (run ? 'answered' : 'present'));
+  return bad ? NO_DELIVERABLE : OK;
 }
 
 export function main(argv) {
@@ -254,9 +283,9 @@ export function main(argv) {
   // known, and there is exactly one prompt (positional or --brief, not both).
   // `qwen p --model --safe-mode` must not read "--safe-mode" as the model id.
   const VALUE = new Set(['--brief', '--timeout', '--model']);
-  const BOOL = new Set(['--quiet', '--audit', '--safe-mode']);
+  const BOOL = new Set(['--quiet', '--audit', '--safe-mode', '--doctor', '--run']);
   const args = [...argv];
-  const opts = { timeout: 900, quiet: false, audit: false, model: null, safeMode: false, brief: null };
+  const opts = { timeout: 900, quiet: false, audit: false, model: null, safeMode: false, brief: null, doctor: false, run: false };
   const positional = [];
   while (args.length) {
     const a = args.shift();
@@ -269,10 +298,17 @@ export function main(argv) {
     } else if (BOOL.has(a)) {
       if (a === '--quiet') opts.quiet = true;
       else if (a === '--audit') opts.audit = true;
+      else if (a === '--doctor') opts.doctor = true;
+      else if (a === '--run') opts.run = true;
       else opts.safeMode = true;
     } else if (a.startsWith('--')) return usage('unknown flag ' + a);
     else positional.push(a);
   }
+  if (opts.doctor) {
+    if (positional.length) return usage('--doctor takes no lane or prompt');
+    return doctor(opts.run);
+  }
+  if (opts.run) return usage('--run only applies with --doctor');
   const lane = positional[0];
   if (!LANES.includes(lane)) return usage('lane must be one of ' + LANES.join(', '));
   if (positional.length > 2) return usage('unexpected extra argument: ' + positional.slice(2).join(' '));

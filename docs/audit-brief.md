@@ -1,5 +1,7 @@
 # AUDIT_BRIEF.md: adversarial audit of model-orchestrator (round 1)
 
+> Historical document. Counts in it (tests, files) are as of the round they describe; `npm test` prints the current number.
+
 Read-only audit. Report findings only; do not modify files. Rank by severity. For each finding: file, line, what breaks, a concrete reproduction. `CLEAN` is a valid answer for any area with no reproducible finding. Skip style.
 
 ## Task bundle

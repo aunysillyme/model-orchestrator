@@ -22,15 +22,22 @@ test('--help and --list exit 0 and mention every level', () => {
 test('non-interactive install writes a level 3 tree into a temp dir and refuses to overwrite', () => {
   const dir = mkdtempSync(join(tmpdir(), 'orch-cli-'));
   try {
-    const r = run(['--yes', '--level', '3', '--ais', 'claude-code,codex,agy,grok,hermes,qwen,ollama', '--primary', 'claude-code', '--dir', dir, '--no-install']);
+    const project = mkdtempSync(join(tmpdir(), 'orch-cli-proj-'));
+    const r = run(['--yes', '--level', '3', '--ais', 'claude-code,codex,agy,grok,hermes,qwen,ollama', '--primary', 'claude-code', '--apis', 'anthropic,openrouter', '--dir', dir, '--project', project, '--no-install']);
     assert.equal(r.status, 0, r.stderr + r.stdout);
-    for (const f of ['README.md', 'ORCHESTRATOR.md', 'ROUTING.md', 'DELEGATION_MATRIX.md', 'bin/cli-run.mjs', 'bin/lanes.json', 'vm/gateway.config.yaml', 'vm/jobs/weekly-audit.timer', '.claude/agents/bulk-worker.md', 'CLAUDE.snippet.md']) {
+    for (const f of ['README.md', 'ORCHESTRATOR.md', 'ROUTING.md', 'DELEGATION_MATRIX.md', 'bin/cli-run.mjs', 'bin/lanes.json', 'vm/gateway.config.yaml', 'vm/jobs/weekly-audit.timer', 'CLAUDE.snippet.md']) {
       assert.ok(existsSync(join(dir, f)), 'missing ' + f);
     }
+    assert.ok(existsSync(join(project, '.claude', 'agents', 'bulk-worker.md')), 'subagents must land in --project');
+    assert.match(r.stdout, /To activate, in order:/);
+    assert.match(r.stdout, /1\. copy the block in .*CLAUDE\.snippet\.md into .*CLAUDE\.md/);
+    assert.match(r.stdout, /cli-run\.mjs --doctor/);
+    assert.match(r.stdout, /api keys anthropic, openrouter/);
+    rmSync(project, { recursive: true, force: true });
     const readme = readFileSync(join(dir, 'README.md'), 'utf8');
     assert.match(readme, /level 3/);
     assert.match(readme, /Claude Code/);
-    const again = run(['--yes', '--level', '3', '--ais', 'claude-code', '--dir', dir, '--no-install']);
+    const again = run(['--yes', '--level', '3', '--ais', 'claude-code', '--no-apis', '--dir', dir, '--project', dir, '--no-install']);
     assert.equal(again.status, 0);
     assert.match(again.stdout, /kept \d+ existing/);
   } finally {
@@ -51,6 +58,12 @@ test('bad input exits 2 with a reason', () => {
   assert.equal(run(['--yes', '--level', '1', '--ais', 'nope']).status, 2);
   assert.equal(run(['--yes', '--level', '1', '--ais', 'hermes']).status, 2, 'hermes needs level 2');
   assert.equal(run(['--yes', '--level', '1', '--ais', 'ollama']).status, 2, 'ollama needs level 2');
+  const noPrimary = run(['--yes', '--level', '2', '--ais', 'ollama', '--no-tools', '--dry']);
+  assert.equal(noPrimary.status, 2, 'an Ollama-only selection has no orchestrator');
+  assert.match(noPrimary.stderr, /pick at least one agent/);
+  assert.equal(run(['--yes', '--level', '2', '--ais', 'codex', '--apis', 'openai', '--dry']).status, 2, '--apis is level 3 only');
+  assert.equal(run(['--yes', '--level', '3', '--ais', 'codex', '--apis', 'nope', '--dry']).status, 2);
+  assert.equal(run(['--yes', '--level', '3', '--ais', 'codex', '--apis', 'openai', '--no-apis', '--dry']).status, 2);
 });
 
 test('cli-run: usage errors and unavailable lanes exit with their documented codes', () => {
@@ -69,7 +82,7 @@ test('cli-run: usage errors and unavailable lanes exit with their documented cod
 
 test('interactive path accepts piped answers and aborts on EOF instead of defaulting', () => {
   const dir = join(mkdtempSync(join(tmpdir(), 'orch-int-')), 'out');
-  const ok = run(['--no-install'], { input: `2\n1,2\n1\ny\nn\n${dir}\ny\n` }); // level, AIs, primary, codecalc?, obsidian-tc?, dir, confirm
+  const ok = run(["--no-install"], { input: `2\n1,2\n1\ny\nn\n${dir}\n${dir}\ny\n` }); // level, AIs, primary, codecalc?, obsidian-tc?, dir, project, confirm
   assert.equal(ok.status, 0, ok.stderr + ok.stdout);
   assert.ok(existsSync(join(dir, 'ROUTING.md')), 'level 2 file missing after interactive run');
   const eof = run(['--no-install'], { input: '2\n' });
@@ -230,4 +243,33 @@ test('--tools obsidian-tc is accepted, --yes alone does not select it, --list sa
   assert.equal(both.status, 0, both.stderr);
   assert.match(both.stdout, /OBSIDIAN-TC\.md/);
   assert.match(both.stdout, /mcp\/obsidian-tc\.mcpServers\.json/);
+});
+
+
+test('cli-run --doctor reports enabled lanes and binaries, refuses a lane argument, and --run needs --doctor', () => {
+  const d = mkdtempSync(join(tmpdir(), 'orch-doc-'));
+  const bin = join(d, 'bin');
+  mkdirSync(bin);
+  writeFileSync(join(bin, 'grok'), '#!/bin/sh\necho \'{"stopReason":"end_turn","text":"OK"}\'\n', { mode: 0o755 });
+  const copy = join(d, 'cli-run.mjs');
+  writeFileSync(copy, readFileSync(CLI_RUN));
+  writeFileSync(join(d, 'lanes.json'), '{"enabled":["grok","codex"]}');
+  const r = spawnSync(process.execPath, [copy, '--doctor'], { encoding: 'utf8', env: { PATH: bin, HOME: d } });
+  assert.equal(r.status, 10, r.stdout + r.stderr);
+  assert.match(r.stdout, /grok\s+enabled\s+binary ok/);
+  assert.match(r.stdout, /codex\s+enabled\s+binary MISSING/);
+  assert.match(r.stdout, /1 problem/);
+  writeFileSync(join(d, 'lanes.json'), '{"enabled":["grok"]}');
+  const ok = spawnSync(process.execPath, [copy, '--doctor', '--run'], { encoding: 'utf8', env: { PATH: bin, HOME: d } });
+  assert.equal(ok.status, 0, ok.stdout + ok.stderr);
+  assert.match(ok.stdout, /canary ok/);
+  assert.equal(spawnSync(process.execPath, [copy, '--doctor', 'grok'], { encoding: 'utf8', env: { PATH: bin, HOME: d } }).status, 2);
+  assert.equal(spawnSync(process.execPath, [copy, 'grok', 'p', '--run'], { encoding: 'utf8', env: { PATH: bin, HOME: d } }).status, 2);
+  rmSync(d, { recursive: true, force: true });
+});
+
+test('--list names the metered providers separately from the AIs', () => {
+  const l = run(['--list']);
+  assert.match(l.stdout, /metered API providers/);
+  assert.match(l.stdout, /anthropic\s+Anthropic API/);
 });

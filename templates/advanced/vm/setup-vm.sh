@@ -28,13 +28,14 @@ else
 fi
 
 say "npm-installable CLIs (installed only if missing)"
+# Versions are pinned to what this installer was released with. Check for newer before trusting a pin forever.
 for pkg in {{NPM_PACKAGES}}; do
   [ -z "$pkg" ] && continue   # nothing npm-installable was selected
   case "$pkg" in
-    @anthropic-ai/claude-code) bin=claude ;;
-    @openai/codex) bin=codex ;;
-    @qwen-code/qwen-code) bin=qwen ;;
-    *) bin="${pkg##*/}" ;;
+    @anthropic-ai/claude-code*) bin=claude ;;
+    @openai/codex*) bin=codex ;;
+    @qwen-code/qwen-code*) bin=qwen ;;
+    *) bin="${pkg##*/}"; bin="${bin%%@*}" ;;
   esac
   if have "$bin"; then say "$bin present"; else say "npm install -g $pkg"; npm install -g "$pkg"; fi
 done

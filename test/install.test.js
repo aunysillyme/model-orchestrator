@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync, existsSync, rmSync, writeFileSync, statSync 
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
-import { planFiles, writeFiles, resolveSelection, gatewayModels, envNames } from '../src/install.js';
+import { planFiles, writeFiles, resolveSelection, resolveApis, gatewayModels, envNames, laneVars } from '../src/install.js';
 import { byId } from '../src/catalog.js';
 import { render } from '../src/render.js';
 
@@ -41,8 +41,11 @@ test('no rendered file still contains a placeholder, at any level, for any prima
 
 test('the primary decides the loading surface, and repo READMEs are not installed', () => {
   const rels = (p) => planFiles(p).map((f) => f.rel);
-  const cc = rels({ level: 1, selected: sel('claude-code'), primary: byId['claude-code'] });
+  const ccFiles = planFiles({ level: 1, selected: sel('claude-code'), primary: byId['claude-code'] });
+  const cc = ccFiles.map((f) => f.rel);
   assert.ok(cc.includes('.claude/agents/deep-planner.md') && cc.includes('CLAUDE.snippet.md'));
+  assert.equal(ccFiles.find((f) => f.rel === '.claude/agents/deep-planner.md').root, 'project', 'subagents must target the project root');
+  assert.equal(ccFiles.find((f) => f.rel === 'CLAUDE.snippet.md').root, 'dir');
   assert.ok(!cc.includes('.claude/agents/README.md'), 'a README inside .claude/agents would be parsed as an agent');
   const agy = rels({ level: 1, selected: sel('agy'), primary: byId.agy });
   assert.ok(agy.includes('.agents/agents/deep-planner.md') && agy.includes('GEMINI.snippet.md'));
@@ -54,9 +57,16 @@ test('the primary decides the loading surface, and repo READMEs are not installe
   assert.equal(l2.filter((r) => r === 'README.md').length, 1, 'exactly one README at the install root');
 });
 
-test('generated gateway config references keys by name only', () => {
-  const y = gatewayModels(sel('claude-code', 'qwen', 'grok', 'ollama'));
+test('generated gateway config references keys by name only, and only for keys the user HOLDS', () => {
+  const { apis } = resolveApis(['openrouter', 'anthropic']);
+  const y = gatewayModels(sel('claude-code', 'qwen', 'grok', 'ollama'), apis);
   assert.match(y, /os\.environ\/OPENROUTER_API_KEY/);
+  assert.match(y, /os\.environ\/ANTHROPIC_API_KEY/);
+  assert.doesNotMatch(y, /XAI_API_KEY/, 'selecting the grok CLI must not imply an xAI API key');
+  assert.match(y, /ollama\/llama3\.2:3b/, 'the local lane still comes from the ollama selection');
+  const none = gatewayModels(sel('claude-code', 'codex', 'grok'), []);
+  assert.match(none, /No provider key/);
+  assert.deepEqual(envNames(sel('claude-code', 'codex'), []), ['GATEWAY_MASTER_KEY'], 'CLI subscriptions must add no key names');
   assert.doesNotMatch(y, /sk-|Bearer [A-Za-z0-9]/);
   assert.deepEqual(envNames(sel('ollama')), ['GATEWAY_MASTER_KEY']);
 });
@@ -70,25 +80,25 @@ test('lanes.json lists only selected cli-run lanes', () => {
 test('writing to a temp dir produces the plan; a second run keeps existing files unless force; dry writes nothing', () => {
   const dir = mkdtempSync(join(tmpdir(), 'orch-test-'));
   try {
-    const files = planFiles({ level: 2, selected: sel('claude-code', 'codex'), primary: byId['claude-code'] });
-    const first = writeFiles(files, { dir });
+    const files = planFiles({ level: 2, selected: sel('claude-code', 'codex'), primary: byId['claude-code'], dir, project: dir });
+    const first = writeFiles(files, { dir, project: dir });
     assert.equal(first.written.length, files.length);
     assert.equal(first.skipped.length, 0);
     for (const f of files) assert.ok(existsSync(join(dir, f.rel)), 'missing ' + f.rel);
     assert.ok(statSync(join(dir, 'bin', 'cli-run.mjs')).mode & 0o100, 'cli-run.mjs is executable');
 
     writeFileSync(join(dir, 'README.md'), 'mine');
-    const second = writeFiles(files, { dir });
+    const second = writeFiles(files, { dir, project: dir });
     assert.equal(second.written.length, 0);
     assert.equal(second.skipped.length, files.length);
     assert.equal(readFileSync(join(dir, 'README.md'), 'utf8'), 'mine', 'existing file was overwritten without --force');
 
-    const forced = writeFiles(files, { dir, force: true });
+    const forced = writeFiles(files, { dir, project: dir, force: true });
     assert.equal(forced.written.length, files.length);
     assert.notEqual(readFileSync(join(dir, 'README.md'), 'utf8'), 'mine');
 
     const dryDir = mkdtempSync(join(tmpdir(), 'orch-dry-'));
-    const dry = writeFiles(files, { dir: dryDir, dry: true });
+    const dry = writeFiles(files, { dir: dryDir, project: dryDir, dry: true });
     assert.equal(dry.written.length, files.length);
     assert.ok(!existsSync(join(dryDir, 'README.md')), '--dry wrote a file');
     rmSync(dryDir, { recursive: true, force: true });
@@ -288,4 +298,92 @@ test('obsidian-tc: optional, off by default, writes its doc and snippets only wh
   const doc = planFiles({ level: 1, selected: sel('codex'), primary: byId.codex, tools }).find((f) => f.rel === 'OBSIDIAN-TC.md').content;
   assert.match(doc, /\*\*Optional\.\*\*/);
   assert.match(doc, /What you need first/);
+});
+
+
+// ---- review round: the seven suggestions ----
+test('lane sections render from the selection: a claude-code-only install names no other lane', () => {
+  const only = planFiles({ level: 2, selected: sel('claude-code'), primary: byId['claude-code'], dir: '/tmp/x', project: '/tmp/x' });
+  for (const rel of ['ROUTING.md', 'RESEARCH_TRIAGE.md', 'DELEGATION_MATRIX.md']) {
+    const c = only.find((f) => f.rel === rel).content;
+    assert.doesNotMatch(c, /cli-run (codex|grok|hermes|agy|qwen)/, `${rel} recommends a lane that is not selected`);
+    assert.doesNotMatch(c, /cli-run\.mjs (codex|grok|hermes|agy|qwen)/, `${rel} recommends a lane that is not selected`);
+  }
+  assert.match(only.find((f) => f.rel === 'ROUTING.md').content, /none selected yet/);
+  const codexOnly = planFiles({ level: 2, selected: sel('claude-code', 'codex'), primary: byId['claude-code'], dir: '/tmp/x', project: '/tmp/x' });
+  const r = codexOnly.find((f) => f.rel === 'ROUTING.md').content;
+  assert.match(r, /cli-run codex --audit/);
+  assert.doesNotMatch(r, /cli-run (grok|hermes|agy|qwen)/);
+  const rt = codexOnly.find((f) => f.rel === 'RESEARCH_TRIAGE.md').content;
+  assert.match(rt, /cli-run\.mjs codex --audit/);
+  assert.doesNotMatch(rt, /cli-run\.mjs (grok|hermes|agy|qwen)/);
+  assert.match(rt, /1 research engine/);
+  const lv = laneVars(sel('claude-code', 'grok', 'qwen'));
+  assert.match(lv.LIVE_LANE, /cli-run grok/);
+  assert.match(lv.BULK_LANE, /cli-run qwen/);
+  assert.match(lv.ATTACK_LANE, /code-reviewer at deep tier/, 'no codex means no codex audit lane');
+});
+
+test('snippet paths and the agents note are computed from --dir and --project', () => {
+  const p = planFiles({ level: 1, selected: sel('claude-code'), primary: byId['claude-code'], dir: '/proj/tools/orch', project: '/proj' });
+  const snip = p.find((f) => f.rel === 'CLAUDE.snippet.md').content;
+  assert.match(snip, /`tools\/orch\/ORCHESTRATOR\.md`/);
+  assert.doesNotMatch(snip, /ai-orchestrator\//);
+  assert.match(snip, /\/proj\/\.claude\/agents/);
+  const same = planFiles({ level: 1, selected: sel('claude-code'), primary: byId['claude-code'], dir: '/proj', project: '/proj' }).find((f) => f.rel === 'CLAUDE.snippet.md').content;
+  assert.match(same, /`\.\/ORCHESTRATOR\.md`/);
+  const outside = planFiles({ level: 3, selected: sel('claude-code'), primary: byId['claude-code'], dir: '/elsewhere/orch', project: '/proj' });
+  assert.match(outside.find((f) => f.rel === 'CLAUDE.snippet.md').content, /`\/elsewhere\/orch\/ORCHESTRATOR\.md`/, 'a dir outside the project renders an absolute path');
+  assert.match(outside.find((f) => f.rel === 'vm/box-CLAUDE.md').content, /\/elsewhere\/orch\/ROUTING\.md/);
+  const readme = p.find((f) => f.rel === 'README.md').content;
+  assert.match(readme, /cli-run\.log\.jsonl/, 'uninstall must name the log outside the folder');
+  assert.match(readme, /\/proj\/\.claude\/agents/);
+});
+
+test('writeFiles honours two roots and rolls back across both', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'orch-two-'));
+  const project = mkdtempSync(join(tmpdir(), 'orch-proj-'));
+  try {
+    const files = planFiles({ level: 1, selected: sel('claude-code'), primary: byId['claude-code'], dir, project });
+    const r = writeFiles(files, { dir, project });
+    assert.ok(existsSync(join(project, '.claude', 'agents', 'deep-planner.md')), 'agents must land in the project root');
+    assert.ok(!existsSync(join(dir, '.claude')), 'agents must not also land in --dir');
+    assert.ok(r.written.some((w) => w.startsWith('[project] ')));
+    // a conflict in the project root must leave --dir untouched too
+    const dir2 = mkdtempSync(join(tmpdir(), 'orch-two2-'));
+    const project2 = mkdtempSync(join(tmpdir(), 'orch-proj2-'));
+    mkdirSync(join(project2, '.claude'));
+    writeFileSync(join(project2, '.claude', 'agents'), 'a file where the agents DIRECTORY must be');
+    assert.throws(() => writeFiles(planFiles({ level: 1, selected: sel('claude-code'), primary: byId['claude-code'], dir: dir2, project: project2 }), { dir: dir2, project: project2 }), /\[project\]/);
+    assert.ok(!existsSync(join(dir2, 'README.md')), 'a project-root conflict must not leave docs behind');
+    rmSync(dir2, { recursive: true, force: true });
+    rmSync(project2, { recursive: true, force: true });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+    rmSync(project, { recursive: true, force: true });
+  }
+});
+
+test('pins: images and npm installs are versioned, and the pin reaches the rendered box files', () => {
+  const p = planFiles({ level: 3, selected: sel('claude-code', 'codex', 'ollama'), primary: byId['claude-code'], dir: '/x', project: '/x', tools: resolveTools(['codecalc', 'obsidian-tc']).tools });
+  const compose = p.find((f) => f.rel === 'vm/docker-compose.yml').content;
+  assert.doesNotMatch(compose, /:latest|main-latest/);
+  assert.match(compose, /litellm:v\d+\.\d+\.\d+/);
+  assert.match(compose, /ollama\/ollama:\d+\.\d+\.\d+/);
+  const sh = p.find((f) => f.rel === 'vm/setup-vm.sh').content;
+  assert.match(sh, /@anthropic-ai\/claude-code@\d+\.\d+\.\d+/);
+  assert.match(sh, /@openai\/codex@\d+\.\d+\.\d+/);
+  assert.equal(spawnSync('bash', ['-n'], { input: sh, encoding: 'utf8' }).status, 0);
+  assert.match(p.find((f) => f.rel === 'CODECALC.md').content, /codecalc\[full\]==\d+\.\d+\.\d+/);
+  assert.match(p.find((f) => f.rel === 'OBSIDIAN-TC.md').content, /obsidian-tc@\d+\.\d+\.\d+/);
+});
+
+test('agy as primary renders concrete model tiers and a builder that may run commands', () => {
+  const p = planFiles({ level: 1, selected: sel('agy'), primary: byId.agy, dir: '/x', project: '/x' });
+  const orch = p.find((f) => f.rel === 'ORCHESTRATOR.md').content;
+  assert.doesNotMatch(orch, /your strongest model/);
+  assert.match(orch, /\| pro, highest effort/);
+  const builder = p.find((f) => f.rel === '.agents/agents/builder.md').content;
+  assert.match(builder, /commandExecutionPolicy: auto/);
+  assert.match(p.find((f) => f.rel === '.agents/agents/code-reviewer.md').content, /commandExecutionPolicy: off/);
 });

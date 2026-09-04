@@ -8,6 +8,10 @@ One OpenAI-compatible gateway (LiteLLM) fronts every metered provider. Nothing e
 
 Subscription CLIs keep their own sign-in state and stay off the gateway; they are already $0.
 
+## 1b. A subscription is not an API key
+
+The installer asks which metered API keys you hold separately from which CLIs you use. A Claude Code plan gives you `claude`; it does not give you an Anthropic API key, and the gateway only serves what a key unlocks. Gateway lanes and the variable names in `vm/ENVIRONMENT.md` are rendered from the keys, never from the CLI list.
+
 ## 2. Bind to aliases, pin the cheapest lane
 
 Each gateway lane is an alias (`bulk-cheap`, `standard`, `deep`, `long-context`, `live-fast`, `local-small`), so a vendor rename is a one-line repoint. Each job is pinned to the cheapest lane that does its work, with a token cap, and climbs the ladder (local → free → cheap → standard → deep) only on failure, low confidence, or an explicit "expensive to get wrong".

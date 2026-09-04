@@ -15,7 +15,7 @@ uvx 'codecalc[full]' setup --write    # merges the codecalc entry into your clie
 
 `setup` detects Claude Desktop, Claude Code, Cursor, VS Code and Zed (`--client=NAME` if several), runs two real canaries and ends in one verdict: `ready` / `degraded` / `not-ready`. It backs up the client config it touches. `uvx 'codecalc[full]' doctor` prints a config block with your absolute paths.
 
-`[full]` is the edition that actually runs everything documented (about 120 MB). Base `codecalc` is execution only; symbolic tools then return a `dependency_missing` error naming the extra, never a silent failure.
+Pinned form, if you want the version this installer was released with: `uvx 'codecalc[full]=={{CODECALC_PIN}}' setup --write`. `[full]` is the edition that actually runs everything documented (about 120 MB). Base `codecalc` is execution only; symbolic tools then return a `dependency_missing` error naming the extra, never a silent failure.
 
 ## Agents `setup` does not register (snippets in `mcp/`)
 

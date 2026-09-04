@@ -16,5 +16,6 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
       - run: npm test
-      - run: node bin/cli.js --yes --level 3 --ais claude-code,codex,agy,grok,hermes,qwen,ollama --primary claude-code --dir "${{ runner.temp }}/l3" --no-install
-      - run: node bin/cli.js --yes --level 1 --ais chatgpt-app --no-tools --dir "${{ runner.temp }}/l1" --no-install
+      - run: node bin/cli.js --yes --level 3 --ais claude-code,codex,agy,grok,hermes,qwen,ollama --primary claude-code --apis anthropic,openrouter --dir "${{ runner.temp }}/l3" --project "${{ runner.temp }}/p3" --no-install
+      - run: node "${{ runner.temp }}/l3/bin/cli-run.mjs" --doctor || true
+      - run: node bin/cli.js --yes --level 1 --ais chatgpt-app --no-tools --dir "${{ runner.temp }}/l1" --project "${{ runner.temp }}/p1" --no-install

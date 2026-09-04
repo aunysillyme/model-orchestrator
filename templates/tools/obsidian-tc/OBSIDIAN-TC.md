@@ -29,7 +29,7 @@ A durable, searchable, governed store that the protocols can call by name:
 ## Install
 
 ```bash
-npm install -g obsidian-tc
+npm install -g obsidian-tc@{{OBSIDIAN_TC_PIN}}   # the version this installer was released with; drop the pin for latest
 ollama pull nomic-embed-text
 obsidian-tc /path/to/your/vault          # zero-config: one vault named "main", local only
 obsidian-tc plugin install --vault /path/to/your/vault   # optional companion plugin, then enable it in Obsidian

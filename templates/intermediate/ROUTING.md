@@ -12,10 +12,11 @@ Rule of thumb: never spend a frontier token on a task a cheap tier finishes corr
 
 ## Decision tree (first match wins)
 
-0. **Is there a cheaper or better external lane for this?** Check `DELEGATION_MATRIX.md`. The free tier for rough drafts and divergent reads; the cheapest metered lane for structured bulk (never for anything citing a line, number or source); the live-data CLI for X and web reads; the second-coder CLI for adversarial audits. Call every one of them through `bin/cli-run.mjs`.
-1. **Bulk and mechanical?** → fast tier, or the free / cheapest-metered lane if the data may leave your machine. Many independent items each needing its own agent turn → a concurrent fan-out lane if you have one.
-2. **Needs live data?** → the live-data CLI first ($0), then standard tier with web tools.
-3. **Reviewing without changing?** → standard tier read-only. Security-critical → deep tier, or the second-coder CLI in audit (read-only) mode.
+0. **Is there a cheaper or better external lane for this?** Check `DELEGATION_MATRIX.md`. Your enabled lanes, every one called through `bin/cli-run.mjs`:
+{{LANE_STEP0}}
+1. **Bulk and mechanical?** → fast tier{{BULK_LANE}}. Many independent items each needing its own agent turn → a concurrent fan-out lane if you have one.
+2. **Needs live data?** → {{LIVE_LANE}} standard tier with web tools.
+3. **Reviewing without changing?** → standard tier read-only. Security-critical → {{ATTACK_LANE}}.
 4. **Ambiguous, strategic, expensive to get wrong?** → deep tier (deep-planner). Then hand the plan down.
 5. **Everything else that changes files** → the orchestrator builds it directly. Bounded sub-parts go to cheaper tiers; the main build is never handed off whole.
 
@@ -32,11 +33,11 @@ Every delegation carries `TASK_BUNDLE.md`. Its brief must restate every conventi
 | Stage | Binding |
 |---|---|
 | 0 Route | live probe for access; `cli-run` lanes are $0 and uncapped |
-| 1 Map | the orchestrator sweeps; `cli-run codex` for adversarial critique of the map, `cli-run grok` to verify current API behaviour instead of trusting recall, `cli-run hermes` for a divergent read |
+| 1 Map | the orchestrator sweeps{{STAGE1_LANES}} |
 | 2 Judge | deep tier, on the finished map: a named risk and a named flaw |
 | 3 Build | the orchestrator, against the installed dependency's source |
 | 4 Scan | secret + static + dependency scanners, diff-scoped, fail closed |
-| 5 Attack | security-shaped diff → `cli-run codex --audit` (read-only sandbox). Architecture-shaped → deep tier, build against plan. Never both |
+| 5 Attack | security-shaped diff → {{ATTACK_LANE}}. Architecture-shaped → deep tier, build against plan. Never both |
 | 5b Ship | rollback id recorded, explicit human yes |
 | 6 Verify | real test, negative test seen red, old identifier re-grepped to zero |
 | 7 Record | one end-to-end doc, tracker Done with evidence, plan doc deleted |
@@ -65,11 +66,8 @@ One writer per run; every other lane proposes. Search before writing, index in t
 | Task | Route |
 |---|---|
 | "Design the architecture for X" | deep-planner |
-| "What is trending on X today" | `cli-run grok` |
 | "Review this service for bugs" | code-reviewer |
-| "Audit this auth diff" | `cli-run codex --audit` |
-| "Classify these 200 items" | bulk-worker, or `cli-run qwen` if the items may leave the machine |
 | "Add an endpoint" | the orchestrator builds it |
 | "Why does this silently drop rows sometimes" | deep-planner (unknown cause), then build the fix directly |
 | "Summarize these 30 notes into one index" | bulk-worker |
-| "Research this topic properly" | three engines in parallel, see `RESEARCH_TRIAGE.md` |
+{{LANE_EXAMPLES}}

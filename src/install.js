@@ -1,8 +1,8 @@
 import { readFileSync, existsSync, mkdirSync, writeFileSync, chmodSync, readdirSync, statSync, lstatSync, unlinkSync, realpathSync } from 'node:fs';
-import { join, dirname, relative, resolve, sep, parse as parsePath } from 'node:path';
+import { join, dirname, relative, resolve, sep, parse as parsePath, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { render } from './render.js';
-import { AIS, LEVELS, TOOLS, byId, toolById } from './catalog.js';
+import { AIS, LEVELS, TOOLS, PROVIDERS, IMAGES, byId, toolById, providerById } from './catalog.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const TEMPLATES = join(HERE, '..', 'templates');
@@ -47,7 +47,7 @@ export function lanesTable(selected) {
 export function installTable(selected) {
   const rows = selected.map((a) => {
     const how = a.install.npm
-      ? '`npm install -g ' + a.install.npm + '`'
+      ? '`npm install -g ' + a.install.npm + (a.install.pin ? '@' + a.install.pin : '') + '` (pinned; check for newer)'
       : a.install.script
         ? 'vendor script: ' + a.install.script
         : a.install.url;
@@ -56,80 +56,28 @@ export function installTable(selected) {
   return table(rows, ['AI', 'Install', 'Sign in']);
 }
 
-export function gatewayModels(selected) {
-  // Only env var NAMES appear here. The installer never writes a value.
+// Gateway lanes come from the metered API keys the user said they HOLD, never
+// from which subscription CLIs they selected: those are different entitlements.
+// Only variable NAMES appear here. The installer never writes a value.
+export function gatewayModels(selected, apis = []) {
   const lines = [];
-  const has = (id) => selected.some((a) => a.id === id);
-  if (has('ollama')) {
-    lines.push(
-      '  - model_name: local-small',
-      '    litellm_params:',
-      '      model: ollama/llama3.2:3b',
-      '      api_base: http://ollama:11434'
-    );
+  if (selected.some((a) => a.id === 'ollama')) {
+    lines.push('  - model_name: local-small', '    litellm_params:', '      model: ollama/llama3.2:3b', '      api_base: http://ollama:11434');
   }
-  if (has('qwen')) {
-    lines.push(
-      '  - model_name: bulk-cheap',
-      '    litellm_params:',
-      '      model: openrouter/qwen/qwen3.7-flash',
-      '      api_key: os.environ/OPENROUTER_API_KEY'
-    );
+  for (const prov of apis) {
+    for (const [alias, model] of prov.lanes) {
+      lines.push(`  - model_name: ${alias}`, '    litellm_params:', `      model: ${model}`, `      api_key: os.environ/${prov.envName}`);
+    }
   }
-  if (has('grok')) {
-    lines.push(
-      '  - model_name: live-fast',
-      '    litellm_params:',
-      '      model: xai/grok-4.1-fast',
-      '      api_key: os.environ/XAI_API_KEY'
-    );
-  }
-  if (has('claude-code') || has('claude-app')) {
-    lines.push(
-      '  - model_name: standard',
-      '    litellm_params:',
-      '      model: anthropic/claude-sonnet-5',
-      '      api_key: os.environ/ANTHROPIC_API_KEY',
-      '  - model_name: deep',
-      '    litellm_params:',
-      '      model: anthropic/claude-opus-5',
-      '      api_key: os.environ/ANTHROPIC_API_KEY'
-    );
-  }
-  if (has('codex') || has('chatgpt-app')) {
-    lines.push(
-      '  - model_name: second-opinion',
-      '    litellm_params:',
-      '      model: openai/gpt-5.6-terra',
-      '      api_key: os.environ/OPENAI_API_KEY'
-    );
-  }
-  if (has('agy') || has('gemini-app')) {
-    lines.push(
-      '  - model_name: long-context',
-      '    litellm_params:',
-      '      model: gemini/gemini-3.1-pro',
-      '      api_key: os.environ/GEMINI_API_KEY'
-    );
-  }
-  if (!lines.length) {
-    lines.push('  # No provider selected. Add one lane per provider here; keys stay in the environment.');
-  }
+  if (!lines.length) lines.push('  # No provider key and no local runtime selected. Add one lane per provider here; keys stay in the environment.');
   return lines.join('\n');
 }
 
-export function envNames(selected) {
-  const names = new Set();
-  const has = (id) => selected.some((a) => a.id === id);
-  if (has('qwen')) names.add('OPENROUTER_API_KEY');
-  if (has('grok')) names.add('XAI_API_KEY');
-  if (has('claude-code') || has('claude-app')) names.add('ANTHROPIC_API_KEY');
-  if (has('codex') || has('chatgpt-app')) names.add('OPENAI_API_KEY');
-  if (has('agy') || has('gemini-app')) names.add('GEMINI_API_KEY');
+export function envNames(selected, apis = []) {
+  const names = new Set(apis.map((prov) => prov.envName));
   names.add('GATEWAY_MASTER_KEY');
   return [...names];
 }
-
 
 export function scriptInstallers(selected) {
   const lines = [];
@@ -140,19 +88,19 @@ export function scriptInstallers(selected) {
   return lines.length ? lines.join('\n') : 'say "  none"';
 }
 
-export function composeEnv(selected) {
+export function composeEnv(selected, apis = []) {
   // Pass-through of NAMES only. Compose substitutes each from the host environment.
-  return envNames(selected)
+  const rows = envNames(selected, apis)
     .filter((n) => n !== 'GATEWAY_MASTER_KEY')
-    .map((n) => `      - ${n}=\${${n}:-}`)
-    .join('\n');
+    .map((n) => `      - ${n}=\${${n}:-}`);
+  return rows.length ? rows.join('\n') : '      # no metered provider keys selected';
 }
 
 export function composeOllama(selected) {
   if (!selected.some((a) => a.id === 'ollama')) return '  # no local runtime selected';
   return [
     '  ollama:',
-    '    image: ollama/ollama:latest',
+    `    image: ${IMAGES.ollama}`,
     '    container_name: ollama',
     '    restart: unless-stopped',
     '    ports:',
@@ -193,16 +141,81 @@ export function auditLane(selected) {
   return AUDIT_LANE_ORDER.find((l) => enabled.has(l)) || null;
 }
 
+// Everything ROUTING.md and RESEARCH_TRIAGE.md say about lanes is rendered
+// from the lanes the user actually has. A generated manual must never
+// recommend a command its own lanes.json disables.
+export function laneVars(selected) {
+  const has = (id) => selected.some((a) => a.id === id);
+  const enabled = selected.filter((a) => a.cliRun).map((a) => a.id);
+  const cr = (id) => '`cli-run ' + id + '`';
+  const step0 = [];
+  if (has('hermes')) step0.push(`${cr('hermes')} (the free tier) for rough drafts and divergent reads`);
+  if (has('qwen')) step0.push(`${cr('qwen')} (the cheapest metered lane) for structured bulk, never for anything citing a line, number or source`);
+  if (has('grok')) step0.push(`${cr('grok')} for X and live web reads at $0`);
+  if (has('codex')) step0.push(`${cr('codex --audit')} for an adversarial read by a second model family`);
+  if (has('agy')) step0.push(`${cr('agy')} for research sweeps and concurrent fan-out`);
+  const stage1 = [];
+  if (has('codex')) stage1.push(`${cr('codex')} for adversarial critique of the map`);
+  if (has('grok')) stage1.push(`${cr('grok')} to verify current API behaviour instead of trusting recall`);
+  if (has('hermes')) stage1.push(`${cr('hermes')} for a divergent read`);
+  if (has('agy')) stage1.push(`${cr('agy')} for a wide sweep of prior art`);
+  const examples = [];
+  examples.push(has('grok') ? `| "What is trending on X today" | ${cr('grok')} |` : '| "What is trending on X today" | live-researcher (standard tier with web tools) |');
+  examples.push(has('codex') ? `| "Audit this auth diff" | ${cr('codex --audit')} |` : '| "Audit this auth diff" | code-reviewer at deep tier, in a fresh context told to attack |');
+  examples.push(has('qwen') ? `| "Classify these 200 items" | bulk-worker, or ${cr('qwen')} if the items may leave the machine |` : '| "Classify these 200 items" | bulk-worker |');
+  examples.push(enabled.length >= 2 ? '| "Research this topic properly" | several engines in parallel, see `RESEARCH_TRIAGE.md` |' : '| "Research this topic properly" | deep tier plans, standard tier sweeps, a fresh context attacks; see `RESEARCH_TRIAGE.md` |');
+  const roles = [];
+  if (has('agy')) roles.push('| Web sweep | `cli-run agy` | widest landscape pass |');
+  if (has('codex')) roles.push('| Adversarial read | `cli-run codex --audit` | attack the premise, hunt for what the others would get wrong |');
+  if (has('grok')) roles.push('| Live data | `cli-run grok` | dated primary sources, real-time reads |');
+  if (has('hermes')) roles.push('| Cheap divergent read | `cli-run hermes` | another opinion at $0 |');
+  if (has('qwen')) roles.push('| Structured extraction | `cli-run qwen` | pull the facts into a table; never trust its citations without a check |');
+  roles.push('| Triage + the durable record | the orchestrator | opens primary sources, marks every claim, writes the artifact |');
+  const run = [];
+  if (has('agy')) run.push('node bin/cli-run.mjs agy   --brief "$BRIEF" --timeout 900 > research/out-agy.md');
+  if (has('codex')) run.push('node bin/cli-run.mjs codex --audit --brief "$BRIEF" --timeout 900 > research/out-codex.md');
+  if (has('grok')) run.push('node bin/cli-run.mjs grok  --brief "$BRIEF" --timeout 900 > research/out-grok.md');
+  if (has('hermes')) run.push('node bin/cli-run.mjs hermes --brief "$BRIEF" --timeout 900 > research/out-hermes.md');
+  if (has('qwen')) run.push('node bin/cli-run.mjs qwen  --brief "$BRIEF" --timeout 900 > research/out-qwen.md');
+  return {
+    LANE_STEP0: step0.length ? step0.map((l) => '   - ' + l).join('\n') : '   - none selected yet: every task stays on your primary agent\'s tiers until you add a lane (re-run the installer with more AIs)',
+    STAGE1_LANES: stage1.length ? '; ' + stage1.join(', ') : '',
+    ATTACK_LANE: has('codex') ? '`cli-run codex --audit` (a second model family in a read-only sandbox)' : 'code-reviewer at deep tier, in a fresh context told to attack and allowed to answer CLEAN',
+    LIVE_LANE: has('grok') ? '`cli-run grok` first ($0), then' : '',
+    BULK_LANE: has('qwen') ? ', or `cli-run qwen` if the data may leave your machine' : has('hermes') ? ', or `cli-run hermes` for a free rough pass' : '',
+    LANE_EXAMPLES: examples.join('\n'),
+    RESEARCH_ROLES: roles.join('\n'),
+    RESEARCH_RUN: run.length ? run.join('\n') : '# no cli-run lane selected: run the sweep on your primary agent, then a fresh adversarial turn (protocols/deep-research.md, level 1 shape)',
+    RESEARCH_ENGINES: String(run.length)
+  };
+}
+
 function vars(opts) {
   const { level, selected, primary } = opts;
   const tools = opts.tools || [];
+  const apis = opts.apis || [];
   const lvl = LEVELS.find((l) => l.id === level);
   const lane = auditLane(selected);
   const codecalc = tools.some((t) => t.id === 'codecalc');
+  const dirAbs = resolve(opts.dir || 'ai-orchestrator');
+  const projectAbs = resolve(opts.project || process.cwd());
+  let rulesPath = relative(projectAbs, dirAbs).split(sep).join(posix.sep);
+  if (rulesPath === '') rulesPath = '.';
+  else if (rulesPath.startsWith('..')) rulesPath = dirAbs; // outside the project: absolute is the only honest path
+  const pinOf = (id) => (toolById[id] && toolById[id].pin) || 'latest';
   return {
-    INSTALL_DIR: resolve(opts.dir || 'ai-orchestrator'),
-    INSTALL_DIR_SH: shellQuote(resolve(opts.dir || 'ai-orchestrator')),
-    INSTALL_DIR_SYSTEMD: systemdEscape(resolve(opts.dir || 'ai-orchestrator')),
+    ...laneVars(selected),
+    RULES_PATH: rulesPath,
+    PROJECT_DIR: projectAbs,
+    AGENTS_DIR: primary && primary.agentsDir ? join(projectAbs, primary.agentsDir) : 'none (your primary agent has no subagent folder)',
+    LITELLM_IMAGE: IMAGES.litellm,
+    OLLAMA_IMAGE: IMAGES.ollama,
+    CODECALC_PIN: pinOf('codecalc'),
+    OBSIDIAN_TC_PIN: pinOf('obsidian-tc'),
+    APIS_LIST: apis.length ? apis.map((prov) => '- ' + prov.name + ' (`' + prov.envName + '`)').join('\n') : '- none: no metered provider key was selected, so the gateway serves only a local lane if you picked one',
+    INSTALL_DIR: dirAbs,
+    INSTALL_DIR_SH: shellQuote(dirAbs),
+    INSTALL_DIR_SYSTEMD: systemdEscape(dirAbs),
     AUDIT_LANE: lane || 'none',
     AUDIT_LANE_GUARD: lane
       ? ''
@@ -225,12 +238,12 @@ function vars(opts) {
     LANES_TABLE: lanesTable(selected),
     INSTALL_TABLE: installTable(selected),
     CLI_RUN_LANES: selected.filter((a) => a.cliRun).map((a) => a.id).join(', ') || 'none selected',
-    GATEWAY_MODELS: gatewayModels(selected),
-    ENV_NAMES: envNames(selected).map((n) => '- `' + n + '`').join('\n'),
-    ENV_EXPORTS: envNames(selected).map((n) => n + '=').join('\n'),
-    NPM_PACKAGES: selected.filter((a) => a.install.npm).map((a) => a.install.npm).join(' ') || '""',
+    GATEWAY_MODELS: gatewayModels(selected, apis),
+    ENV_NAMES: envNames(selected, apis).map((n) => '- `' + n + '`').join('\n'),
+    ENV_EXPORTS: envNames(selected, apis).map((n) => n + '=').join('\n'),
+    NPM_PACKAGES: selected.filter((a) => a.install.npm).map((a) => a.install.npm + (a.install.pin ? '@' + a.install.pin : '')).join(' ') || '""',
     SCRIPT_INSTALLERS: scriptInstallers(selected),
-    COMPOSE_ENV: composeEnv(selected),
+    COMPOSE_ENV: composeEnv(selected, apis),
     COMPOSE_OLLAMA: composeOllama(selected)
   };
 }
@@ -241,7 +254,8 @@ export function planFiles(opts) {
   const { level, selected, primary } = opts;
   const v = vars(opts);
   const files = [];
-  const add = (rel, content, mode) => files.push({ rel, content, mode: mode || 0o644 });
+  // root: 'dir' (the docs folder) or 'project' (where the agent actually looks for subagents)
+  const add = (rel, content, mode, root = 'dir') => files.push({ rel, content, mode: mode || 0o644, root });
   const addTemplates = (sub) => {
     for (const f of walk(join(TEMPLATES, sub))) {
       if (!installable(sub, f.rel)) continue;
@@ -257,13 +271,13 @@ export function planFiles(opts) {
   if (primary && primary.id === 'claude-code') {
     for (const f of walk(join(TEMPLATES, 'agents', 'claude-code'))) {
       if (!installable('agents', f.rel)) continue;
-      add(join('.claude', 'agents', f.rel), render(readFileSync(f.abs, 'utf8'), v));
+      add(join('.claude', 'agents', f.rel), render(readFileSync(f.abs, 'utf8'), v), 0o644, 'project');
     }
     add('CLAUDE.snippet.md', render(readFileSync(join(TEMPLATES, 'agents', 'snippets', 'claude-code.md'), 'utf8'), v));
   } else if (primary && primary.id === 'agy') {
     for (const f of walk(join(TEMPLATES, 'agents', 'agy'))) {
       if (!installable('agents', f.rel)) continue;
-      add(join('.agents', 'agents', f.rel), render(readFileSync(f.abs, 'utf8'), v));
+      add(join('.agents', 'agents', f.rel), render(readFileSync(f.abs, 'utf8'), v), 0o644, 'project');
     }
     add('GEMINI.snippet.md', render(readFileSync(join(TEMPLATES, 'agents', 'snippets', 'generic.md'), 'utf8'), v));
   } else if (primary && primary.rulesFile) {
@@ -365,35 +379,48 @@ export function preflight(files, dir) {
   return problems;
 }
 
+// Files carry a root: 'dir' for the docs folder, 'project' for the agent
+// definitions the user's CLI reads from the project root. Each root gets its
+// own preflight; one failure anywhere rolls back everything this run touched.
 export function writeFiles(files, opts) {
   const { dir, force = false, dry = false } = opts;
-  const problems = preflight(files, dir);
+  const roots = { dir, project: opts.project || dir };
+  const groups = { dir: files.filter((f) => (f.root || 'dir') === 'dir'), project: files.filter((f) => f.root === 'project') };
+  const problems = [];
+  for (const k of ['dir', 'project']) {
+    if (!groups[k].length) continue;
+    problems.push(...preflight(groups[k], roots[k]).map((p) => (k === 'project' ? `[project] ${p}` : p)));
+  }
   if (problems.length) {
     const e = new Error('refusing to write:\n  ' + problems.join('\n  '));
     e.code = 'PREFLIGHT';
     throw e;
   }
-  const { root } = realRoot(dir);
   const written = [];
   const skipped = [];
   const created = [];
   const originals = new Map(); // abs -> {content, mode} of files --force overwrote, restored on failure
   try {
-    for (const f of files) {
-      const abs = resolve(root, f.rel);
-      const exists = existsSync(abs);
-      if (exists && !force) {
-        skipped.push(f.rel);
-        continue;
+    for (const k of ['dir', 'project']) {
+      if (!groups[k].length) continue;
+      const { root } = realRoot(roots[k]);
+      for (const f of groups[k]) {
+        const abs = resolve(root, f.rel);
+        const exists = existsSync(abs);
+        const label = k === 'project' ? '[project] ' + f.rel : f.rel;
+        if (exists && !force) {
+          skipped.push(label);
+          continue;
+        }
+        if (!dry) {
+          if (exists) originals.set(abs, { content: readFileSync(abs), mode: statSync(abs).mode });
+          mkdirSync(dirname(abs), { recursive: true });
+          writeFileSync(abs, f.content, { flag: exists ? 'w' : 'wx' });
+          if (!exists) created.push(abs);
+          chmodSync(abs, f.mode);
+        }
+        written.push(label);
       }
-      if (!dry) {
-        if (exists) originals.set(abs, { content: readFileSync(abs), mode: statSync(abs).mode });
-        mkdirSync(dirname(abs), { recursive: true });
-        writeFileSync(abs, f.content, { flag: exists ? 'w' : 'wx' });
-        if (!exists) created.push(abs);
-        chmodSync(abs, f.mode);
-      }
-      written.push(f.rel);
     }
   } catch (e) {
     for (const abs of created.reverse()) {
@@ -426,6 +453,16 @@ export function resolveSelection(ids) {
   return { selected, unknown };
 }
 
+export function resolveApis(ids) {
+  const apis = [];
+  const unknown = [];
+  for (const id of ids) {
+    if (providerById[id]) apis.push(providerById[id]);
+    else unknown.push(id);
+  }
+  return { apis, unknown };
+}
+
 export function resolveTools(ids) {
   const tools = [];
   const unknown = [];
@@ -436,4 +473,4 @@ export function resolveTools(ids) {
   return { tools, unknown };
 }
 
-export { AIS, LEVELS, TOOLS };
+export { AIS, LEVELS, TOOLS, PROVIDERS, IMAGES };

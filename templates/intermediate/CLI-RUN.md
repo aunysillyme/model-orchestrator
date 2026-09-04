@@ -12,6 +12,15 @@ node bin/cli-run.mjs qwen [--model ID] [--safe-mode] "<prompt>"
 
 Put it on your PATH if you like: `ln -s "$PWD/bin/cli-run.mjs" ~/.local/bin/cli-run`.
 
+## First run: `--doctor`
+
+```bash
+node bin/cli-run.mjs --doctor          # which lanes are enabled and which binaries are on PATH; runs nothing
+node bin/cli-run.mjs --doctor --run    # also sends each enabled lane one tiny prompt and judges the reply (uses a little quota)
+```
+
+A lane that is enabled but not on PATH, or that answers with no deliverable, shows up here before it shows up mid-task.
+
 ## Why it exists
 
 Every agent CLI can exit 0 having produced nothing. The symptom (confident preamble, exit 0, no deliverable) is indistinguishable from a model failure, so it gets blamed on the model. Four wrong diagnoses in one week came from exactly that.

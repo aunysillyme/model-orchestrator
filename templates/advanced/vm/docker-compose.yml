@@ -3,7 +3,7 @@
 # machines need it; never publish it on 0.0.0.0.
 services:
   gateway:
-    image: ghcr.io/berriai/litellm:main-latest
+    image: {{LITELLM_IMAGE}}   # pinned on purpose; bump deliberately after reading the release notes
     container_name: gateway
     restart: unless-stopped
     ports:

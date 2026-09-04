@@ -40,6 +40,13 @@ Your primary agent reads `{{PRIMARY_RULES_FILE}}` from a project root. The insta
 2. **A gate you cannot fail is not a gate.** "Does it look good?" passes every time. "Name the single biggest risk and the flaw in the request" can come back empty, which is how you know it worked.
 3. **Exit 0 is not a deliverable.** Any tool, CLI or subagent can report success and hand back nothing. Check for the artifact, not the status line.
 
+## Where things went
+
+- This folder: `{{INSTALL_DIR}}`
+- Project root (where your agent reads rules and subagents): `{{PROJECT_DIR}}`
+- Subagent definitions: `{{AGENTS_DIR}}`
+- The rules path your snippets use: `{{RULES_PATH}}`
+
 ## Uninstall
 
-Delete this folder. The installer wrote nothing outside it.
+Delete this folder and the subagent folder named above. `cli-run` keeps one log at `~/.ai-orchestrator/cli-run.log.jsonl`; delete that too if you used it.

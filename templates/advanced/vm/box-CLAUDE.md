@@ -25,4 +25,4 @@ Scheduled jobs and other engines propose. One writer records. If you are not tha
 Names in the environment, values in the secrets manager. Never print one, never pass one in argv, never write one to disk here.
 
 ## Routing
-`ai-orchestrator/ROUTING.md` and `ai-orchestrator/DELEGATION_MATRIX.md` are the rules. `ai-orchestrator/protocols/` are the procedures.
+`{{RULES_PATH}}/ROUTING.md` and `{{RULES_PATH}}/DELEGATION_MATRIX.md` are the rules. `{{RULES_PATH}}/protocols/` are the procedures.
