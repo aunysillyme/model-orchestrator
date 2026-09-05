@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { judgeGrok, judgeCodex, judgeAgy, judgeHermes, judgeQwen, judge, buildArgv } from '../bin/cli-run.mjs';
+import { judgeGrok, judgeCodex, judgeAgy, judgeHermes, judgeQwen, judge, buildArgv, REASONS, checkContracts } from '../bin/cli-run.mjs';
 
 const ok = (r) => assert.ok(r.text, 'expected a deliverable, got: ' + r.detail);
 const no = (r, why) => assert.equal(r.text, null, 'expected refusal (' + why + '), got text: ' + JSON.stringify(r.text));
@@ -100,4 +100,47 @@ test('agy/codex judges find the terminal event in a large stream and refuse when
   no(judgeAgy(0, filler.repeat(10)), 'no terminal event in a large stream');
   // a single absurdly long line is skipped, not parsed
   no(judgeAgy(0, '{"event":"result","result":{"status":"SUCCESS","response":"' + 'y'.repeat(1_100_000) + '"}}\n'), 'oversized line skipped');
+});
+
+
+// ---- issue #4: every judge returns a FIXED reason code, and provider values stay out of it ----
+test('every judge failure carries a reason from the fixed set, and no provider marker reaches it', () => {
+  const cases = [
+    judgeGrok(0, JSON.stringify({ stopReason: 'MARKER_A', text: 'x' })),
+    judgeGrok(0, 'MARKER_B not json'),
+    judgeAgy(0, '{"event":"result","result":{"status":"MARKER_C","response":"x"}}'),
+    judgeQwen(0, JSON.stringify([{ type: 'MARKER_D' }])),
+    judgeQwen(0, JSON.stringify([{ type: 'result', subtype: 'MARKER_E', error: { message: 'MARKER_F' } }])),
+    judgeQwen(0, JSON.stringify([{ type: 'result', subtype: 'success', is_error: false, result: '[API Error: MARKER_G]', stats: { models: { m: { api: { totalErrors: 0 } } } } }])),
+    judgeQwen(0, JSON.stringify([{ type: 'result', subtype: 'success', is_error: false, result: 'ok', stats: { models: { MARKER_H: { api: { totalErrors: 3 } } } } }])),
+    judgeHermes(2, '', 'MARKER_I'),
+    judgeCodex(0, 'MARKER_J', '', '')
+  ];
+  for (const c of cases) {
+    assert.equal(c.text, null);
+    assert.ok(REASONS.has(c.reason), 'reason not in the fixed set: ' + c.reason);
+    assert.doesNotMatch(c.reason, /MARKER_/, 'a provider value reached the reason code');
+  }
+  assert.equal(judgeGrok(0, JSON.stringify({ stopReason: 'end_turn', text: 'hi' })).reason, 'ok');
+});
+
+// ---- issue #5: contracts ----
+test('checkContracts: refusal text fails --expect-json; a missing, empty or stale file fails --expect-file', async () => {
+  const { mkdtempSync, writeFileSync, utimesSync, rmSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const { tmpdir } = await import('node:os');
+  const d = mkdtempSync(join(tmpdir(), 'orch-contract-'));
+  const started = Date.now();
+  assert.match(checkContracts({ expectJson: true }, 'I cannot create that file.', started), /not valid JSON/);
+  assert.equal(checkContracts({ expectJson: true }, '{"a":1}', started), null);
+  assert.match(checkContracts({ expectFile: join(d, 'nope.md') }, 'x', started), /does not exist/);
+  writeFileSync(join(d, 'empty.md'), '');
+  assert.match(checkContracts({ expectFile: join(d, 'empty.md') }, 'x', started), /empty/);
+  writeFileSync(join(d, 'stale.md'), 'old');
+  const old = new Date(started - 60_000);
+  utimesSync(join(d, 'stale.md'), old, old);
+  assert.match(checkContracts({ expectFile: join(d, 'stale.md') }, 'x', started), /predates this run/);
+  writeFileSync(join(d, 'fresh.md'), 'new');
+  assert.equal(checkContracts({ expectFile: join(d, 'fresh.md') }, 'x', started), null);
+  rmSync(d, { recursive: true, force: true });
 });

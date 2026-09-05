@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, existsSync, rmSync, readFileSync, symlinkSync, writeFileSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, existsSync, rmSync, readFileSync, symlinkSync, writeFileSync, mkdirSync, utimesSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -218,7 +219,7 @@ test('cli-run: provider message text reaches stderr but never the durable log', 
   assert.match(r.stderr, /PRIVATE_MARKER_FROM_PROVIDER/, 'the operator should still see the provider message on stderr');
   const log = readFileSync(join(d, '.ai-orchestrator', 'cli-run.log.jsonl'), 'utf8');
   assert.doesNotMatch(log, /PRIVATE_MARKER_FROM_PROVIDER/);
-  assert.match(log, /"reason":"subtype=\\"error\\""/);
+  assert.match(log, /"reason":"bad_subtype"/);
   rmSync(d, { recursive: true, force: true });
 });
 
@@ -272,4 +273,135 @@ test('--list names the metered providers separately from the AIs', () => {
   const l = run(['--list']);
   assert.match(l.stdout, /metered API providers/);
   assert.match(l.stdout, /anthropic\s+Anthropic API/);
+});
+
+
+// ---- audit issues #1, #4, #5, #9 on the real binary with stub lanes ----
+function stubLane(d, lane, body) {
+  const bin = join(d, 'bin');
+  if (!existsSync(bin)) mkdirSync(bin);
+  writeFileSync(join(bin, lane), '#!/bin/sh\n' + body + '\n', { mode: 0o755 });
+  return bin;
+}
+const withNode = (bin) => `${bin}:${dirname(process.execPath)}:/usr/bin:/bin`;
+const runLane = (args, env) => spawnSync(process.execPath, [CLI_RUN, ...args], { encoding: 'utf8', env });
+
+test('#1: a background child of the lane does not survive the timeout', async () => {
+  const d = mkdtempSync(join(tmpdir(), 'orch-pg-'));
+  const marker = join(d, 'child-survived');
+  const bin = stubLane(d, 'grok', `(/bin/sleep 0.8; echo survived > "${marker}") >/dev/null 2>&1 &\n/bin/sleep 5`);
+  const r = runLane(['grok', 't', '--timeout', '0.2', '--quiet'], { PATH: withNode(bin), HOME: d });
+  assert.equal(r.status, 12, r.stderr);
+  await new Promise((res) => setTimeout(res, 1200));
+  assert.ok(!existsSync(marker), 'the detached grandchild kept working after the wrapper reported 12');
+  rmSync(d, { recursive: true, force: true });
+});
+
+test('#1: a grandchild holding the stdout pipe cannot keep the wrapper from returning 12 promptly', () => {
+  const d = mkdtempSync(join(tmpdir(), 'orch-pipe-'));
+  const bin = stubLane(d, 'grok', '/bin/sleep 5 &\n/bin/sleep 5'); // the backgrounded sleep inherits stdout
+  const t0 = Date.now();
+  const r = runLane(['grok', 't', '--timeout', '0.3', '--quiet'], { PATH: withNode(bin), HOME: d });
+  assert.equal(r.status, 12, r.stderr);
+  assert.ok(Date.now() - t0 < 3000, 'wrapper waited on an inherited pipe');
+  rmSync(d, { recursive: true, force: true });
+});
+
+test('#4: a marker in stopReason, status, subtype or event type never reaches the durable log', () => {
+  const d = mkdtempSync(join(tmpdir(), 'orch-leak-'));
+  const bin = stubLane(d, 'grok', `echo '{"stopReason":"PRIVATE_MARKER_123","text":""}'`);
+  stubLane(d, 'agy', `echo '{"event":"result","result":{"status":"PRIVATE_MARKER_456","response":"x"}}'`);
+  stubLane(d, 'qwen', `echo '[{"type":"result","subtype":"PRIVATE_MARKER_789","error":{"message":"PRIVATE_MARKER_000"}}]'`);
+  for (const lane of ['grok', 'agy', 'qwen']) {
+    const r = runLane([lane, 'public test', '--quiet'], { PATH: withNode(bin), HOME: d });
+    assert.equal(r.status, 10, lane + ': ' + r.stderr);
+  }
+  const log = readFileSync(join(d, '.ai-orchestrator', 'cli-run.log.jsonl'), 'utf8');
+  assert.doesNotMatch(log, /PRIVATE_MARKER/);
+  const reasons = log.trim().split('\n').map((l) => JSON.parse(l).reason);
+  assert.deepEqual(reasons, ['bad_stop_reason', 'bad_status', 'bad_subtype']);
+  rmSync(d, { recursive: true, force: true });
+});
+
+test('#9: a vendor exit 7 with an auth error keeps its code, shows the stderr head on the terminal, and is not logged ok', () => {
+  const d = mkdtempSync(join(tmpdir(), 'orch-auth-'));
+  const bin = stubLane(d, 'grok', 'echo "authentication failed: token expired" >&2\nexit 7');
+  const r = runLane(['grok', 't'], { PATH: withNode(bin), HOME: d });
+  assert.equal(r.status, 7, 'vendor code must pass through');
+  assert.match(r.stderr, /exit_nonzero rc=7/);
+  assert.match(r.stderr, /authentication failed/);
+  const quiet = runLane(['grok', 't', '--quiet'], { PATH: withNode(bin), HOME: d });
+  assert.equal(quiet.stderr, '', '--quiet must print nothing');
+  const log = readFileSync(join(d, '.ai-orchestrator', 'cli-run.log.jsonl'), 'utf8');
+  assert.doesNotMatch(log, /authentication/);
+  assert.match(log, /"verdict":"exit_nonzero"/);
+  // nonzero exit WITH parseable text is still exit_nonzero, never ok
+  const bin2 = stubLane(d, 'grok', `echo '{"stopReason":"end_turn","text":"looks fine"}'\nexit 3`);
+  const r2 = runLane(['grok', 't', '--quiet'], { PATH: withNode(bin2), HOME: d });
+  assert.equal(r2.status, 3);
+  assert.equal(r2.stdout, '', 'text from a failed run is not printed as a deliverable');
+  rmSync(d, { recursive: true, force: true });
+});
+
+test('#5: a refusal is exit 0 by default, exit 10 under --expect-file, and a fresh file satisfies it', () => {
+  const d = mkdtempSync(join(tmpdir(), 'orch-expect-'));
+  const bin = stubLane(d, 'grok', `echo '{"stopReason":"end_turn","text":"I cannot create that file."}'`);
+  const target = join(d, 'required-output.txt');
+  assert.equal(runLane(['grok', 'Create the file', '--quiet'], { PATH: withNode(bin), HOME: d }).status, 0, 'structural acceptance is the default');
+  const unmet = runLane(['grok', 'Create the file', '--expect-file', target], { PATH: withNode(bin), HOME: d });
+  assert.equal(unmet.status, 10);
+  assert.match(unmet.stderr, /does not exist after the run/);
+  const writer = stubLane(d, 'grok', `echo done > "${target}"\necho '{"stopReason":"end_turn","text":"wrote it"}'`);
+  assert.equal(runLane(['grok', 'Create the file', '--expect-file', target, '--quiet'], { PATH: withNode(writer), HOME: d }).status, 0);
+  // the same file from an EARLIER run is stale: put the refusal stub back (it does not touch the file)
+  stubLane(d, 'grok', `echo '{"stopReason":"end_turn","text":"I cannot create that file."}'`);
+  const utimes = new Date(Date.now() - 120_000);
+  utimesSync(target, utimes, utimes);
+  const stale = runLane(['grok', 'Create the file', '--expect-file', target], { PATH: withNode(bin), HOME: d });
+  assert.equal(stale.status, 10);
+  assert.match(stale.stderr, /predates this run/);
+  assert.equal(runLane(['grok', 't', '--expect-json'], { PATH: withNode(bin), HOME: d }).status, 10);
+  const log = readFileSync(join(d, '.ai-orchestrator', 'cli-run.log.jsonl'), 'utf8');
+  assert.match(log, /"reason":"contract_unmet"/);
+  rmSync(d, { recursive: true, force: true });
+});
+
+
+test('#6: rerunning with an added lane applies it to lanes.json and MANIFEST.json, keeps edited docs, and reports requested vs applied', () => {
+  const d = mkdtempSync(join(tmpdir(), 'orch-reconf-'));
+  const dir = join(d, 'install');
+  const proj = join(d, 'proj');
+  const first = run(['--yes', '--level', '2', '--ais', 'codex', '--primary', 'codex', '--no-tools', '--no-install', '--dir', dir, '--project', proj]);
+  assert.equal(first.status, 0, first.stderr);
+  writeFileSync(join(dir, 'ROUTING.md'), 'my edited routing');
+  const second = run(['--yes', '--level', '2', '--ais', 'codex,grok', '--primary', 'codex', '--no-tools', '--no-install', '--dir', dir, '--project', proj]);
+  assert.equal(second.status, 0, second.stderr);
+  assert.deepEqual(JSON.parse(readFileSync(join(dir, 'bin', 'lanes.json'), 'utf8')).enabled, ['codex', 'grok']);
+  assert.deepEqual(JSON.parse(readFileSync(join(dir, 'MANIFEST.json'), 'utf8')).ais, ['codex', 'grok']);
+  assert.equal(readFileSync(join(dir, 'ROUTING.md'), 'utf8'), 'my edited routing', 'an edited doc must survive a reconfiguration');
+  assert.match(second.stdout, /Reconfiguration: a previous run was found/);
+  assert.match(second.stdout, /changed: ais/);
+  assert.match(second.stdout, /applied: .*bin\/lanes\.json/);
+  assert.match(second.stdout, /kept: .*NOT regenerated/);
+  const same = run(['--yes', '--level', '2', '--ais', 'codex,grok', '--primary', 'codex', '--no-tools', '--no-install', '--dir', dir, '--project', proj]);
+  assert.match(same.stdout, /identical selection/);
+  rmSync(d, { recursive: true, force: true });
+});
+
+test('#8: the interactive install spawns npm with the same pinned spec the table prints', () => {
+  const d = mkdtempSync(join(tmpdir(), 'orch-pin-'));
+  const bin = join(d, 'bin');
+  mkdirSync(bin);
+  const captured = join(d, 'npm-argv.txt');
+  writeFileSync(join(bin, 'npm'), `#!/bin/sh\necho "$@" > "${captured}"\nexit 0`, { mode: 0o755 });
+  // codex is NOT on this PATH, so the installer offers to install it; answer y.
+  const r = run(['--level', '1', '--ais', 'codex', '--primary', 'codex', '--no-tools', '--dir', join(d, 'out'), '--project', join(d, 'proj')], {
+    input: 'y\ny\n',
+    env: { PATH: `${bin}:${dirname(process.execPath)}:/usr/bin:/bin`, HOME: d }
+  });
+  assert.equal(r.status, 0, r.stderr + r.stdout);
+  const argv = readFileSync(captured, 'utf8').trim();
+  assert.match(argv, /^install -g @openai\/codex@\d+\.\d+\.\d+$/, 'npm was spawned without the catalog pin: ' + argv);
+  assert.match(r.stdout, /run `npm install -g @openai\/codex@\d+\.\d+\.\d+` now/);
+  rmSync(d, { recursive: true, force: true });
 });

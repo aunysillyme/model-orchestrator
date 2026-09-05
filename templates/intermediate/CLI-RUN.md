@@ -1,6 +1,17 @@
-# CLI-RUN.md: exit 0 means the deliverable exists
+# CLI-RUN.md: exit 0 means a structurally accepted, non-empty response
 
-`bin/cli-run.mjs` is one entrypoint for the agent CLI lanes. It builds the right invocation per lane, reads that lane's native terminal event, and exits non-zero unless a real deliverable came back.
+`bin/cli-run.mjs` is one entrypoint for the agent CLI lanes. It builds the right invocation per lane, reads that lane's native terminal event, and exits non-zero unless a structurally accepted, non-empty response came back.
+
+## The guarantee, exactly
+
+Exit 0 means: the lane's native terminal event says it finished, the response is non-empty, and the lane-specific error checks passed. **It does not mean the task was done.** A refusal that parses cleanly is exit 0. When your task has a real contract, state it:
+
+```bash
+node bin/cli-run.mjs codex "Write the report to out/report.md" --expect-file out/report.md   # must exist, be non-empty, and be written during this run
+node bin/cli-run.mjs grok  "Return the table as JSON" --expect-json                          # the response must parse as JSON
+```
+
+An unmet contract is exit 10 with reason `contract_unmet`. A stale file from an earlier run does not satisfy `--expect-file`. Text-only callers need nothing new: without a contract flag the behaviour is the structural check above.
 
 Enabled lanes (edit `bin/lanes.json`): {{CLI_RUN_LANES}}
 
@@ -43,13 +54,13 @@ qwen is the lane whose own success flags lie: an upstream 400 comes back as exit
 
 | Code | Meaning |
 |---|---|
-| 0 | deliverable present |
-| 10 | ran, produced no deliverable (the class this exists to catch) |
+| 0 | structurally accepted non-empty response, every `--expect-*` contract met |
+| 10 | ran and produced no deliverable, or a contract was unmet, or the lane was killed by a signal, or output overran the 16 MiB buffer |
 | 11 | no output at all |
-| 12 | timed out |
-| 13 | lane unavailable (binary missing, or disabled in `lanes.json`) |
+| 12 | timed out; the lane and every descendant in its process group were killed |
+| 13 | lane unavailable: binary missing, disabled in `lanes.json`, or `lanes.json` malformed |
 | 2 | usage error in cli-run itself |
-| other | passed through from the CLI |
+| N | the lane exited N != 0: passed through unchanged, verdict `exit_nonzero`, even when parseable text came back. The bounded head of the lane's stderr is shown on your terminal so an auth failure reads as one |
 
 ## Permissions are a separate layer
 
@@ -57,7 +68,7 @@ qwen is the lane whose own success flags lie: an upstream 400 comes back as exit
 
 ## Log
 
-`~/.ai-orchestrator/cli-run.log.jsonl`, one line per run: lane, verdict, rc, signal, seconds, raw bytes, deliverable bytes, the structural reason (`stopReason=cancelled`, `no terminal result event`, `success flag lied, result is an API error`), a 12-hex sha256 prefix of the prompt and its length. Never the prompt text and never a provider's message text: both can carry material that should not sit in a durable file. The full detail goes to stderr, where you are. "This lane is flaky" becomes a query instead of an argument.
+`~/.ai-orchestrator/cli-run.log.jsonl`, one line per run: lane, verdict, rc, the lane's own exit code, signal, seconds, raw bytes, deliverable bytes, a 12-hex sha256 prefix of the prompt and its length, and `reason`: one of a fixed set of codes (`ok`, `not_json`, `bad_stop_reason`, `empty_text`, `no_terminal_event`, `bad_status`, `api_error_in_result`, `total_errors`, `contract_unmet`, `exit_nonzero`, `timeout`, `killed`, `disabled`, `lanes_json_malformed`, ...). Never the prompt text, never a provider-supplied value, never free text: a value the log does not recognise is written as `unknown`. The human-readable detail, which may quote the provider, goes to your terminal only (and nowhere with `--quiet`). "This lane is flaky" becomes a query instead of an argument.
 
 ## The prompt travels in argv
 
@@ -70,6 +81,10 @@ Absent: every lane enabled. Present but malformed or unreadable: every lane refu
 ## A killed lane is not a deliverable
 
 A lane that dies by signal has no honest exit status. Whatever it printed first is discarded; the run reports `killed` with exit 10.
+
+## Timeouts kill the whole process group
+
+The lane is started detached, as the leader of its own process group. On timeout, or when output overruns the buffer, the group is killed, so a tool the agent shelled out to cannot keep writing after the wrapper reported 12. A child that calls `setsid()` itself escapes this boundary; nothing user-space can promise more without a cgroup, which is what the level 3 systemd unit adds.
 
 ## Lane choice is not automated
 
