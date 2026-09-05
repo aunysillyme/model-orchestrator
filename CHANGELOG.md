@@ -4,9 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- Published to npm as `model-orchestrator` (0.1.4 was the first publish, by hand). `npx model-orchestrator` is now the install line; the GitHub route stays for pinned or unreleased runs.
+- `.github/workflows/release.yml`: on a `v*` tag, checks the tag against `package.json`, runs the tests, and publishes with provenance through npm trusted publishing (no stored token). Needs the one-time trusted-publisher setup on npmjs.com described in `RELEASING.md`.
+
 ### Changed
 
-- `RELEASING.md`: the first npm publish is manual and must not pass `--provenance` (npm only generates provenance inside a supported CI runner); the workflow route comes after the package exists.
+- `RELEASING.md`: the first npm publish is manual and must not pass `--provenance` (npm only generates provenance inside a supported CI runner); later releases go through the workflow.
 
 ## [0.1.4] - 2026-09-05
 

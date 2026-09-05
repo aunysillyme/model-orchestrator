@@ -1,0 +1,40 @@
+# Publishes the package to npm when a version tag is pushed, with provenance, through npm
+# trusted publishing (OIDC): no npm token is stored anywhere. Requires, once, on npmjs.com:
+# package settings -> Trusted publisher -> GitHub Actions, owner aunysillyme, repository
+# model-orchestrator, workflow release.yml, environment left empty.
+# What it proves: the tag, package.json and the tests agree before anything is published.
+# What it does NOT do: create the GitHub release page (RELEASING.md step 5) or bump versions.
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+  id-token: write   # the OIDC token npm exchanges for a short-lived publish credential
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - name: npm 11.5.1 or newer (trusted publishing needs it)
+        run: |
+          npm install -g npm@latest
+          npm --version
+      - name: tag and package.json must name the same version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg="$(node -p "require('./package.json').version")"
+          test "$tag" = "$pkg" || { echo "tag v$tag but package.json is $pkg"; exit 1; }
+      - run: npm test
+      - run: npm publish --provenance --access public

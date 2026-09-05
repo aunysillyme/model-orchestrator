@@ -7,18 +7,12 @@ Maintainer notes. A release is one file edit and four commands until release aut
 3. `npm test` green locally; CI green on the last push to `main`.
 4. `git tag -a vX.Y.Z -m "X.Y.Z: <one line>"` and `git push origin main --tags`.
 5. `gh release create vX.Y.Z --notes-from-tag` or paste the changelog section as the notes.
-6. Update the pinned `npx github:...#vX.Y.Z` lines in `README.md`; they are the install route until the package is on npm.
+6. Update the `npx github:...#vX.Y.Z` example in `README.md` (the primary install line is `npx model-orchestrator` and needs no edit).
 
 ## npm
 
-Not published at the time of writing. The first publish is manual from the maintainer's machine:
+Published since 0.1.4 (first publish manual: `npm login`, `npm whoami`, `npm publish --access public`; `--provenance` cannot be used outside a CI runner).
 
-```bash
-npm login          # opens the browser; finish there, come back
-npm whoami         # prints your npm user name when you are in
-npm publish --access public
-```
+From the next tag on, `.github/workflows/release.yml` publishes: pushing `vX.Y.Z` runs the tests, checks the tag against `package.json`, and runs `npm publish --provenance --access public` through npm trusted publishing (OIDC, no stored token). One-time setup on npmjs.com, package settings, Trusted publisher: GitHub Actions, owner `aunysillyme`, repository `model-orchestrator`, workflow `release.yml`, environment empty. Until that is configured the workflow's publish step fails and the tag can be published by hand with the manual command above.
 
-`prepublishOnly` runs the test suite first. Do not pass `--provenance` locally: npm generates provenance only inside a supported CI runner (GitHub Actions, GitLab) and refuses it elsewhere. Once the package exists, later releases can move to a workflow with `id-token: write` and a trusted-publishing configuration on the package, and that workflow publishes with `npm publish --provenance --access public` so no long-lived token exists.
-
-The `files` allow-list in `package.json` is what ships; check `npm pack --dry-run` before the first publish. Versions stay on `0.y.z` until the installer's flags and `cli-run`'s exit codes stop changing (SemVer clause 4).
+The `files` allow-list in `package.json` is what ships; check `npm pack --dry-run` before a publish. Versions stay on `0.y.z` until the installer's flags and `cli-run`'s exit codes stop changing (SemVer clause 4).

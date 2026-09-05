@@ -1,16 +1,16 @@
 # model-orchestrator
 
-[![test](https://github.com/aunysillyme/model-orchestrator/actions/workflows/test.yml/badge.svg)](https://github.com/aunysillyme/model-orchestrator/actions/workflows/test.yml) [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![node >=18](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)](package.json)
+[![npm](https://img.shields.io/npm/v/model-orchestrator.svg)](https://www.npmjs.com/package/model-orchestrator) [![test](https://github.com/aunysillyme/model-orchestrator/actions/workflows/test.yml/badge.svg)](https://github.com/aunysillyme/model-orchestrator/actions/workflows/test.yml) [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![node >=18](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)](package.json)
 
 **A model orchestrator you can `npm run`.** Route every task to the cheapest AI that does it well, whether you have one chat app, five agent CLIs, or a virtual machine running them unattended. One installer asks what you have access to and writes only what fits.
 
 Built from a working system, not a diagram: the routing rules, the protocols and the lane runner here run in production, generalized so they transfer to any stack.
 
 ```bash
-npx github:aunysillyme/model-orchestrator#v0.1.4
+npx model-orchestrator
 ```
 
-That runs the reviewed release straight from GitHub (drop `#v0.1.4` for the current main). `npx model-orchestrator` will work once the package is on the npm registry; until then it is not a command you can run.
+That runs the latest published release from the npm registry. To run a specific release or the current main straight from GitHub: `npx github:aunysillyme/model-orchestrator#v0.1.4` (drop `#v0.1.4` for main).
 
 The installer asks a few things, then writes a folder:
 
@@ -43,7 +43,7 @@ Read the thinking behind each level in [docs/](docs/README.md): [Part 1](docs/pa
 | `ollama` | local models: the privacy lane | 2+ |
 | `claude-app`, `chatgpt-app`, `gemini-app` | chat apps with no CLI: level 1 via a paste block | 1 |
 
-`npx github:aunysillyme/model-orchestrator#v0.1.4 --list` prints the catalog with install and sign-in notes. Details: [docs/catalog.md](docs/catalog.md).
+`npx model-orchestrator --list` prints the catalog with install and sign-in notes. Details: [docs/catalog.md](docs/catalog.md).
 
 ## Companion tools (both optional)
 
@@ -59,10 +59,10 @@ Whether or not you select them, every level carries the two rules they serve: `p
 ## Non-interactive
 
 ```bash
-npx github:aunysillyme/model-orchestrator#v0.1.4 --yes --level 2 --ais claude-code,codex,grok --primary claude-code --dir ./ai-orchestrator
-npx github:aunysillyme/model-orchestrator#v0.1.4 --yes --level 3 --ais claude-code,codex,agy,grok,hermes,qwen,ollama --apis anthropic,openrouter --dry   # print the plan, write nothing
-npx github:aunysillyme/model-orchestrator#v0.1.4 --yes --level 2 --ais claude-code,codex --project ~/my-app --dir ~/my-app/ai-orchestrator  # subagents into ~/my-app/.claude/agents
-npx github:aunysillyme/model-orchestrator#v0.1.4 --yes --level 2 --ais claude-code,codex,grok --primary claude-code --update-docs   # added a lane: regenerate the docs you never edited
+npx model-orchestrator --yes --level 2 --ais claude-code,codex,grok --primary claude-code --dir ./ai-orchestrator
+npx model-orchestrator --yes --level 3 --ais claude-code,codex,agy,grok,hermes,qwen,ollama --apis anthropic,openrouter --dry   # print the plan, write nothing
+npx model-orchestrator --yes --level 2 --ais claude-code,codex --project ~/my-app --dir ~/my-app/ai-orchestrator  # subagents into ~/my-app/.claude/agents
+npx model-orchestrator --yes --level 2 --ais claude-code,codex,grok --primary claude-code --update-docs   # added a lane: regenerate the docs you never edited
 ```
 
 ## What gets written (level 3, everything)
