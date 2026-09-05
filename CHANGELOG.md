@@ -1,29 +1,65 @@
 # Changelog
 
-## 0.1.2
+All notable changes to this project are documented here. The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/) and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html); on `0.y.z` anything may change.
 
-Follow-up audit of 0.1.1 (issues #12 to #15):
+## [Unreleased]
 
-- `cli-run`: SIGINT/SIGTERM to the wrapper kill the lane's process group before exiting 130/143 (#13); stdout and stderr go through streaming UTF-8 decoders and limits are counted in bytes, so a multibyte character split across chunks survives (#14); `--expect-file` snapshots the target before the run and requires it to be new or changed, so a pre-existing artifact fails however recent (#15).
-- Installer: three file classes. `MANIFEST.json` now records the generator version and a hash per generated file; runtime files (`cli-run.mjs`, the audit job, unit and timer, compose, gateway config, setup script) are upgraded when the installed copy is provably untouched, kept and reported as a conflict when edited, kept and reported as unverifiable when no manifest exists, with `--upgrade-runtime` to replace runtime files only (#12). README discloses the machine-owned and runtime exceptions to "never overwrite".
+### Added
 
-## 0.1.1
+- Community files: `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1), `MAINTAINERS.md`, `RELEASING.md`, `AGENTS.md` and `CLAUDE.md` for contributors' agents, yml issue forms with blank issues disabled, a pull request template, `CODEOWNERS`, `.editorconfig`, Dependabot for the workflow actions.
+- `test/prose.test.js`: fails on an em dash anywhere in the repo's text files, so the house rule is checked rather than requested.
+- README badges (CI, licence, Node) and a one-line privacy statement.
 
-Audit follow-up (issues #1 to #10 on the repo):
+### Changed
 
-- `cli-run`: lanes run in their own process group and the group is killed on timeout or buffer overrun (#1); the durable log stores only a fixed reason code (#4); nonzero vendor exits pass through with an `exit_nonzero` verdict and a bounded stderr head on the terminal (#9); the guarantee is stated exactly and `--expect-file` / `--expect-json` add opt-in contracts (#5).
-- Weekly audit: `--audit` for codex and an explicit boundary note for other lanes (#2); temp-and-rename so a failed rerun never truncates the last good report, failed output kept beside it (#3); every probe under a watchdog, `TimeoutStartSec=900`, `UNVERIFIED` lines for timed-out probes (#10).
-- Installer: `MANIFEST.json` and `bin/lanes.json` are machine-owned and rewritten on every run, with a requested-vs-applied report on reconfiguration (#6); one `npmSpec` helper so the interactive install, the printed command, the table and the box script use the same pinned version (#8).
-- README leads with the GitHub route pinned to the release until the npm publish, and states which properties are enforced, delegated or instructions (#7, #11). CI installs the packed tarball into a clean consumer and runs it.
+- CI: actions pinned to full commit SHAs with a version comment, `permissions: contents: read`, one run per branch with `cancel-in-progress`, `fail-fast: false` so one leg's failure does not hide another's result.
+- `SECURITY.md` states a response window (7 days to acknowledge, 30 to fix or decline), that only the latest release receives fixes, and the scope.
+- This changelog reshaped to Keep a Changelog 2.0.0 with dated releases and compare links.
 
-## 0.1.0
+## [0.1.2] - 2026-09-05
+
+Follow-up audit of 0.1.1 (issues #12 to #15).
+
+### Fixed
+
+- `cli-run`: SIGINT/SIGTERM to the wrapper kill the lane's process group before exiting 130/143, with the handlers registered before the spawn so a slow runner cannot signal between the two (#13).
+- `cli-run`: stdout and stderr go through streaming UTF-8 decoders and limits are counted in bytes, so a multibyte character split across chunks survives (#14).
+- `cli-run`: `--expect-file` snapshots the target before the run and requires it to be new or changed, so a pre-existing artifact fails however recent (#15).
+
+### Changed
+
+- Installer: three file classes. `MANIFEST.json` records the generator version and a hash per generated file; runtime files (`cli-run.mjs`, the audit job, unit and timer, compose, gateway config, setup script) are upgraded when the installed copy is provably untouched, kept and reported as a conflict when edited, kept and reported as unverifiable when no manifest exists; `--upgrade-runtime` replaces runtime files only (#12). The README discloses the machine-owned and runtime exceptions to "never overwrite".
+
+## [0.1.1] - 2026-09-05
+
+Audit follow-up (issues #1 to #10 on the repo).
+
+### Fixed
+
+- `cli-run`: lanes run in their own process group and the group is killed on timeout or buffer overrun (#1); the durable log stores only a fixed reason code (#4); nonzero vendor exits pass through with an `exit_nonzero` verdict and a bounded stderr head on the terminal (#9).
+- Weekly audit: temp-and-rename so a failed rerun never truncates the last good report, failed output kept beside it (#3); every probe under a watchdog, `TimeoutStartSec=900`, `UNVERIFIED` lines for timed-out probes (#10).
+- Installer: one `npmSpec` helper so the interactive install, the printed command, the table and the box script use the same pinned version (#8).
+
+### Added
+
+- `cli-run`: `--expect-file` and `--expect-json` opt-in contracts, with the guarantee of a bare run stated exactly (#5).
+- Weekly audit: `--audit` for codex and an explicit boundary note for other lanes (#2).
+- Installer: `MANIFEST.json` and `bin/lanes.json` are machine-owned and rewritten on every run, with a requested-vs-applied report on reconfiguration (#6).
+- README leads with the GitHub route pinned to the release until the npm publish, and a table stating which properties are enforced, delegated or instructions (#7, #11). CI installs the packed tarball into a clean consumer and runs it.
+
+## [0.1.0] - 2026-09-04
 
 First release.
 
-- Installer (`npx model-orchestrator`): three levels, access-aware AI selection, primary-agent loading surface, companion-tool question (codecalc), strict flags, containment preflight, exclusive create with rollback, no vendor scripts run.
-- `bin/cli-run.mjs`: one entrypoint for grok, codex, agy, hermes and qwen with each lane's native success signal; exit 10 on a run that produced nothing, fail-closed `lanes.json`, signal handling, digest-only log.
-- Templates: five protocols (build, propagate, gap analysis, deep research, numbers and logic), task bundle, single-agent and multi-lane routing, tiers, generated delegation matrix, research triage, VM tier (gateway config by env-var name, compose on loopback, box rules, privacy gates, weekly audit timer).
+### Added
+
+- Installer: three levels, access-aware AI selection, primary-agent loading surface, companion-tool questions (codecalc recommended, obsidian-tc optional), strict flags, containment preflight, exclusive create with rollback, no vendor scripts run.
+- `bin/cli-run.mjs`: one entrypoint for grok, codex, agy, hermes and qwen with each lane's native success signal; exit 10 on a run that produced nothing, fail-closed `lanes.json`, signal handling, digest-only log, `--doctor`.
+- Templates: six protocols (build, propagate, gap analysis, deep research, numbers and logic, memory and record), task bundle, single-agent and multi-lane routing, tiers, generated delegation matrix, research triage, VM tier (gateway config by env-var name, compose on loopback, box rules, privacy gates, weekly audit timer).
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
-- Companion tools, both optional: codecalc (recommended) and obsidian-tc (needs an Obsidian vault, Node 24+, Ollama or a cloud embeddings key). The numbers-and-logic and memory-and-record protocols are written at every level.
-- Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and their fixes are in `docs/audit-brief.md`.
-- After the review: subagents go to the project root (`--project`), snippet paths are computed from `--dir`, lane sections render from the selection, a primary agent is required, level 3 asks for API keys separately from CLIs, images and CLI installs are pinned, `cli-run --doctor`, an activation summary at the end of every install.
+- Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
+
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.1...v0.1.2
+[0.1.1]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/aunysillyme/model-orchestrator/releases/tag/v0.1.0

@@ -18,6 +18,7 @@
   "scripts": {
     "start": "node bin/cli.js",
     "test": "node --test",
+    "prepublishOnly": "npm test",
     "dry-run": "node bin/cli.js --yes --level 2 --ais claude-code,codex,grok --dir ./tmp-dry-run --dry",
     "gen:catalog": "node scripts/gen-catalog.js"
   },

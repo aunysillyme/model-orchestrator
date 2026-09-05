@@ -1,0 +1,28 @@
+name: Feature request
+description: An AI, a companion tool, a protocol, or a behaviour you need. Lead with the failure.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: failure
+    attributes:
+      label: The failure this would prevent
+      description: Everything here came from a failure. What went wrong, for whom, and how often?
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of change
+      options:
+        - A new AI in the catalog (src/catalog.js, plus a cli-run judge if it has a CLI)
+        - A new companion tool (src/catalog.js TOOLS + templates/tools/)
+        - A protocol or template change (templates/)
+        - Installer or cli-run behaviour (bin/, src/)
+        - Docs
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: The smallest change that prevents the failure. If it is a judge, name the success signal and the failure shapes it must refuse.

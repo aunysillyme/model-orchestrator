@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security report (private)
+    url: https://github.com/aunysillyme/model-orchestrator/security/advisories/new
+    about: Anything that could write outside the named folders, run a vendor script, expose a key, or let cli-run report a deliverable that does not exist. Private, one reader.
+  - name: What each level writes and why
+    url: https://github.com/aunysillyme/model-orchestrator/blob/main/docs/README.md
+    about: Parts 1 to 3 and the catalog. Read before filing a "my agent ignores the rules" issue; most of what ships is instructions, and the README says which rows are enforced.

@@ -1,18 +1,35 @@
+# Runs `npm test` on every push to main and every pull request, on Ubuntu and macOS across the
+# active Node lines, then packs the tarball and installs it into a clean consumer project.
+# What it proves: the judges, planner and installer behave as the tests assert on a machine that is
+# not the author's (the first Ubuntu run found a signal race 60 local passes had missed), and the
+# packaged files are enough to run outside the checkout.
+# What it does NOT run: any vendor CLI. `cli-run --doctor` reports presence and is allowed to fail.
 name: test
+
 on:
   push:
     branches: [main]
   pull_request:
+
+permissions:
+  contents: read
+
+# one run per branch at a time; a newer push cancels the older run
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
         node: [18, 20, 22]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ matrix.node }}
       - run: npm test

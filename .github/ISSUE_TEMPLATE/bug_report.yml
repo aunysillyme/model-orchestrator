@@ -1,0 +1,48 @@
+name: Bug report
+description: The installer or cli-run wrote, refused, or reported wrongly. Command and exit code please.
+labels: [bug]
+body:
+  - type: input
+    id: command
+    attributes:
+      label: The exact command
+      description: The full installer or cli-run command, as you ran it.
+      placeholder: npx github:aunysillyme/model-orchestrator --yes --level 2 --ais claude-code,codex --primary claude-code --dir ./out
+    validations:
+      required: true
+  - type: input
+    id: exit
+    attributes:
+      label: Exit code
+      description: Run `echo $?` right after. Installer 0 ok / 2 refused; cli-run 0 deliverable, 10 empty, 11 timeout, 12 overrun, 13 error.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected, and what happened instead
+      description: Quote the output. If a file changed that should not have, name it and paste the diff.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction in a fresh temp directory
+      description: Every test in this repo runs in a `mktemp -d` folder. If you can, do the same.
+      render: shell
+  - type: input
+    id: env
+    attributes:
+      label: OS and Node version
+      placeholder: Ubuntu 24.04 / Node 22.12
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before filing
+      options:
+        - label: I searched open and closed issues.
+          required: true
+        - label: This report contains no key, token or other credential, and none of my private paths.
+          required: true

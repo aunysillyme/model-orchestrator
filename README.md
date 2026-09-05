@@ -1,5 +1,7 @@
 # model-orchestrator
 
+[![test](https://github.com/aunysillyme/model-orchestrator/actions/workflows/test.yml/badge.svg)](https://github.com/aunysillyme/model-orchestrator/actions/workflows/test.yml) [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![node >=18](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)](package.json)
+
 **A model orchestrator you can `npm run`.** Route every task to the cheapest AI that does it well, whether you have one chat app, five agent CLIs, or a virtual machine running them unattended. One installer asks what you have access to and writes only what fits.
 
 Built from a working system, not a diagram: the routing rules, the protocols and the lane runner here run in production, generalized so they transfer to any stack.
@@ -110,18 +112,20 @@ If you need a property in the third row to be enforced, that is a router, a poli
 1. **Route by capability tier, not model name.** Default down, escalate on evidence.
 2. **A gate you cannot fail is not a gate.** Every checkpoint is a question that can come back wrong.
 3. **Exit 0 is not a deliverable.** Check for the artifact, not the status line. `cli-run` checks the response is structurally there; `--expect-file` checks the artifact.
-6. **Numbers are computed, never guessed.** A tool that calculates beats a model that feels finished.
-7. **A write nobody can find again did not happen.** Search first, keep the index true, one writer.
-4. **The orchestrator owns the main build.** Delegates hold none of your rules; they get bounded sub-parts and a brief.
-5. **Only one process holds keys.** Names in the environment, values in a secrets manager, never in a file here.
+4. **Numbers are computed, never guessed.** A tool that calculates beats a model that feels finished.
+5. **A write nobody can find again did not happen.** Search first, keep the index true, one writer.
+6. **The orchestrator owns the main build.** Delegates hold none of your rules; they get bounded sub-parts and a brief.
+7. **Only one process holds keys.** Names in the environment, values in a secrets manager, never in a file here.
 
 ## Requirements
 
 Node 18 or newer. No dependencies. Works on macOS and Linux; the level 3 box templates assume Ubuntu.
 
+**Privacy.** The installer makes no network call of its own and sends no telemetry; the only network activity is the `npm install -g` you approve per package. `cli-run` talks to nothing but the vendor CLI you name.
+
 ## Contributing
 
-Add an AI to `src/catalog.js` and every prompt, table, config and doc picks it up. Run `npm test`. Keep templates free of logic and free of anything that looks like a credential.
+Add an AI to `src/catalog.js` and every prompt, table, config and doc picks it up. Run `npm test`. Keep templates free of logic and free of anything that looks like a credential. The rest is in [CONTRIBUTING.md](CONTRIBUTING.md); releases in [RELEASING.md](RELEASING.md); security reports in [SECURITY.md](SECURITY.md).
 
 ## License
 
