@@ -5,7 +5,7 @@ Copy the block below into `CLAUDE.md` at your project root (create the file if i
 ```markdown
 ## Model orchestrator
 
-Routing rules live in `{{RULES_PATH}}/ORCHESTRATOR.md` (or `{{RULES_PATH}}/ROUTING.md` at level 2+). Read them before any build task. Quick version, first match wins:
+Routing rules live in `{{RULES_PATH}}/{{ROUTING_FILE}}`. Read them before any build task. Quick version, first match wins:
 
 1. Bulk, mechanical, many similar items -> bulk-worker (fast tier).
 2. Needs live data -> live-researcher (standard tier + tools).

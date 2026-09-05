@@ -16,7 +16,7 @@ Generated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrite
 
 - **Kind:** agent-cli · **Access:** subscription · **Lane:** A · **Level:** 1+
 - **Wins at:** orchestrator: routes, maps, builds, verifies, records
-- **Install:** `npm install -g @anthropic-ai/claude-code`
+- **Install:** `npm install -g @anthropic-ai/claude-code@2.1.260`
 - **Sign in:** run `claude` once and sign in with your Anthropic account
 - **Reads rules from:** `CLAUDE.md` · subagents in `.claude/agents/`
 
@@ -24,7 +24,7 @@ Generated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrite
 
 - **Kind:** agent-cli · **Access:** subscription · **Lane:** A · **Level:** 1+
 - **Wins at:** second coder and adversarial auditor (a different model family reading your diff)
-- **Install:** `npm install -g @openai/codex`
+- **Install:** `npm install -g @openai/codex@0.153.2`
 - **Sign in:** `codex login` (add `--device-auth` on a machine with no browser)
 - **Reads rules from:** `AGENTS.md`
 - **cli-run lane:** yes
@@ -59,7 +59,7 @@ Generated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrite
 
 - **Kind:** agent-cli · **Access:** metered · **Lane:** B · **Level:** 2+
 - **Wins at:** cheapest metered bulk lane for structured output; never for anything that cites a line, a number or a source
-- **Install:** `npm install -g @qwen-code/qwen-code`
+- **Install:** `npm install -g @qwen-code/qwen-code@0.23.0`
 - **Sign in:** a provider key in an environment variable, named (not stored) in ~/.qwen/settings.json. There is no free Qwen cloud tier any more.
 - **Reads rules from:** `QWEN.md`
 - **cli-run lane:** yes

@@ -4,14 +4,29 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-09-05
+
+Professional-repo pass and the eight findings from the agy scored audit (overall 9.4/10; the findings are in the issue tracker's audit record).
+
 ### Added
 
 - Community files: `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1), `MAINTAINERS.md`, `RELEASING.md`, `AGENTS.md` and `CLAUDE.md` for contributors' agents, yml issue forms with blank issues disabled, a pull request template, `CODEOWNERS`, `.editorconfig`, Dependabot for the workflow actions.
 - `test/prose.test.js`: fails on an em dash anywhere in the repo's text files, so the house rule is checked rather than requested.
 - README badges (CI, licence, Node) and a one-line privacy statement.
 
+### Fixed
+
+- `--help`: `--primary` was described as "level 1 only"; it applies at every level and is required when several agents qualify.
+- `docs/catalog.md`: install lines now carry the same npm pin the installer uses (`scripts/gen-catalog.js` went through `npmSpec`, closing the last gap #8 left open).
+- `--upgrade-runtime`: the report names the runtime files it replaced; before, the files were replaced and the "runtime upgraded:" line never printed.
+- `cli-run --doctor`: prints a note when the primary agent is absent from the lane list, so "1 enabled lane(s): codex" after a Claude Code + Codex install no longer reads as a missed install.
+- `templates/README.md`: listed four protocols and one companion tool; there are six and two. A test now checks that table against the tree.
+- Agent snippets name the routing file for the level (`ORCHESTRATOR.md` at 1, `ROUTING.md` at 2 and 3) instead of a conditional clause; `common/README.md` says why both files exist at level 2.
+
 ### Changed
 
+- CI: `cli-run --doctor` is no longer masked with `|| true`; exit 0 or 10 (an enabled lane's binary absent on the runner) passes, anything else fails the job.
+- The tarball ships `CHANGELOG.md` and `SECURITY.md` (added to `files`).
 - CI: actions pinned to full commit SHAs with a version comment, `permissions: contents: read`, one run per branch with `cancel-in-progress`, `fail-fast: false` so one leg's failure does not hide another's result.
 - `SECURITY.md` states a response window (7 days to acknowledge, 30 to fix or decline), that only the latest release receives fixes, and the scope.
 - This changelog reshaped to Keep a Changelog 2.0.0 with dated releases and compare links.
@@ -59,7 +74,8 @@ First release.
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
-[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/aunysillyme/model-orchestrator/releases/tag/v0.1.0

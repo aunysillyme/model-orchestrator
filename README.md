@@ -7,10 +7,10 @@
 Built from a working system, not a diagram: the routing rules, the protocols and the lane runner here run in production, generalized so they transfer to any stack.
 
 ```bash
-npx github:aunysillyme/model-orchestrator#v0.1.2
+npx github:aunysillyme/model-orchestrator#v0.1.3
 ```
 
-That runs the reviewed release straight from GitHub (drop `#v0.1.2` for the current main). `npx model-orchestrator` will work once the package is on the npm registry; until then it is not a command you can run.
+That runs the reviewed release straight from GitHub (drop `#v0.1.3` for the current main). `npx model-orchestrator` will work once the package is on the npm registry; until then it is not a command you can run.
 
 The installer asks a few things, then writes a folder:
 
@@ -43,7 +43,7 @@ Read the thinking behind each level in [docs/](docs/README.md): [Part 1](docs/pa
 | `ollama` | local models: the privacy lane | 2+ |
 | `claude-app`, `chatgpt-app`, `gemini-app` | chat apps with no CLI: level 1 via a paste block | 1 |
 
-`npx github:aunysillyme/model-orchestrator#v0.1.2 --list` prints the catalog with install and sign-in notes. Details: [docs/catalog.md](docs/catalog.md).
+`npx github:aunysillyme/model-orchestrator#v0.1.3 --list` prints the catalog with install and sign-in notes. Details: [docs/catalog.md](docs/catalog.md).
 
 ## Companion tools (both optional)
 
@@ -59,9 +59,9 @@ Whether or not you select them, every level carries the two rules they serve: `p
 ## Non-interactive
 
 ```bash
-npx github:aunysillyme/model-orchestrator#v0.1.2 --yes --level 2 --ais claude-code,codex,grok --primary claude-code --dir ./ai-orchestrator
-npx github:aunysillyme/model-orchestrator#v0.1.2 --yes --level 3 --ais claude-code,codex,agy,grok,hermes,qwen,ollama --apis anthropic,openrouter --dry   # print the plan, write nothing
-npx github:aunysillyme/model-orchestrator#v0.1.2 --yes --level 2 --ais claude-code,codex --project ~/my-app --dir ~/my-app/ai-orchestrator  # subagents into ~/my-app/.claude/agents
+npx github:aunysillyme/model-orchestrator#v0.1.3 --yes --level 2 --ais claude-code,codex,grok --primary claude-code --dir ./ai-orchestrator
+npx github:aunysillyme/model-orchestrator#v0.1.3 --yes --level 3 --ais claude-code,codex,agy,grok,hermes,qwen,ollama --apis anthropic,openrouter --dry   # print the plan, write nothing
+npx github:aunysillyme/model-orchestrator#v0.1.3 --yes --level 2 --ais claude-code,codex --project ~/my-app --dir ~/my-app/ai-orchestrator  # subagents into ~/my-app/.claude/agents
 ```
 
 ## What gets written (level 3, everything)

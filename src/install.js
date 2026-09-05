@@ -209,6 +209,7 @@ function vars(opts) {
   return {
     ...laneVars(selected),
     RULES_PATH: rulesPath,
+    ROUTING_FILE: level >= 2 ? 'ROUTING.md' : 'ORCHESTRATOR.md',
     PROJECT_DIR: projectAbs,
     AGENTS_DIR: primary && primary.agentsDir ? join(projectAbs, primary.agentsDir) : 'none (your primary agent has no subagent folder)',
     LITELLM_IMAGE: IMAGES.litellm,
@@ -497,22 +498,24 @@ export function writeFiles(files, opts) {
             skipped.push(label);
             continue;
           }
-          if (cls === 'runtime' && !upgradeRuntime) {
+          if (cls === 'runtime') {
             const onDisk = sha256(readFileSync(abs));
-            const prev = prevHashes ? prevHashes[f.rel.split(sep).join('/')] : undefined;
             if (onDisk === sha256(f.content)) {
               skipped.push(label); // already current
               continue;
             }
-            if (!prev) {
-              unverifiable.push(label);
-              continue;
+            if (!upgradeRuntime) {
+              const prev = prevHashes ? prevHashes[f.rel.split(sep).join('/')] : undefined;
+              if (!prev) {
+                unverifiable.push(label);
+                continue;
+              }
+              if (onDisk !== prev) {
+                conflicts.push(label);
+                continue;
+              }
             }
-            if (onDisk !== prev) {
-              conflicts.push(label);
-              continue;
-            }
-            upgraded.push(label); // untouched generated file: safe to replace
+            upgraded.push(label); // untouched generated file, or --upgrade-runtime said replace it: either way it is reported
           }
         }
         if (!dry) {

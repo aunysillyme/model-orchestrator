@@ -14,6 +14,8 @@ const run = (args, opts = {}) => spawnSync(process.execPath, [CLI, ...args], { e
 
 test('--help and --list exit 0 and mention every level', () => {
   const h = run(['--help']);
+  assert.doesNotMatch(h.stdout, /level 1 only/, '--primary applies at every level');
+  assert.match(h.stdout, /--primary id\s+the agent that runs the system/);
   assert.equal(h.status, 0);
   assert.match(h.stdout, /--level 1\|2\|3/);
   const l = run(['--list']);
@@ -504,6 +506,7 @@ test('#12: an install without a manifest keeps runtime files and says executable
   assert.equal(readFileSync(join(dir, 'bin', 'cli-run.mjs'), 'utf8'), '// OLD RUNNER with spawnSync\n', 'must not silently replace an unverifiable runtime file');
   const up = run(['--yes', '--level', '3', '--ais', 'codex', '--primary', 'codex', '--no-tools', '--no-apis', '--no-install', '--upgrade-runtime', '--dir', dir, '--project', proj]);
   assert.equal(up.status, 0, up.stderr);
+  assert.match(up.stdout, /runtime upgraded: .*bin\/cli-run\.mjs.*--upgrade-runtime/, 'the report must name the runtime files --upgrade-runtime replaced');
   assert.doesNotMatch(readFileSync(join(dir, 'bin', 'cli-run.mjs'), 'utf8'), /OLD RUNNER/);
   assert.match(readFileSync(join(dir, 'vm', 'jobs', 'weekly-audit.service'), 'utf8'), /TimeoutStartSec=900/);
   assert.equal(readFileSync(join(dir, 'ROUTING.md'), 'utf8'), 'my routing', '--upgrade-runtime must not touch documents');
@@ -537,5 +540,24 @@ test('#12: with a manifest, an untouched runtime file is upgraded, an edited one
   const again = run(['--yes', '--level', '3', '--ais', 'codex', '--primary', 'codex', '--no-tools', '--no-apis', '--no-install', '--dir', dir, '--project', proj]);
   assert.doesNotMatch(again.stdout, /runtime upgraded/);
   assert.match(again.stdout, /runtime CONFLICT, kept: .*weekly-audit\.sh/, 'the edited file stays a reported conflict until the user resolves it');
+  rmSync(d, { recursive: true, force: true });
+});
+
+test('cli-run --doctor explains why the primary agent is not a lane, and says nothing when the primary is one', () => {
+  const d = mkdtempSync(join(tmpdir(), 'orch-docp-'));
+  mkdirSync(join(d, 'bin'));
+  const copy = join(d, 'bin', 'cli-run.mjs');
+  writeFileSync(copy, readFileSync(CLI_RUN));
+  writeFileSync(join(d, 'bin', 'lanes.json'), '{"enabled":[]}');
+  writeFileSync(join(d, 'MANIFEST.json'), JSON.stringify({ primary: 'claude-code' }));
+  const r = spawnSync(process.execPath, [copy, '--doctor'], { encoding: 'utf8', env: { PATH: '/nonexistent', HOME: d } });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.match(r.stdout, /note: claude-code is the primary agent; it calls cli-run and is not a lane/);
+  writeFileSync(join(d, 'bin', 'lanes.json'), '{"enabled":["codex"]}');
+  writeFileSync(join(d, 'MANIFEST.json'), JSON.stringify({ primary: 'codex' }));
+  const r2 = spawnSync(process.execPath, [copy, '--doctor'], { encoding: 'utf8', env: { PATH: '/nonexistent', HOME: d } });
+  assert.doesNotMatch(r2.stdout, /is the primary agent/);
+  writeFileSync(join(d, 'MANIFEST.json'), '{"primary": "../evil; rm"}');
+  assert.doesNotMatch(spawnSync(process.execPath, [copy, '--doctor'], { encoding: 'utf8', env: { PATH: '/nonexistent', HOME: d } }).stdout, /evil/, 'a manifest primary that is not a catalog-shaped id is ignored');
   rmSync(d, { recursive: true, force: true });
 });

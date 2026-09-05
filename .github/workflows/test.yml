@@ -3,7 +3,7 @@
 # What it proves: the judges, planner and installer behave as the tests assert on a machine that is
 # not the author's (the first Ubuntu run found a signal race 60 local passes had missed), and the
 # packaged files are enough to run outside the checkout.
-# What it does NOT run: any vendor CLI. `cli-run --doctor` reports presence and is allowed to fail.
+# What it does NOT run: any vendor CLI. `cli-run --doctor` reports presence; exit 0 or 10 (lane binary absent) passes, anything else fails.
 name: test
 
 on:
@@ -41,7 +41,7 @@ jobs:
           npm install --silent "$GITHUB_WORKSPACE"/model-orchestrator-*.tgz
           npx model-orchestrator --yes --level 2 --ais claude-code,codex --primary claude-code --no-tools --dir ./out --project ./proj --no-install
           test -f out/bin/lanes.json && test -f proj/.claude/agents/deep-planner.md
-          node out/bin/cli-run.mjs --doctor || true
+          rc=0; node out/bin/cli-run.mjs --doctor || rc=$?; [ "$rc" -eq 0 ] || [ "$rc" -eq 10 ]   # 10 = an enabled lane's binary is absent on the runner, expected; anything else fails
       - run: node bin/cli.js --yes --level 3 --ais claude-code,codex,agy,grok,hermes,qwen,ollama --primary claude-code --apis anthropic,openrouter --dir "${{ runner.temp }}/l3" --project "${{ runner.temp }}/p3" --no-install
-      - run: node "${{ runner.temp }}/l3/bin/cli-run.mjs" --doctor || true
+      - run: rc=0; node "${{ runner.temp }}/l3/bin/cli-run.mjs" --doctor || rc=$?; [ "$rc" -eq 0 ] || [ "$rc" -eq 10 ]
       - run: node bin/cli.js --yes --level 1 --ais chatgpt-app --no-tools --dir "${{ runner.temp }}/l1" --project "${{ runner.temp }}/p1" --no-install

@@ -5,7 +5,7 @@ Your agent, {{PRIMARY_NAME}}, reads `{{PRIMARY_RULES_FILE}}` from the project ro
 ```markdown
 ## Model orchestrator
 
-Routing rules live in `{{RULES_PATH}}/ORCHESTRATOR.md` (or `{{RULES_PATH}}/ROUTING.md` at level 2+). Read them before any build task.
+Routing rules live in `{{RULES_PATH}}/{{ROUTING_FILE}}`. Read them before any build task.
 
 Route by capability tier, first match wins: bulk and mechanical -> fast tier · needs live data -> standard tier with tools · review without changing -> standard, read-only · ambiguous or expensive to get wrong -> deep tier, then hand the plan down · everything else -> build it directly at standard tier.
 

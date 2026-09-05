@@ -80,7 +80,7 @@ Usage
 Flags
   --level 1|2|3      1 beginner (one agent), 2 intermediate (many CLIs), 3 advanced (plus a VM)
   --ais a,b,c        catalog ids you have access to (see --list)
-  --primary id       level 1 only: the one agent that will run the system
+  --primary id       the agent that runs the system and receives the subagents (any level; required when several qualify)
   --tools a,b        companion tools to set up, all optional (default with --yes: codecalc only); --no-tools for none
   --apis a,b         level 3 only: metered API keys you HOLD (anthropic,openai,google,xai,openrouter); --no-apis for none.
                      Asked separately from the CLIs because a subscription is not an API key.
@@ -286,7 +286,7 @@ async function main() {
         console.log(`  applied: ${ownedWritten.join(', ') || 'nothing'} (machine-owned files are always rewritten, so the new lanes are live)`);
       } else console.log('  selection identical.');
     }
-    if (upgraded.length) console.log(`  runtime upgraded: ${upgraded.join(', ')} (each installed copy matched the hash of a previous run, so nobody had edited it)`);
+    if (upgraded.length) console.log(`  runtime upgraded: ${upgraded.join(', ')} ${flag('upgrade-runtime') ? '(--upgrade-runtime: replaced whether or not you had edited them)' : '(each installed copy matched the hash of a previous run, so nobody had edited it)'}`);
     if (conflicts.length) {
       console.log(`  runtime CONFLICT, kept: ${conflicts.join(', ')}`);
       console.log('    these differ from what a previous run generated, so you edited them. The fixes in this release were NOT applied to them.');

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Regenerates docs/catalog.md from src/catalog.js. The test suite checks they agree.
 import { writeFileSync } from 'node:fs';
-import { AIS, LEVELS, TOOLS } from '../src/catalog.js';
+import { AIS, LEVELS, TOOLS, npmSpec } from '../src/catalog.js';
 import { readdirSync } from 'node:fs';
 
 export function protocolCount() {
@@ -14,7 +14,7 @@ export function catalogMarkdown() {
   md += '\n## AIs\n\n';
   for (const a of AIS) {
     const how = a.install.npm
-      ? '`npm install -g ' + a.install.npm + '`'
+      ? '`npm install -g ' + npmSpec(a) + '`'
       : a.install.script
         ? 'vendor script (read it first): `' + a.install.script + '`'
         : a.install.url + (a.install.brew ? ' (or `brew install ' + a.install.brew + '`)' : '');

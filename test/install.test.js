@@ -335,7 +335,7 @@ test('snippet paths and the agents note are computed from --dir and --project', 
   const same = planFiles({ level: 1, selected: sel('claude-code'), primary: byId['claude-code'], dir: '/proj', project: '/proj' }).find((f) => f.rel === 'CLAUDE.snippet.md').content;
   assert.match(same, /`\.\/ORCHESTRATOR\.md`/);
   const outside = planFiles({ level: 3, selected: sel('claude-code'), primary: byId['claude-code'], dir: '/elsewhere/orch', project: '/proj' });
-  assert.match(outside.find((f) => f.rel === 'CLAUDE.snippet.md').content, /`\/elsewhere\/orch\/ORCHESTRATOR\.md`/, 'a dir outside the project renders an absolute path');
+  assert.match(outside.find((f) => f.rel === 'CLAUDE.snippet.md').content, /`\/elsewhere\/orch\/ROUTING\.md`/, 'a dir outside the project renders an absolute path (level 3 points at ROUTING.md)');
   assert.match(outside.find((f) => f.rel === 'vm/box-CLAUDE.md').content, /\/elsewhere\/orch\/ROUTING\.md/);
   const readme = p.find((f) => f.rel === 'README.md').content;
   assert.match(readme, /cli-run\.log\.jsonl/, 'uninstall must name the log outside the folder');
@@ -474,4 +474,16 @@ test('#10: a hanging --version probe and a hanging gateway are cut off by the wa
   assert.match(live, /UNVERIFIED: --version timed out/);
   assert.match(live, /UNVERIFIED: gateway unreachable or timed out/);
   rmSync(d, { recursive: true, force: true });
+});
+
+test('the agent snippet names the routing file for the level: ORCHESTRATOR.md at 1, ROUTING.md at 2 and 3', () => {
+  for (const [level, file] of [[1, 'ORCHESTRATOR.md'], [2, 'ROUTING.md'], [3, 'ROUTING.md']]) {
+    for (const primary of ['claude-code', 'codex']) {
+      const files = planFiles({ level, selected: sel('claude-code', 'codex'), primary: byId[primary] });
+      const snippet = files.find((f) => /\.snippet\.md$/.test(f.rel));
+      assert.ok(snippet, `no snippet at level ${level} for ${primary}`);
+      assert.match(snippet.content, new RegExp('Routing rules live in `[^`]*/' + file.replace('.', '\\.') + '`'), `${snippet.rel} at level ${level} should point at ${file}`);
+      assert.doesNotMatch(snippet.content, /or `[^`]*ROUTING\.md` at level 2\+/, 'the conditional clause is gone');
+    }
+  }
 });

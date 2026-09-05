@@ -381,6 +381,19 @@ function stderrHead(err, n = 300) {
   return s.length > n ? s.slice(0, n) + '…' : s;
 }
 
+// MANIFEST.json sits one level above bin/. Only the primary id is read from it,
+// and only to explain why the primary is absent from the lane list.
+function installedPrimary(here = dirname(fileURLToPath(import.meta.url))) {
+  const p = join(here, '..', 'MANIFEST.json');
+  try {
+    if (!existsSync(p) || statSync(p).size > 1024 * 1024) return null;
+    const m = JSON.parse(readFileSync(p, 'utf8'));
+    return m && typeof m.primary === 'string' && /^[a-z0-9-]+$/.test(m.primary) ? m.primary : null;
+  } catch {
+    return null;
+  }
+}
+
 // --doctor: the first thing to run after install.
 export async function doctor(run) {
   const enabled = enabledLanes();
@@ -390,6 +403,8 @@ export async function doctor(run) {
   }
   let bad = 0;
   console.log(`doctor: ${enabled.length} enabled lane(s): ${enabled.join(', ') || 'none'}`);
+  const primary = installedPrimary();
+  if (primary && !enabled.includes(primary)) console.log(`  note: ${primary} is the primary agent; it calls cli-run and is not a lane`);
   for (const lane of LANES) {
     const on = enabled.includes(lane);
     const bin = which(lane);

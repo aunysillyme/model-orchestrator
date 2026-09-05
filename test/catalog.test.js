@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { AIS, LEVELS, TOOLS, aisForLevel, agentCandidates, byId } from '../src/catalog.js';
 import { catalogMarkdown, protocolCount } from '../scripts/gen-catalog.js';
-import { PROVIDERS, IMAGES } from '../src/catalog.js';
+import { PROVIDERS, IMAGES, npmSpec } from '../src/catalog.js';
 
 test('levels are 1, 2, 3 with names and taglines', () => {
   assert.deepEqual(LEVELS.map((l) => l.id), [1, 2, 3]);
@@ -83,4 +83,21 @@ test('docs count protocols from source, providers carry only variable NAMES, ima
   }
   for (const img of Object.values(IMAGES)) assert.match(img, /:v?\d+\.\d+\.\d+$/, img + ' is not pinned');
   for (const a of AIS) if (a.install.npm) assert.match(a.install.pin || '', /^\d+\.\d+\.\d+$/, a.id + ' npm install is not pinned');
+});
+
+test('templates/README.md names every protocol and every companion tool (drift guard)', () => {
+  const readme = readFileSync(new URL('../templates/README.md', import.meta.url), 'utf8');
+  const protocols = readdirSync(new URL('../templates/common/protocols/', import.meta.url)).filter((f) => f.endsWith('.md') && f !== 'README.md');
+  for (const p of protocols) {
+    const words = p.replace(/\.md$/, '').replace(/-protocol$/, '').split('-').join(' ');
+    assert.ok(readme.toLowerCase().includes(words), `templates/README.md does not mention "${words}" (${p})`);
+  }
+  for (const t of TOOLS) assert.ok(readme.includes('`' + t.id + '/`'), `templates/README.md does not mention ${t.id}/`);
+});
+
+test('generated catalog carries the same npm pin the installer uses; the tarball ships the changelog and the security policy', () => {
+  const md = catalogMarkdown();
+  for (const a of AIS) if (a.install.npm) assert.ok(md.includes('`npm install -g ' + npmSpec(a) + '`'), `catalog.md install line for ${a.id} is not the pinned spec`);
+  const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+  for (const f of ['CHANGELOG.md', 'SECURITY.md', 'README.md', 'LICENSE']) assert.ok(pkg.files.includes(f), `package.json files lacks ${f}`);
 });
