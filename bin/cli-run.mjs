@@ -244,6 +244,27 @@ export function judge(lane, rc, out, err, outFile) {
 // an agent CLI that shelled out to a tool must not keep working after the
 // wrapper has reported 12. A child that calls setsid() itself escapes this
 // boundary; that is documented, not hidden.
+// Models often wrap JSON in one markdown fence. --expect-json accepts exactly that shape:
+// the whole trimmed response is one fenced block, optionally tagged json. Prose before or
+// after the fence still fails, because then the deliverable is not the JSON (#17).
+export function unfence(text) {
+  const t = String(text).trim();
+  const m = /^```(?:json|JSON)?[ \t]*\r?\n([\s\S]*?)\r?\n?```$/.exec(t);
+  return m ? m[1].trim() : t;
+}
+
+// Kill a lane and everything it spawned. POSIX: the detached process group.
+// Windows has no process groups a signal can reach, so taskkill walks the tree (#18).
+// Windows is not exercised by CI; this branch is unit-tested by argv capture only.
+export function killTree(pid, platform = process.platform, deps = { kill: (p, sig) => process.kill(p, sig), spawn }) {
+  if (platform === 'win32') {
+    deps.spawn('taskkill', ['/pid', String(pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true });
+    return 'taskkill';
+  }
+  deps.kill(-pid, 'SIGKILL');
+  return 'group';
+}
+
 export function runBounded(argv, timeoutSec, maxBuffer = 16 * 1024 * 1024) {
   return new Promise((resolveRun) => {
     const t0 = Date.now();
@@ -257,8 +278,7 @@ export function runBounded(argv, timeoutSec, maxBuffer = 16 * 1024 * 1024) {
     const killGroup = () => {
       if (!child) return;
       try {
-        if (process.platform !== 'win32') process.kill(-child.pid, 'SIGKILL');
-        else child.kill('SIGKILL');
+        killTree(child.pid);
       } catch {
         try {
           child.kill('SIGKILL');
@@ -452,9 +472,9 @@ export function checkContracts(opts, text, before) {
   }
   if (opts.expectJson) {
     try {
-      JSON.parse(text);
+      JSON.parse(unfence(text));
     } catch {
-      return '--expect-json: the response is not valid JSON';
+      return '--expect-json: the response is not valid JSON (a single ```json fence around the whole response is accepted; prose around it is not)';
     }
   }
   return null;

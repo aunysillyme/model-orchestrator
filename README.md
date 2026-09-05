@@ -10,7 +10,7 @@ Built from a working system, not a diagram: the routing rules, the protocols and
 npx model-orchestrator
 ```
 
-That runs the latest published release from the npm registry. To run a specific release or the current main straight from GitHub: `npx github:aunysillyme/model-orchestrator#v0.1.5` (drop `#v0.1.5` for main).
+That runs the latest published release from the npm registry. To run a specific release or the current main straight from GitHub: `npx github:aunysillyme/model-orchestrator#v0.1.6` (drop `#v0.1.6` for main).
 
 The installer asks a few things, then writes a folder:
 
@@ -120,7 +120,7 @@ If you need a property in the third row to be enforced, that is a router, a poli
 
 ## Requirements
 
-Node 18 or newer. No dependencies. Works on macOS and Linux; the level 3 box templates assume Ubuntu.
+Node 18 or newer. No dependencies. Works on macOS and Linux; the level 3 box templates assume Ubuntu. Windows is untested: `cli-run` ends a lane's process tree there with `taskkill`, but nothing in CI runs on Windows, so treat it as unsupported until someone reports otherwise.
 
 **Privacy.** The installer makes no network call of its own and sends no telemetry; the only network activity is the `npm install -g` you approve per package. `cli-run` talks to nothing but the vendor CLI you name.
 

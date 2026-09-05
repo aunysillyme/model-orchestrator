@@ -147,3 +147,30 @@ test('checkContracts: refusal text fails --expect-json; a missing, empty or stal
   assert.equal(checkContracts({ expectFile: join(d, 'fresh.md') }, 'x', { exists: false }), null);
   rmSync(d, { recursive: true, force: true });
 });
+
+test('#17: --expect-json accepts JSON wrapped in one markdown fence, still refuses prose around it and non-JSON', async () => {
+  const { checkContracts, unfence } = await import('../bin/cli-run.mjs');
+  assert.equal(checkContracts({ expectJson: true }, '```json\n{"status":"ok"}\n```', null), null);
+  assert.equal(checkContracts({ expectJson: true }, '```\n{"a":1}\n```', null), null);
+  assert.equal(checkContracts({ expectJson: true }, '```json\r\n{"a":1}\r\n```', null), null, 'CRLF fences');
+  assert.equal(checkContracts({ expectJson: true }, '{"a":1}', null), null);
+  assert.match(checkContracts({ expectJson: true }, 'Here you go:\n```json\n{"a":1}\n```', null), /not valid JSON/);
+  assert.match(checkContracts({ expectJson: true }, '```json\n{"a":1}\n```\nHope that helps', null), /not valid JSON/);
+  assert.match(checkContracts({ expectJson: true }, '```json\nnot json\n```', null), /not valid JSON/);
+  assert.equal(unfence('```json\n{"a":1}\n```'), '{"a":1}');
+  assert.equal(unfence('plain'), 'plain');
+});
+
+test('#18: killTree uses taskkill /T /F on win32 and the negative-pid group kill elsewhere', async () => {
+  const { killTree } = await import('../bin/cli-run.mjs');
+  const calls = [];
+  const deps = { kill: (p, sig) => calls.push(['kill', p, sig]), spawn: (cmd, args) => calls.push(['spawn', cmd, args]) };
+  assert.equal(killTree(4242, 'win32', deps), 'taskkill');
+  assert.deepEqual(calls, [['spawn', 'taskkill', ['/pid', '4242', '/T', '/F']]]);
+  calls.length = 0;
+  assert.equal(killTree(4242, 'linux', deps), 'group');
+  assert.deepEqual(calls, [['kill', -4242, 'SIGKILL']]);
+  calls.length = 0;
+  assert.equal(killTree(4242, 'darwin', deps), 'group');
+  assert.deepEqual(calls, [['kill', -4242, 'SIGKILL']]);
+});

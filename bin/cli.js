@@ -17,7 +17,7 @@ import { planFiles, writeFiles, resolveSelection, resolveTools, resolveApis, dir
 // turn a dry run into a real one.
 const SPEC = {
   level: 'value', ais: 'value', primary: 'value', dir: 'value', project: 'value', tools: 'value', apis: 'value',
-  yes: 'bool', force: 'bool', dry: 'bool', 'no-install': 'bool', 'no-tools': 'bool', 'no-apis': 'bool', 'upgrade-runtime': 'bool', 'update-docs': 'bool', list: 'bool', help: 'bool', h: 'bool'
+  yes: 'bool', force: 'bool', dry: 'bool', 'dry-run': 'bool', 'no-install': 'bool', 'no-tools': 'bool', 'no-apis': 'bool', 'upgrade-runtime': 'bool', 'update-docs': 'bool', list: 'bool', help: 'bool', h: 'bool'
 };
 export function parseArgs(argv) {
   const out = {};
@@ -93,7 +93,7 @@ Flags
   --update-docs      regenerate the documents a previous run wrote and nobody edited since (hash-checked against
                      MANIFEST.json), so a changed selection reaches ROUTING.md and friends; edited documents are kept
                      and reported, and nothing happens without a manifest
-  --dry              print the plan, write nothing
+  --dry, --dry-run   print the plan, write nothing
   --no-install       never offer to run npm installs
   --list             print the catalog
 `);
@@ -178,7 +178,10 @@ async function main() {
   } else if (candidates.length === 0) {
     bad('pick at least one agent or chat app to be the orchestrator; a local model runtime on its own cannot run the system');
   } else if (candidates.length > 1) {
-    if (yes) primary = candidates.find((a) => a.id === 'claude-code') || candidates[0];
+    // --yes picks for the user: claude-code if present, else the first agent that can load subagent
+    // definitions (it gets five files written for it), else the first candidate. #19: codex listed
+    // before agy used to win and nothing was written to the project root.
+    if (yes) primary = candidates.find((a) => a.id === 'claude-code') || candidates.find((a) => a.agentsDir) || candidates[0];
     else {
       console.log('\nWhich one is your primary agent (the one that runs the system)?');
       candidates.forEach((a, i) => console.log(`  ${i + 1}  ${a.name}`));
@@ -250,7 +253,7 @@ async function main() {
   const lvl = LEVELS.find((l) => l.id === level);
   const agentFiles = files.filter((f) => f.root === 'project');
   console.log(`\nPlan\n  level    ${lvl.id} ${lvl.name}\n  access   ${selected.map((a) => a.id).join(', ')}\n  primary  ${primary ? primary.id : 'none'}\n  tools    ${tools.map((t) => t.id).join(', ') || 'none'}` + (level >= 3 ? `\n  api keys ${apis.map((p) => p.id).join(', ') || 'none'}` : '') + `\n  folder   ${dir}\n  project  ${project}${agentFiles.length ? ' (' + agentFiles.length + ' subagent files go here)' : ''}\n  files    ${files.length}`);
-  if (flag('dry')) {
+  if (flag('dry') || flag('dry-run')) {
     for (const f of files) console.log('  - ' + (f.root === 'project' ? '[project] ' : '') + f.rel);
     console.log('\n--dry: nothing written.');
     rl && rl.close();

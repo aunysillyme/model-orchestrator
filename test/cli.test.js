@@ -631,3 +631,26 @@ test('MANIFEST.json records the hash of what is on disk for kept files, not the 
   assert.ok(rebuilt['bin/lanes.json'], 'written files are still recorded');
   rmSync(d, { recursive: true, force: true });
 });
+
+test('#16: --dry-run is an alias for --dry and writes nothing', () => {
+  const d = mkdtempSync(join(tmpdir(), 'orch-dryrun-'));
+  const r = run(['--yes', '--level', '2', '--ais', 'claude-code,codex', '--primary', 'claude-code', '--no-tools', '--no-install', '--dry-run', '--dir', join(d, 'o'), '--project', join(d, 'p')]);
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /nothing written/);
+  assert.equal(existsSync(join(d, 'o')), false);
+  assert.match(run(['--help']).stdout, /--dry, --dry-run/);
+  rmSync(d, { recursive: true, force: true });
+});
+
+test('#19: --yes without --primary prefers an agent that can load subagents over an earlier-listed one that cannot', () => {
+  const d = mkdtempSync(join(tmpdir(), 'orch-prim-'));
+  const r = run(['--yes', '--level', '2', '--ais', 'codex,agy', '--no-tools', '--no-install', '--dir', join(d, 'o'), '--project', join(d, 'p')]);
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /primary\s+agy/);
+  assert.ok(existsSync(join(d, 'p', '.agents', 'agents', 'deep-planner.md')), 'agy subagents must be written');
+  const cc = run(['--yes', '--level', '2', '--ais', 'codex,agy,claude-code', '--no-tools', '--no-install', '--dry', '--dir', join(d, 'o2'), '--project', join(d, 'p2')]);
+  assert.match(cc.stdout, /primary\s+claude-code/, 'claude-code still wins when present');
+  const none = run(['--yes', '--level', '2', '--ais', 'codex,grok', '--no-tools', '--no-install', '--dry', '--dir', join(d, 'o3'), '--project', join(d, 'p3')]);
+  assert.match(none.stdout, /primary\s+codex/, 'with no subagent-capable candidate the first listed still wins');
+  rmSync(d, { recursive: true, force: true });
+});

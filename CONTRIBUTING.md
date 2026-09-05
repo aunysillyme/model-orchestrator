@@ -10,7 +10,7 @@ Thanks for looking. Two kinds of contribution land well here: a **failure you hi
 ## Running the checks
 
 ```bash
-npm test                 # node --test: 119 cases, no network, no CLI spawned
+npm test                 # node --test: 123 cases, no network, no CLI spawned
 npm run dry-run          # plan a level 2 install and write nothing
 node bin/cli.js --help
 ```

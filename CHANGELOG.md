@@ -4,6 +4,20 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-09-05
+
+Issues #16 to #19, filed against 0.1.5. Each reproduced before the fix; each fix has a test.
+
+### Added
+
+- `--dry-run` as an alias for `--dry`; the package script was already named `dry-run` (#16).
+- `cli-run`: `killTree()` ends a lane's process tree with `taskkill /T /F` on Windows instead of killing only the root process. Windows is still not exercised by CI and stays documented as unsupported; the branch is unit-tested by argv capture (#18).
+
+### Fixed
+
+- `cli-run --expect-json` accepts a response that is exactly one markdown code fence around JSON (`\`\`\`json ... \`\`\``, CRLF included). Prose before or after the fence still fails the contract, because then the deliverable is not the JSON (#17).
+- `--yes` with several candidate agents and no `--primary` now prefers claude-code, then the first agent that can load subagent definitions, then the first listed. `--ais codex,agy` used to pick codex and write no subagents (#19).
+
 ## [0.1.5] - 2026-09-05
 
 First release published by the workflow, with provenance.
@@ -97,7 +111,8 @@ First release.
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
-[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.5...HEAD
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.6...HEAD
+[0.1.6]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.2...v0.1.3
