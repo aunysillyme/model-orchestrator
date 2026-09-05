@@ -247,25 +247,15 @@ export function judge(lane, rc, out, err, outFile) {
 export function runBounded(argv, timeoutSec, maxBuffer = 16 * 1024 * 1024) {
   return new Promise((resolveRun) => {
     const t0 = Date.now();
-    let child;
-    try {
-      child = spawn(argv[0], argv.slice(1), { stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32' });
-    } catch (e) {
-      return resolveRun({ status: null, signal: null, stdout: '', stderr: '', error: e, seconds: 0 });
-    }
-    // Streaming decoders: a multibyte UTF-8 character split across two chunks
-    // must not become replacement characters. Limits are counted in BYTES.
-    const outDec = new StringDecoder('utf8');
-    const errDec = new StringDecoder('utf8');
-    let out = '';
-    let err = '';
-    let outBytes = 0;
-    let errBytes = 0;
-    let timedOut = false;
-    let overrun = false;
+    let child = null;
     let interrupted = null;
-    let settled = false;
+    // Signal handlers go on BEFORE the spawn. The child starts running the
+    // moment spawn() forks, so a handler registered afterwards leaves a window
+    // in which the lane is alive and a SIGTERM to the wrapper would take the
+    // default action: the wrapper dies, the detached lane lives on. CI on a slow
+    // runner hit exactly that window.
     const killGroup = () => {
+      if (!child) return;
       try {
         if (process.platform !== 'win32') process.kill(-child.pid, 'SIGKILL');
         else child.kill('SIGKILL');
@@ -277,9 +267,6 @@ export function runBounded(argv, timeoutSec, maxBuffer = 16 * 1024 * 1024) {
         }
       }
     };
-    // If cli-run itself is interrupted, the detached lane must not outlive it:
-    // kill the group first, then finish with the signal recorded. A second
-    // signal while cleanup is in flight kills again and exits immediately.
     const onSignal = (sig) => {
       if (interrupted) {
         killGroup();
@@ -290,6 +277,25 @@ export function runBounded(argv, timeoutSec, maxBuffer = 16 * 1024 * 1024) {
     };
     process.on('SIGINT', onSignal);
     process.on('SIGTERM', onSignal);
+    try {
+      child = spawn(argv[0], argv.slice(1), { stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32' });
+    } catch (e) {
+      process.off('SIGINT', onSignal);
+      process.off('SIGTERM', onSignal);
+      return resolveRun({ status: null, signal: null, stdout: '', stderr: '', error: e, seconds: 0 });
+    }
+    if (interrupted) killGroup(); // a signal landed between registering and forking
+    // Streaming decoders: a multibyte UTF-8 character split across two chunks
+    // must not become replacement characters. Limits are counted in BYTES.
+    const outDec = new StringDecoder('utf8');
+    const errDec = new StringDecoder('utf8');
+    let out = '';
+    let err = '';
+    let outBytes = 0;
+    let errBytes = 0;
+    let timedOut = false;
+    let overrun = false;
+    let settled = false;
     const timer = setTimeout(() => {
       timedOut = true;
       killGroup();

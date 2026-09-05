@@ -398,9 +398,11 @@ test('#8: the interactive install spawns npm with the same pinned spec the table
   // codex is NOT on this PATH, so the installer offers to install it; answer y.
   const r = run(['--level', '1', '--ais', 'codex', '--primary', 'codex', '--no-tools', '--dir', join(d, 'out'), '--project', join(d, 'proj')], {
     input: 'y\ny\n',
-    env: { PATH: `${bin}:${dirname(process.execPath)}:/usr/bin:/bin`, HOME: d }
+    // PATH deliberately excludes /usr/bin: a machine with a real codex there would skip the install prompt.
+    env: { PATH: `${bin}:${dirname(process.execPath)}:/bin`, HOME: d }
   });
   assert.equal(r.status, 0, r.stderr + r.stdout);
+  assert.ok(existsSync(captured), 'the installer never offered to install codex (is a real codex on this PATH?):\n' + r.stdout);
   const argv = readFileSync(captured, 'utf8').trim();
   assert.match(argv, /^install -g @openai\/codex@\d+\.\d+\.\d+$/, 'npm was spawned without the catalog pin: ' + argv);
   assert.match(r.stdout, /run `npm install -g @openai\/codex@\d+\.\d+\.\d+` now/);
