@@ -2,7 +2,7 @@
 
 [![npm](https://img.shields.io/npm/v/model-orchestrator.svg)](https://www.npmjs.com/package/model-orchestrator) [![test](https://github.com/aunysillyme/model-orchestrator/actions/workflows/test.yml/badge.svg)](https://github.com/aunysillyme/model-orchestrator/actions/workflows/test.yml) [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![node >=18](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)](package.json)
 
-**A model orchestrator you can `npm run`.** Route every task to the cheapest AI that does it well, whether you have one chat app, five agent CLIs, or a virtual machine running them unattended. One installer asks what you have access to and writes only what fits.
+**Routing instructions and a CLI runner for your AI tools.** One installer asks what you have access to and generates a matching setup, from one chat app to several agent CLIs or a virtual machine. Your primary agent follows the instructions to choose a tier or lane; the runner executes the lane it is given. It does not automatically compare prices or select models.
 
 Built from a working system, not a diagram: the routing rules, the protocols and the lane runner here run in production, generalized so they transfer to any stack.
 
@@ -10,7 +10,7 @@ Built from a working system, not a diagram: the routing rules, the protocols and
 npx model-orchestrator
 ```
 
-That runs the latest published release from the npm registry. To run a specific release or the current main straight from GitHub: `npx github:aunysillyme/model-orchestrator#v0.1.6` (drop `#v0.1.6` for main).
+That runs the latest published release from the npm registry. To run a specific release or the current main straight from GitHub: `npx github:aunysillyme/model-orchestrator#v0.1.7` (drop `#v0.1.7` for main).
 
 The installer asks a few things, then writes a folder:
 
@@ -18,7 +18,7 @@ The installer asks a few things, then writes a folder:
 2. **Which AIs do you have access to?** (it marks the ones already on your PATH)
 3. **Which one is your primary agent?** (the one that runs the system)
 
-It never writes a secret, never runs a vendor shell script for you, and never overwrites a document you already have unless you pass `--force`. Two exceptions, both stated when they happen: `MANIFEST.json` and `bin/lanes.json` are machine-owned and rewritten on every run so a changed selection applies; runtime files (`cli-run`, the audit job, compose, gateway config, setup script) are upgraded when the installed copy matches the hash a previous run recorded, kept and reported as a conflict when you edited them, and kept as unverifiable when no manifest exists (`--upgrade-runtime` replaces runtime files only). The same hash rule is available for documents on request: `--update-docs` regenerates the documents a previous run wrote and nobody edited, so a changed selection reaches `ROUTING.md` and the delegation matrix without `--force`; edited documents are kept and named. Docs and protocols go to `--dir` (default `./ai-orchestrator`); subagent definitions go to the project root your agent runs from (`--project`, default the current directory), because that is the only place Claude Code and Antigravity read them. It ends with an activation summary: what to copy where, which sign-ins, and one smoke command. Uninstall: delete the folder, the subagent folder it named, and `~/.ai-orchestrator/cli-run.log.jsonl` if you used `cli-run`.
+It never writes a secret, never runs a vendor shell script for you, and never overwrites a document you already have unless you pass `--force`. Two exceptions, both stated when they happen: `MANIFEST.json` and `bin/lanes.json` are machine-owned and rewritten on every run so a changed selection applies; runtime files (`cli-run`, the audit job, compose, gateway config, setup script) are upgraded when the installed copy matches the hash a previous run recorded, kept and reported as a conflict when you edited them, and kept as unverifiable when no manifest exists (`--upgrade-runtime` replaces runtime files only). The same hash rule is available for documents on request: `--update-docs` regenerates the documents a previous run wrote and nobody edited, so a changed selection reaches `ROUTING.md` and the delegation matrix without `--force`; edited documents are kept and named. Docs and protocols go to `--dir` (default `./ai-orchestrator`); subagent definitions go to the project root your agent runs from (`--project`, default the current directory), because that is the only place Claude Code and Antigravity read them. It ends with an activation summary: what to copy where, which sign-ins, and one smoke command. Uninstall: follow the generated README. Inspect the manifest and remove only the individual managed subagent files you no longer need, preserve edited or pre-existing files, and remove your manually pasted activation block. Never delete a shared subagent folder.
 
 ## The three levels
 

@@ -30,6 +30,8 @@ node bin/cli-run.mjs --doctor          # which lanes are enabled and which binar
 node bin/cli-run.mjs --doctor --run    # also sends each enabled lane one tiny prompt and judges the reply (uses a little quota)
 ```
 
+With zero enabled lanes, doctor reports inactive and exits 13. Use level 1 or select a supported CLI. Binary presence does not verify authentication or that your primary loaded its instructions.
+
 A lane that is enabled but not on PATH, or that answers with no deliverable, shows up here before it shows up mid-task.
 
 ## Why it exists

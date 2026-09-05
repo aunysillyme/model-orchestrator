@@ -11,7 +11,15 @@ Companion tools:
 
 ## The idea in one line
 
-Every task goes to the cheapest AI that does it well, and every gate on the way is a question that can be answered wrong.
+This folder gives your agent routing instructions and, at level 2+, a runner for explicitly selected CLI lanes. The agent chooses the tier or lane; the runner does not automatically compare prices or choose a model.
+
+## Your first task
+
+1. Activate the snippet using the instructions below. For a chat app, paste the block in `PASTE-INTO-YOUR-AGENT.md`; upload any full protocols you want it to read because local paths alone do not share files.
+2. Start a fresh agent session and ask: "Read the orchestrator instructions. Quote the routing rule you will use, then sort pear, apple, banana alphabetically. Name the tier and whether you delegated."
+3. Expect the fast tier and `apple, banana, pear`. If the agent cannot quote the routing rule, check the snippet location or chat instructions before continuing. This is a manual activation check, not proof that every future task follows the rules.
+4. At level 2+, run `node bin/cli-run.mjs --doctor` from this folder. It checks binary presence, not authentication or loaded instructions. `--doctor --run` additionally uses a little quota to test live responses. No enabled lanes means delegation is inactive.
+5. To test a real output contract, choose an enabled lane from `bin/lanes.json` and run `node bin/cli-run.mjs <lane> 'Return only {"sorted":["apple","banana","pear"]}' --expect-json`. This uses quota. Expect JSON and exit 0; inspect the array yourself. A non-JSON response exits 10, a missing binary exits 13, and an authentication failure reports the vendor error. The explicit lane tests execution; your primary agent still makes delegation decisions.
 
 ## What is in this folder
 
@@ -32,7 +40,7 @@ Level 2 adds `ROUTING.md`, `TIERS.md`, `DELEGATION_MATRIX.md`, `RESEARCH_TRIAGE.
 
 ## Load it into your agent
 
-Your primary agent reads `{{PRIMARY_RULES_FILE}}` from a project root. The installer wrote a snippet file next to this README (`*.snippet.md`, or `PASTE-INTO-YOUR-AGENT.md` for a chat app). Copy its contents into that file, or paste it into the agent's custom instructions. Nothing was appended to a file you already had.
+For a CLI primary, the project rules file is `{{PRIMARY_RULES_FILE}}`. Chat apps use pasted instructions instead. The installer wrote a snippet file next to this README (`*.snippet.md`, or `PASTE-INTO-YOUR-AGENT.md` for a chat app). Copy its contents into that file, or paste it into the agent's custom instructions. Nothing was appended to a file you already had.
 
 ## The three rules that carry everything
 
@@ -49,4 +57,4 @@ Your primary agent reads `{{PRIMARY_RULES_FILE}}` from a project root. The insta
 
 ## Uninstall
 
-Delete this folder and the subagent folder named above. `cli-run` keeps one log at `~/.ai-orchestrator/cli-run.log.jsonl`; delete that too if you used it.
+Before deleting anything, inspect `MANIFEST.json`: entries beginning with `[project] ` identify the subagent files managed by this installation. Review those individual files and remove only the ones you no longer want, preserving edited or pre-existing files. Never delete the shared `.claude/agents` or `.agents/agents` folder; it may contain unrelated agents. If the manifest is missing, inspect files individually rather than deleting a folder. Remove the orchestrator block you manually copied into your project rules file or chat instructions. Then delete this generated docs folder only after preserving any work you added to it. The optional log at `~/.ai-orchestrator/cli-run.log.jsonl` is shared across installations; remove it only if you no longer need that history.

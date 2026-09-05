@@ -487,3 +487,13 @@ test('the agent snippet names the routing file for the level: ORCHESTRATOR.md at
     }
   }
 });
+
+test('chat activation fits a 1500-character field for each chat primary', () => {
+  for (const id of ['chatgpt-app', 'claude-app', 'gemini-app']) {
+    const files = planFiles({ level: 1, selected: sel(id), primary: byId[id] });
+    const doc = files.find((f) => f.rel === 'PASTE-INTO-YOUR-AGENT.md').content;
+    const block = doc.split('```')[1].trim();
+    assert.ok(block.length > 0 && block.length <= 1500, `${id}: ${block.length} characters`);
+    assert.match(doc, /upload or paste/);
+  }
+});

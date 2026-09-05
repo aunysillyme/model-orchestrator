@@ -551,8 +551,8 @@ test('cli-run --doctor explains why the primary agent is not a lane, and says no
   writeFileSync(join(d, 'bin', 'lanes.json'), '{"enabled":[]}');
   writeFileSync(join(d, 'MANIFEST.json'), JSON.stringify({ primary: 'claude-code' }));
   const r = spawnSync(process.execPath, [copy, '--doctor'], { encoding: 'utf8', env: { PATH: '/nonexistent', HOME: d } });
-  assert.equal(r.status, 0, r.stdout + r.stderr);
-  assert.match(r.stdout, /note: claude-code is the primary agent; it calls cli-run and is not a lane/);
+  assert.equal(r.status, 13, r.stdout + r.stderr);
+  assert.match(r.stdout, /note: claude-code is the primary agent and is not an executable lane/);
   writeFileSync(join(d, 'bin', 'lanes.json'), '{"enabled":["codex"]}');
   writeFileSync(join(d, 'MANIFEST.json'), JSON.stringify({ primary: 'codex' }));
   const r2 = spawnSync(process.execPath, [copy, '--doctor'], { encoding: 'utf8', env: { PATH: '/nonexistent', HOME: d } });
@@ -653,4 +653,22 @@ test('#19: --yes without --primary prefers an agent that can load subagents over
   const none = run(['--yes', '--level', '2', '--ais', 'codex,grok', '--no-tools', '--no-install', '--dry', '--dir', join(d, 'o3'), '--project', join(d, 'p3')]);
   assert.match(none.stdout, /primary\s+codex/, 'with no subagent-capable candidate the first listed still wins');
   rmSync(d, { recursive: true, force: true });
+});
+
+test('chat-only level 2 warns and doctor refuses zero lanes, including --run', () => {
+  const d = mkdtempSync(join(tmpdir(), 'orch-empty-'));
+  try {
+    const r = run(['--yes', '--level', '2', '--ais', 'chatgpt-app', '--no-tools', '--dir', join(d, 'docs'), '--project', d]);
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(r.stdout, /no executable lanes selected; delegation is inactive/);
+    for (const flags of [['--doctor'], ['--doctor', '--run']]) {
+      const check = spawnSync(process.execPath, [join(d, 'docs', 'bin', 'cli-run.mjs'), ...flags], { encoding: 'utf8', env: { PATH: '/nonexistent', HOME: d } });
+      assert.equal(check.status, 13, check.stdout + check.stderr);
+      assert.match(check.stderr, /inactive: no executable lanes/);
+      assert.doesNotMatch(check.stdout, /all enabled lanes|it calls cli-run/);
+      assert.ok(!existsSync(join(d, '.ai-orchestrator')), 'doctor must not run a lane');
+    }
+  } finally {
+    rmSync(d, { recursive: true, force: true });
+  }
 });

@@ -424,7 +424,11 @@ export async function doctor(run) {
   let bad = 0;
   console.log(`doctor: ${enabled.length} enabled lane(s): ${enabled.join(', ') || 'none'}`);
   const primary = installedPrimary();
-  if (primary && !enabled.includes(primary)) console.log(`  note: ${primary} is the primary agent; it calls cli-run and is not a lane`);
+  if (primary && !enabled.includes(primary)) console.log(`  note: ${primary} is the primary agent and is not an executable lane`);
+  if (!enabled.length) {
+    console.error('doctor: inactive: no executable lanes enabled. Use level 1 for a single-agent setup, or re-run the installer with a supported CLI selected.');
+    return UNAVAILABLE;
+  }
   for (const lane of LANES) {
     const on = enabled.includes(lane);
     const bin = which(lane);

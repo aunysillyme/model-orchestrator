@@ -253,6 +253,9 @@ async function main() {
   const lvl = LEVELS.find((l) => l.id === level);
   const agentFiles = files.filter((f) => f.root === 'project');
   console.log(`\nPlan\n  level    ${lvl.id} ${lvl.name}\n  access   ${selected.map((a) => a.id).join(', ')}\n  primary  ${primary ? primary.id : 'none'}\n  tools    ${tools.map((t) => t.id).join(', ') || 'none'}` + (level >= 3 ? `\n  api keys ${apis.map((p) => p.id).join(', ') || 'none'}` : '') + `\n  folder   ${dir}\n  project  ${project}${agentFiles.length ? ' (' + agentFiles.length + ' subagent files go here)' : ''}\n  files    ${files.length}`);
+  if (level >= 2 && !selected.some((a) => a.cliRun)) {
+    console.log('\nWarning: no executable lanes selected; delegation is inactive. Use level 1 for a single-agent setup, or add a supported CLI. Doctor will exit 13 until a lane is enabled.');
+  }
   if (flag('dry') || flag('dry-run')) {
     for (const f of files) console.log('  - ' + (f.root === 'project' ? '[project] ' : '') + f.rel);
     console.log('\n--dry: nothing written.');
