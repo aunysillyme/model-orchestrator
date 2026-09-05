@@ -11,10 +11,14 @@ Maintainer notes. A release is one file edit and four commands until release aut
 
 ## npm
 
-Not published at the time of writing. When it is, publish with provenance from a workflow that has `id-token: write` and a trusted-publishing configuration on the package, so no long-lived token exists:
+Not published at the time of writing. The first publish is manual from the maintainer's machine:
 
 ```bash
-npm publish --provenance --access public
+npm login          # opens the browser; finish there, come back
+npm whoami         # prints your npm user name when you are in
+npm publish --access public
 ```
+
+`prepublishOnly` runs the test suite first. Do not pass `--provenance` locally: npm generates provenance only inside a supported CI runner (GitHub Actions, GitLab) and refuses it elsewhere. Once the package exists, later releases can move to a workflow with `id-token: write` and a trusted-publishing configuration on the package, and that workflow publishes with `npm publish --provenance --access public` so no long-lived token exists.
 
 The `files` allow-list in `package.json` is what ships; check `npm pack --dry-run` before the first publish. Versions stay on `0.y.z` until the installer's flags and `cli-run`'s exit codes stop changing (SemVer clause 4).

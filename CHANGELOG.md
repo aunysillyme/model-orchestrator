@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Changed
+
+- `RELEASING.md`: the first npm publish is manual and must not pass `--provenance` (npm only generates provenance inside a supported CI runner); the workflow route comes after the package exists.
+
 ## [0.1.4] - 2026-09-05
 
 ### Added
