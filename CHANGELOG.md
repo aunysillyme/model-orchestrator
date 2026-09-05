@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-09-05
+
+First release published by the workflow, with provenance.
+
 ### Added
 
 - Published to npm as `model-orchestrator` (0.1.4 was the first publish, by hand). `npx model-orchestrator` is now the install line; the GitHub route stays for pinned or unreleased runs.
@@ -93,7 +97,8 @@ First release.
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
-[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.4...HEAD
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.5...HEAD
+[0.1.5]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.1...v0.1.2

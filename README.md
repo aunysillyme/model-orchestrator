@@ -10,7 +10,7 @@ Built from a working system, not a diagram: the routing rules, the protocols and
 npx model-orchestrator
 ```
 
-That runs the latest published release from the npm registry. To run a specific release or the current main straight from GitHub: `npx github:aunysillyme/model-orchestrator#v0.1.4` (drop `#v0.1.4` for main).
+That runs the latest published release from the npm registry. To run a specific release or the current main straight from GitHub: `npx github:aunysillyme/model-orchestrator#v0.1.5` (drop `#v0.1.5` for main).
 
 The installer asks a few things, then writes a folder:
 

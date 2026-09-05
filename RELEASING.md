@@ -13,6 +13,6 @@ Maintainer notes. A release is one file edit and four commands until release aut
 
 Published since 0.1.4 (first publish manual: `npm login`, `npm whoami`, `npm publish --access public`; `--provenance` cannot be used outside a CI runner).
 
-From the next tag on, `.github/workflows/release.yml` publishes: pushing `vX.Y.Z` runs the tests, checks the tag against `package.json`, and runs `npm publish --provenance --access public` through npm trusted publishing (OIDC, no stored token). One-time setup on npmjs.com, package settings, Trusted publisher: GitHub Actions, owner `aunysillyme`, repository `model-orchestrator`, workflow `release.yml`, environment empty. Until that is configured the workflow's publish step fails and the tag can be published by hand with the manual command above.
+From the next tag on, `.github/workflows/release.yml` publishes: pushing `vX.Y.Z` runs the tests, checks the tag against `package.json`, and runs `npm publish --provenance --access public` through npm trusted publishing (OIDC, no stored token). One-time setup on npmjs.com, package settings, Trusted publisher: GitHub Actions, owner `aunysillyme`, repository `model-orchestrator`, workflow `release.yml`, environment empty. Configured 2026-09-05 with direct publish allowed; 0.1.5 was the first workflow-published release.
 
 The `files` allow-list in `package.json` is what ships; check `npm pack --dry-run` before a publish. Versions stay on `0.y.z` until the installer's flags and `cli-run`'s exit codes stop changing (SemVer clause 4).
