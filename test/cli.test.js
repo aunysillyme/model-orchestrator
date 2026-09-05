@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
-import { mkdtempSync, existsSync, rmSync, readFileSync, symlinkSync, writeFileSync, mkdirSync, utimesSync } from 'node:fs';
+import { spawnSync, spawn } from 'node:child_process';
+import { mkdtempSync, existsSync, rmSync, readFileSync, symlinkSync, writeFileSync, mkdirSync, utimesSync, statSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { dirname } from 'node:path';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -359,7 +360,7 @@ test('#5: a refusal is exit 0 by default, exit 10 under --expect-file, and a fre
   utimesSync(target, utimes, utimes);
   const stale = runLane(['grok', 'Create the file', '--expect-file', target], { PATH: withNode(bin), HOME: d });
   assert.equal(stale.status, 10);
-  assert.match(stale.stderr, /predates this run/);
+  assert.match(stale.stderr, /existed before the run and was not changed/);
   assert.equal(runLane(['grok', 't', '--expect-json'], { PATH: withNode(bin), HOME: d }).status, 10);
   const log = readFileSync(join(d, '.ai-orchestrator', 'cli-run.log.jsonl'), 'utf8');
   assert.match(log, /"reason":"contract_unmet"/);
@@ -379,12 +380,12 @@ test('#6: rerunning with an added lane applies it to lanes.json and MANIFEST.jso
   assert.deepEqual(JSON.parse(readFileSync(join(dir, 'bin', 'lanes.json'), 'utf8')).enabled, ['codex', 'grok']);
   assert.deepEqual(JSON.parse(readFileSync(join(dir, 'MANIFEST.json'), 'utf8')).ais, ['codex', 'grok']);
   assert.equal(readFileSync(join(dir, 'ROUTING.md'), 'utf8'), 'my edited routing', 'an edited doc must survive a reconfiguration');
-  assert.match(second.stdout, /Reconfiguration: a previous run was found/);
-  assert.match(second.stdout, /changed: ais/);
+  assert.match(second.stdout, /Existing installation found \(MANIFEST\.json from generator/);
+  assert.match(second.stdout, /selection changed: ais/);
   assert.match(second.stdout, /applied: .*bin\/lanes\.json/);
-  assert.match(second.stdout, /kept: .*NOT regenerated/);
+  assert.match(second.stdout, /documents kept: they may describe the old selection/);
   const same = run(['--yes', '--level', '2', '--ais', 'codex,grok', '--primary', 'codex', '--no-tools', '--no-install', '--dir', dir, '--project', proj]);
-  assert.match(same.stdout, /identical selection/);
+  assert.match(same.stdout, /selection identical/);
   rmSync(d, { recursive: true, force: true });
 });
 
@@ -403,5 +404,136 @@ test('#8: the interactive install spawns npm with the same pinned spec the table
   const argv = readFileSync(captured, 'utf8').trim();
   assert.match(argv, /^install -g @openai\/codex@\d+\.\d+\.\d+$/, 'npm was spawned without the catalog pin: ' + argv);
   assert.match(r.stdout, /run `npm install -g @openai\/codex@\d+\.\d+\.\d+` now/);
+  rmSync(d, { recursive: true, force: true });
+});
+
+
+// ---- follow-up audit #13, #14, #15 ----
+test('#15: an untouched artifact created immediately before the run fails --expect-file; a rewrite with new content passes', () => {
+  const d = mkdtempSync(join(tmpdir(), 'orch-fresh-'));
+  const target = join(d, 'artifact.txt');
+  const bin = stubLane(d, 'grok', `echo '{"stopReason":"end_turn","text":"I did not write the artifact"}'`);
+  writeFileSync(target, 'PREVIOUS RUN'); // created right before the call, inside any timestamp window
+  const r = runLane(['grok', 't', '--expect-file', target], { PATH: withNode(bin), HOME: d });
+  assert.equal(r.status, 10, 'a pre-existing untouched artifact must not satisfy the contract: ' + r.stderr);
+  assert.match(r.stderr, /existed before the run and was not changed/);
+  assert.equal(readFileSync(target, 'utf8'), 'PREVIOUS RUN');
+  // the lane rewrites it with different content: passes even within the same second
+  const writer = stubLane(d, 'grok', `echo "NEW $(date +%s%N)" > "${target}"\necho '{"stopReason":"end_turn","text":"rewrote it"}'`);
+  assert.equal(runLane(['grok', 't', '--expect-file', target, '--quiet'], { PATH: withNode(writer), HOME: d }).status, 0);
+  // a rewrite with IDENTICAL bytes and an unchanged mtime is indistinguishable from no write
+  const same = readFileSync(target);
+  const st = statSync(target);
+  const identical = stubLane(d, 'grok', `echo '{"stopReason":"end_turn","text":"done"}'`);
+  writeFileSync(target, same);
+  utimesSync(target, st.atime, st.mtime);
+  assert.equal(runLane(['grok', 't', '--expect-file', target, '--quiet'], { PATH: withNode(identical), HOME: d }).status, 10);
+  rmSync(d, { recursive: true, force: true });
+});
+
+test('#14: multibyte UTF-8 split across chunks survives on stdout and stderr, and limits count bytes', () => {
+  const d = mkdtempSync(join(tmpdir(), 'orch-utf8-'));
+  const bin = join(d, 'bin');
+  mkdirSync(bin);
+  const text = 'café 🙂 漢字 ñ';
+  // split the payload at every byte boundary that falls inside a multibyte char
+  const payload = Buffer.from(JSON.stringify({ stopReason: 'end_turn', text }));
+  const cuts = [];
+  for (let i = 1; i < payload.length; i++) if ((payload[i] & 0xc0) === 0x80) cuts.push(i); // continuation bytes
+  assert.ok(cuts.length >= 6, 'test payload must contain multibyte characters');
+  for (const cut of cuts.slice(0, 6)) {
+    writeFileSync(join(bin, 'grok'), `#!${process.execPath}\nconst b=Buffer.from(${JSON.stringify(payload.toString('base64'))},'base64');process.stdout.write(b.subarray(0,${cut}));process.stderr.write(Buffer.from('é'.repeat(3)).subarray(0,1));setTimeout(()=>{process.stdout.write(b.subarray(${cut}));process.stderr.write(Buffer.from('é'.repeat(3)).subarray(1));},60);\n`, { mode: 0o755 });
+    const r = runLane(['grok', 't', '--quiet'], { PATH: withNode(bin), HOME: d });
+    assert.equal(r.status, 0, r.stderr);
+    assert.equal(r.stdout.trim(), text, `split at byte ${cut} corrupted the text: ${r.stdout}`);
+  }
+  const log = readFileSync(join(d, '.ai-orchestrator', 'cli-run.log.jsonl'), 'utf8').trim().split('\n').pop();
+  assert.equal(JSON.parse(log).raw_bytes, payload.length, 'raw_bytes must count bytes, not characters');
+  assert.equal(JSON.parse(log).deliverable_bytes, Buffer.byteLength(text));
+  rmSync(d, { recursive: true, force: true });
+});
+
+test('#13: SIGTERM and SIGINT to the wrapper kill the lane before it can write, and exit 143 / 130', async () => {
+  for (const [sig, code] of [['SIGTERM', 143], ['SIGINT', 130]]) {
+    const d = mkdtempSync(join(tmpdir(), 'orch-sig-'));
+    const marker = join(d, 'after-interruption');
+    const ready = join(d, 'ready');
+    const bin = stubLane(d, 'grok', `echo ready > "${ready}"\n/bin/sleep 0.7\necho survived > "${marker}"`);
+    const p = spawn(process.execPath, [CLI_RUN, 'grok', 't', '--timeout', '5', '--quiet'], { env: { PATH: withNode(bin), HOME: d }, stdio: 'ignore' });
+    for (let i = 0; i < 200 && !existsSync(ready); i++) await new Promise((r) => setTimeout(r, 10));
+    assert.ok(existsSync(ready), 'stub did not start; this is not a passing cleanup test');
+    const ended = new Promise((r) => p.on('exit', (c, s) => r({ c, s })));
+    p.kill(sig);
+    const exit = await ended;
+    assert.equal(exit.c, code, `${sig}: expected exit ${code}, got ${JSON.stringify(exit)}`);
+    await new Promise((r) => setTimeout(r, 1000));
+    assert.ok(!existsSync(marker), `${sig}: the lane kept working after the wrapper was interrupted`);
+    rmSync(d, { recursive: true, force: true });
+  }
+});
+
+test('#13: repeated runs do not accumulate signal listeners', async () => {
+  const m = await import('../bin/cli-run.mjs');
+  const before = process.listenerCount('SIGTERM');
+  const d = mkdtempSync(join(tmpdir(), 'orch-listen-'));
+  const bin = stubLane(d, 'grok', `echo '{"stopReason":"end_turn","text":"ok"}'`);
+  for (let i = 0; i < 3; i++) await m.runBounded([join(bin, 'grok')], 5);
+  assert.equal(process.listenerCount('SIGTERM'), before);
+  assert.equal(process.listenerCount('SIGINT'), process.listenerCount('SIGINT'));
+  rmSync(d, { recursive: true, force: true });
+});
+
+// ---- #12: upgrade path ----
+test('#12: an install without a manifest keeps runtime files and says executable fixes were not applied; --upgrade-runtime replaces runtime only', () => {
+  const d = mkdtempSync(join(tmpdir(), 'orch-legacy-'));
+  const dir = join(d, 'i');
+  const proj = join(d, 'p');
+  assert.equal(run(['--yes', '--level', '3', '--ais', 'codex', '--primary', 'codex', '--no-tools', '--no-apis', '--no-install', '--dir', dir, '--project', proj]).status, 0);
+  // simulate a 0.1.0 install: no manifest, an old runner, an edited doc
+  rmSync(join(dir, 'MANIFEST.json'));
+  writeFileSync(join(dir, 'bin', 'cli-run.mjs'), '// OLD RUNNER with spawnSync\n');
+  writeFileSync(join(dir, 'vm', 'jobs', 'weekly-audit.service'), '[Service]\nExecStart=/old\n');
+  writeFileSync(join(dir, 'ROUTING.md'), 'my routing');
+  const r = run(['--yes', '--level', '3', '--ais', 'codex', '--primary', 'codex', '--no-tools', '--no-apis', '--no-install', '--dir', dir, '--project', proj]);
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /no MANIFEST\.json: it predates 0\.1\.1/);
+  assert.match(r.stdout, /runtime kept, UNVERIFIABLE: .*bin\/cli-run\.mjs/);
+  assert.match(r.stdout, /Executable fixes were NOT applied/);
+  assert.equal(readFileSync(join(dir, 'bin', 'cli-run.mjs'), 'utf8'), '// OLD RUNNER with spawnSync\n', 'must not silently replace an unverifiable runtime file');
+  const up = run(['--yes', '--level', '3', '--ais', 'codex', '--primary', 'codex', '--no-tools', '--no-apis', '--no-install', '--upgrade-runtime', '--dir', dir, '--project', proj]);
+  assert.equal(up.status, 0, up.stderr);
+  assert.doesNotMatch(readFileSync(join(dir, 'bin', 'cli-run.mjs'), 'utf8'), /OLD RUNNER/);
+  assert.match(readFileSync(join(dir, 'vm', 'jobs', 'weekly-audit.service'), 'utf8'), /TimeoutStartSec=900/);
+  assert.equal(readFileSync(join(dir, 'ROUTING.md'), 'utf8'), 'my routing', '--upgrade-runtime must not touch documents');
+  rmSync(d, { recursive: true, force: true });
+});
+
+test('#12: with a manifest, an untouched runtime file is upgraded, an edited one is kept and reported as a conflict, and the manifest records the generator version', () => {
+  const d = mkdtempSync(join(tmpdir(), 'orch-upg-'));
+  const dir = join(d, 'i');
+  const proj = join(d, 'p');
+  assert.equal(run(['--yes', '--level', '3', '--ais', 'codex', '--primary', 'codex', '--no-tools', '--no-apis', '--no-install', '--dir', dir, '--project', proj]).status, 0);
+  const manifest = JSON.parse(readFileSync(join(dir, 'MANIFEST.json'), 'utf8'));
+  assert.match(manifest.generatorVersion, /^\d+\.\d+\.\d+$/);
+  assert.match(manifest.files['bin/cli-run.mjs'], /^[0-9a-f]{64}$/);
+  // pretend the previous generator produced a different (older) runner and audit script, recorded honestly in the manifest
+  const oldRunner = '// runner from an older release\n';
+  writeFileSync(join(dir, 'bin', 'cli-run.mjs'), oldRunner);
+  manifest.files['bin/cli-run.mjs'] = createHash('sha256').update(oldRunner).digest('hex');
+  manifest.generatorVersion = '0.1.1';
+  // and the user edited the audit script
+  writeFileSync(join(dir, 'vm', 'jobs', 'weekly-audit.sh'), '#!/bin/bash\necho my custom audit\n');
+  writeFileSync(join(dir, 'MANIFEST.json'), JSON.stringify(manifest));
+  const r = run(['--yes', '--level', '3', '--ais', 'codex', '--primary', 'codex', '--no-tools', '--no-apis', '--no-install', '--dir', dir, '--project', proj]);
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /generator 0\.1\.1/);
+  assert.match(r.stdout, /runtime upgraded: .*bin\/cli-run\.mjs/);
+  assert.match(r.stdout, /runtime CONFLICT, kept: .*vm\/jobs\/weekly-audit\.sh/);
+  assert.doesNotMatch(readFileSync(join(dir, 'bin', 'cli-run.mjs'), 'utf8'), /older release/);
+  assert.equal(readFileSync(join(dir, 'vm', 'jobs', 'weekly-audit.sh'), 'utf8'), '#!/bin/bash\necho my custom audit\n');
+  // identical rerun: nothing upgraded, nothing in conflict
+  const again = run(['--yes', '--level', '3', '--ais', 'codex', '--primary', 'codex', '--no-tools', '--no-apis', '--no-install', '--dir', dir, '--project', proj]);
+  assert.doesNotMatch(again.stdout, /runtime upgraded/);
+  assert.match(again.stdout, /runtime CONFLICT, kept: .*weekly-audit\.sh/, 'the edited file stays a reported conflict until the user resolves it');
   rmSync(d, { recursive: true, force: true });
 });

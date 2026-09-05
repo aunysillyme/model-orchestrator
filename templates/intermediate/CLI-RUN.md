@@ -11,7 +11,7 @@ node bin/cli-run.mjs codex "Write the report to out/report.md" --expect-file out
 node bin/cli-run.mjs grok  "Return the table as JSON" --expect-json                          # the response must parse as JSON
 ```
 
-An unmet contract is exit 10 with reason `contract_unmet`. A stale file from an earlier run does not satisfy `--expect-file`. Text-only callers need nothing new: without a contract flag the behaviour is the structural check above.
+An unmet contract is exit 10 with reason `contract_unmet`. `--expect-file` snapshots the target before the lane starts (existence, size, mtime, content hash) and afterwards requires a non-empty regular file that is new or changed: a different hash, or a later mtime. A file that existed before and was not touched fails, however recent it is; a rewrite with identical bytes and an unchanged mtime also fails, because nothing distinguishes it from no write. Timestamps and hashes are evidence of change, not proof of authorship: if another process could write the same path during the run, use a per-attempt path. Text-only callers need nothing new: without a contract flag the behaviour is the structural check above.
 
 Enabled lanes (edit `bin/lanes.json`): {{CLI_RUN_LANES}}
 
@@ -59,6 +59,7 @@ qwen is the lane whose own success flags lie: an upstream 400 comes back as exit
 | 11 | no output at all |
 | 12 | timed out; the lane and every descendant in its process group were killed |
 | 13 | lane unavailable: binary missing, disabled in `lanes.json`, or `lanes.json` malformed |
+| 130 / 143 | cli-run itself received SIGINT / SIGTERM; the lane's process group was killed first, then the temp dir removed |
 | 2 | usage error in cli-run itself |
 | N | the lane exited N != 0: passed through unchanged, verdict `exit_nonzero`, even when parseable text came back. The bounded head of the lane's stderr is shown on your terminal so an auth failure reads as one |
 
@@ -81,6 +82,14 @@ Absent: every lane enabled. Present but malformed or unreadable: every lane refu
 ## A killed lane is not a deliverable
 
 A lane that dies by signal has no honest exit status. Whatever it printed first is discarded; the run reports `killed` with exit 10.
+
+## Interrupting cli-run kills the lane too
+
+Ctrl-C or a `kill` on the wrapper kills the lane's whole process group before the wrapper exits (130 for SIGINT, 143 for SIGTERM). A second signal during cleanup kills again and exits at once. Handlers are installed per run and removed when it finishes, so `--doctor --run` does not accumulate them. Uncatchable SIGKILL to the wrapper leaves the lane running; that is the operating system, not a promise this tool can make. Under systemd, `KillMode=control-group` covers that case.
+
+## Output is decoded as a UTF-8 stream
+
+Vendor output is decoded with a streaming decoder, so a multibyte character split across two chunks is preserved byte for byte. The 16 MiB cap and the `raw_bytes` field count bytes, not characters.
 
 ## Timeouts kill the whole process group
 

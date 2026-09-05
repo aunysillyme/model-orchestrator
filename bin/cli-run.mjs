@@ -33,6 +33,7 @@
 //   11  produced no output at all
 //   12  timed out (the lane AND its descendants are killed as a process group)
 //   13  lane unavailable (missing binary, disabled in lanes.json, or lanes.json malformed)
+//   130 / 143  cli-run itself received SIGINT / SIGTERM: the lane's process group was killed first
 //   2   usage error in cli-run itself
 //   N   the lane exited N != 0: passed through, verdict exit_nonzero, even if text came back
 //
@@ -40,6 +41,7 @@
 // provider-supplied string. Bounded vendor stderr goes to your terminal only.
 
 import { spawn } from 'node:child_process';
+import { StringDecoder } from 'node:string_decoder';
 import { createHash } from 'node:crypto';
 import { readFileSync, existsSync, mkdirSync, appendFileSync, mkdtempSync, rmSync, accessSync, constants, realpathSync, statSync } from 'node:fs';
 import { join, dirname, delimiter, resolve } from 'node:path';
@@ -251,10 +253,17 @@ export function runBounded(argv, timeoutSec, maxBuffer = 16 * 1024 * 1024) {
     } catch (e) {
       return resolveRun({ status: null, signal: null, stdout: '', stderr: '', error: e, seconds: 0 });
     }
+    // Streaming decoders: a multibyte UTF-8 character split across two chunks
+    // must not become replacement characters. Limits are counted in BYTES.
+    const outDec = new StringDecoder('utf8');
+    const errDec = new StringDecoder('utf8');
     let out = '';
     let err = '';
+    let outBytes = 0;
+    let errBytes = 0;
     let timedOut = false;
     let overrun = false;
+    let interrupted = null;
     let settled = false;
     const killGroup = () => {
       try {
@@ -268,28 +277,49 @@ export function runBounded(argv, timeoutSec, maxBuffer = 16 * 1024 * 1024) {
         }
       }
     };
+    // If cli-run itself is interrupted, the detached lane must not outlive it:
+    // kill the group first, then finish with the signal recorded. A second
+    // signal while cleanup is in flight kills again and exits immediately.
+    const onSignal = (sig) => {
+      if (interrupted) {
+        killGroup();
+        process.exit(128 + (sig === 'SIGINT' ? 2 : 15));
+      }
+      interrupted = sig;
+      killGroup();
+    };
+    process.on('SIGINT', onSignal);
+    process.on('SIGTERM', onSignal);
     const timer = setTimeout(() => {
       timedOut = true;
       killGroup();
     }, timeoutSec * 1000);
     child.stdout.on('data', (d) => {
-      out += d;
-      if (out.length > maxBuffer && !overrun) {
-        overrun = true;
-        killGroup();
+      outBytes += d.length;
+      if (outBytes > maxBuffer) {
+        if (!overrun) {
+          overrun = true;
+          killGroup();
+        }
+        return;
       }
+      out += outDec.write(d);
     });
     child.stderr.on('data', (d) => {
-      if (err.length < 64 * 1024) err += d;
+      errBytes += d.length;
+      if (errBytes <= 64 * 1024) err += errDec.write(d);
     });
     const finish = (status, signal, error) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      // The group is dead or exited; a stray descendant still holding the
-      // pipes cannot keep this promise open because we resolve on 'exit'
-      // and give the pipes a short grace, not the other way round.
-      setTimeout(() => resolveRun({ status, signal, stdout: out, stderr: err, error, timedOut, overrun, seconds: (Date.now() - t0) / 1000 }), 20);
+      process.off('SIGINT', onSignal);
+      process.off('SIGTERM', onSignal);
+      out += outDec.end();
+      err += errDec.end();
+      // Resolve on the child's exit with a short grace for the pipes, so a stray
+      // descendant holding stdout cannot keep this promise open.
+      setTimeout(() => resolveRun({ status, signal, stdout: out, stderr: err, error, timedOut, overrun, interrupted, outBytes, seconds: (Date.now() - t0) / 1000 }), 20);
     };
     child.on('error', (e) => finish(null, null, e));
     child.on('exit', (status, signal) => {
@@ -373,18 +403,31 @@ export async function doctor(run) {
 
 // Opt-in contracts. A refusal that parses cleanly is a structurally accepted
 // response; these are how a caller says "that is not enough for this task".
-export function checkContracts(opts, text, startedAt) {
+// --expect-file compares the artifact AFTER the run with a snapshot taken
+// BEFORE it: the file must exist, be non-empty, and be new or changed (a
+// different content hash, or a later mtime). An artifact that already existed
+// and was not touched fails, however recent it is; a timestamp window alone
+// cannot prove this run produced it.
+export function snapshotFile(p) {
+  try {
+    const st = statSync(p);
+    if (!st.isFile()) return { exists: true, file: false };
+    return { exists: true, file: true, mtimeMs: st.mtimeMs, size: st.size, sha: createHash('sha256').update(readFileSync(p)).digest('hex') };
+  } catch {
+    return { exists: false };
+  }
+}
+
+export function checkContracts(opts, text, before) {
   if (opts.expectFile) {
     const p = resolve(opts.expectFile);
-    let st;
-    try {
-      st = statSync(p);
-    } catch {
-      return `--expect-file: ${p} does not exist after the run`;
+    const after = snapshotFile(p);
+    if (!after.exists) return `--expect-file: ${p} does not exist after the run`;
+    if (!after.file || after.size === 0) return `--expect-file: ${p} is empty or not a regular file`;
+    if (before && before.exists) {
+      const changed = !before.file || after.sha !== before.sha || after.mtimeMs > before.mtimeMs;
+      if (!changed) return `--expect-file: ${p} existed before the run and was not changed by it (same content, same mtime); a pre-existing artifact is not this run's deliverable`;
     }
-    if (!st.isFile() || st.size === 0) return `--expect-file: ${p} is empty or not a regular file`;
-    // A stale artifact from an earlier run must not satisfy a fresh-output contract.
-    if (st.mtimeMs < startedAt - 1000) return `--expect-file: ${p} predates this run (stale artifact)`;
   }
   if (opts.expectJson) {
     try {
@@ -465,14 +508,16 @@ export async function main(argv) {
   }
 
   const tmp = mkdtempSync(join(tmpdir(), 'cli-run-'));
-  const startedAt = Date.now();
+  const before = opts.expectFile ? snapshotFile(resolve(opts.expectFile)) : null;
   try {
     const { argv: cmd, outFile } = buildArgv(lane, binary, prompt, opts, tmp);
     const r = await runBounded(cmd, opts.timeout);
     const out = r.stdout || '';
     const err = r.stderr || '';
     let verdict, reason, detail, code, text = '';
-    if (r.timedOut) {
+    if (r.interrupted) {
+      verdict = 'interrupted'; reason = 'killed'; detail = `cli-run received ${r.interrupted}; the lane's process group was killed`; code = 128 + (r.interrupted === 'SIGINT' ? 2 : 15);
+    } else if (r.timedOut) {
       verdict = 'timeout'; reason = 'timeout'; detail = `exceeded ${opts.timeout}s; process group killed`; code = TIMEOUT;
     } else if (r.overrun) {
       verdict = 'no_deliverable'; reason = 'no_output'; detail = 'output exceeded the 16 MiB buffer; process group killed'; code = NO_DELIVERABLE;
@@ -496,7 +541,7 @@ export async function main(argv) {
         const head = stderrHead(err);
         detail = `lane exited ${r.status}` + (head ? `; stderr: ${head}` : '') + (j.reason !== 'ok' ? `; ${j.detail}` : '');
       } else if (text) {
-        const unmet = checkContracts(opts, text, startedAt);
+        const unmet = checkContracts(opts, text, before);
         if (unmet) {
           verdict = 'no_deliverable'; reason = 'contract_unmet'; detail = unmet; code = NO_DELIVERABLE;
         } else {
@@ -511,9 +556,9 @@ export async function main(argv) {
       }
     }
     if (text && code === OK) process.stdout.write(text + '\n');
-    if (!opts.quiet) console.error(`cli-run[${lane}] ${verdict} rc=${code} ${r.seconds.toFixed(1)}s raw=${out.length}B :: ${detail}`);
+    if (!opts.quiet) console.error(`cli-run[${lane}] ${verdict} rc=${code} ${r.seconds.toFixed(1)}s raw=${r.outBytes || 0}B :: ${detail}`);
     // Durable log: fixed reason code and structural numbers only.
-    log({ ...base, verdict, rc: code, cli_rc: r.status, signal: r.signal || null, seconds: Math.round(r.seconds * 100) / 100, raw_bytes: out.length, deliverable_bytes: text.length, reason: REASONS.has(reason) ? reason : 'unknown' });
+    log({ ...base, verdict, rc: code, cli_rc: r.status, signal: r.signal || null, seconds: Math.round(r.seconds * 100) / 100, raw_bytes: r.outBytes || 0, deliverable_bytes: Buffer.byteLength(text), reason: REASONS.has(reason) ? reason : 'unknown' });
     return code;
   } finally {
     rmSync(tmp, { recursive: true, force: true });

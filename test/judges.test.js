@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { judgeGrok, judgeCodex, judgeAgy, judgeHermes, judgeQwen, judge, buildArgv, REASONS, checkContracts } from '../bin/cli-run.mjs';
+import { judgeGrok, judgeCodex, judgeAgy, judgeHermes, judgeQwen, judge, buildArgv, REASONS, checkContracts, snapshotFile } from '../bin/cli-run.mjs';
 
 const ok = (r) => assert.ok(r.text, 'expected a deliverable, got: ' + r.detail);
 const no = (r, why) => assert.equal(r.text, null, 'expected refusal (' + why + '), got text: ' + JSON.stringify(r.text));
@@ -126,21 +126,24 @@ test('every judge failure carries a reason from the fixed set, and no provider m
 
 // ---- issue #5: contracts ----
 test('checkContracts: refusal text fails --expect-json; a missing, empty or stale file fails --expect-file', async () => {
-  const { mkdtempSync, writeFileSync, utimesSync, rmSync } = await import('node:fs');
+  const { mkdtempSync, writeFileSync, rmSync } = await import('node:fs');
   const { join } = await import('node:path');
   const { tmpdir } = await import('node:os');
   const d = mkdtempSync(join(tmpdir(), 'orch-contract-'));
-  const started = Date.now();
-  assert.match(checkContracts({ expectJson: true }, 'I cannot create that file.', started), /not valid JSON/);
-  assert.equal(checkContracts({ expectJson: true }, '{"a":1}', started), null);
-  assert.match(checkContracts({ expectFile: join(d, 'nope.md') }, 'x', started), /does not exist/);
+  assert.match(checkContracts({ expectJson: true }, 'I cannot create that file.', null), /not valid JSON/);
+  assert.equal(checkContracts({ expectJson: true }, '{"a":1}', null), null);
+  assert.match(checkContracts({ expectFile: join(d, 'nope.md') }, 'x', { exists: false }), /does not exist/);
   writeFileSync(join(d, 'empty.md'), '');
-  assert.match(checkContracts({ expectFile: join(d, 'empty.md') }, 'x', started), /empty/);
-  writeFileSync(join(d, 'stale.md'), 'old');
-  const old = new Date(started - 60_000);
-  utimesSync(join(d, 'stale.md'), old, old);
-  assert.match(checkContracts({ expectFile: join(d, 'stale.md') }, 'x', started), /predates this run/);
+  assert.match(checkContracts({ expectFile: join(d, 'empty.md') }, 'x', { exists: false }), /empty/);
+  // existed before, untouched: fails regardless of age
+  writeFileSync(join(d, 'same.md'), 'old');
+  const beforeSame = snapshotFile(join(d, 'same.md'));
+  assert.match(checkContracts({ expectFile: join(d, 'same.md') }, 'x', beforeSame), /existed before the run and was not changed/);
+  // existed before, rewritten with new content: passes
+  writeFileSync(join(d, 'same.md'), 'new content');
+  assert.equal(checkContracts({ expectFile: join(d, 'same.md') }, 'x', beforeSame), null);
+  // did not exist before, exists now: passes
   writeFileSync(join(d, 'fresh.md'), 'new');
-  assert.equal(checkContracts({ expectFile: join(d, 'fresh.md') }, 'x', started), null);
+  assert.equal(checkContracts({ expectFile: join(d, 'fresh.md') }, 'x', { exists: false }), null);
   rmSync(d, { recursive: true, force: true });
 });
