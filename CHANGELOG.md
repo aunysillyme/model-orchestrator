@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-09-05
+
+### Added
+
+- `--update-docs`: after a selection change, regenerate the documents a previous run wrote and nobody edited since. The check is the same hash rule the runtime class uses: an installed copy that matches the hash `MANIFEST.json` recorded is regenerated and named under "documents updated"; one that differs is kept and named under "document CONFLICT, kept"; without a manifest every changed document is kept as UNVERIFIABLE. `--force` still replaces everything; `--dry` reports and writes nothing. The reconfiguration hint names the flag.
+
+### Fixed
+
+- `MANIFEST.json` recorded the hash of content a run planned for a document it then kept, so the next hash check read every kept document (and, on a reconfiguration, every kept runtime file) as edited. The manifest now records the previous run's hash for kept files and no entry when there was no previous manifest, so the file classes tell the truth about what is on disk. Project-root agent definitions are keyed under `[project]`.
+
 ## [0.1.3] - 2026-09-05
 
 Professional-repo pass and the eight findings from the agy scored audit (overall 9.4/10; the findings are in the issue tracker's audit record).
@@ -74,7 +84,8 @@ First release.
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
-[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.0...v0.1.1

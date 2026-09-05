@@ -1,6 +1,6 @@
 {
   "name": "model-orchestrator",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "A model orchestrator you can npm run: route every task to the cheapest AI that does it well, across one agent, many CLIs, or a whole virtual machine. Three levels, one installer that asks what you have access to.",
   "type": "module",
   "bin": {

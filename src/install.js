@@ -461,9 +461,9 @@ export function readManifest(dir) {
 // definitions the user's CLI reads from the project root. Each root gets its
 // own preflight; one failure anywhere rolls back everything this run touched.
 // Machine-owned files are always rewritten (they carry the selection); other
-// existing files are kept unless --force.
+// existing documents are kept unless --force, or --update-docs for the ones a previous run wrote and nobody edited.
 export function writeFiles(files, opts) {
-  const { dir, force = false, dry = false, upgradeRuntime = false } = opts;
+  const { dir, force = false, dry = false, upgradeRuntime = false, updateDocs = false } = opts;
   const prevHashes = (opts.prevManifest && opts.prevManifest.files) || null;
   const roots = { dir, project: opts.project || dir };
   const groups = { dir: files.filter((f) => (f.root || 'dir') === 'dir'), project: files.filter((f) => f.root === 'project') };
@@ -482,21 +482,55 @@ export function writeFiles(files, opts) {
   const upgraded = [];      // runtime files replaced because the installed copy was an untouched generated one
   const conflicts = [];     // runtime files kept because the installed copy differs from what we generated
   const unverifiable = [];  // runtime files kept because there is no manifest to compare against
+  const docsUpdated = [];   // --update-docs: documents regenerated because the installed copy was an untouched generated one
+  const docsConflict = [];  // --update-docs: documents kept because you edited them
+  const docsUnverifiable = []; // --update-docs: documents kept because there is no manifest to compare against
   const created = [];
   const originals = new Map(); // abs -> {content, mode} of files --force overwrote, restored on failure
+  // Files that exist and were NOT rewritten this run. MANIFEST.json must record the hash of
+  // what is on disk for them (the previous run's hash, or nothing when there was no manifest),
+  // never the hash of content this run planned but did not write. Otherwise the next
+  // --update-docs or upgrade sees every kept file as "edited".
+  const keptKeys = new Set();
   try {
-    for (const k of ['dir', 'project']) {
+    // project first so MANIFEST.json (last in the dir group) is the final write and can
+    // describe every decision made above it
+    for (const k of ['project', 'dir']) {
       if (!groups[k].length) continue;
       const { root } = realRoot(roots[k]);
       for (const f of groups[k]) {
         const abs = resolve(root, f.rel);
         const exists = existsSync(abs);
         const label = k === 'project' ? '[project] ' + f.rel : f.rel;
+        const key = (k === 'project' ? '[project] ' : '') + f.rel.split(sep).join('/');
         const cls = k === 'dir' ? fileClass(f.rel) : 'document';
         if (exists && !force) {
           if (cls === 'document') {
-            skipped.push(label);
-            continue;
+            // Documents are the user's. Without --update-docs they are never touched.
+            // With it, the same hash rule the runtime class uses applies: regenerate
+            // only what a previous run wrote and nobody edited since.
+            if (!updateDocs) {
+              skipped.push(label);
+              keptKeys.add(key);
+              continue;
+            }
+            const onDisk = sha256(readFileSync(abs));
+            if (onDisk === sha256(f.content)) {
+              skipped.push(label); // already current
+              continue;
+            }
+            const prev = prevHashes ? prevHashes[key] : undefined;
+            if (!prev) {
+              docsUnverifiable.push(label);
+              keptKeys.add(key);
+              continue;
+            }
+            if (onDisk !== prev) {
+              docsConflict.push(label);
+              keptKeys.add(key);
+              continue;
+            }
+            docsUpdated.push(label);
           }
           if (cls === 'runtime') {
             const onDisk = sha256(readFileSync(abs));
@@ -505,23 +539,35 @@ export function writeFiles(files, opts) {
               continue;
             }
             if (!upgradeRuntime) {
-              const prev = prevHashes ? prevHashes[f.rel.split(sep).join('/')] : undefined;
+              const prev = prevHashes ? prevHashes[key] : undefined;
               if (!prev) {
                 unverifiable.push(label);
+                keptKeys.add(key);
                 continue;
               }
               if (onDisk !== prev) {
                 conflicts.push(label);
+                keptKeys.add(key);
                 continue;
               }
             }
             upgraded.push(label); // untouched generated file, or --upgrade-runtime said replace it: either way it is reported
           }
         }
+        let content = f.content;
+        if (f.rel === 'MANIFEST.json' && keptKeys.size) {
+          const m = JSON.parse(content);
+          for (const kk of Object.keys(m.files || {})) {
+            if (!keptKeys.has(kk)) continue;
+            if (prevHashes && prevHashes[kk]) m.files[kk] = prevHashes[kk];
+            else delete m.files[kk]; // never recorded: stays unverifiable, which is the truth
+          }
+          content = JSON.stringify(m, null, 2) + '\n';
+        }
         if (!dry) {
           if (exists) originals.set(abs, { content: readFileSync(abs), mode: statSync(abs).mode });
           mkdirSync(dirname(abs), { recursive: true });
-          writeFileSync(abs, f.content, { flag: exists ? 'w' : 'wx' });
+          writeFileSync(abs, content, { flag: exists ? 'w' : 'wx' });
           if (!exists) created.push(abs);
           chmodSync(abs, f.mode);
         }
@@ -546,7 +592,7 @@ export function writeFiles(files, opts) {
     }
     throw e;
   }
-  return { written, skipped, upgraded, conflicts, unverifiable };
+  return { written, skipped, upgraded, conflicts, unverifiable, docsUpdated, docsConflict, docsUnverifiable };
 }
 
 export function resolveSelection(ids) {

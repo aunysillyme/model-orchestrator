@@ -17,7 +17,7 @@ import { planFiles, writeFiles, resolveSelection, resolveTools, resolveApis, dir
 // turn a dry run into a real one.
 const SPEC = {
   level: 'value', ais: 'value', primary: 'value', dir: 'value', project: 'value', tools: 'value', apis: 'value',
-  yes: 'bool', force: 'bool', dry: 'bool', 'no-install': 'bool', 'no-tools': 'bool', 'no-apis': 'bool', 'upgrade-runtime': 'bool', list: 'bool', help: 'bool', h: 'bool'
+  yes: 'bool', force: 'bool', dry: 'bool', 'no-install': 'bool', 'no-tools': 'bool', 'no-apis': 'bool', 'upgrade-runtime': 'bool', 'update-docs': 'bool', list: 'bool', help: 'bool', h: 'bool'
 };
 export function parseArgs(argv) {
   const out = {};
@@ -90,6 +90,9 @@ Flags
   --force            overwrite every file that already exists, documents included
   --upgrade-runtime  replace the runtime files (cli-run, the audit job, compose, gateway config, setup script) even
                      when they cannot be verified as untouched; documents are still kept
+  --update-docs      regenerate the documents a previous run wrote and nobody edited since (hash-checked against
+                     MANIFEST.json), so a changed selection reaches ROUTING.md and friends; edited documents are kept
+                     and reported, and nothing happens without a manifest
   --dry              print the plan, write nothing
   --no-install       never offer to run npm installs
   --list             print the catalog
@@ -267,9 +270,9 @@ async function main() {
         .concat(['ais', 'tools', 'apis'].filter((k) => JSON.stringify(prev[k] || []) !== JSON.stringify({ ais: selected, tools, apis }[k].map((x) => x.id))))
     : [];
 
-  let written, skipped, upgraded, conflicts, unverifiable;
+  let written, skipped, upgraded, conflicts, unverifiable, docsUpdated, docsConflict, docsUnverifiable;
   try {
-    ({ written, skipped, upgraded, conflicts, unverifiable } = writeFiles(files, { dir, project, force: flag('force'), upgradeRuntime: flag('upgrade-runtime'), prevManifest: prev }));
+    ({ written, skipped, upgraded, conflicts, unverifiable, docsUpdated, docsConflict, docsUnverifiable } = writeFiles(files, { dir, project, force: flag('force'), upgradeRuntime: flag('upgrade-runtime'), updateDocs: flag('update-docs'), prevManifest: prev }));
   } catch (e) {
     if (e && e.code === 'PREFLIGHT') bad(e.message);
     throw e;
@@ -278,7 +281,7 @@ async function main() {
   console.log(`\nWrote ${written.length} file(s)` + (skipped.length ? `, kept ${skipped.length} existing:` : '.'));
   for (const s of skipped) console.log('  kept ' + s);
   const existingRuntime = files.filter((f) => f.root !== 'project' && RUNTIME.has(f.rel)).length;
-  if (prev || existingRuntime && (upgraded.length || conflicts.length || unverifiable.length)) {
+  if (prev || existingRuntime && (upgraded.length || conflicts.length || unverifiable.length) || docsUnverifiable.length) {
     console.log(`\nExisting installation found${prev ? ` (MANIFEST.json from generator ${prev.generatorVersion || 'pre-0.1.1'}, ${prev.generatedAt || 'undated'}; this run is ${GENERATOR_VERSION})` : ' (no MANIFEST.json: it predates 0.1.1)'}.`);
     if (prev) {
       if (changed.length) {
@@ -297,7 +300,16 @@ async function main() {
       console.log('    the previous install left no manifest, so it is not possible to tell whether you edited these. Executable fixes were NOT applied.');
       console.log('    Re-run with --upgrade-runtime to replace runtime files only (documents stay), or --force to replace everything.');
     }
-    if (skipped.length && prev && changed.length) console.log('  documents kept: they may describe the old selection. --force regenerates them (this overwrites your edits), or edit them by hand.');
+    if (docsUpdated.length) console.log(`  documents updated: ${docsUpdated.join(', ')} (each matched the hash of a previous run, so nobody had edited them)`);
+    if (docsConflict.length) {
+      console.log(`  document CONFLICT, kept: ${docsConflict.join(', ')}`);
+      console.log('    these differ from what a previous run generated, so you edited them. Edit them by hand, or --force to replace everything.');
+    }
+    if (docsUnverifiable.length) {
+      console.log(`  documents kept, UNVERIFIABLE: ${docsUnverifiable.join(', ')}`);
+      console.log('    the previous install left no manifest, so --update-docs cannot tell your edits from generated text. --force replaces everything.');
+    }
+    if (skipped.length && prev && changed.length && !flag('update-docs')) console.log('  documents kept: they may describe the old selection. --update-docs regenerates the ones you have not edited; --force regenerates all of them (this overwrites your edits).');
   }
 
   // 6. Installs, opt-in per CLI, npm only. Vendor scripts are printed, never run.
