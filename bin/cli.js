@@ -10,14 +10,14 @@ import { spawnSync } from 'node:child_process';
 import { resolve, join } from 'node:path';
 import { which } from '../src/detect.js';
 import { AIS, LEVELS, TOOLS, PROVIDERS, aisForLevel, agentCandidates, byId, npmSpec } from '../src/catalog.js';
-import { planFiles, writeFiles, resolveSelection, resolveTools, resolveApis, dirProblems, readManifest, MACHINE_OWNED } from '../src/install.js';
+import { planFiles, writeFiles, resolveSelection, resolveTools, resolveApis, dirProblems, readManifest, MACHINE_OWNED, RUNTIME, GENERATOR_VERSION } from '../src/install.js';
 
 // One strict parse. Unknown flags, missing values and duplicates are usage
 // errors (exit 2) before anything is planned, so a typo like --dryy can never
 // turn a dry run into a real one.
 const SPEC = {
   level: 'value', ais: 'value', primary: 'value', dir: 'value', project: 'value', tools: 'value', apis: 'value',
-  yes: 'bool', force: 'bool', dry: 'bool', 'no-install': 'bool', 'no-tools': 'bool', 'no-apis': 'bool', list: 'bool', help: 'bool', h: 'bool'
+  yes: 'bool', force: 'bool', dry: 'bool', 'no-install': 'bool', 'no-tools': 'bool', 'no-apis': 'bool', 'upgrade-runtime': 'bool', list: 'bool', help: 'bool', h: 'bool'
 };
 export function parseArgs(argv) {
   const out = {};
@@ -87,7 +87,9 @@ Flags
   --dir path         where to write the docs and protocols (default ./ai-orchestrator)
   --project path     the project root your agent runs from; subagent definitions go here (default: current directory)
   --yes              skip confirmations
-  --force            overwrite files that already exist
+  --force            overwrite every file that already exists, documents included
+  --upgrade-runtime  replace the runtime files (cli-run, the audit job, compose, gateway config, setup script) even
+                     when they cannot be verified as untouched; documents are still kept
   --dry              print the plan, write nothing
   --no-install       never offer to run npm installs
   --list             print the catalog
@@ -265,9 +267,9 @@ async function main() {
         .concat(['ais', 'tools', 'apis'].filter((k) => JSON.stringify(prev[k] || []) !== JSON.stringify({ ais: selected, tools, apis }[k].map((x) => x.id))))
     : [];
 
-  let written, skipped;
+  let written, skipped, upgraded, conflicts, unverifiable;
   try {
-    ({ written, skipped } = writeFiles(files, { dir, project, force: flag('force') }));
+    ({ written, skipped, upgraded, conflicts, unverifiable } = writeFiles(files, { dir, project, force: flag('force'), upgradeRuntime: flag('upgrade-runtime'), prevManifest: prev }));
   } catch (e) {
     if (e && e.code === 'PREFLIGHT') bad(e.message);
     throw e;
@@ -275,15 +277,27 @@ async function main() {
   const ownedWritten = written.filter((w) => MACHINE_OWNED.has(w));
   console.log(`\nWrote ${written.length} file(s)` + (skipped.length ? `, kept ${skipped.length} existing:` : '.'));
   for (const s of skipped) console.log('  kept ' + s);
-  if (prev) {
-    console.log(`\nReconfiguration: a previous run was found (MANIFEST.json, ${prev.generatedAt || 'undated'}).`);
-    if (changed.length) {
-      console.log(`  changed: ${changed.join(', ')}`);
-      console.log(`  applied: ${ownedWritten.join(', ') || 'nothing'} (machine-owned files are always rewritten, so the new lanes are live)`);
-      if (skipped.length) console.log('  kept:    the documents above were NOT regenerated; they may describe the old selection. Re-run with --force to regenerate them (this overwrites your edits), or edit them by hand.');
-    } else {
-      console.log('  identical selection; nothing to reconfigure.');
+  const existingRuntime = files.filter((f) => f.root !== 'project' && RUNTIME.has(f.rel)).length;
+  if (prev || existingRuntime && (upgraded.length || conflicts.length || unverifiable.length)) {
+    console.log(`\nExisting installation found${prev ? ` (MANIFEST.json from generator ${prev.generatorVersion || 'pre-0.1.1'}, ${prev.generatedAt || 'undated'}; this run is ${GENERATOR_VERSION})` : ' (no MANIFEST.json: it predates 0.1.1)'}.`);
+    if (prev) {
+      if (changed.length) {
+        console.log(`  selection changed: ${changed.join(', ')}`);
+        console.log(`  applied: ${ownedWritten.join(', ') || 'nothing'} (machine-owned files are always rewritten, so the new lanes are live)`);
+      } else console.log('  selection identical.');
     }
+    if (upgraded.length) console.log(`  runtime upgraded: ${upgraded.join(', ')} (each installed copy matched the hash of a previous run, so nobody had edited it)`);
+    if (conflicts.length) {
+      console.log(`  runtime CONFLICT, kept: ${conflicts.join(', ')}`);
+      console.log('    these differ from what a previous run generated, so you edited them. The fixes in this release were NOT applied to them.');
+      console.log('    Options: move your copy aside and re-run; or --upgrade-runtime to replace runtime files only; or --force to replace everything.');
+    }
+    if (unverifiable.length) {
+      console.log(`  runtime kept, UNVERIFIABLE: ${unverifiable.join(', ')}`);
+      console.log('    the previous install left no manifest, so it is not possible to tell whether you edited these. Executable fixes were NOT applied.');
+      console.log('    Re-run with --upgrade-runtime to replace runtime files only (documents stay), or --force to replace everything.');
+    }
+    if (skipped.length && prev && changed.length) console.log('  documents kept: they may describe the old selection. --force regenerates them (this overwrites your edits), or edit them by hand.');
   }
 
   // 6. Installs, opt-in per CLI, npm only. Vendor scripts are printed, never run.

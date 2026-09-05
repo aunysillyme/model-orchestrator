@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.2
+
+Follow-up audit of 0.1.1 (issues #12 to #15):
+
+- `cli-run`: SIGINT/SIGTERM to the wrapper kill the lane's process group before exiting 130/143 (#13); stdout and stderr go through streaming UTF-8 decoders and limits are counted in bytes, so a multibyte character split across chunks survives (#14); `--expect-file` snapshots the target before the run and requires it to be new or changed, so a pre-existing artifact fails however recent (#15).
+- Installer: three file classes. `MANIFEST.json` now records the generator version and a hash per generated file; runtime files (`cli-run.mjs`, the audit job, unit and timer, compose, gateway config, setup script) are upgraded when the installed copy is provably untouched, kept and reported as a conflict when edited, kept and reported as unverifiable when no manifest exists, with `--upgrade-runtime` to replace runtime files only (#12). README discloses the machine-owned and runtime exceptions to "never overwrite".
+
 ## 0.1.1
 
 Audit follow-up (issues #1 to #10 on the repo):

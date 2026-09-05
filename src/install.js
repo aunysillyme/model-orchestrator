@@ -2,9 +2,12 @@ import { readFileSync, existsSync, mkdirSync, writeFileSync, chmodSync, readdirS
 import { join, dirname, relative, resolve, sep, parse as parsePath, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { render } from './render.js';
+import { createHash } from 'node:crypto';
 import { AIS, LEVELS, TOOLS, PROVIDERS, IMAGES, byId, toolById, providerById, npmSpec } from './catalog.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
+export const GENERATOR_VERSION = JSON.parse(readFileSync(join(HERE, '..', 'package.json'), 'utf8')).version;
+const sha256 = (buf) => createHash('sha256').update(buf).digest('hex');
 export const TEMPLATES = join(HERE, '..', 'templates');
 export const CLI_RUN_SRC = join(HERE, '..', 'bin', 'cli-run.mjs');
 
@@ -298,29 +301,6 @@ export function planFiles(opts) {
     if (existsSync(join(TEMPLATES, 'tools', t.id))) addTemplates(join('tools', t.id));
   }
 
-  // MANIFEST.json records the choices this run was generated from. It is
-  // machine-owned (see MACHINE_OWNED) so a rerun can compare requested vs
-  // applied and rewrite structured config without touching edited docs.
-  add(
-    'MANIFEST.json',
-    JSON.stringify(
-      {
-        generator: 'model-orchestrator',
-        generatedAt: new Date().toISOString(),
-        level,
-        ais: selected.map((a) => a.id),
-        primary: primary ? primary.id : null,
-        tools: (opts.tools || []).map((t) => t.id),
-        apis: (opts.apis || []).map((p) => p.id),
-        dir: resolve(opts.dir || 'ai-orchestrator'),
-        project: resolve(opts.project || process.cwd()),
-        note: 'Machine-owned. Rewritten on every run together with bin/lanes.json. Edit the docs, not this.'
-      },
-      null,
-      2
-    ) + '\n'
-  );
-
   if (level >= 2) {
     addTemplates('intermediate');
     add(join('bin', 'cli-run.mjs'), readFileSync(CLI_RUN_SRC, 'utf8'), 0o755);
@@ -340,6 +320,37 @@ export function planFiles(opts) {
   if (level >= 3) {
     addTemplates('advanced');
   }
+
+  // MANIFEST.json records the choices this run was generated from, the
+  // generator version, and a hash of every file as generated, so a later run
+  // can tell an untouched generated file (safe to upgrade) from one the user
+  // edited (kept, reported as a conflict). Machine-owned: rewritten every run.
+  const fileHashes = {};
+  for (const f of files) fileHashes[(f.root === 'project' ? '[project] ' : '') + f.rel.split(sep).join('/')] = sha256(f.content);
+  files.push({
+    rel: 'MANIFEST.json',
+    mode: 0o644,
+    root: 'dir',
+    content:
+      JSON.stringify(
+        {
+          generator: 'model-orchestrator',
+          generatorVersion: GENERATOR_VERSION,
+          generatedAt: new Date().toISOString(),
+          level,
+          ais: selected.map((a) => a.id),
+          primary: primary ? primary.id : null,
+          tools: (opts.tools || []).map((t) => t.id),
+          apis: (opts.apis || []).map((p) => p.id),
+          dir: resolve(opts.dir || 'ai-orchestrator'),
+          project: resolve(opts.project || process.cwd()),
+          files: fileHashes,
+          note: 'Machine-owned. Rewritten on every run together with bin/lanes.json. Edit the docs, not this.'
+        },
+        null,
+        2
+      ) + '\n'
+  });
 
   return files;
 }
@@ -410,10 +421,31 @@ export function preflight(files, dir) {
   return problems;
 }
 
-// Files the installer OWNS: structured configuration a rerun must be allowed
-// to update so a new selection actually applies. Everything else is a document
-// the user may have edited, and is kept unless --force.
+// Three classes of generated file.
+//   MACHINE_OWNED  structured configuration: rewritten on every run so a new
+//                  selection applies (MANIFEST.json, bin/lanes.json).
+//   RUNTIME        executables and units: rewritten when the installed copy is
+//                  byte-identical to what a previous run generated (the manifest
+//                  hash proves nobody edited it), kept and reported as a conflict
+//                  when it was edited, kept and reported as unverifiable when no
+//                  manifest exists. --upgrade-runtime forces this class only.
+//   documents      everything else: the user may have edited them; kept unless --force.
 export const MACHINE_OWNED = new Set(['MANIFEST.json', 'bin/lanes.json']);
+export const RUNTIME = new Set([
+  'bin/cli-run.mjs',
+  'vm/setup-vm.sh',
+  'vm/docker-compose.yml',
+  'vm/gateway.config.yaml',
+  'vm/jobs/weekly-audit.sh',
+  'vm/jobs/weekly-audit.service',
+  'vm/jobs/weekly-audit.timer'
+]);
+export function fileClass(rel) {
+  const r = rel.split(sep).join('/');
+  if (MACHINE_OWNED.has(r)) return 'owned';
+  if (RUNTIME.has(r)) return 'runtime';
+  return 'document';
+}
 
 export function readManifest(dir) {
   try {
@@ -430,7 +462,8 @@ export function readManifest(dir) {
 // Machine-owned files are always rewritten (they carry the selection); other
 // existing files are kept unless --force.
 export function writeFiles(files, opts) {
-  const { dir, force = false, dry = false } = opts;
+  const { dir, force = false, dry = false, upgradeRuntime = false } = opts;
+  const prevHashes = (opts.prevManifest && opts.prevManifest.files) || null;
   const roots = { dir, project: opts.project || dir };
   const groups = { dir: files.filter((f) => (f.root || 'dir') === 'dir'), project: files.filter((f) => f.root === 'project') };
   const problems = [];
@@ -445,6 +478,9 @@ export function writeFiles(files, opts) {
   }
   const written = [];
   const skipped = [];
+  const upgraded = [];      // runtime files replaced because the installed copy was an untouched generated one
+  const conflicts = [];     // runtime files kept because the installed copy differs from what we generated
+  const unverifiable = [];  // runtime files kept because there is no manifest to compare against
   const created = [];
   const originals = new Map(); // abs -> {content, mode} of files --force overwrote, restored on failure
   try {
@@ -455,10 +491,29 @@ export function writeFiles(files, opts) {
         const abs = resolve(root, f.rel);
         const exists = existsSync(abs);
         const label = k === 'project' ? '[project] ' + f.rel : f.rel;
-        const owned = k === 'dir' && MACHINE_OWNED.has(f.rel.split(sep).join('/'));
-        if (exists && !force && !owned) {
-          skipped.push(label);
-          continue;
+        const cls = k === 'dir' ? fileClass(f.rel) : 'document';
+        if (exists && !force) {
+          if (cls === 'document') {
+            skipped.push(label);
+            continue;
+          }
+          if (cls === 'runtime' && !upgradeRuntime) {
+            const onDisk = sha256(readFileSync(abs));
+            const prev = prevHashes ? prevHashes[f.rel.split(sep).join('/')] : undefined;
+            if (onDisk === sha256(f.content)) {
+              skipped.push(label); // already current
+              continue;
+            }
+            if (!prev) {
+              unverifiable.push(label);
+              continue;
+            }
+            if (onDisk !== prev) {
+              conflicts.push(label);
+              continue;
+            }
+            upgraded.push(label); // untouched generated file: safe to replace
+          }
         }
         if (!dry) {
           if (exists) originals.set(abs, { content: readFileSync(abs), mode: statSync(abs).mode });
@@ -488,7 +543,7 @@ export function writeFiles(files, opts) {
     }
     throw e;
   }
-  return { written, skipped };
+  return { written, skipped, upgraded, conflicts, unverifiable };
 }
 
 export function resolveSelection(ids) {

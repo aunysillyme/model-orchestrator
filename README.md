@@ -5,10 +5,10 @@
 Built from a working system, not a diagram: the routing rules, the protocols and the lane runner here run in production, generalized so they transfer to any stack.
 
 ```bash
-npx github:aunysillyme/model-orchestrator#v0.1.1
+npx github:aunysillyme/model-orchestrator#v0.1.2
 ```
 
-That runs the reviewed release straight from GitHub (drop `#v0.1.1` for the current main). `npx model-orchestrator` will work once the package is on the npm registry; until then it is not a command you can run.
+That runs the reviewed release straight from GitHub (drop `#v0.1.2` for the current main). `npx model-orchestrator` will work once the package is on the npm registry; until then it is not a command you can run.
 
 The installer asks a few things, then writes a folder:
 
@@ -16,7 +16,7 @@ The installer asks a few things, then writes a folder:
 2. **Which AIs do you have access to?** (it marks the ones already on your PATH)
 3. **Which one is your primary agent?** (the one that runs the system)
 
-It never writes a secret, never runs a vendor shell script for you, and never overwrites a file you already have unless you pass `--force`. Docs and protocols go to `--dir` (default `./ai-orchestrator`); subagent definitions go to the project root your agent runs from (`--project`, default the current directory), because that is the only place Claude Code and Antigravity read them. It ends with an activation summary: what to copy where, which sign-ins, and one smoke command. Uninstall: delete the folder, the subagent folder it named, and `~/.ai-orchestrator/cli-run.log.jsonl` if you used `cli-run`.
+It never writes a secret, never runs a vendor shell script for you, and never overwrites a document you already have unless you pass `--force`. Two exceptions, both stated when they happen: `MANIFEST.json` and `bin/lanes.json` are machine-owned and rewritten on every run so a changed selection applies; runtime files (`cli-run`, the audit job, compose, gateway config, setup script) are upgraded when the installed copy matches the hash a previous run recorded, kept and reported as a conflict when you edited them, and kept as unverifiable when no manifest exists (`--upgrade-runtime` replaces runtime files only). Docs and protocols go to `--dir` (default `./ai-orchestrator`); subagent definitions go to the project root your agent runs from (`--project`, default the current directory), because that is the only place Claude Code and Antigravity read them. It ends with an activation summary: what to copy where, which sign-ins, and one smoke command. Uninstall: delete the folder, the subagent folder it named, and `~/.ai-orchestrator/cli-run.log.jsonl` if you used `cli-run`.
 
 ## The three levels
 
@@ -41,7 +41,7 @@ Read the thinking behind each level in [docs/](docs/README.md): [Part 1](docs/pa
 | `ollama` | local models: the privacy lane | 2+ |
 | `claude-app`, `chatgpt-app`, `gemini-app` | chat apps with no CLI: level 1 via a paste block | 1 |
 
-`npx github:aunysillyme/model-orchestrator#v0.1.1 --list` prints the catalog with install and sign-in notes. Details: [docs/catalog.md](docs/catalog.md).
+`npx github:aunysillyme/model-orchestrator#v0.1.2 --list` prints the catalog with install and sign-in notes. Details: [docs/catalog.md](docs/catalog.md).
 
 ## Companion tools (both optional)
 
@@ -57,9 +57,9 @@ Whether or not you select them, every level carries the two rules they serve: `p
 ## Non-interactive
 
 ```bash
-npx github:aunysillyme/model-orchestrator#v0.1.1 --yes --level 2 --ais claude-code,codex,grok --primary claude-code --dir ./ai-orchestrator
-npx github:aunysillyme/model-orchestrator#v0.1.1 --yes --level 3 --ais claude-code,codex,agy,grok,hermes,qwen,ollama --apis anthropic,openrouter --dry   # print the plan, write nothing
-npx github:aunysillyme/model-orchestrator#v0.1.1 --yes --level 2 --ais claude-code,codex --project ~/my-app --dir ~/my-app/ai-orchestrator  # subagents into ~/my-app/.claude/agents
+npx github:aunysillyme/model-orchestrator#v0.1.2 --yes --level 2 --ais claude-code,codex,grok --primary claude-code --dir ./ai-orchestrator
+npx github:aunysillyme/model-orchestrator#v0.1.2 --yes --level 3 --ais claude-code,codex,agy,grok,hermes,qwen,ollama --apis anthropic,openrouter --dry   # print the plan, write nothing
+npx github:aunysillyme/model-orchestrator#v0.1.2 --yes --level 2 --ais claude-code,codex --project ~/my-app --dir ~/my-app/ai-orchestrator  # subagents into ~/my-app/.claude/agents
 ```
 
 ## What gets written (level 3, everything)
@@ -95,8 +95,8 @@ Most of what this package ships is text an agent is asked to follow. Be clear ab
 
 | Property | How it holds |
 |---|---|
-| Installer writes only inside `--dir` and `--project`, never a secret, never over your files without `--force` | **enforced by code** (preflight, exclusive create, rollback; tested) |
-| `cli-run` exit codes, process-group kill on timeout, fixed-code durable log, `--expect-*` contracts | **enforced by code** (tested with stub lanes) |
+| Installer writes only inside `--dir` and `--project`, never a secret, never over a document without `--force`; machine-owned config always, runtime files only when provably untouched or with `--upgrade-runtime` | **enforced by code** (preflight, exclusive create, rollback, manifest hashes; tested) |
+| `cli-run` exit codes, process-group kill on timeout and on SIGINT/SIGTERM, UTF-8-safe streaming, fixed-code durable log, `--expect-*` contracts with a pre-run snapshot | **enforced by code** (tested with stub lanes) |
 | Codex audit lane runs read-only | **delegated to the vendor flag** (`--audit` → `--sandbox read-only`); commands and network still follow your codex config |
 | Other lanes' permissions, sign-in state, model versions | **delegated to each vendor's own config**; `--doctor` checks presence, not versions |
 | Gateway binds to loopback, keys by name only | **enforced in the generated files**; whether the gateway authenticates is your environment |
