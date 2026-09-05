@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.1
+
+Audit follow-up (issues #1 to #10 on the repo):
+
+- `cli-run`: lanes run in their own process group and the group is killed on timeout or buffer overrun (#1); the durable log stores only a fixed reason code (#4); nonzero vendor exits pass through with an `exit_nonzero` verdict and a bounded stderr head on the terminal (#9); the guarantee is stated exactly and `--expect-file` / `--expect-json` add opt-in contracts (#5).
+- Weekly audit: `--audit` for codex and an explicit boundary note for other lanes (#2); temp-and-rename so a failed rerun never truncates the last good report, failed output kept beside it (#3); every probe under a watchdog, `TimeoutStartSec=900`, `UNVERIFIED` lines for timed-out probes (#10).
+- Installer: `MANIFEST.json` and `bin/lanes.json` are machine-owned and rewritten on every run, with a requested-vs-applied report on reconfiguration (#6); one `npmSpec` helper so the interactive install, the printed command, the table and the box script use the same pinned version (#8).
+- README leads with the GitHub route pinned to the release until the npm publish, and states which properties are enforced, delegated or instructions (#7, #11). CI installs the packed tarball into a clean consumer and runs it.
+
 ## 0.1.0
 
 First release.

@@ -5,10 +5,12 @@
 Built from a working system, not a diagram: the routing rules, the protocols and the lane runner here run in production, generalized so they transfer to any stack.
 
 ```bash
-npx model-orchestrator
+npx github:aunysillyme/model-orchestrator#v0.1.1
 ```
 
-The installer asks three things, then writes a folder:
+That runs the reviewed release straight from GitHub (drop `#v0.1.1` for the current main). `npx model-orchestrator` will work once the package is on the npm registry; until then it is not a command you can run.
+
+The installer asks a few things, then writes a folder:
 
 1. **Which level?** 1 beginner · 2 intermediate · 3 advanced
 2. **Which AIs do you have access to?** (it marks the ones already on your PATH)
@@ -21,7 +23,7 @@ It never writes a secret, never runs a vendor shell script for you, and never ov
 | Level | You have | You get |
 |---|---|---|
 | **1 · Beginner** | one LLM or one agent | tiers, task classification, the two build checkpoints, the protocols (build, propagate, gap analysis, deep research, numbers and logic, memory and record), a task-bundle template, and your agent set up to follow them |
-| **2 · Intermediate** | several AIs with CLIs | everything above, plus `cli-run` (exit 0 means the deliverable exists), a delegation matrix generated from your selection, three-engine research triage |
+| **2 · Intermediate** | several AIs with CLIs | everything above, plus `cli-run` (exit 0 means a structurally accepted non-empty response; opt-in `--expect-file` / `--expect-json` for real contracts), a delegation matrix generated from your selection, research triage across the lanes you have |
 | **3 · Advanced** | a virtual machine | everything above, plus a gateway config rendered from the API keys you hold (asked separately from your CLIs), pinned images, box rules, privacy gates, and a weekly gap-analysis job with "what watches it" written down |
 
 Read the thinking behind each level in [docs/](docs/README.md): [Part 1](docs/part-1-beginner.md) · [Part 2](docs/part-2-intermediate.md) · [Part 3](docs/part-3-advanced.md).
@@ -39,7 +41,7 @@ Read the thinking behind each level in [docs/](docs/README.md): [Part 1](docs/pa
 | `ollama` | local models: the privacy lane | 2+ |
 | `claude-app`, `chatgpt-app`, `gemini-app` | chat apps with no CLI: level 1 via a paste block | 1 |
 
-`npx model-orchestrator --list` prints the catalog with install and sign-in notes. Details: [docs/catalog.md](docs/catalog.md).
+`npx github:aunysillyme/model-orchestrator#v0.1.1 --list` prints the catalog with install and sign-in notes. Details: [docs/catalog.md](docs/catalog.md).
 
 ## Companion tools (both optional)
 
@@ -52,20 +54,12 @@ An orchestrator routes work. It does not make a model stop guessing numbers, and
 
 Whether or not you select them, every level carries the two rules they serve: `protocols/numbers-and-logic.md` (when calling a calculator is mandatory, how to report a computed figure, why a thought log is not evidence) and `protocols/memory-and-record.md` (search before writing, the folder index is part of the change, one writer, inferred content marked as inferred).
 
-## Run it straight from GitHub
-
-Until the package is on the npm registry (or if you want the current main branch):
-
-```bash
-npx github:aunysillyme/model-orchestrator
-```
-
 ## Non-interactive
 
 ```bash
-npx model-orchestrator --yes --level 2 --ais claude-code,codex,grok --primary claude-code --dir ./ai-orchestrator
-npx model-orchestrator --yes --level 3 --ais claude-code,codex,agy,grok,hermes,qwen,ollama --apis anthropic,openrouter --dry   # print the plan, write nothing
-npx model-orchestrator --yes --level 2 --ais claude-code,codex --project ~/my-app --dir ~/my-app/ai-orchestrator  # subagents into ~/my-app/.claude/agents
+npx github:aunysillyme/model-orchestrator#v0.1.1 --yes --level 2 --ais claude-code,codex,grok --primary claude-code --dir ./ai-orchestrator
+npx github:aunysillyme/model-orchestrator#v0.1.1 --yes --level 3 --ais claude-code,codex,agy,grok,hermes,qwen,ollama --apis anthropic,openrouter --dry   # print the plan, write nothing
+npx github:aunysillyme/model-orchestrator#v0.1.1 --yes --level 2 --ais claude-code,codex --project ~/my-app --dir ~/my-app/ai-orchestrator  # subagents into ~/my-app/.claude/agents
 ```
 
 ## What gets written (level 3, everything)
@@ -95,11 +89,27 @@ ai-orchestrator/
 | [`docs/`](docs/README.md) | the three parts and the catalog |
 | [`test/`](test/README.md) | `npm test`: judges proven to go red, catalog integrity, planner, end-to-end install in a temp dir; `.github/workflows/test.yml` runs it on Ubuntu and macOS, Node 18/20/22 |
 
+## What is enforced, what is delegated, what is an instruction
+
+Most of what this package ships is text an agent is asked to follow. Be clear about which is which before relying on it unattended.
+
+| Property | How it holds |
+|---|---|
+| Installer writes only inside `--dir` and `--project`, never a secret, never over your files without `--force` | **enforced by code** (preflight, exclusive create, rollback; tested) |
+| `cli-run` exit codes, process-group kill on timeout, fixed-code durable log, `--expect-*` contracts | **enforced by code** (tested with stub lanes) |
+| Codex audit lane runs read-only | **delegated to the vendor flag** (`--audit` → `--sandbox read-only`); commands and network still follow your codex config |
+| Other lanes' permissions, sign-in state, model versions | **delegated to each vendor's own config**; `--doctor` checks presence, not versions |
+| Gateway binds to loopback, keys by name only | **enforced in the generated files**; whether the gateway authenticates is your environment |
+| Lane selection, tiers, privacy classes, one-writer, escalation, the protocols | **agent instructions**. Nothing here stops an agent that ignores its rules; the task bundle and the protocols make ignoring them visible, not impossible |
+| Weekly audit bounded, previous report preserved | **enforced in the generated script and unit** (watchdog, temp-and-rename, `TimeoutStartSec`) |
+
+If you need a property in the third row to be enforced, that is a router, a policy engine or a sandbox, and this package does not claim to be one.
+
 ## Principles the whole thing rests on
 
 1. **Route by capability tier, not model name.** Default down, escalate on evidence.
 2. **A gate you cannot fail is not a gate.** Every checkpoint is a question that can come back wrong.
-3. **Exit 0 is not a deliverable.** Check for the artifact, not the status line.
+3. **Exit 0 is not a deliverable.** Check for the artifact, not the status line. `cli-run` checks the response is structurally there; `--expect-file` checks the artifact.
 6. **Numbers are computed, never guessed.** A tool that calculates beats a model that feels finished.
 7. **A write nobody can find again did not happen.** Search first, keep the index true, one writer.
 4. **The orchestrator owns the main build.** Delegates hold none of your rules; they get bounded sub-parts and a brief.
