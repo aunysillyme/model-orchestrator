@@ -29,4 +29,11 @@ journalctl --user -u weekly-audit.service -n 50
 ls -la {{INSTALL_DIR}}/reports/
 ```
 
+## What the job guarantees
+
+- **Bounded:** every probe (gateway, `systemctl`, each CLI `--version`) runs under a 10 s watchdog; the model call under 600 s; the unit under `TimeoutStartSec=900`, which kills the whole cgroup.
+- **Previous report preserved:** output goes to a temp file and is renamed over `audit-<date>.md` only on a clean, non-empty run. A failed run leaves `failed-audit-<stamp>-rc<N>.md` beside it and the last good report untouched.
+- **Boundary:** the lane runs with the strongest restriction it offers ({{AUDIT_LANE_BOUNDARY_NOTE}}). The brief's denied-actions list is an instruction, not an enforcement, for lanes without a sandbox flag.
+- **Honest unknowns:** a probe that times out writes an `UNVERIFIED` line, which the brief tells the lane to treat as unknown, never clean.
+
 A timer that has never been seen to fire is not known to work. Run `systemctl --user start weekly-audit.service` once by hand and read the journal before trusting the schedule.

@@ -8,6 +8,10 @@ WorkingDirectory={{INSTALL_DIR_SYSTEMD}}
 # Names come from a file OUTSIDE this repo, mode 600. Edit the path.
 EnvironmentFile=%h/.config/ai-orchestrator/gateway.env
 ExecStart=/bin/bash "{{INSTALL_DIR_SYSTEMD}}/vm/jobs/weekly-audit.sh"
+# Whole-job deadline: collection probes (6 x 10 s) + the 600 s model call + cleanup.
+# On expiry systemd kills the whole cgroup, so nothing the job spawned survives.
+TimeoutStartSec=900
+KillMode=control-group
 
 [Install]
 WantedBy=default.target

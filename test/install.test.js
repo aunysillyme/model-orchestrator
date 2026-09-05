@@ -1,12 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, existsSync, rmSync, writeFileSync, statSync } from 'node:fs';
+import { mkdtempSync, readFileSync, existsSync, rmSync, writeFileSync, statSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { planFiles, writeFiles, resolveSelection, resolveApis, gatewayModels, envNames, laneVars } from '../src/install.js';
 import { byId } from '../src/catalog.js';
 import { render } from '../src/render.js';
+import { buildArgv } from '../bin/cli-run.mjs';
 
 const sel = (...ids) => ids.map((i) => byId[i]);
 
@@ -89,8 +90,9 @@ test('writing to a temp dir produces the plan; a second run keeps existing files
 
     writeFileSync(join(dir, 'README.md'), 'mine');
     const second = writeFiles(files, { dir, project: dir });
-    assert.equal(second.written.length, 0);
-    assert.equal(second.skipped.length, files.length);
+    // machine-owned files (MANIFEST.json, bin/lanes.json) are always rewritten; documents are kept
+    assert.deepEqual(second.written.sort(), ['MANIFEST.json', 'bin/lanes.json']);
+    assert.equal(second.skipped.length, files.length - 2);
     assert.equal(readFileSync(join(dir, 'README.md'), 'utf8'), 'mine', 'existing file was overwritten without --force');
 
     const forced = writeFiles(files, { dir, project: dir, force: true });
@@ -386,4 +388,90 @@ test('agy as primary renders concrete model tiers and a builder that may run com
   const builder = p.find((f) => f.rel === '.agents/agents/builder.md').content;
   assert.match(builder, /commandExecutionPolicy: auto/);
   assert.match(p.find((f) => f.rel === '.agents/agents/code-reviewer.md').content, /commandExecutionPolicy: off/);
+});
+
+
+// ---- audit issues #2, #3, #10: the generated weekly audit, executed ----
+function renderAudit(lane, dir) {
+  const files = planFiles({ level: 3, selected: sel(lane), primary: byId[lane === 'hermes' ? 'codex' : lane], dir, project: dir });
+  return { sh: files.find((f) => f.rel === 'vm/jobs/weekly-audit.sh').content, svc: files.find((f) => f.rel === 'vm/jobs/weekly-audit.service').content };
+}
+function stubTree(d, entries) {
+  const bin = join(d, 'bin');
+  mkdirSync(bin, { recursive: true });
+  for (const [name, body] of Object.entries(entries)) writeFileSync(join(bin, name), '#!/bin/sh\n' + body + '\n', { mode: 0o755 });
+  return bin;
+}
+
+test('#2: the codex audit passes --audit and the script states the boundary; other lanes state that none is enforced', () => {
+  const { sh } = renderAudit('codex', '/x');
+  assert.match(sh, /AUDIT_LANE_FLAGS="--audit"/);
+  assert.match(sh, /cli-run\.mjs "\$AUDIT_LANE" \$AUDIT_LANE_FLAGS --brief/);
+  assert.match(sh, /read-only filesystem sandbox/);
+  const files = planFiles({ level: 3, selected: sel('codex', 'hermes'), primary: byId.codex, dir: '/x', project: '/x' });
+  const hermes = files.find((f) => f.rel === 'vm/jobs/weekly-audit.sh').content;
+  assert.match(hermes, /AUDIT_LANE="hermes"/);
+  assert.match(hermes, /AUDIT_LANE_FLAGS=""/);
+  assert.match(hermes, /instruction-level only/);
+  // argv actually built by the runner for the audit shape
+  const { argv } = buildArgv('codex', '/bin/codex', 'p', { timeout: 60, audit: true }, '/tmp');
+  assert.ok(argv.includes('--sandbox') && argv.includes('read-only'));
+});
+
+test('#3: a failed rerun never truncates the previous report; failed output is kept beside it', () => {
+  const d = mkdtempSync(join(tmpdir(), 'orch-audit3-'));
+  const { sh } = renderAudit('codex', d);
+  mkdirSync(join(d, 'reports'), { recursive: true });
+  mkdirSync(join(d, 'protocols'), { recursive: true });
+  writeFileSync(join(d, 'protocols', 'gap-analysis.md'), 'protocol');
+  writeFileSync(join(d, 'DELEGATION_MATRIX.md'), 'matrix');
+  mkdirSync(join(d, 'bin'), { recursive: true });
+  const date = new Date().toISOString().slice(0, 10);
+  const report = join(d, 'reports', `audit-${date}.md`);
+  writeFileSync(report, 'previous successful report\n');
+  const stubs = stubTree(join(d, 'stubs'), { node: 'echo partial garbage\nexit 13', codex: 'echo codex 1.0', jq: 'cat >/dev/null; echo', curl: 'exit 7' });
+  const script = join(d, 'weekly-audit.sh');
+  writeFileSync(script, sh);
+  const r = spawnSync('bash', [script], { encoding: 'utf8', env: { PATH: `${stubs}:/usr/bin:/bin`, HOME: d } });
+  assert.equal(r.status, 13, r.stdout + r.stderr);
+  assert.equal(readFileSync(report, 'utf8'), 'previous successful report\n', 'the previous report was truncated');
+  const failed = readdirSync(join(d, 'reports')).filter((f) => f.startsWith('failed-audit-') && f.endsWith('-rc13.md'));
+  assert.equal(failed.length, 1, 'failed output must be kept for diagnosis');
+  assert.match(r.stderr, /previous report kept/);
+  // a clean run replaces it
+  const ok = stubTree(join(d, 'stubs2'), { node: 'echo fresh report', codex: 'echo codex 1.0', jq: 'cat >/dev/null; echo', curl: 'exit 7' });
+  const r2 = spawnSync('bash', [script], { encoding: 'utf8', env: { PATH: `${ok}:/usr/bin:/bin`, HOME: d } });
+  assert.equal(r2.status, 0, r2.stderr);
+  assert.equal(readFileSync(report, 'utf8'), 'fresh report\n');
+  rmSync(d, { recursive: true, force: true });
+});
+
+test('#10: a hanging --version probe and a hanging gateway are cut off by the watchdog, and the unit has a whole-job deadline', () => {
+  const d = mkdtempSync(join(tmpdir(), 'orch-audit10-'));
+  const { sh, svc } = renderAudit('codex', d);
+  assert.match(svc, /TimeoutStartSec=900/);
+  assert.match(svc, /KillMode=control-group/);
+  assert.match(sh, /--connect-timeout 5 --max-time/);
+  mkdirSync(join(d, 'reports'), { recursive: true });
+  mkdirSync(join(d, 'protocols'), { recursive: true });
+  writeFileSync(join(d, 'protocols', 'gap-analysis.md'), 'protocol');
+  writeFileSync(join(d, 'DELEGATION_MATRIX.md'), 'matrix');
+  mkdirSync(join(d, 'bin'), { recursive: true });
+  const stubs = stubTree(join(d, 'stubs'), {
+    node: 'echo report',
+    codex: 'if [ "$1" = "--version" ]; then /bin/sleep 30; fi; echo never',
+    curl: '/bin/sleep 30',
+    jq: 'cat >/dev/null; echo'
+  });
+  const script = join(d, 'weekly-audit.sh');
+  writeFileSync(script, sh);
+  const t0 = Date.now();
+  const r = spawnSync('bash', [script], { encoding: 'utf8', env: { PATH: `${stubs}:/usr/bin:/bin`, HOME: d, PROBE_SECS: '1', GATEWAY_MASTER_KEY: 'abc123' }, timeout: 20000 });
+  const secs = (Date.now() - t0) / 1000;
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.ok(secs < 12, `collection was not bounded: ${secs}s`);
+  const live = readFileSync(join(d, 'reports', 'live-state.md'), 'utf8');
+  assert.match(live, /UNVERIFIED: --version timed out/);
+  assert.match(live, /UNVERIFIED: gateway unreachable or timed out/);
+  rmSync(d, { recursive: true, force: true });
 });
