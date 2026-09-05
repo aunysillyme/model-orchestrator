@@ -9,8 +9,8 @@ import { makeAsker } from '../src/prompt.js';
 import { spawnSync } from 'node:child_process';
 import { resolve, join } from 'node:path';
 import { which } from '../src/detect.js';
-import { AIS, LEVELS, TOOLS, PROVIDERS, aisForLevel, agentCandidates, byId } from '../src/catalog.js';
-import { planFiles, writeFiles, resolveSelection, resolveTools, resolveApis, dirProblems } from '../src/install.js';
+import { AIS, LEVELS, TOOLS, PROVIDERS, aisForLevel, agentCandidates, byId, npmSpec } from '../src/catalog.js';
+import { planFiles, writeFiles, resolveSelection, resolveTools, resolveApis, dirProblems, readManifest, MACHINE_OWNED } from '../src/install.js';
 
 // One strict parse. Unknown flags, missing values and duplicates are usage
 // errors (exit 2) before anything is planned, so a typo like --dryy can never
@@ -258,6 +258,13 @@ async function main() {
     return;
   }
 
+  // Reconfiguration: compare what a previous run recorded with what was asked now.
+  const prev = readManifest(dir);
+  const changed = prev
+    ? ['level', 'primary'].filter((k) => String(prev[k]) !== String(k === 'level' ? level : primary ? primary.id : null))
+        .concat(['ais', 'tools', 'apis'].filter((k) => JSON.stringify(prev[k] || []) !== JSON.stringify({ ais: selected, tools, apis }[k].map((x) => x.id))))
+    : [];
+
   let written, skipped;
   try {
     ({ written, skipped } = writeFiles(files, { dir, project, force: flag('force') }));
@@ -265,21 +272,33 @@ async function main() {
     if (e && e.code === 'PREFLIGHT') bad(e.message);
     throw e;
   }
-  console.log(`\nWrote ${written.length} file(s)` + (skipped.length ? `, kept ${skipped.length} existing (use --force to overwrite):` : '.'));
+  const ownedWritten = written.filter((w) => MACHINE_OWNED.has(w));
+  console.log(`\nWrote ${written.length} file(s)` + (skipped.length ? `, kept ${skipped.length} existing:` : '.'));
   for (const s of skipped) console.log('  kept ' + s);
+  if (prev) {
+    console.log(`\nReconfiguration: a previous run was found (MANIFEST.json, ${prev.generatedAt || 'undated'}).`);
+    if (changed.length) {
+      console.log(`  changed: ${changed.join(', ')}`);
+      console.log(`  applied: ${ownedWritten.join(', ') || 'nothing'} (machine-owned files are always rewritten, so the new lanes are live)`);
+      if (skipped.length) console.log('  kept:    the documents above were NOT regenerated; they may describe the old selection. Re-run with --force to regenerate them (this overwrites your edits), or edit them by hand.');
+    } else {
+      console.log('  identical selection; nothing to reconfigure.');
+    }
+  }
 
   // 6. Installs, opt-in per CLI, npm only. Vendor scripts are printed, never run.
   const missing = selected.filter((a) => a.bin && !which(a.bin));
   if (missing.length) {
-    console.log('\nNot found on this machine:');
+    console.log('\nNot found on this machine (presence is checked; installed versions are not validated):');
     for (const a of missing) {
       if (a.install.npm) {
-        const run = flag('no-install') || yes ? 'n' : await ask(`  ${a.name}: run \`npm install -g ${a.install.npm}\` now? [y/N]: `, 'n');
+        const spec = npmSpec(a); // the same pinned spec the table and the box script use
+        const run = flag('no-install') || yes ? 'n' : await ask(`  ${a.name}: run \`npm install -g ${spec}\` now? [y/N]: `, 'n');
         if (/^y/i.test(run)) {
-          const r = spawnSync('npm', ['install', '-g', a.install.npm], { stdio: 'inherit' });
-          console.log(r.status === 0 ? `  installed ${a.install.npm}` : `  npm exited ${r.status}; install it by hand`);
+          const r = spawnSync('npm', ['install', '-g', spec], { stdio: 'inherit' });
+          console.log(r.status === 0 ? `  installed ${spec}` : `  npm exited ${r.status}; install it by hand`);
         } else {
-          console.log(`  ${a.name}: npm install -g ${a.install.npm}`);
+          console.log(`  ${a.name}: npm install -g ${spec}   (pinned to the version this installer was released with)`);
         }
       } else if (a.install.script) {
         console.log(`  ${a.name}: the vendor installer is a shell script. Download it, read it, then run it:\n      curl -fsSL ${a.install.script} -o /tmp/${a.id}-install.sh && less /tmp/${a.id}-install.sh && bash /tmp/${a.id}-install.sh`);

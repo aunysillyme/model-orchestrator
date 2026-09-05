@@ -2,7 +2,7 @@ import { readFileSync, existsSync, mkdirSync, writeFileSync, chmodSync, readdirS
 import { join, dirname, relative, resolve, sep, parse as parsePath, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { render } from './render.js';
-import { AIS, LEVELS, TOOLS, PROVIDERS, IMAGES, byId, toolById, providerById } from './catalog.js';
+import { AIS, LEVELS, TOOLS, PROVIDERS, IMAGES, byId, toolById, providerById, npmSpec } from './catalog.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const TEMPLATES = join(HERE, '..', 'templates');
@@ -47,7 +47,7 @@ export function lanesTable(selected) {
 export function installTable(selected) {
   const rows = selected.map((a) => {
     const how = a.install.npm
-      ? '`npm install -g ' + a.install.npm + (a.install.pin ? '@' + a.install.pin : '') + '` (pinned; check for newer)'
+      ? '`npm install -g ' + npmSpec(a) + '` (pinned; check for newer)'
       : a.install.script
         ? 'vendor script: ' + a.install.script
         : a.install.url;
@@ -217,6 +217,14 @@ function vars(opts) {
     INSTALL_DIR_SH: shellQuote(dirAbs),
     INSTALL_DIR_SYSTEMD: systemdEscape(dirAbs),
     AUDIT_LANE: lane || 'none',
+    // Enforced boundary per lane: codex has a read-only sandbox flag; the others
+    // run with whatever their own config allows, and the script says so.
+    AUDIT_LANE_FLAGS: lane === 'codex' ? '--audit' : '',
+    AUDIT_LANE_BOUNDARY_NOTE: lane === 'codex'
+      ? 'codex --audit, a read-only filesystem sandbox; commands and network follow the codex config'
+      : lane
+        ? `${lane} offers no sandbox flag cli-run can pass, so the denied-actions list is instruction-level only and enforcement is whatever ${lane}'s own permission config allows`
+        : 'no lane selected',
     AUDIT_LANE_GUARD: lane
       ? ''
       : 'echo "weekly-audit: no cli-run lane was enabled at install time; enable one in bin/lanes.json and edit AUDIT_LANE" >&2; exit 13',
@@ -241,7 +249,7 @@ function vars(opts) {
     GATEWAY_MODELS: gatewayModels(selected, apis),
     ENV_NAMES: envNames(selected, apis).map((n) => '- `' + n + '`').join('\n'),
     ENV_EXPORTS: envNames(selected, apis).map((n) => n + '=').join('\n'),
-    NPM_PACKAGES: selected.filter((a) => a.install.npm).map((a) => a.install.npm + (a.install.pin ? '@' + a.install.pin : '')).join(' ') || '""',
+    NPM_PACKAGES: selected.map(npmSpec).filter(Boolean).join(' ') || '""',
     SCRIPT_INSTALLERS: scriptInstallers(selected),
     COMPOSE_ENV: composeEnv(selected, apis),
     COMPOSE_OLLAMA: composeOllama(selected)
@@ -289,6 +297,29 @@ export function planFiles(opts) {
   for (const t of opts.tools || []) {
     if (existsSync(join(TEMPLATES, 'tools', t.id))) addTemplates(join('tools', t.id));
   }
+
+  // MANIFEST.json records the choices this run was generated from. It is
+  // machine-owned (see MACHINE_OWNED) so a rerun can compare requested vs
+  // applied and rewrite structured config without touching edited docs.
+  add(
+    'MANIFEST.json',
+    JSON.stringify(
+      {
+        generator: 'model-orchestrator',
+        generatedAt: new Date().toISOString(),
+        level,
+        ais: selected.map((a) => a.id),
+        primary: primary ? primary.id : null,
+        tools: (opts.tools || []).map((t) => t.id),
+        apis: (opts.apis || []).map((p) => p.id),
+        dir: resolve(opts.dir || 'ai-orchestrator'),
+        project: resolve(opts.project || process.cwd()),
+        note: 'Machine-owned. Rewritten on every run together with bin/lanes.json. Edit the docs, not this.'
+      },
+      null,
+      2
+    ) + '\n'
+  );
 
   if (level >= 2) {
     addTemplates('intermediate');
@@ -379,9 +410,25 @@ export function preflight(files, dir) {
   return problems;
 }
 
+// Files the installer OWNS: structured configuration a rerun must be allowed
+// to update so a new selection actually applies. Everything else is a document
+// the user may have edited, and is kept unless --force.
+export const MACHINE_OWNED = new Set(['MANIFEST.json', 'bin/lanes.json']);
+
+export function readManifest(dir) {
+  try {
+    const j = JSON.parse(readFileSync(join(resolve(dir), 'MANIFEST.json'), 'utf8'));
+    return j && typeof j === 'object' ? j : null;
+  } catch {
+    return null;
+  }
+}
+
 // Files carry a root: 'dir' for the docs folder, 'project' for the agent
 // definitions the user's CLI reads from the project root. Each root gets its
 // own preflight; one failure anywhere rolls back everything this run touched.
+// Machine-owned files are always rewritten (they carry the selection); other
+// existing files are kept unless --force.
 export function writeFiles(files, opts) {
   const { dir, force = false, dry = false } = opts;
   const roots = { dir, project: opts.project || dir };
@@ -408,7 +455,8 @@ export function writeFiles(files, opts) {
         const abs = resolve(root, f.rel);
         const exists = existsSync(abs);
         const label = k === 'project' ? '[project] ' + f.rel : f.rel;
-        if (exists && !force) {
+        const owned = k === 'dir' && MACHINE_OWNED.has(f.rel.split(sep).join('/'));
+        if (exists && !force && !owned) {
           skipped.push(label);
           continue;
         }
@@ -473,4 +521,4 @@ export function resolveTools(ids) {
   return { tools, unknown };
 }
 
-export { AIS, LEVELS, TOOLS, PROVIDERS, IMAGES };
+export { AIS, LEVELS, TOOLS, PROVIDERS, IMAGES, npmSpec };

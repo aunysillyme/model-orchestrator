@@ -259,6 +259,14 @@ export const IMAGES = {
 
 export const byId = Object.fromEntries(AIS.map((a) => [a.id, a]));
 
+// The ONE place an npm install spec is built. Interactive install, the printed
+// fallback command, the install table and the box script all call this, so
+// two users on two paths get the same version.
+export function npmSpec(a) {
+  if (!a.install || !a.install.npm) return null;
+  return a.install.npm + (a.install.pin ? '@' + a.install.pin : '');
+}
+
 export function aisForLevel(level) {
   return AIS.filter((a) => a.minLevel <= level);
 }
