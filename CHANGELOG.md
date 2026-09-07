@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.1.8] - 2026-09-06
+
+### Added
+
+- `author` in `package.json`, so npm shows a byline: `aunysillyme (https://github.com/aunysillyme)`.
+- The installer's last line now points at the repository, on the reasoning that the end of a successful install is the moment a user is most likely to act on it.
+
 ## [0.1.7] - 2026-09-05
 
 ### Fixed
@@ -122,6 +129,7 @@ First release.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
 [Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.7...HEAD
+[0.1.8]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.4...v0.1.5

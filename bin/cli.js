@@ -359,7 +359,8 @@ async function main() {
   if (level >= 3) steps.push(`box: read ${join(dir, 'vm', 'README.md')}; keys named in vm/ENVIRONMENT.md go in your secrets manager, never a file`);
   console.log('\nTo activate, in order:');
   steps.forEach((st, i) => console.log(`  ${i + 1}. ${st}`));
-  console.log(`\nStart here: ${join(dir, 'README.md')} (written for level ${level} and the AIs you picked).\n`);
+  console.log(`\nStart here: ${join(dir, 'README.md')} (written for level ${level} and the AIs you picked).`);
+  console.log('\nIf this saved you time, a star helps people find it: https://github.com/aunysillyme/model-orchestrator\n');
   rl && rl.close();
 }
 
