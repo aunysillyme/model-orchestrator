@@ -17,13 +17,18 @@ import { planFiles, writeFiles, resolveSelection, resolveTools, resolveApis, dir
 // turn a dry run into a real one.
 const SPEC = {
   level: 'value', ais: 'value', primary: 'value', dir: 'value', project: 'value', tools: 'value', apis: 'value',
-  yes: 'bool', force: 'bool', dry: 'bool', 'dry-run': 'bool', 'no-install': 'bool', 'no-tools': 'bool', 'no-apis': 'bool', 'upgrade-runtime': 'bool', 'update-docs': 'bool', list: 'bool', help: 'bool', h: 'bool'
+  yes: 'bool', force: 'bool', dry: 'bool', 'dry-run': 'bool', 'no-install': 'bool', 'no-tools': 'bool', 'no-apis': 'bool', 'upgrade-runtime': 'bool', 'update-docs': 'bool', list: 'bool', help: 'bool', h: 'bool', version: 'bool', v: 'bool'
 };
 export function parseArgs(argv) {
   const out = {};
   const errors = [];
   for (let i = 0; i < argv.length; i++) {
-    const a = argv[i];
+    let a = argv[i];
+    // The only single-dash forms, both bool: everything else stays strict, so a
+    // typo cannot be silently absorbed as a short flag. `-h`/`-v` were listed in
+    // SPEC before 0.1.9 but unreachable, because parsing required a `--` prefix.
+    if (a === '-h') a = '--help';
+    else if (a === '-v') a = '--version';
     if (!a.startsWith('--')) {
       errors.push(`unexpected argument: ${a}`);
       continue;
@@ -69,6 +74,14 @@ if (parsed.errors.length) {
 const flag = (name) => parsed.out[name] === true;
 const opt = (name) => (typeof parsed.out[name] === 'string' ? parsed.out[name] : null);
 
+// Answered before anything else is validated, so `--version` works from a
+// broken or half-configured directory: the one question a user asks when they
+// are about to file a bug must never depend on the rest of the run.
+if (flag('version') || flag('v')) {
+  console.log(GENERATOR_VERSION);
+  process.exit(0);
+}
+
 if (flag('help') || flag('h')) {
   console.log(`model-orchestrator: set up a model orchestrator for the AIs you actually have.
 
@@ -96,6 +109,8 @@ Flags
   --dry, --dry-run   print the plan, write nothing
   --no-install       never offer to run npm installs
   --list             print the catalog
+  --version, -v      print the version and exit
+  --help, -h         print this and exit
 `);
   process.exit(0);
 }

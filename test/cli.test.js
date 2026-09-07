@@ -672,3 +672,25 @@ test('chat-only level 2 warns and doctor refuses zero lanes, including --run', (
     rmSync(d, { recursive: true, force: true });
   }
 });
+
+test('--version and -v print the package version and exit 0; -h is --help; other single-dash args stay errors', () => {
+  const pkg = JSON.parse(readFileSync(fileURLToPath(new URL('../package.json', import.meta.url)), 'utf8'));
+  for (const f of ['--version', '-v']) {
+    const r = run([f]);
+    assert.equal(r.status, 0, `${f} should exit 0`);
+    assert.equal(r.stdout.trim(), pkg.version, `${f} should print ${pkg.version}`);
+  }
+  // -h reaches the same help as --help: both were listed in SPEC before 0.1.9
+  // but only the long form could ever be parsed.
+  const short = run(['-h']), long = run(['--help']);
+  assert.equal(short.status, 0);
+  assert.equal(short.stdout, long.stdout, '-h and --help must print the same text');
+  assert.match(long.stdout, /--version, -v/, 'help must document the flag it accepts');
+  // Strictness is not relaxed by adding two short forms.
+  const x = run(['-x']);
+  assert.equal(x.status, 2);
+  assert.match(x.stderr, /unexpected argument: -x/);
+  const typo = run(['--versionn']);
+  assert.equal(typo.status, 2);
+  assert.match(typo.stderr, /unknown flag: --versionn/);
+});

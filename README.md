@@ -108,6 +108,28 @@ Most of what this package ships is text an agent is asked to follow. Be clear ab
 
 If you need a property in the third row to be enforced, that is a router, a policy engine or a sandbox, and this package does not claim to be one.
 
+### Vendor version compatibility
+
+**This package detects that a binary exists. It does not check its version, and a present binary is not a working lane.** `--doctor` reports presence, and with `--run` sends one lane a one-word canary; neither validates that the vendor's flags, output shape or auth still match what the generated files assume.
+
+The lane wiring and the output judges were written against these versions, which are the ones this release was exercised on:
+
+| Lane | Vendor | Version this release was built against |
+|---|---|---|
+| `claude` | Anthropic | 2.1.226 |
+| `codex` | OpenAI | codex-cli 0.153.4 |
+| `agy` | Google | 1.1.27 |
+| `grok` | xAI | 1.0.5 |
+| `hermes` | Nous Research | 0.20.0 |
+| `qwen` | Alibaba | 0.22.3 |
+| `ollama` | local | 0.33.3 |
+
+Recorded on 2026-09-06 from the maintainer's own installs, by running each CLI's own version flag. Nothing here is pinned: these CLIs ship breaking flag changes on their own schedules, so a newer version may work perfectly, or may change a flag the generated wiring passes. When a lane starts failing after a vendor upgrade, compare against this table first.
+
+**The live canary runs on your machine, with your credentials.** That is what `node bin/cli-run.mjs --doctor --run` is: it sends every enabled lane one tiny prompt through your own sign-ins and reports `canary ok` or `canary FAILED rc=` per lane. Run it after install, and again after any vendor upgrade.
+
+It deliberately does not run in this repository's CI. A canary is only meaningful against real credentials, and there are no credentials a maintainer could supply that would tell **you** anything about **your** lanes: your sign-ins, your quota, your vendor versions. A maintainer-credential canary in CI would prove one machine works and bill someone per run to do it. So CI runs the full suite against stub lanes on Ubuntu and macOS, Node 18/20/22, plus a packaged install into a clean consumer, and the live check ships to you instead.
+
 ## Principles the whole thing rests on
 
 1. **Route by capability tier, not model name.** Default down, escalate on evidence.

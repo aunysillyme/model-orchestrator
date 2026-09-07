@@ -4,6 +4,21 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-09-06
+
+### Added
+
+- `--version` and `-v` on the installer, printing the package version and exiting before anything else is validated, so it answers from a broken or half-configured directory.
+- A "Vendor version compatibility" section in the README, naming the exact vendor CLI version each lane was built against, and saying plainly that the installer checks a binary's presence and never its version. Closes the compatibility-statement item on #11.
+
+### Fixed
+
+- `-h` and `-v` are now parsed. Both were listed in the flag table but unreachable, because parsing required a `--` prefix and rejected every single-dash argument. Strictness is unchanged: `-x` is still `unexpected argument`, `--versionn` still `unknown flag`.
+
+### Changed
+
+- The live-canary question on #11 is answered by design rather than left open: the canary is `cli-run --doctor --run`, which runs on the user's machine against the user's own sign-ins. A maintainer-credential canary in CI would prove one machine works and bill per run, so it is documented as deliberately absent.
+
 ## [0.1.8] - 2026-09-06
 
 ### Added
@@ -129,6 +144,7 @@ First release.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
 [Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.7...HEAD
+[0.1.9]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.8...v0.1.9
 [0.1.8]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.5...v0.1.6
