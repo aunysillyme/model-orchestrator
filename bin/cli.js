@@ -139,7 +139,10 @@ function bad(msg) {
 }
 
 async function main() {
-  console.log('\nmodel-orchestrator\nRoute every task to the cheapest AI that does it well.\n');
+  // Says what this generates, not what it guarantees. The old line promised
+  // routing this package does not perform: lane choice is an instruction an
+  // agent follows, never something enforced here (#11).
+  console.log('\nmodel-orchestrator\nRouting instructions and a CLI runner for the AIs you actually have.\n');
 
   // 1. Level
   let level = Number(opt('level'));

@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.1.11] - 2026-09-07
+
+### Fixed
+
+- **The cost claim the audit rejected was still live in three places outside the README.** #11 asked for the opening promise to be narrowed, and 0.1.2 narrowed it in `README.md` only. "Route every task to the cheapest AI that does it well" survived in `package.json`'s `description`, which is what **npm search results show**, in the repository's GitHub description, which is what **GitHub search shows**, and in the installer's own banner, printed to **every user on every run**. All three now say what the package generates instead of what it guarantees: "Routing instructions and a CLI runner for your AI tools." The cheapest-capable-lane *guidance* in the docs and templates is untouched; that is the product's advice, not a promise about what the code enforces.
+
 ## [0.1.10] - 2026-09-07
 
 Closes the last two verification items on #11. Both had been described as needing vendor sign-ins or infrastructure that was not available. Both turned out to be doable with what was already here, and doing them found a real defect.
@@ -161,6 +167,7 @@ First release.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
 [Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.7...HEAD
+[0.1.11]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.10...v0.1.11
 [0.1.10]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.9...v0.1.10
 [0.1.9]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.8...v0.1.9
 [0.1.8]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.7...v0.1.8
