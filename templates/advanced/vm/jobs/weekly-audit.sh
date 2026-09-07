@@ -18,6 +18,14 @@ RUNNER_SECS="${RUNNER_SECS:-600}"   # the model call; TimeoutStartSec in the uni
 cd "$INSTALL_DIR" || { echo "weekly-audit: $INSTALL_DIR missing" >&2; exit 2; }
 mkdir -p reports
 
+# Sweep temp files a previous run could not clean up. A run killed by the unit's
+# TimeoutStartSec dies on SIGKILL, so no trap and no cleanup line of ours can
+# run, and its `.audit-<stamp>-XXXXXX` file is orphaned in reports/ forever.
+# Measured on Ubuntu 24.04 / systemd 255, 2026-09-07: one orphan per timeout.
+# Anything older than a day cannot belong to a live run (the unit's own deadline
+# is 900s), so removing it is safe even if another run is in flight.
+find reports -maxdepth 1 -name '.audit-*' -type f -mtime +0 -delete 2>/dev/null || true
+
 # bounded SECS cmd...  : run cmd, and after SECS kill it AND every descendant
 # (a probe that forks, or a stub that ignores its own flags, must not hold a
 # pipe open). Process groups do not help here: bash disables job control inside

@@ -1,0 +1,37 @@
+{
+  "capturedAt": "2026-09-06",
+  "capturedOn": { "os": "Darwin 25.6.0", "node": "22.22.3" },
+  "prompt": "Reply with exactly the word OK and nothing else. Task bundle: none (one-line lookup, read-only, no artifact)",
+  "sanitization": ["every UUID -> 00000000-0000-0000-0000-000000000000", "/Users/auny -> /home/user"],
+  "fixtures": [
+    {
+      "lane": "grok", "vendorVersion": "grok 1.0.5 (5115b46bc909) [stable]", "file": "grok-1.0.5.json",
+      "flags": ["--output-format", "json", "-p", "<prompt>"], "rc": 0, "expect": "deliverable",
+      "covers": "text + stopReason read out of a much larger real object (thought, usage, modelUsage, cost)"
+    },
+    {
+      "lane": "hermes", "vendorVersion": "Hermes Agent v0.20.0 (2026.8.3)", "file": "hermes-0.20.0.txt",
+      "flags": ["-z", "<prompt>", "--usage-file", "<tmp>/usage.json"], "rc": 0, "expect": "deliverable",
+      "covers": "bare stdout text, no structure at all"
+    },
+    {
+      "lane": "agy", "vendorVersion": "1.1.27", "file": "agy-1.1.27.jsonl",
+      "flags": ["--print-timeout", "3m", "--output-format", "stream-json", "-p", "<prompt>"], "rc": 0, "expect": "deliverable",
+      "covers": "result event last, response has a trailing newline, init event carries a ~1.5KB tool list to skip"
+    },
+    {
+      "lane": "codex", "vendorVersion": "codex-cli 0.153.4", "file": "codex-0.153.4.jsonl", "outFile": "codex-0.153.4.out.txt",
+      "flags": ["exec", "--json", "--color", "never", "--skip-git-repo-check", "-o", "<tmp>/last.txt", "<prompt>"], "rc": 0, "expect": "deliverable",
+      "covers": "a real item.completed of type error (skills-budget warning) arrives BEFORE turn.completed; a successful run must survive it"
+    },
+    {
+      "lane": "qwen", "vendorVersion": "0.22.3", "file": "qwen-0.22.3-nokey.json",
+      "flags": ["-o", "json", "-p", "<prompt>"], "rc": 1, "expect": "refusal",
+      "covers": "a genuine vendor failure: error_during_execution / is_error true, no OPENROUTER_API_KEY set"
+    }
+  ],
+  "gaps": [
+    "qwen success shape is still synthetic: no OPENROUTER_API_KEY was available in the capture environment",
+    "claude and ollama have no judge, so no fixture"
+  ]
+}

@@ -4,6 +4,23 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.1.10] - 2026-09-07
+
+Closes the last two verification items on #11. Both had been described as needing vendor sign-ins or infrastructure that was not available. Both turned out to be doable with what was already here, and doing them found a real defect.
+
+### Fixed
+
+- **The generated weekly audit orphaned a temp file on every timeout.** A run killed by the unit's `TimeoutStartSec` dies on SIGKILL, so no trap and no cleanup line of ours can run, and its `reports/.audit-<stamp>-XXXXXX` file was left behind forever. The job now sweeps `.audit-*` older than a day at start. A day is far outside the unit's own 900s deadline, so a temp belonging to a run still in flight can never be swept. Found by actually starting the unit on Ubuntu; the previous text-only assertion could not see it.
+
+### Added
+
+- `test/fixtures/`: raw output captured from **real vendor CLI runs**, with `manifest.json` recording the vendor version, the exact flags, the exit code, and what each fixture proves. Every other judge test in this repository uses shapes written by hand. The capture earned itself immediately: real codex 0.153.4 emits an `item.completed` whose item is `type:"error"` (a skills-budget warning) *before* `turn.completed`, which no synthetic fixture contained, and real agy returns `"OK\n"` with a trailing newline. `test/fixtures.test.js` runs every judge against them.
+- `test/systemd/run-on-ubuntu.sh` and its README: starts the generated job as a **real systemd user unit** and proves that the timeout kills the whole cgroup (a detached grandchild does not survive it), that a failed rerun preserves the previous report, that a malformed gateway key exits 2 before anything is written, and that the new sweep removes an aged orphan while leaving a fresh one alone. 11/11 on Ubuntu 24.04.4 LTS, systemd 255. Not part of `npm test`, which has no systemd to run against.
+
+### Notes
+
+- `test/fixtures/README.md` states its own gaps rather than hiding them: qwen's success shape is still synthetic because its key was not present in the capture environment, and `claude` and `ollama` have no judge, so no fixture.
+
 ## [0.1.9] - 2026-09-06
 
 ### Added
@@ -144,6 +161,7 @@ First release.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
 [Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.7...HEAD
+[0.1.10]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.9...v0.1.10
 [0.1.9]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.8...v0.1.9
 [0.1.8]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.6...v0.1.7
