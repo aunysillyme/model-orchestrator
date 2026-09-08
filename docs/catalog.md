@@ -16,18 +16,20 @@ Generated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrite
 
 - **Kind:** agent-cli · **Access:** subscription · **Lane:** A · **Level:** 1+
 - **Wins at:** orchestrator: routes, maps, builds, verifies, records
-- **Install:** `npm install -g @anthropic-ai/claude-code@2.1.260`
+- **Install:** `npm install -g @anthropic-ai/claude-code@2.1.226`
 - **Sign in:** run `claude` once and sign in with your Anthropic account
 - **Reads rules from:** `CLAUDE.md` · subagents in `.claude/agents/`
+- **Built against:** 2.1.226 (the same number the npm pin uses)
 
 ### `codex` · Codex CLI (OpenAI, ChatGPT plan)
 
 - **Kind:** agent-cli · **Access:** subscription · **Lane:** A · **Level:** 1+
 - **Wins at:** second coder and adversarial auditor (a different model family reading your diff)
-- **Install:** `npm install -g @openai/codex@0.153.2`
+- **Install:** `npm install -g @openai/codex@0.153.4`
 - **Sign in:** `codex login` (add `--device-auth` on a machine with no browser)
 - **Reads rules from:** `AGENTS.md`
 - **cli-run lane:** yes
+- **Built against:** 0.153.4 (the same number the npm pin uses)
 
 ### `agy` · Antigravity CLI `agy` (Google AI plan)
 
@@ -37,6 +39,7 @@ Generated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrite
 - **Sign in:** first run opens a device-code sign-in with your Google account
 - **Reads rules from:** `GEMINI.md` · subagents in `.agents/agents/`
 - **cli-run lane:** yes
+- **Built against:** 1.1.27
 - **Note:** Gemini CLI was retired by Google in June 2026. agy is the successor. Do not install `gemini`.
 
 ### `grok` · Grok CLI (xAI, X Premium)
@@ -46,6 +49,7 @@ Generated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrite
 - **Install:** vendor script (read it first): `https://x.ai/cli/install.sh`
 - **Sign in:** `grok login` (add `--device-auth` on a headless machine)
 - **cli-run lane:** yes
+- **Built against:** 1.0.5
 
 ### `hermes` · Hermes Agent (Nous Research)
 
@@ -54,15 +58,17 @@ Generated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrite
 - **Install:** https://github.com/NousResearch/hermes-agent
 - **Sign in:** `hermes auth add <provider>` per provider; its own fallback chain handles outages
 - **cli-run lane:** yes
+- **Built against:** 0.20.0
 
 ### `qwen` · Qwen Code CLI (Alibaba, provider-agnostic)
 
 - **Kind:** agent-cli · **Access:** metered · **Lane:** B · **Level:** 2+
 - **Wins at:** cheapest metered bulk lane for structured output; never for anything that cites a line, a number or a source
-- **Install:** `npm install -g @qwen-code/qwen-code@0.23.0`
+- **Install:** `npm install -g @qwen-code/qwen-code@0.22.3`
 - **Sign in:** a provider key in an environment variable, named (not stored) in ~/.qwen/settings.json. There is no free Qwen cloud tier any more.
 - **Reads rules from:** `QWEN.md`
 - **cli-run lane:** yes
+- **Built against:** 0.22.3 (the same number the npm pin uses)
 - **Note:** Its own success flags lie on API failures. cli-run checks the two honest signals for you.
 
 ### `ollama` · Ollama (local models)
@@ -71,6 +77,7 @@ Generated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrite
 - **Wins at:** the privacy lane: anything that must never leave the machine. Not a cost lane.
 - **Install:** https://ollama.com/download (or `brew install ollama`)
 - **Sign in:** none
+- **Built against:** 0.33.3
 
 ### `claude-app` · Claude app or claude.ai (chat only, no CLI)
 

@@ -10,7 +10,7 @@ Built from a working system, not a diagram: the routing rules, the protocols and
 npx model-orchestrator
 ```
 
-That runs the latest published release from the npm registry. To run a specific release or the current main straight from GitHub: `npx github:aunysillyme/model-orchestrator#v0.1.7` (drop `#v0.1.7` for main).
+That runs the latest published release from the npm registry, and `npx model-orchestrator --version` prints which one you got. To run the current main straight from GitHub instead: `npx github:aunysillyme/model-orchestrator`. Add `#vX.Y.Z` for one specific release; the tags are on the [releases page](https://github.com/aunysillyme/model-orchestrator/releases), so this page never pins a number the registry has moved past.
 
 The installer asks a few things, then writes a folder:
 
@@ -56,13 +56,29 @@ An orchestrator routes work. It does not make a model stop guessing numbers, and
 
 Whether or not you select them, every level carries the two rules they serve: `protocols/numbers-and-logic.md` (when calling a calculator is mandatory, how to report a computed figure, why a thought log is not evidence) and `protocols/memory-and-record.md` (search before writing, the folder index is part of the change, one writer, inferred content marked as inferred).
 
+## The two folders every run writes to
+
+An install has two targets, and a scripted run should set both.
+
+| Flag | Default | What lands there |
+|---|---|---|
+| `--dir` | `./ai-orchestrator` | the docs, protocols and (level 2+) `bin/cli-run.mjs`. Named after what it contains, not after this package, so a project can hold one without looking like a checkout of it. Pass `--dir ./model-orchestrator` if you prefer the package name. |
+| `--project` | the current directory | the subagent definitions, and the rules file your agent reads. Only Claude Code (`.claude/agents/`) and Antigravity (`.agents/agents/`) get files here, because that is the only place those CLIs look. |
+
+`--project` defaulting to the current directory is the one that surprises people: run the command from your home folder with Claude Code as the primary and five agent files land in your home folder. The installer prints the resolved project path in the plan and says when you left it at the default. Set it.
+
 ## Non-interactive
 
 ```bash
-npx model-orchestrator --yes --level 2 --ais claude-code,codex,grok --primary claude-code --dir ./ai-orchestrator
+# both targets set: docs in ./ai-orchestrator, subagents into ./my-app/.claude/agents
+npx model-orchestrator --yes --level 2 --ais claude-code,codex,grok --primary claude-code \
+  --dir ./ai-orchestrator --project ./my-app
+# --yes selects the recommended companion tool (codecalc), which writes CODECALC.md and mcp/ snippets.
+# Add --no-tools for none, or --tools codecalc,obsidian-tc to choose.
+
 npx model-orchestrator --yes --level 3 --ais claude-code,codex,agy,grok,hermes,qwen,ollama --apis anthropic,openrouter --dry   # print the plan, write nothing
-npx model-orchestrator --yes --level 2 --ais claude-code,codex --project ~/my-app --dir ~/my-app/ai-orchestrator  # subagents into ~/my-app/.claude/agents
-npx model-orchestrator --yes --level 2 --ais claude-code,codex,grok --primary claude-code --update-docs   # added a lane: regenerate the docs you never edited
+npx model-orchestrator --yes --level 2 --ais claude-code,codex --project ~/my-app --dir ~/my-app/ai-orchestrator --no-tools  # subagents into ~/my-app/.claude/agents
+npx model-orchestrator --yes --level 2 --ais claude-code,codex,grok --primary claude-code --dir ./ai-orchestrator --project . --update-docs   # added a lane: regenerate the docs you never edited
 ```
 
 ## What gets written (level 3, everything)
@@ -114,17 +130,23 @@ If you need a property in the third row to be enforced, that is a router, a poli
 
 The lane wiring and the output judges were written against these versions, which are the ones this release was exercised on:
 
-| Lane | Vendor | Version this release was built against |
-|---|---|---|
-| `claude` | Anthropic | 2.1.226 |
-| `codex` | OpenAI | codex-cli 0.153.4 |
-| `agy` | Google | 1.1.27 |
-| `grok` | xAI | 1.0.5 |
-| `hermes` | Nous Research | 0.20.0 |
-| `qwen` | Alibaba | 0.22.3 |
-| `ollama` | local | 0.33.3 |
+<!-- vendor-table:start -->
 
-Recorded on 2026-09-06 from the maintainer's own installs, by running each CLI's own version flag. Nothing here is pinned: these CLIs ship breaking flag changes on their own schedules, so a newer version may work perfectly, or may change a flag the generated wiring passes. When a lane starts failing after a vendor upgrade, compare against this table first.
+| Lane | Vendor | Version this release was built against | Where that number is proved |
+|---|---|---|---|
+| `claude` | Anthropic | 2.1.226 | the npm pin the installer writes, `@anthropic-ai/claude-code@2.1.226` |
+| `codex` | OpenAI | 0.153.4 | `test/fixtures/codex-0.153.4.jsonl`, a recorded run |
+| `agy` | Google | 1.1.27 | `test/fixtures/agy-1.1.27.jsonl`, a recorded run |
+| `grok` | xAI | 1.0.5 | `test/fixtures/grok-1.0.5.json`, a recorded run |
+| `hermes` | Nous Research | 0.20.0 | `test/fixtures/hermes-0.20.0.txt`, a recorded run |
+| `qwen` | Alibaba | 0.22.3 | `test/fixtures/qwen-0.22.3-nokey.json`, a recorded run |
+| `ollama` | Ollama | 0.33.3 | the pinned image the level 3 box runs, `ollama/ollama:0.33.3` |
+
+Generated from `src/catalog.js` by `npm run gen:catalog`; `npm test` fails if this table and the catalog disagree. Fixtures were captured 2026-09-06.
+
+<!-- vendor-table:end -->
+
+One number per lane, and it is the same number the installer pins: where a lane installs from npm, `builtAgainst` in the catalog *is* the pin, so "built against" and "pinned to" can never be two answers. That pin is a floor, not a ceiling: these CLIs ship breaking flag changes on their own schedules, so a newer version may work perfectly, or may change a flag the generated wiring passes. When a lane starts failing after a vendor upgrade, compare against this table first.
 
 **The live canary runs on your machine, with your credentials.** That is what `node bin/cli-run.mjs --doctor --run` is: it sends every enabled lane one tiny prompt through your own sign-ins and reports `canary ok` or `canary FAILED rc=` per lane. Run it after install, and again after any vendor upgrade.
 
@@ -144,7 +166,12 @@ It deliberately does not run in this repository's CI. A canary is only meaningfu
 
 Node 18 or newer. No dependencies. Works on macOS and Linux; the level 3 box templates assume Ubuntu. Windows is untested: `cli-run` ends a lane's process tree there with `taskkill`, but nothing in CI runs on Windows, so treat it as unsupported until someone reports otherwise.
 
-**Privacy.** The installer makes no network call of its own and sends no telemetry; the only network activity is the `npm install -g` you approve per package. `cli-run` talks to nothing but the vendor CLI you name.
+**Privacy.** The installer sends no telemetry and makes no network call of its own once it is running. Two things around that are worth being exact about:
+
+- `npx model-orchestrator` is itself a download: npm fetches this package from the registry before any of it runs. `npm install -g model-orchestrator` once, then run `model-orchestrator`, if you would rather that happen exactly one time.
+- A missing vendor CLI is *printed*, not installed. In an interactive run the installer offers to run one pinned `npm install -g` per package and only runs the ones you answer yes to; with `--yes` or `--no-install` it answers no for you and prints the command instead. Vendor shell installers (Antigravity, Grok) are only ever printed, alongside the `curl … | less` you would use to read one before running it.
+
+`cli-run` talks to nothing but the vendor CLI you name.
 
 ## Contributing
 

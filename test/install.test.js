@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync, existsSync, rmSync, writeFileSync, statSync,
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
-import { planFiles, writeFiles, resolveSelection, resolveApis, gatewayModels, envNames, laneVars } from '../src/install.js';
+import { planFiles, writeFiles, resolveSelection, resolveApis, gatewayModels, envNames, laneVars, activationSteps, snippetFor } from '../src/install.js';
 import { byId } from '../src/catalog.js';
 import { render } from '../src/render.js';
 import { buildArgv } from '../bin/cli-run.mjs';
@@ -495,5 +495,65 @@ test('chat activation fits a 1500-character field for each chat primary', () => 
     const block = doc.split('```')[1].trim();
     assert.ok(block.length > 0 && block.length <= 1500, `${id}: ${block.length} characters`);
     assert.match(doc, /upload or paste/);
+  }
+});
+
+// #20: the terminal activation list and the generated README were two pages.
+// They are one array now, so this test is what keeps them one.
+test('the generated README carries the same activation steps the terminal prints', () => {
+  for (const level of [1, 2, 3]) {
+    for (const primary of Object.values(byId).filter((a) => a.kind !== 'local' && a.minLevel <= level)) {
+      const opts = { level, selected: [primary], primary, dir: '/tmp/mo-dir', project: '/tmp/mo-project', tools: [] };
+      const steps = activationSteps(opts);
+      const readme = planFiles(opts).find((f) => f.rel === 'README.md').content;
+      assert.ok(steps.length, `${primary.id} level ${level}: no activation steps`);
+      for (const st of steps) assert.ok(readme.includes(st), `${primary.id} level ${level}: README is missing the step "${st}"`);
+    }
+  }
+});
+
+test('the generated README never names an activation file this run did not write', () => {
+  for (const primary of Object.values(byId).filter((a) => a.kind !== 'local')) {
+    const opts = { level: 1, selected: [primary], primary, dir: '/tmp/mo-dir', project: '/tmp/mo-project' };
+    const files = planFiles(opts);
+    const written = new Set(files.map((f) => f.rel));
+    const readme = files.find((f) => f.rel === 'README.md').content;
+    const snippet = snippetFor(primary);
+    assert.ok(written.has(snippet), `${primary.id}: planned no ${snippet}`);
+    for (const candidate of ['PASTE-INTO-YOUR-AGENT.md', 'CLAUDE.snippet.md', 'GEMINI.snippet.md', 'AGENTS.snippet.md', 'QWEN.snippet.md']) {
+      if (candidate === snippet) continue;
+      assert.ok(!readme.includes(candidate), `${primary.id}: README names ${candidate}, which this run did not write`);
+    }
+    assert.ok(!readme.includes("your agent's instructions file"), `${primary.id}: README leaked the placeholder rules-file wording`);
+  }
+});
+
+// #21: a chat-app install writes no project files, so it must not print a
+// project root that does not exist.
+test('a chat primary reports no project root; a subagent primary reports the real one', () => {
+  const chat = planFiles({ level: 1, selected: [byId['claude-app']], primary: byId['claude-app'], dir: '/tmp/mo-dir', project: '/tmp/mo-project-that-does-not-exist' })
+    .find((f) => f.rel === 'README.md').content;
+  assert.ok(chat.includes('Project root: none'), 'chat install still claims a project root');
+  assert.ok(!chat.includes('/tmp/mo-project-that-does-not-exist'), 'chat install printed a path nothing was written to');
+
+  const cc = planFiles({ level: 1, selected: [byId['claude-code']], primary: byId['claude-code'], dir: '/tmp/mo-dir', project: '/tmp/mo-project' })
+    .find((f) => f.rel === 'README.md').content;
+  assert.ok(cc.includes('Project root (where your agent reads rules and subagents): `/tmp/mo-project`'));
+  assert.ok(cc.includes('/tmp/mo-project/.claude/agents'));
+
+  // codex reads AGENTS.md from the project root but gets no files there: name the
+  // path, and say plainly that this run did not create it.
+  const codex = planFiles({ level: 1, selected: [byId.codex], primary: byId.codex, dir: '/tmp/mo-dir', project: '/tmp/mo-project-that-does-not-exist' })
+    .find((f) => f.rel === 'README.md').content;
+  assert.ok(codex.includes('this run wrote nothing there'), 'codex install did not flag the missing project folder');
+});
+
+// #22: the possessive used to swallow the catalog's "(chat only, no CLI)" note.
+test('the chat activation line is a sentence, not a possessive around a parenthetical', () => {
+  for (const id of ['claude-app', 'chatgpt-app', 'gemini-app']) {
+    const step = activationSteps({ level: 1, selected: [byId[id]], primary: byId[id], dir: '/tmp/mo-dir', project: '/tmp/mo-project' })[0];
+    assert.ok(!step.includes("'s"), id + ': activation line still uses a possessive: ' + step);
+    assert.ok(!step.includes('(chat only, no CLI)'), id + ': the catalog note leaked into the sentence');
+    assert.match(step, /^open .+ and paste the block in .+ into its /, id + ': ' + step);
   }
 });

@@ -13,13 +13,18 @@ Companion tools:
 
 This folder gives your agent routing instructions and, at level 2+, a runner for explicitly selected CLI lanes. The agent chooses the tier or lane; the runner does not automatically compare prices or choose a model.
 
-## Your first task
+## Activate it
 
-1. Activate the snippet using the instructions below. For a chat app, paste the block in `PASTE-INTO-YOUR-AGENT.md`; upload any full protocols you want it to read because local paths alone do not share files.
-2. Start a fresh agent session and ask: "Read the orchestrator instructions. Quote the routing rule you will use, then sort pear, apple, banana alphabetically. Name the tier and whether you delegated."
-3. Expect the fast tier and `apple, banana, pear`. If the agent cannot quote the routing rule, check the snippet location or chat instructions before continuing. This is a manual activation check, not proof that every future task follows the rules.
-4. At level 2+, run `node bin/cli-run.mjs --doctor` from this folder. It checks binary presence, not authentication or loaded instructions. `--doctor --run` additionally uses a little quota to test live responses. No enabled lanes means delegation is inactive.
-5. To test a real output contract, choose an enabled lane from `bin/lanes.json` and run `node bin/cli-run.mjs <lane> 'Return only {"sorted":["apple","banana","pear"]}' --expect-json`. This uses quota. Expect JSON and exit 0; inspect the array yourself. A non-JSON response exits 10, a missing binary exits 13, and an authentication failure reports the vendor error. The explicit lane tests execution; your primary agent still makes delegation decisions.
+These are the same steps, in the same order, that the installer printed in your terminal.{{CHAT_UPLOAD_NOTE}}
+
+{{ACTIVATION_STEPS}}
+
+## Then prove it took
+
+1. Start a fresh agent session and ask: "Read the orchestrator instructions. Quote the routing rule you will use, then sort pear, apple, banana alphabetically. Name the tier and whether you delegated."
+2. Expect the fast tier and `apple, banana, pear`. If the agent cannot quote the routing rule, check the snippet location or chat instructions before continuing. This is a manual activation check, not proof that every future task follows the rules.
+3. At level 2+, run `node bin/cli-run.mjs --doctor` from this folder. It checks binary presence, not authentication or loaded instructions. `--doctor --run` additionally uses a little quota to test live responses. No enabled lanes means delegation is inactive.
+4. To test a real output contract, choose an enabled lane from `bin/lanes.json` and run `node bin/cli-run.mjs <lane> 'Return only {"sorted":["apple","banana","pear"]}' --expect-json`. This uses quota. Expect JSON and exit 0; inspect the array yourself. A non-JSON response exits 10, a missing binary exits 13, and an authentication failure reports the vendor error. The explicit lane tests execution; your primary agent still makes delegation decisions.
 
 ## What is in this folder
 
@@ -38,9 +43,9 @@ This folder gives your agent routing instructions and, at level 2+, a runner for
 
 Level 2 adds `ROUTING.md`, `TIERS.md`, `DELEGATION_MATRIX.md`, `RESEARCH_TRIAGE.md`, `CLI-RUN.md` and `bin/cli-run.mjs`. Level 3 adds `vm/`. If those files are here, read `ROUTING.md` instead of `ORCHESTRATOR.md`: it is the multi-lane version, and the snippet your agent loads already points at it. `ORCHESTRATOR.md` stays as the single-agent fallback for a session where only one AI is available.
 
-## Load it into your agent
+## Where the rules load from
 
-For a CLI primary, the project rules file is `{{PRIMARY_RULES_FILE}}`. Chat apps use pasted instructions instead. The installer wrote a snippet file next to this README (`*.snippet.md`, or `PASTE-INTO-YOUR-AGENT.md` for a chat app). Copy its contents into that file, or paste it into the agent's custom instructions. Nothing was appended to a file you already had.
+{{LOAD_IT}}
 
 ## The three rules that carry everything
 
@@ -50,10 +55,7 @@ For a CLI primary, the project rules file is `{{PRIMARY_RULES_FILE}}`. Chat apps
 
 ## Where things went
 
-- This folder: `{{INSTALL_DIR}}`
-- Project root (where your agent reads rules and subagents): `{{PROJECT_DIR}}`
-- Subagent definitions: `{{AGENTS_DIR}}`
-- The rules path your snippets use: `{{RULES_PATH}}`
+{{WHERE_THINGS_WENT}}
 
 ## Uninstall
 

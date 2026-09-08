@@ -4,6 +4,25 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.1.12] - 2026-09-08
+
+Five issues from one first-run walkthrough of 0.1.11 (#20 to #24). Every one of them is the same failure: a page describing an install that did not happen. Each fix removes the second copy of a fact rather than correcting it.
+
+### Fixed
+
+- **The generated README no longer describes a different install from the one the terminal just printed** (#20). The activation list existed twice: once as an array built in `bin/cli.js`, once as prose in `templates/common/README.md` that assumed a chat app. A level 2 Claude Code install was told, on the page it was pointed at, to paste `PASTE-INTO-YOUR-AGENT.md`, a file that run never wrote, and a level 1 chat install was told its rules file was `your agent's instructions file`, a leftover placeholder. `activationSteps()` and `snippetFor()` now live in `src/install.js` and both surfaces render the same array, so the page can only ever name the file that was written. A test renders every level against every possible primary and fails if the README omits a printed step or names any other agent's snippet.
+- **A chat install no longer claims a project root it never created** (#21). Level 1 with a chat app writes no project files, and the README still printed `--project` as "where your agent reads rules and subagents" next to "subagent definitions: none". It now says there is no project root and why. A CLI primary that reads a rules file but gets no subagent folder (codex, qwen) keeps its project path and gains the missing half: whether this run created that folder.
+- **The chat activation line is a sentence again** (#22). It read `paste ... into Claude app or claude.ai (chat only, no CLI)'s custom instructions or Project`: the catalog's disambiguating note sat inside a possessive. Chat entries in the catalog now carry `chatName` and `chatSurface`, and the line reads `open the Claude app or claude.ai and paste the block in <path> into its custom instructions or a Project`. The catalog note stays where it is useful, in the picker list.
+- **"Built against" and "pinned to" are one number per lane, by construction** (#23). The README's compatibility table was hand-written and the installer's npm pins were edited separately, so a user comparing them found claude at 2.1.226 and 2.1.260, codex at 0.153.4 and 0.153.2, with no rule for which to trust. `builtAgainst` in `src/catalog.js` is now the single source: `npm run gen:catalog` renders the README table from it, the npm pin **is** that value wherever a lane installs from npm, and the tests fail if the table drifts, if a pin disagrees with its `builtAgainst`, or if a recorded fixture's vendor version disagrees with either. The pins moved to the exercised versions rather than the table moving to the pins, because the exercised version is the one with evidence behind it.
+- **The README stops pinning a release tag the registry has moved past** (#23). The GitHub one-liner still said `#v0.1.7` while npm served 0.1.11. It now points at main, says where the tags are, and a test fails on any `#vX.Y.Z` in the README that is not this package's own version.
+- **The documented example sets both write targets** (#24). The first non-interactive example set `--dir` and left `--project` at the current directory, so a copied command run from a home folder dropped five agent files into it. Both flags are now set in the example, a table explains what lands where and why `--dir` defaults to a folder named for its contents, and the installer prints a line when `--project` was left at the default and subagent files are going there. A test fails on any documented `--yes` example that sets one target and not the other.
+- **Privacy describes what actually runs** (#24). It claimed the only network step was an `npm install -g` you approve, when the thing the user runs is `npx` (a download in itself) and the installer under `--yes` prints vendor install commands without running them. Both are now stated, along with `--yes` selecting the recommended companion tool unless `--no-tools` is passed.
+
+### Changed
+
+- Vendor CLI pins move to the versions this release was exercised against: `@anthropic-ai/claude-code@2.1.226`, `@openai/codex@0.153.4`, `@qwen-code/qwen-code@0.22.3`. A pin is a floor, not a ceiling: newer versions may work, and the table exists so a lane that breaks after a vendor upgrade has something to compare against.
+- `npm run gen:catalog` now regenerates two surfaces, `docs/catalog.md` and the README vendor table between its `vendor-table` markers.
+
 ## [0.1.11] - 2026-09-07
 
 ### Fixed
@@ -166,7 +185,8 @@ First release.
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
-[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.7...HEAD
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.12...HEAD
+[0.1.12]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.11...v0.1.12
 [0.1.11]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.10...v0.1.11
 [0.1.10]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.9...v0.1.10
 [0.1.9]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.8...v0.1.9

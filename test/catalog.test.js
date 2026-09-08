@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { AIS, LEVELS, TOOLS, aisForLevel, agentCandidates, byId } from '../src/catalog.js';
-import { catalogMarkdown, protocolCount } from '../scripts/gen-catalog.js';
+import { catalogMarkdown, protocolCount, vendorTableMarkdown, fixtureManifest, VENDOR_TABLE_START, VENDOR_TABLE_END } from '../scripts/gen-catalog.js';
 import { PROVIDERS, IMAGES, npmSpec } from '../src/catalog.js';
 
 test('levels are 1, 2, 3 with names and taglines', () => {
@@ -100,4 +100,63 @@ test('generated catalog carries the same npm pin the installer uses; the tarball
   for (const a of AIS) if (a.install.npm) assert.ok(md.includes('`npm install -g ' + npmSpec(a) + '`'), `catalog.md install line for ${a.id} is not the pinned spec`);
   const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
   for (const f of ['CHANGELOG.md', 'SECURITY.md', 'README.md', 'LICENSE']) assert.ok(pkg.files.includes(f), `package.json files lacks ${f}`);
+});
+
+// #23: the README's compatibility table and the catalog pins used to be two
+// numbers with no rule for which to trust. There is now one number per lane.
+test('the README vendor table is generated from the catalog and matches it', () => {
+  const readme = readFileSync(new URL('../README.md', import.meta.url), 'utf8');
+  const a = readme.indexOf(VENDOR_TABLE_START);
+  const b = readme.indexOf(VENDOR_TABLE_END);
+  assert.ok(a !== -1 && b > a, 'README.md lost its vendor-table markers');
+  assert.equal(readme.slice(a, b + VENDOR_TABLE_END.length), vendorTableMarkdown(), 'run: npm run gen:catalog');
+});
+
+test('every lane with a bin declares builtAgainst, and the npm pin IS that number', () => {
+  for (const a of AIS) {
+    if (!a.bin) continue;
+    assert.match(a.builtAgainst || '', /^\d+\.\d+\.\d+$/, a.id + ' has no builtAgainst version');
+    if (a.install.npm) assert.equal(a.install.pin, a.builtAgainst, a.id + ': the npm pin and the version this release was built against must be the same number');
+  }
+  assert.equal(IMAGES.ollama, 'ollama/ollama:' + byId.ollama.builtAgainst, 'the ollama image pin and its builtAgainst version must agree');
+});
+
+test('a recorded fixture is the evidence for its lane builtAgainst version', () => {
+  const fx = fixtureManifest();
+  assert.ok(fx.fixtures.length >= 4, 'expected recorded vendor fixtures');
+  for (const f of fx.fixtures) {
+    const a = byId[f.lane];
+    assert.ok(a, 'fixture for an unknown lane: ' + f.lane);
+    assert.ok(f.vendorVersion.includes(a.builtAgainst), `${f.lane}: fixture says "${f.vendorVersion}" but the catalog says ${a.builtAgainst}`);
+    assert.ok(f.file.includes(a.builtAgainst), `${f.lane}: fixture filename ${f.file} does not carry ${a.builtAgainst}`);
+  }
+});
+
+test('the README pins no release tag the registry has moved past', () => {
+  const readme = readFileSync(new URL('../README.md', import.meta.url), 'utf8');
+  const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+  for (const m of readme.matchAll(/model-orchestrator#v(\d+\.\d+\.\d+)/g)) {
+    assert.equal(m[1], pkg.version, `README pins #v${m[1]} but this package is ${pkg.version}`);
+  }
+});
+
+// #24: the first documented example used to set --dir and leave --project at
+// the current directory, which drops five agent files wherever you ran it.
+test('every documented install example that sets --dir also sets --project', () => {
+  const readme = readFileSync(new URL('../README.md', import.meta.url), 'utf8');
+  const joined = readme.replace(/\\\n\s+/g, ' '); // rejoin backslash-continued shell lines
+  for (const line of joined.split('\n')) {
+    if (!line.includes('model-orchestrator --yes')) continue;
+    if (line.includes('--dry')) continue; // a plan that writes nothing
+    assert.ok(line.includes('--dir') && line.includes('--project'), 'example sets only one target: ' + line.trim());
+  }
+});
+
+test('chat apps carry a name and a paste surface that read as a sentence', () => {
+  for (const a of AIS) {
+    if (a.kind !== 'chat') continue;
+    assert.ok(a.chatName && a.chatSurface, a.id + ' needs chatName and chatSurface');
+    // The catalog note belongs in the picker list, never inside a possessive (#22).
+    assert.doesNotMatch(a.chatName, /[()]/, a.id + ': chatName must not carry a parenthetical');
+  }
 });

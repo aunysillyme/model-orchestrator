@@ -193,6 +193,38 @@ export function laneVars(selected) {
   };
 }
 
+// Which activation file this primary gets. ONE decision, read by three
+// surfaces: planFiles writes the file, vars() names it in the generated README,
+// and bin/cli.js prints it in the terminal. Before 0.1.12 the README hardcoded
+// PASTE-INTO-YOUR-AGENT.md and named it for CLI installs that never got one (#20).
+export function snippetFor(primary) {
+  if (!primary) return null;
+  return primary.rulesFile ? primary.rulesFile.replace(/\.md$/, '.snippet.md') : 'PASTE-INTO-YOUR-AGENT.md';
+}
+
+// The activation list, in order. The terminal prints this array at the end of a
+// run and the generated README renders the same array, so the page cannot
+// describe a different first step from the one the user just read (#20).
+export function activationSteps(opts) {
+  const { level, selected = [], primary } = opts;
+  const tools = opts.tools || [];
+  const dirAbs = resolve(opts.dir || 'ai-orchestrator');
+  const projectAbs = resolve(opts.project || process.cwd());
+  const snippet = snippetFor(primary);
+  const steps = [];
+  if (snippet && primary.rulesFile) steps.push(`copy the block in ${join(dirAbs, snippet)} into ${join(projectAbs, primary.rulesFile)} (create it if missing)`);
+  // A chat app has no possessive that survives its catalog note: "Claude app or
+  // claude.ai (chat only, no CLI)'s custom instructions" was the sentence this
+  // replaces (#22).
+  else if (snippet) steps.push(`open ${primary.chatName || primary.name} and paste the block in ${join(dirAbs, snippet)} into its ${primary.chatSurface || 'custom instructions'}`);
+  if (primary && primary.agentsDir) steps.push(`subagents are in ${join(projectAbs, primary.agentsDir)}; run ${primary.bin} from ${projectAbs} to pick them up`);
+  for (const a of selected.filter((a) => a.bin && a.kind === 'agent-cli')) steps.push(`sign in to ${a.name}: ${a.auth}`);
+  for (const t of tools) steps.push(`${t.id}: ${t.install}`);
+  if (level >= 2) steps.push(`smoke test: node ${join(dirAbs, 'bin', 'cli-run.mjs')} --doctor   (add --run to send each lane one tiny prompt)`);
+  if (level >= 3) steps.push(`box: read ${join(dirAbs, 'vm', 'README.md')}; keys named in vm/ENVIRONMENT.md go in your secrets manager, never a file`);
+  return steps;
+}
+
 function vars(opts) {
   const { level, selected, primary } = opts;
   const tools = opts.tools || [];
@@ -206,8 +238,28 @@ function vars(opts) {
   if (rulesPath === '') rulesPath = '.';
   else if (rulesPath.startsWith('..')) rulesPath = dirAbs; // outside the project: absolute is the only honest path
   const pinOf = (id) => (toolById[id] && toolById[id].pin) || 'latest';
+  const snippet = snippetFor(primary);
+  const steps = activationSteps({ level, selected, primary, tools, dir: opts.dir, project: opts.project });
+  // Only claude-code and agy put files under the project root. A chat primary
+  // puts nothing there, so naming a project root would name a folder this run
+  // never created (#21).
+  const writesProject = !!(primary && primary.agentsDir);
+  const readsProjectRules = !!(primary && primary.rulesFile);
+  const whereThingsWent = [`- This folder: \`${dirAbs}\``];
+  if (writesProject) whereThingsWent.push(`- Project root (where your agent reads rules and subagents): \`${projectAbs}\``, `- Subagent definitions: \`${join(projectAbs, primary.agentsDir)}\``);
+  else if (readsProjectRules) whereThingsWent.push(`- Project root (where ${primary.name} reads \`${primary.rulesFile}\`): \`${projectAbs}\`` + (existsSync(projectAbs) ? '' : ' (this run wrote nothing there; create the folder before you copy the snippet in)'), '- Subagent definitions: none, this agent has no subagent folder');
+  else whereThingsWent.push('- Project root: none. A chat app reads pasted instructions, not files, so this install wrote nothing to a project folder.', '- Subagent definitions: none');
+  whereThingsWent.push(`- The rules path your snippets use: \`${rulesPath}\``);
   return {
     ...laneVars(selected),
+    ACTIVATION_STEPS: steps.map((st, i) => `${i + 1}. ${st}`).join('\n'),
+    LOAD_IT: readsProjectRules
+      ? `${primary.name} reads its rules from \`${primary.rulesFile}\` in the project root. The installer wrote \`${snippet}\` next to this README; copy its contents into \`${join(projectAbs, primary.rulesFile)}\`, creating that file if it does not exist. Nothing was appended to a file you already had.`
+      : snippet
+        ? `${primary.name} has no project rules file, so the rules travel by paste. The installer wrote \`${snippet}\` next to this README; open ${primary.chatName || primary.name} and paste its contents into ${primary.chatSurface || 'custom instructions'}. Nothing was appended to a file you already had.`
+        : 'No primary agent was selected, so no activation file was written. Re-run the installer and pick one.',
+    CHAT_UPLOAD_NOTE: primary && primary.kind === 'chat' ? ' A chat app cannot open a local path: upload or paste any protocol file you want it to read.' : '',
+    WHERE_THINGS_WENT: whereThingsWent.join('\n'),
     RULES_PATH: rulesPath,
     ROUTING_FILE: level >= 2 ? 'ROUTING.md' : 'ORCHESTRATOR.md',
     PROJECT_DIR: projectAbs,

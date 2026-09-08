@@ -10,7 +10,7 @@ import { spawnSync } from 'node:child_process';
 import { resolve, join } from 'node:path';
 import { which } from '../src/detect.js';
 import { AIS, LEVELS, TOOLS, PROVIDERS, aisForLevel, agentCandidates, byId, npmSpec } from '../src/catalog.js';
-import { planFiles, writeFiles, resolveSelection, resolveTools, resolveApis, dirProblems, readManifest, MACHINE_OWNED, RUNTIME, GENERATOR_VERSION } from '../src/install.js';
+import { planFiles, writeFiles, resolveSelection, resolveTools, resolveApis, dirProblems, readManifest, activationSteps, MACHINE_OWNED, RUNTIME, GENERATOR_VERSION } from '../src/install.js';
 
 // One strict parse. Unknown flags, missing values and duplicates are usage
 // errors (exit 2) before anything is planned, so a typo like --dryy can never
@@ -88,7 +88,7 @@ if (flag('help') || flag('h')) {
 Usage
   npx model-orchestrator                      interactive
   npx model-orchestrator --list               show the AI catalog and exit
-  npx model-orchestrator --yes --level 2 --ais claude-code,codex,grok [--primary claude-code] [--dir ./ai-orchestrator]
+  npx model-orchestrator --yes --level 2 --ais claude-code,codex,grok [--primary claude-code] [--dir ./ai-orchestrator] [--project .]
 
 Flags
   --level 1|2|3      1 beginner (one agent), 2 intermediate (many CLIs), 3 advanced (plus a VM)
@@ -98,7 +98,8 @@ Flags
   --apis a,b         level 3 only: metered API keys you HOLD (anthropic,openai,google,xai,openrouter); --no-apis for none.
                      Asked separately from the CLIs because a subscription is not an API key.
   --dir path         where to write the docs and protocols (default ./ai-orchestrator)
-  --project path     the project root your agent runs from; subagent definitions go here (default: current directory)
+  --project path     the project root your agent runs from; subagent definitions go here (default: current directory,
+                     so set it: a run from your home folder otherwise drops the subagent files there)
   --yes              skip confirmations
   --force            overwrite every file that already exists, documents included
   --upgrade-runtime  replace the runtime files (cli-run, the audit job, compose, gateway config, setup script) even
@@ -271,6 +272,9 @@ async function main() {
   const lvl = LEVELS.find((l) => l.id === level);
   const agentFiles = files.filter((f) => f.root === 'project');
   console.log(`\nPlan\n  level    ${lvl.id} ${lvl.name}\n  access   ${selected.map((a) => a.id).join(', ')}\n  primary  ${primary ? primary.id : 'none'}\n  tools    ${tools.map((t) => t.id).join(', ') || 'none'}` + (level >= 3 ? `\n  api keys ${apis.map((p) => p.id).join(', ') || 'none'}` : '') + `\n  folder   ${dir}\n  project  ${project}${agentFiles.length ? ' (' + agentFiles.length + ' subagent files go here)' : ''}\n  files    ${files.length}`);
+  if (agentFiles.length && !opt('project')) {
+    console.log(`\nNote: --project was not given, so the ${agentFiles.length} subagent file(s) go to the current directory (${project}). Pass --project to put them somewhere else.`);
+  }
   if (level >= 2 && !selected.some((a) => a.cliRun)) {
     console.log('\nWarning: no executable lanes selected; delegation is inactive. Use level 1 for a single-agent setup, or add a supported CLI. Doctor will exit 13 until a lane is enabled.');
   }
@@ -365,16 +369,9 @@ async function main() {
   }
 
   // 7. Activation summary: writing the folder is half the job. Say exactly what
-  // turns it on, in order, with one command that proves it.
-  const snippet = files.find((f) => /\.snippet\.md$|^PASTE-INTO-YOUR-AGENT\.md$/.test(f.rel));
-  const steps = [];
-  if (snippet && primary && primary.rulesFile) steps.push(`copy the block in ${join(dir, snippet.rel)} into ${join(project, primary.rulesFile)} (create it if missing)`);
-  else if (snippet) steps.push(`paste ${join(dir, snippet.rel)} into ${primary.name}'s custom instructions or Project`);
-  if (primary && primary.agentsDir) steps.push(`subagents are in ${join(project, primary.agentsDir)}; run ${primary.bin} from ${project} to pick them up`);
-  for (const a of selected.filter((a) => a.bin && a.kind === 'agent-cli')) steps.push(`sign in to ${a.name}: ${a.auth}`);
-  for (const t of tools) steps.push(`${t.id}: ${t.install}`);
-  if (level >= 2) steps.push(`smoke test: node ${join(dir, 'bin', 'cli-run.mjs')} --doctor   (add --run to send each lane one tiny prompt)`);
-  if (level >= 3) steps.push(`box: read ${join(dir, 'vm', 'README.md')}; keys named in vm/ENVIRONMENT.md go in your secrets manager, never a file`);
+  // turns it on, in order, with one command that proves it. The generated
+  // README renders this same array, so the two surfaces cannot disagree (#20).
+  const steps = activationSteps({ level, selected, primary, tools, dir, project });
   console.log('\nTo activate, in order:');
   steps.forEach((st, i) => console.log(`  ${i + 1}. ${st}`));
   console.log(`\nStart here: ${join(dir, 'README.md')} (written for level ${level} and the AIs you picked).`);

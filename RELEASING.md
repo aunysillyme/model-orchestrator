@@ -7,7 +7,7 @@ Maintainer notes. A release is one file edit and four commands until release aut
 3. `npm test` green locally; CI green on the last push to `main`.
 4. `git tag -a vX.Y.Z -m "X.Y.Z: <one line>"` and `git push origin main --tags`.
 5. `gh release create vX.Y.Z --notes-from-tag` or paste the changelog section as the notes.
-6. Update the `npx github:...#vX.Y.Z` example in `README.md` (the primary install line is `npx model-orchestrator` and needs no edit).
+6. Nothing in `README.md` carries the version: the install line is `npx model-orchestrator` and the GitHub one-liner points at main, with a test that fails on any `#vX.Y.Z` in the README that is not `package.json`'s version. If a vendor pin changed, `npm run gen:catalog` first, so the compatibility table and `docs/catalog.md` follow the catalog.
 
 ## npm
 

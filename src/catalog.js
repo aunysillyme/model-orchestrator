@@ -17,6 +17,16 @@
 //   rulesFile  the instructions file that agent reads from a project root, if any
 //   agentsDir  where that agent keeps project-level subagent definitions, if any
 //   cliRun     true when bin/cli-run.mjs has a judge for this lane
+//   builtAgainst  the vendor version this release's lane wiring and judges were
+//              exercised against. ONE number per lane: the README compatibility
+//              table is generated from it, and where install.npm exists the pin
+//              IS this number, so "built against" and "pinned to" cannot drift
+//              into two answers (#23). Lanes with a recorded fixture are
+//              cross-checked against test/fixtures/manifest.json by the tests.
+//   chatName   chat apps only: the app's name in a sentence, without the
+//              "(chat only, no CLI)" catalog note, so the activation line stays
+//              a sentence you can read once (#22)
+//   chatSurface chat apps only: where the pasted block goes in that app
 
 export const LEVELS = [
   {
@@ -53,7 +63,8 @@ export const AIS = [
     lane: 'A',
     role: 'orchestrator: routes, maps, builds, verifies, records',
     minLevel: 1,
-    install: { npm: '@anthropic-ai/claude-code', pin: '2.1.260' },
+    install: { npm: '@anthropic-ai/claude-code', pin: '2.1.226' },
+    builtAgainst: '2.1.226',
     auth: 'run `claude` once and sign in with your Anthropic account',
     rulesFile: 'CLAUDE.md',
     agentsDir: '.claude/agents',
@@ -70,7 +81,8 @@ export const AIS = [
     lane: 'A',
     role: 'second coder and adversarial auditor (a different model family reading your diff)',
     minLevel: 1,
-    install: { npm: '@openai/codex', pin: '0.153.2' },
+    install: { npm: '@openai/codex', pin: '0.153.4' },
+    builtAgainst: '0.153.4',
     auth: '`codex login` (add `--device-auth` on a machine with no browser)',
     rulesFile: 'AGENTS.md',
     agentsDir: null,
@@ -87,6 +99,7 @@ export const AIS = [
     role: 'deep research sweeps and concurrent fan-out (its subagent call takes an array)',
     minLevel: 1,
     install: { script: 'https://antigravity.google/cli/install.sh' },
+    builtAgainst: '1.1.27',
     auth: 'first run opens a device-code sign-in with your Google account',
     rulesFile: 'GEMINI.md',
     agentsDir: '.agents/agents',
@@ -105,6 +118,7 @@ export const AIS = [
     role: 'X and live web reads at no per-call cost (its search tools bill on the API, not on the CLI)',
     minLevel: 1,
     install: { script: 'https://x.ai/cli/install.sh' },
+    builtAgainst: '1.0.5',
     auth: '`grok login` (add `--device-auth` on a headless machine)',
     rulesFile: null,
     agentsDir: null,
@@ -121,6 +135,7 @@ export const AIS = [
     role: 'the free tier: rough drafts, first-pass summaries, cheap divergent reads, cron jobs on a box',
     minLevel: 2,
     install: { url: 'https://github.com/NousResearch/hermes-agent' },
+    builtAgainst: '0.20.0',
     auth: '`hermes auth add <provider>` per provider; its own fallback chain handles outages',
     rulesFile: null,
     agentsDir: null,
@@ -136,7 +151,8 @@ export const AIS = [
     lane: 'B',
     role: 'cheapest metered bulk lane for structured output; never for anything that cites a line, a number or a source',
     minLevel: 2,
-    install: { npm: '@qwen-code/qwen-code', pin: '0.23.0' },
+    install: { npm: '@qwen-code/qwen-code', pin: '0.22.3' },
+    builtAgainst: '0.22.3',
     auth: 'a provider key in an environment variable, named (not stored) in ~/.qwen/settings.json. There is no free Qwen cloud tier any more.',
     rulesFile: 'QWEN.md',
     agentsDir: null,
@@ -154,6 +170,7 @@ export const AIS = [
     role: 'the privacy lane: anything that must never leave the machine. Not a cost lane.',
     minLevel: 2,
     install: { url: 'https://ollama.com/download', brew: 'ollama' },
+    builtAgainst: '0.33.3',
     auth: 'none',
     rulesFile: null,
     agentsDir: null,
@@ -171,6 +188,8 @@ export const AIS = [
     minLevel: 1,
     install: { url: 'https://claude.ai' },
     auth: 'sign in',
+    chatName: 'the Claude app or claude.ai',
+    chatSurface: 'custom instructions or a Project',
     rulesFile: null,
     agentsDir: null,
     cliRun: false
@@ -187,6 +206,8 @@ export const AIS = [
     minLevel: 1,
     install: { url: 'https://chatgpt.com' },
     auth: 'sign in',
+    chatName: 'ChatGPT',
+    chatSurface: 'custom instructions or a Project',
     rulesFile: null,
     agentsDir: null,
     cliRun: false
@@ -203,6 +224,8 @@ export const AIS = [
     minLevel: 1,
     install: { url: 'https://gemini.google.com' },
     auth: 'sign in',
+    chatName: 'the Gemini app',
+    chatSurface: 'saved instructions or a Gem',
     rulesFile: null,
     agentsDir: null,
     cliRun: false

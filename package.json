@@ -1,6 +1,6 @@
 {
   "name": "model-orchestrator",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "description": "Routing instructions and a CLI runner for your AI tools. One installer asks what you have access to and generates a matching setup, from one chat app to several agent CLIs or a virtual machine.",
   "type": "module",
   "bin": {
@@ -46,7 +46,12 @@
     "ollama",
     "litellm",
     "multi-agent",
-    "cli"
+    "cli",
+    "llm",
+    "agents",
+    "subagents",
+    "qwen",
+    "mcp"
   ],
   "author": "aunysillyme (https://github.com/aunysillyme)",
   "license": "MIT"
