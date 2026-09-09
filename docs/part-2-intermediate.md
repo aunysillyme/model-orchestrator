@@ -28,7 +28,7 @@ Every agent CLI can report success and deliver nothing. `bin/cli-run.mjs` builds
 
 Every call goes through it. "This lane is flaky" becomes a query over its log instead of an argument. `node bin/cli-run.mjs --doctor` is the first thing to run after install: enabled lanes, binaries on PATH, the route each lane is pinned to, and with `--run` a one-word canary per lane.
 
-There is a second thing a lane can be quietly wrong about. Left unpinned, it runs on **its own config file**, which the runner cannot see: a CLI set up months ago at a low reasoning effort keeps auditing at that effort while your routing docs describe an adversarial pass, and no error is ever raised. `--model` and `--effort` pin it per call, `defaults` in `bin/lanes.json` pins it per lane, and every run records the value requested and where it came from (`flag`, `lanes.json`, `lane_default`). The log never claims an actual: no vendor CLI reports back the model it used.
+There is a second thing a lane can be quietly wrong about. Left unpinned, it runs on **its own config file**, which the runner cannot see: a CLI set up months ago at a low reasoning effort keeps auditing at that effort while your routing docs describe an adversarial pass, and no error is ever raised. `--model` and `--effort` pin it per call, `defaults` in `bin/lanes.json` pins it per lane, and every run records the value requested and where it came from (`flag`, `lanes.json`, `lane_default`). The log claims no actual: grok reports a model id in its output, the other four lanes report none, so the field would be populated for one lane and empty for four, and it would be a provider-supplied string the durable log never holds.
 
 ## 4. Every delegation carries a task bundle, on both surfaces
 
