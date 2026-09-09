@@ -18,7 +18,8 @@ Enabled lanes (edit `bin/lanes.json`): {{CLI_RUN_LANES}}
 ```bash
 node bin/cli-run.mjs <grok|codex|agy|hermes|qwen> "<prompt>" [--brief FILE] [--timeout SECS] [--quiet]
 node bin/cli-run.mjs codex --audit "<prompt>"                  # read-only sandbox, the audit shape
-node bin/cli-run.mjs qwen [--model ID] [--safe-mode] "<prompt>"
+node bin/cli-run.mjs codex "<prompt>" --model gpt-6-astra --effort high
+node bin/cli-run.mjs qwen [--safe-mode] "<prompt>"             # qwen-only flag
 ```
 
 Put it on your PATH if you like: `ln -s "$PWD/bin/cli-run.mjs" ~/.local/bin/cli-run`.
@@ -65,13 +66,49 @@ qwen is the lane whose own success flags lie: an upstream 400 comes back as exit
 | 2 | usage error in cli-run itself |
 | N | the lane exited N != 0: passed through unchanged, verdict `exit_nonzero`, even when parseable text came back. The bounded head of the lane's stderr is shown on your terminal so an auth failure reads as one |
 
+## The route: which model, and how hard it thinks
+
+A lane you do not pin runs on **its own config file**, which this tool cannot see. That is the quiet failure this section exists for: a CLI configured months ago at `reasoning_effort = "low"` keeps auditing at low effort while your routing docs describe an adversarial pass, and nothing anywhere says so.
+
+Pin it per call, or per lane:
+
+```bash
+node bin/cli-run.mjs codex "<prompt>" --model gpt-6-astra --effort high   # this call only
+node bin/cli-run.mjs --doctor                                            # prints what each lane is pinned to
+```
+
+```json
+{
+  "enabled": ["codex", "grok"],
+  "defaults": { "codex": { "model": "gpt-6-astra", "effort": "high" } }
+}
+```
+
+A flag beats `defaults`; `defaults` beats nothing. Each vendor spells these differently and `cli-run` translates:
+
+| Lane | Model | Reasoning effort |
+|---|---|---|
+| grok | `-m` | `--reasoning-effort` |
+| codex | `-m` | `-c model_reasoning_effort="LEVEL"` |
+| agy | `--model` | `--effort` (low, medium, high) |
+| hermes | `-m` | `--reasoning` (none, minimal, ...) |
+| qwen | `-m` | none: this lane has no reasoning flag |
+
+Three rules that keep this honest:
+
+- **A level `cli-run` does not recognise is not rejected here.** Levels are the vendor's, they change, and guessing the valid set would date this tool. An unknown level is refused by the lane and surfaces as that lane's own exit code and stderr.
+- **`--effort` on qwen is a usage error, not a silent drop.** A flag that vanishes leaves you believing a route that never ran.
+- **Values are charset-bounded** (letters, digits, and `. _ : @ / + -`, no leading dash, 64 characters). A model id becomes an argv element and, on codex, part of a TOML value; bounding it is what stops either from being escaped.
+
 ## Permissions are a separate layer
 
 `cli-run` never injects permission flags. Each CLI carries its own config, so every caller gets the same behaviour. Use each vendor's deny-list as the base layer; allow-lists only hold if every binary is enumerable in advance.
 
 ## Log
 
-`~/.ai-orchestrator/cli-run.log.jsonl`, one line per run: lane, verdict, rc, the lane's own exit code, signal, seconds, raw bytes, deliverable bytes, a 12-hex sha256 prefix of the prompt and its length, and `reason`: one of a fixed set of codes (`ok`, `not_json`, `bad_stop_reason`, `empty_text`, `no_terminal_event`, `bad_status`, `api_error_in_result`, `total_errors`, `contract_unmet`, `exit_nonzero`, `timeout`, `killed`, `disabled`, `lanes_json_malformed`, ...). Never the prompt text, never a provider-supplied value, never free text: a value the log does not recognise is written as `unknown`. The human-readable detail, which may quote the provider, goes to your terminal only (and nowhere with `--quiet`). "This lane is flaky" becomes a query instead of an argument.
+`~/.ai-orchestrator/cli-run.log.jsonl`, one line per run: lane, verdict, rc, the lane's own exit code, signal, seconds, raw bytes, deliverable bytes, a 12-hex sha256 prefix of the prompt and its length, the route (`model_requested`, `effort_requested`, and `model_source` / `effort_source`, each one of `flag`, `lanes.json` or `lane_default`), and `reason`: one of a fixed set of codes (`ok`, `not_json`, `bad_stop_reason`, `empty_text`, `no_terminal_event`, `bad_status`, `api_error_in_result`, `total_errors`, `contract_unmet`, `exit_nonzero`, `timeout`, `killed`, `disabled`, `lanes_json_malformed`, ...). Never the prompt text, never a provider-supplied value, never free text: a value the log does not recognise is written as `unknown`. The human-readable detail, which may quote the provider, goes to your terminal only (and nowhere with `--quiet`). "This lane is flaky" becomes a query instead of an argument, and so does "we route audits at high effort".
+
+The log records what was **requested**, never an actual. No vendor CLI reports back the model it used, so an `actual` field could only be a guess, and `model_source: "lane_default"` is the honest way to say this run inherited something invisible from here.
 
 ## The prompt travels in argv
 
@@ -79,7 +116,7 @@ That is each vendor's documented headless shape (`-p`, `exec`). Two consequences
 
 ## lanes.json fails closed
 
-Absent: every lane enabled. Present but malformed or unreadable: every lane refused (exit 13) until it is fixed. A half-written config never re-enables a lane the installer disabled.
+Absent: every lane enabled, nothing pinned. Present but malformed or unreadable: every lane refused (exit 13) until it is fixed. A half-written config never re-enables a lane the installer disabled. `defaults` is optional and held to the same standard: a malformed entry, an unknown lane, an unknown key, a value outside the charset, or an effort pinned on a lane that has no reasoning flag all fail the whole file closed rather than being skipped quietly.
 
 ## A killed lane is not a deliverable
 

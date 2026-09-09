@@ -66,7 +66,17 @@ Secret detection, static analysis and dependency scanning, filtered to lines thi
 
 Route by shape: security-shaped diffs (auth, tokens, routes, deletion, bulk mutation, untrusted input) go to an adversarial auditor, ideally a **different model family**. Architecture-shaped diffs go to the judgment tier reviewing build against plan. Never both on one diff.
 
-**Gate:** every finding **reproduced** before it reaches a human. Unreproduced items are dropped, not narrated. Hard cap one re-audit. `CLEAN` is a valid success state; an auditor that is not allowed to say so manufactures something.
+Findings do not go straight to a repair. Hand them to the **finding-verifier**, whose job is to DISPROVE each one: read the cited line, state what would trigger it, then hunt for the guard, caller or test that makes it impossible. It returns one of three verdicts per finding, and rounding between them is the failure mode to watch for.
+
+| Verdict | Meaning | What happens next |
+|---|---|---|
+| CONFIRMED | reproduced, or a concrete path nothing blocks | it earns a repair |
+| NOT_REPRODUCED | something prevents it, named and located | dropped, and not narrated |
+| INCONCLUSIVE | not settleable read-only | say what it would take; never round it to either side |
+
+Use a different model family from the one that produced the finding where you have one: a family asked to check its own claim tends to agree with itself.
+
+**Gate:** every finding **verified** before it reaches a human, and only CONFIRMED findings trigger a change. Hard cap one re-audit. `CLEAN` is a valid success state; an auditor that is not allowed to say so manufactures something, and so does a verifier that is expected to confirm.
 
 ### Stage 5b · Ship gate
 1. What is the rollback target? Record it before shipping.

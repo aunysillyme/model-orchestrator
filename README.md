@@ -25,7 +25,7 @@ It never writes a secret, never runs a vendor shell script for you, and never ov
 | Level | You have | You get |
 |---|---|---|
 | **1 · Beginner** | one LLM or one agent | tiers, task classification, the two build checkpoints, the protocols (build, propagate, gap analysis, deep research, numbers and logic, memory and record), a task-bundle template, and your agent set up to follow them |
-| **2 · Intermediate** | several AIs with CLIs | everything above, plus `cli-run` (exit 0 means a structurally accepted non-empty response; opt-in `--expect-file` / `--expect-json` for real contracts), a delegation matrix generated from your selection, research triage across the lanes you have |
+| **2 · Intermediate** | several AIs with CLIs | everything above, plus `cli-run` (exit 0 means a structurally accepted non-empty response; opt-in `--expect-file` / `--expect-json` for real contracts; `--model` / `--effort` to pin the route and log it), a delegation matrix generated from your selection, research triage across the lanes you have |
 | **3 · Advanced** | a virtual machine | everything above, plus a gateway config rendered from the API keys you hold (asked separately from your CLIs), pinned images, box rules, privacy gates, and a weekly gap-analysis job with "what watches it" written down |
 
 Read the thinking behind each level in [docs/](docs/README.md): [Part 1](docs/part-1-beginner.md) · [Part 2](docs/part-2-intermediate.md) · [Part 3](docs/part-3-advanced.md).
@@ -90,7 +90,7 @@ ai-orchestrator/
   TASK_BUNDLE.md            the brief every delegation carries
   protocols/                build-protocol · propagate · gap-analysis · deep-research · numbers-and-logic · memory-and-record
   CODECALC.md  OBSIDIAN-TC.md  mcp/   companion-tool install docs + per-agent registration snippets (if selected)
-  <project>/.claude/agents/ five subagents, one per tier, at the PROJECT root (if Claude Code is primary)
+  <project>/.claude/agents/ six subagents, one per tier plus finding-verifier, at the PROJECT root (if Claude Code is primary)
   CLAUDE.snippet.md         the block to paste into your CLAUDE.md
   ROUTING.md                multi-lane decision tree (level 2+)
   TIERS.md  DELEGATION_MATRIX.md  RESEARCH_TRIAGE.md  CLI-RUN.md
@@ -162,6 +162,51 @@ It deliberately does not run in this repository's CI. A canary is only meaningfu
 6. **The orchestrator owns the main build.** Delegates hold none of your rules; they get bounded sub-parts and a brief.
 7. **Only one process holds keys.** Names in the environment, values in a secrets manager, never in a file here.
 
+## Routing by role, complexity and risk
+
+Role picks the agent. Two more inputs move the choice, and they move it in
+different directions, so `TIERS.md` states them separately rather than folding
+them into the role:
+
+- **Complexity moves the effort.** A worker executing a finished plan needs less
+  reasoning than the reviewer judging its output. When the plan is airtight the
+  spec is carrying the thinking.
+- **Risk moves the tier and the reader.** Security, privacy, data loss and
+  irreversible changes buy the attack lane, a named check, a rollback path or a
+  human yes. A one-line change to an auth check is simple and high-risk at the
+  same time, and it is the risk that decides.
+
+The top of the ladder is bought with evidence: a reproduced failure, an
+unresolved checkpoint, an irreversible change. A task that merely feels hard is
+a deep-tier task, not an escalation.
+
+## A finding is a claim, not a fact
+
+Review findings do not go straight to a repair. `finding-verifier` reads the
+cited line, states what would trigger the problem, then hunts for the guard,
+caller or test that makes it impossible, and returns **CONFIRMED**,
+**NOT_REPRODUCED** or **INCONCLUSIVE** per finding. Only CONFIRMED earns a
+change. Use a different model family from the one that produced the finding
+where you have one: a family asked to check its own claim tends to agree with
+itself.
+
+## Pin the route, or know that you did not
+
+A lane with no `--model`, no `--effort` and no `defaults` entry in
+`bin/lanes.json` runs on **its own config file**, which `cli-run` cannot see. A
+CLI configured months ago at a low reasoning effort keeps auditing at that
+effort while your routing docs describe an adversarial pass.
+
+```bash
+node bin/cli-run.mjs codex "<prompt>" --model gpt-6-astra --effort high
+node bin/cli-run.mjs --doctor     # prints what each lane is pinned to, and what is not pinned
+```
+
+Every run logs the model and effort **requested** and where the request came
+from: `flag`, `lanes.json`, or `lane_default`. It never logs an actual, because
+no vendor CLI reports back the model it used, and a guessed field in a log is
+worse than an absent one.
+
 ## Requirements
 
 Node 18 or newer. No dependencies. Works on macOS and Linux; the level 3 box templates assume Ubuntu. Windows is untested: `cli-run` ends a lane's process tree there with `taskkill`, but nothing in CI runs on Windows, so treat it as unsupported until someone reports otherwise.
@@ -176,6 +221,14 @@ Node 18 or newer. No dependencies. Works on macOS and Linux; the level 3 box tem
 ## Contributing
 
 Add an AI to `src/catalog.js` and every prompt, table, config and doc picks it up. Run `npm test`. Keep templates free of logic and free of anything that looks like a credential. The rest is in [CONTRIBUTING.md](CONTRIBUTING.md); releases in [RELEASING.md](RELEASING.md); security reports in [SECURITY.md](SECURITY.md).
+
+## Credits
+
+- [@shawnwows](https://x.com/shawnwows) reviewed the router and made the case for
+  separating role, complexity and risk instead of compressing them into one
+  scale, for recording the model and effort a lane was actually asked for, and
+  for verifying findings before they trigger repairs. All three shipped in
+  0.1.14.
 
 ## License
 

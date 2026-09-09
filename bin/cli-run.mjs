@@ -39,6 +39,15 @@
 //
 // The durable log stores a FIXED reason code per run (see REASONS), never a
 // provider-supplied string. Bounded vendor stderr goes to your terminal only.
+//
+// ROUTE: which model and reasoning effort a lane ran with.
+// A lane with no --model and no lanes.json default inherits whatever its own
+// config file says, which is invisible from here and is how a documented route
+// silently stops being the route that runs. --model / --effort pin it per call,
+// `defaults` in lanes.json pins it per lane, and every run logs the value that
+// was REQUESTED plus where the request came from (flag, lanes.json, or nothing
+// at all). It never logs an "actual": no vendor CLI reports back the model it
+// used, so an actual field could only be a guess wearing a fact's clothes.
 
 import { spawn } from 'node:child_process';
 import { StringDecoder } from 'node:string_decoder';
@@ -190,28 +199,71 @@ export function judgeQwen(rc, out) {
   return pass(text, `subtype=success, totalErrors=0 across ${Object.keys(models).length} model(s)`);
 }
 
+// --- route: model and effort per lane --------------------------------------
+// Each vendor spells these differently, and the spelling was read from each
+// CLI's own --help, not remembered. A lane with `effort: null` has no reasoning
+// flag at all; asking for one there is a usage error, never a silent drop.
+//   grok    -m MODEL   --reasoning-effort EFFORT
+//   codex   -m MODEL   -c model_reasoning_effort="EFFORT"   (a TOML override, hence the quotes)
+//   agy     --model M  --effort EFFORT                      (low|medium|high)
+//   hermes  -m MODEL   --reasoning LEVEL                    (none|minimal|...)
+//   qwen    -m MODEL   no reasoning flag
+export const LANE_FLAGS = {
+  grok: { model: (v) => ['-m', v], effort: (v) => ['--reasoning-effort', v] },
+  codex: { model: (v) => ['-m', v], effort: (v) => ['-c', `model_reasoning_effort="${v}"`] },
+  agy: { model: (v) => ['--model', v], effort: (v) => ['--effort', v] },
+  hermes: { model: (v) => ['-m', v], effort: (v) => ['--reasoning', v] },
+  qwen: { model: (v) => ['-m', v], effort: null }
+};
+
+// A model id or effort level becomes an argv element and, for codex, part of a
+// TOML value. Bounding the charset is what makes both safe: no leading dash (a
+// value cannot become a flag), no quote, space or control character (a value
+// cannot break out of the TOML string), and a length cap so a config file
+// cannot push an unbounded string into the durable log.
+export const ROUTE_VALUE = /^[A-Za-z0-9][A-Za-z0-9._:@/+-]{0,63}$/;
+export function badRouteValue(kind, v) {
+  if (typeof v !== 'string' || !ROUTE_VALUE.test(v)) {
+    return `--${kind} must be 1 to 64 characters of letters, digits, dot, underscore, colon, at, slash, plus or dash, and may not start with a dash: ${JSON.stringify(v)}`;
+  }
+  return null;
+}
+
 // --- adapters: build argv for a lane -------------------------------------
+// Route flags go in front of the prompt for every lane, because two lanes
+// (hermes, codex) take the prompt as a positional argument and a flag after it
+// is either ignored or read as part of it.
+function routeFlags(lane, opts) {
+  const spec = LANE_FLAGS[lane];
+  const out = [];
+  if (!spec) return out;
+  if (opts.model) out.push(...spec.model(opts.model));
+  if (opts.effort && spec.effort) out.push(...spec.effort(opts.effort));
+  return out;
+}
+
 export function buildArgv(lane, binary, prompt, opts, tmp) {
   const timeout = opts.timeout;
+  const route = routeFlags(lane, opts);
   switch (lane) {
     case 'grok':
-      return { argv: [binary, '--output-format', 'json', '-p', prompt] };
+      return { argv: [binary, '--output-format', 'json', ...route, '-p', prompt] };
     case 'codex': {
       const last = join(tmp, 'last.txt');
       const argv = [binary, 'exec', '--json', '--color', 'never', '--skip-git-repo-check', '-o', last];
       if (opts.audit) argv.push('--sandbox', 'read-only'); // an audit lane that can write is a bug
+      argv.push(...route);
       argv.push(prompt);
       return { argv, outFile: last };
     }
     case 'agy': {
       const mins = Math.max(1, Math.round(timeout / 60));
-      return { argv: [binary, '--print-timeout', `${mins}m`, '--output-format', 'stream-json', '-p', prompt] };
+      return { argv: [binary, '--print-timeout', `${mins}m`, '--output-format', 'stream-json', ...route, '-p', prompt] };
     }
     case 'hermes':
-      return { argv: [binary, '-z', prompt, '--usage-file', join(tmp, 'usage.json')] };
+      return { argv: [binary, '-z', ...route, prompt, '--usage-file', join(tmp, 'usage.json')] };
     case 'qwen': {
-      const argv = [binary, '-o', 'json'];
-      if (opts.model) argv.push('-m', opts.model);
+      const argv = [binary, '-o', 'json', ...route];
       if (opts.safeMode) argv.push('--safe-mode');
       argv.push('-p', prompt);
       return { argv };
@@ -370,26 +422,67 @@ function log(rec) {
 // documented default). PRESENT BUT UNREADABLE OR MALFORMED = no lane enabled:
 // a half-written config must fail closed, never re-enable what the installer
 // disabled. Returns null when the file is bad so the caller can say so.
-export function enabledLanes(here = dirname(fileURLToPath(import.meta.url))) {
+export function laneConfig(here = dirname(fileURLToPath(import.meta.url))) {
   const p = join(here, 'lanes.json');
-  if (!existsSync(p)) return LANES;
+  if (!existsSync(p)) return { enabled: LANES, defaults: {} };
   try {
     const j = JSON.parse(readFileSync(p, 'utf8'));
     if (!j || typeof j !== 'object' || !Array.isArray(j.enabled)) return null;
     if (!j.enabled.every((l) => typeof l === 'string' && LANES.includes(l))) return null;
-    return j.enabled;
+    // `defaults` pins a model and effort per lane. It is optional; present and
+    // malformed fails closed with the rest of the file, because a half-written
+    // route is exactly the silent-inheritance problem this field exists to fix.
+    const defaults = {};
+    if (j.defaults !== undefined) {
+      if (!j.defaults || typeof j.defaults !== 'object' || Array.isArray(j.defaults)) return null;
+      for (const [lane, d] of Object.entries(j.defaults)) {
+        if (!LANES.includes(lane)) return null;
+        if (!d || typeof d !== 'object' || Array.isArray(d)) return null;
+        const { model, effort, ...rest } = d;
+        if (Object.keys(rest).length) return null;
+        if (model !== undefined && badRouteValue('model', model)) return null;
+        if (effort !== undefined) {
+          if (badRouteValue('effort', effort)) return null;
+          if (!LANE_FLAGS[lane] || !LANE_FLAGS[lane].effort) return null; // a lane with no reasoning flag cannot have one pinned
+        }
+        defaults[lane] = { model: model ?? null, effort: effort ?? null };
+      }
+    }
+    return { enabled: j.enabled, defaults };
   } catch {
     return null;
   }
 }
 
+// Kept as the narrow question most callers ask. null still means malformed.
+export function enabledLanes(here = dirname(fileURLToPath(import.meta.url))) {
+  const c = laneConfig(here);
+  return c === null ? null : c.enabled;
+}
+
+// Flag beats lanes.json beats nothing. `source` is what makes the log audit-worthy:
+// 'lane_default' means this run inherited the vendor CLI's own config, unseen from here.
+export function resolveRoute(lane, opts, defaults) {
+  const d = (defaults && defaults[lane]) || {};
+  const model = opts.model ?? d.model ?? null;
+  const effort = opts.effort ?? d.effort ?? null;
+  const src = (flag, def) => (flag != null ? 'flag' : def != null ? 'lanes.json' : 'lane_default');
+  return { model, effort, model_source: src(opts.model, d.model), effort_source: src(opts.effort, d.effort) };
+}
+
 function usage(msg) {
   if (msg) console.error('cli-run: ' + msg);
   console.error(`usage: cli-run <${LANES.join('|')}> "<prompt>" [--brief FILE] [--timeout SECS] [--quiet]
-                [--expect-file PATH] [--expect-json]
+                [--model ID] [--effort LEVEL] [--expect-file PATH] [--expect-json]
        cli-run codex --audit "<prompt>"          read-only sandbox (audit shape)
-       cli-run qwen [--model ID] [--safe-mode] "<prompt>"
-       cli-run --doctor [--run]                  enabled lanes, binaries on PATH; --run sends each a tiny prompt`);
+       cli-run qwen [--safe-mode] "<prompt>"     qwen-only flag
+       cli-run --doctor [--run]                  enabled lanes, binaries, and the route each one is pinned to
+
+  --model / --effort pin what a lane runs with, instead of letting it inherit its
+  own config. Every lane takes --model; every lane except qwen takes --effort.
+  Levels are the vendor's own (agy low|medium|high, hermes none|minimal|...): an
+  unknown level is rejected by the lane, and reported as that lane's exit code.
+  Pin them per lane instead of per call with "defaults" in bin/lanes.json.`);
   return USAGE;
 }
 
@@ -416,11 +509,12 @@ function installedPrimary(here = dirname(fileURLToPath(import.meta.url))) {
 
 // --doctor: the first thing to run after install.
 export async function doctor(run) {
-  const enabled = enabledLanes();
-  if (enabled === null) {
+  const cfg = laneConfig();
+  if (cfg === null) {
     console.error('doctor: lanes.json exists but is malformed; fix it first');
     return USAGE;
   }
+  const { enabled, defaults } = cfg;
   let bad = 0;
   console.log(`doctor: ${enabled.length} enabled lane(s): ${enabled.join(', ') || 'none'}`);
   const primary = installedPrimary();
@@ -432,7 +526,11 @@ export async function doctor(run) {
   for (const lane of LANES) {
     const on = enabled.includes(lane);
     const bin = which(lane);
-    let line = `  ${lane.padEnd(7)} ${on ? 'enabled ' : 'disabled'} ${bin ? 'binary ok' : 'binary MISSING'}`;
+    const d = defaults[lane] || {};
+    // A disabled lane has no route worth reporting; saying "not pinned" there
+    // reads as a finding about a lane that is not going to run.
+    const route = !on ? '' : d.model || d.effort ? `route ${d.model || 'lane default'}/${d.effort || 'lane default'}` : 'route not pinned (inherits the lane\'s own config)';
+    let line = `  ${lane.padEnd(7)} ${on ? 'enabled ' : 'disabled'} ${bin ? 'binary ok' : 'binary MISSING'}${route ? '  ' + route : ''}`;
     if (on && !bin) bad++;
     if (on && bin && run) {
       const rc = await main([lane, 'Reply with exactly the word OK and nothing else.', '--timeout', '120', '--quiet']);
@@ -443,6 +541,7 @@ export async function doctor(run) {
   }
   console.log(bad ? `doctor: ${bad} problem(s)` : 'doctor: all enabled lanes ' + (run ? 'answered' : 'present'));
   console.log('doctor checks presence and, with --run, a one-word canary. It does not check vendor versions.');
+  console.log('"route not pinned" means that lane runs on whatever its own config file says, which this tool cannot see. Pin it in lanes.json "defaults" if the route matters.');
   return bad ? NO_DELIVERABLE : OK;
 }
 
@@ -485,10 +584,10 @@ export function checkContracts(opts, text, before) {
 }
 
 export async function main(argv) {
-  const VALUE = new Set(['--brief', '--timeout', '--model', '--expect-file']);
+  const VALUE = new Set(['--brief', '--timeout', '--model', '--effort', '--expect-file']);
   const BOOL = new Set(['--quiet', '--audit', '--safe-mode', '--doctor', '--run', '--expect-json']);
   const args = [...argv];
-  const opts = { timeout: 900, quiet: false, audit: false, model: null, safeMode: false, brief: null, doctor: false, run: false, expectFile: null, expectJson: false };
+  const opts = { timeout: 900, quiet: false, audit: false, model: null, effort: null, safeMode: false, brief: null, doctor: false, run: false, expectFile: null, expectJson: false };
   const positional = [];
   while (args.length) {
     const a = args.shift();
@@ -498,6 +597,7 @@ export async function main(argv) {
       if (a === '--brief') opts.brief = v;
       else if (a === '--timeout') opts.timeout = Number(v);
       else if (a === '--expect-file') opts.expectFile = v;
+      else if (a === '--effort') opts.effort = v;
       else opts.model = v;
     } else if (BOOL.has(a)) {
       if (a === '--quiet') opts.quiet = true;
@@ -530,11 +630,20 @@ export async function main(argv) {
   if (!prompt) return usage('give a prompt or --brief FILE');
   if (!Number.isFinite(opts.timeout) || opts.timeout <= 0) return usage('--timeout must be a positive number of seconds');
   if (opts.audit && lane !== 'codex') return usage('--audit is codex-only');
-  if ((opts.model || opts.safeMode) && lane !== 'qwen') return usage('--model and --safe-mode are qwen-only');
+  if (opts.safeMode && lane !== 'qwen') return usage('--safe-mode is qwen-only');
+  for (const [kind, v] of [['model', opts.model], ['effort', opts.effort]]) {
+    if (v == null) continue;
+    const bad = badRouteValue(kind, v);
+    if (bad) return usage(bad);
+  }
+  // qwen has no reasoning flag. Dropping --effort silently would leave the caller
+  // believing a route that never happened, which is the defect this feature fixes.
+  if (opts.effort && !(LANE_FLAGS[lane] && LANE_FLAGS[lane].effort)) return usage(`${lane} has no reasoning-effort flag; --effort is not available on this lane`);
 
   const digest = createHash('sha256').update(prompt).digest('hex').slice(0, 12);
   const base = { lane, prompt_sha256_12: digest, prompt_chars: prompt.length };
-  const enabled = enabledLanes();
+  const cfg = laneConfig();
+  const enabled = cfg === null ? null : cfg.enabled;
   if (enabled === null) {
     console.error('cli-run: lanes.json exists but is not a valid {"enabled": [...]} file; refusing every lane until it is fixed');
     log({ ...base, verdict: 'unavailable', rc: UNAVAILABLE, reason: 'lanes_json_malformed' });
@@ -551,6 +660,16 @@ export async function main(argv) {
     log({ ...base, verdict: 'unavailable', rc: UNAVAILABLE, reason: 'unavailable' });
     return UNAVAILABLE;
   }
+
+  const route = resolveRoute(lane, opts, cfg.defaults);
+  opts.model = route.model;
+  opts.effort = route.effort;
+  Object.assign(base, {
+    model_requested: route.model,
+    effort_requested: route.effort,
+    model_source: route.model_source,
+    effort_source: route.effort_source
+  });
 
   const tmp = mkdtempSync(join(tmpdir(), 'cli-run-'));
   const before = opts.expectFile ? snapshotFile(resolve(opts.expectFile)) : null;
@@ -601,7 +720,8 @@ export async function main(argv) {
       }
     }
     if (text && code === OK) process.stdout.write(text + '\n');
-    if (!opts.quiet) console.error(`cli-run[${lane}] ${verdict} rc=${code} ${r.seconds.toFixed(1)}s raw=${r.outBytes || 0}B :: ${detail}`);
+    const routeNote = route.model || route.effort ? `${route.model || 'lane default'}/${route.effort || 'lane default'}` : 'lane default';
+    if (!opts.quiet) console.error(`cli-run[${lane}] ${verdict} rc=${code} ${r.seconds.toFixed(1)}s raw=${r.outBytes || 0}B route=${routeNote} :: ${detail}`);
     // Durable log: fixed reason code and structural numbers only.
     log({ ...base, verdict, rc: code, cli_rc: r.status, signal: r.signal || null, seconds: Math.round(r.seconds * 100) / 100, raw_bytes: r.outBytes || 0, deliverable_bytes: Buffer.byteLength(text), reason: REASONS.has(reason) ? reason : 'unknown' });
     return code;

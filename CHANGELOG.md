@@ -4,6 +4,22 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.1.14] - 2026-09-09
+
+Three refinements to the routing model, from a review by [@shawnwows](https://x.com/shawnwows). The theme is the same in all three: a routing decision that was implied, inherited or asserted is now stated, pinned or checked.
+
+### Added
+
+- **`--model` and `--effort` on every lane, and a route recorded per run.** A lane with no flag and no `defaults` entry in `bin/lanes.json` runs on its own config file, which `cli-run` cannot see: a CLI configured months ago at a low reasoning effort keeps auditing at that effort while the routing docs describe an adversarial pass, and nothing raises an error. Each vendor spells the flags differently and `cli-run` translates (`grok -m/--reasoning-effort`, `codex -m/-c model_reasoning_effort="X"`, `agy --model/--effort`, `hermes -m/--reasoning`, `qwen -m` and no reasoning flag), each one read from that CLI's own `--help`. Flags beat `defaults`, `defaults` beats nothing, `--doctor` prints what each lane is pinned to, and the log carries `model_requested`, `effort_requested`, `model_source` and `effort_source`. It never records an "actual": no vendor CLI reports back the model it used, so that field could only be a guess. `--effort` on qwen is a usage error rather than a silent drop, and route values are charset-bounded because a model id becomes an argv element and, on codex, part of a TOML value.
+- **`finding-verifier`, a sixth subagent, in both agent formats.** Review and scanner findings no longer go straight to a repair. It reads the cited line, states what would trigger the problem, hunts for the guard, caller or test that makes it impossible, and returns CONFIRMED, NOT_REPRODUCED or INCONCLUSIVE per finding. Only CONFIRMED earns a change; INCONCLUSIVE is never rounded up to be safe or down to be tidy. Bound into the build protocol as Stage 5a, into `ROUTING.md`, and into the Claude Code activation snippet. The reproduction rule already existed in Stage 5; it had no owner, no separate model family and no way to say "I could not settle this".
+- **Complexity and risk as inputs, alongside role** (`TIERS.md`). Complexity moves the effort: a worker executing a finished plan needs less reasoning than the reviewer judging its output. Risk (security, privacy, data loss, irreversible) moves the tier and who reads the result, because none of those failures is fixable by editing the code afterwards. A one-line change to an auth check is simple and high-risk at once, and the risk decides. Deliberately two rules and two small tables rather than a role by complexity by risk matrix: an 80-cell table is not maintained, and an unmaintained routing table is worse than none because it is believed.
+
+### Changed
+
+- `--model` is no longer qwen-only. `--safe-mode` still is.
+- `bin/lanes.json` gains an optional `defaults` block. It fails closed with the rest of the file: an unknown lane, an unknown key, a value outside the charset, or an effort pinned on a lane with no reasoning flag refuses every lane until it is fixed, rather than being skipped quietly.
+- The generated activation list gains a step about pinning the route, and `--doctor` output gains a route column with a plain sentence about what "not pinned" means.
+
 ## [0.1.13] - 2026-09-08
 
 Three issues from a fresh first-run walkthrough of 0.1.12 (#26, #27, #28). Same class as 0.1.12's five: a surface describing an install that did not happen. A fourth, #25, was filed and closed as a mistake on the reporter's side, not a defect: the warning it said was missing has been printed since 0.1.12 and the repro had been read through a truncated pipe.
@@ -200,7 +216,8 @@ First release.
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
-[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.13...HEAD
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.14...HEAD
+[0.1.14]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.13...v0.1.14
 [0.1.13]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.12...v0.1.13
 [0.1.12]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.11...v0.1.12
 [0.1.11]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.10...v0.1.11

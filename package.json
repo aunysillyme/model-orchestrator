@@ -1,7 +1,7 @@
 {
   "name": "model-orchestrator",
-  "version": "0.1.13",
-  "description": "Routing instructions and a CLI runner for your AI tools. One installer asks what you have access to and generates a matching setup, from one chat app to several agent CLIs or a virtual machine.",
+  "version": "0.1.14",
+  "description": "Routing instructions and a CLI runner for your AI tools. One installer asks what you have access to and generates a matching setup, from one chat app to several agent CLIs or a virtual machine. Routes by role, complexity and risk; pins and logs the model and reasoning effort each lane runs with.",
   "type": "module",
   "bin": {
     "model-orchestrator": "bin/cli.js"
@@ -51,7 +51,11 @@
     "agents",
     "subagents",
     "qwen",
-    "mcp"
+    "mcp",
+    "reasoning-effort",
+    "model-routing",
+    "code-review",
+    "ai-agents"
   ],
   "author": "aunysillyme (https://github.com/aunysillyme)",
   "license": "MIT"

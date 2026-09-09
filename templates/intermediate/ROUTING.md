@@ -17,6 +17,7 @@ Rule of thumb: never spend a frontier token on a task a cheap tier finishes corr
 1. **Bulk and mechanical?** → fast tier{{BULK_LANE}}. Many independent items each needing its own agent turn → a concurrent fan-out lane if you have one.
 2. **Needs live data?** → {{LIVE_LANE}} standard tier with web tools.
 3. **Reviewing without changing?** → standard tier read-only. Security-critical → {{ATTACK_LANE}}.
+3a. **Holding findings from a review or a scanner?** → finding-verifier before any of them cause a repair. A finding is a claim, not a fact.
 4. **Ambiguous, strategic, expensive to get wrong?** → deep tier (deep-planner). Then hand the plan down.
 5. **Everything else that changes files** → the orchestrator builds it directly. Bounded sub-parts go to cheaper tiers; the main build is never handed off whole.
 
@@ -38,6 +39,7 @@ Every delegation carries `TASK_BUNDLE.md`. Its brief must restate every conventi
 | 3 Build | the orchestrator, against the installed dependency's source |
 | 4 Scan | secret + static + dependency scanners, diff-scoped, fail closed |
 | 5 Attack | security-shaped diff → {{ATTACK_LANE}}. Architecture-shaped → deep tier, build against plan. Never both |
+| 5a Verify findings | finding-verifier, a different model family where you have one: CONFIRMED, NOT_REPRODUCED or INCONCLUSIVE per finding. Only CONFIRMED earns a repair |
 | 5b Ship | rollback id recorded, explicit human yes |
 | 6 Verify | real test, negative test seen red, old identifier re-grepped to zero |
 | 7 Record | one end-to-end doc, tracker Done with evidence, plan doc deleted |
@@ -59,7 +61,9 @@ One writer per run; every other lane proposes. Search before writing, index in t
 - **De-escalation:** a request that sounds deep but is a lookup routes down.
 - **Long context:** mechanical digestion → fast tier in chunks; judgment over a long input → standard tier.
 - **Token discipline on every delegation:** pass only the context the delegate needs, never the conversation.
-- **Effort per agent:** deep xhigh, review and build high, live research medium, bulk low.
+- **Effort per agent:** deep xhigh, review, verification and build high, live research medium, bulk low.
+- **Three inputs, not one:** role picks the agent, complexity moves the effort, risk moves the tier and who reads it. A one-line auth change is simple and high-risk at once, and the risk decides. See `TIERS.md`.
+- **Pin the route when it matters:** a lane with no `--model`/`--effort` and no `defaults` entry in `bin/lanes.json` runs on its own config, which may be nothing like what this file describes. `cli-run --doctor` prints what each lane is pinned to, and every run logs the value requested and where it came from.
 
 ## Example routings
 
@@ -70,4 +74,5 @@ One writer per run; every other lane proposes. Search before writing, index in t
 | "Add an endpoint" | the orchestrator builds it |
 | "Why does this silently drop rows sometimes" | deep-planner (unknown cause), then build the fix directly |
 | "Summarize these 30 notes into one index" | bulk-worker |
+| "The audit returned 6 findings" | finding-verifier first; repair only what comes back CONFIRMED |
 {{LANE_EXAMPLES}}

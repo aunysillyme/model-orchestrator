@@ -14,6 +14,8 @@ If your agent exposes model choice (Claude Code, Codex, Antigravity), map the ti
 
 Three cost levers, always together: tier (price per token), token discipline (how many tokens: read only what you will touch, never re-read, deliverables not narration), effort (how hard each call thinks).
 
+And three inputs into the choice, not one. **Role** picks the agent. **Complexity** moves the effort: a worker executing a finished plan needs less reasoning than the reviewer judging its output, so when the plan is airtight the spec is carrying the thinking. **Risk** moves the tier and who reads the result: security, privacy, data loss and irreversible changes are the four worth naming, because none of their failures can be fixed by editing the code afterwards. A one-line change to an auth check is simple and high-risk at once, and it is the risk that decides.
+
 Robustness first, cost second. You split tiers because the split produces better work.
 
 ## 2. Classify every task, first match wins

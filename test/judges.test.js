@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { judgeGrok, judgeCodex, judgeAgy, judgeHermes, judgeQwen, judge, buildArgv, REASONS, checkContracts, snapshotFile } from '../bin/cli-run.mjs';
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { judgeGrok, judgeCodex, judgeAgy, judgeHermes, judgeQwen, judge, buildArgv, REASONS, checkContracts, snapshotFile, LANE_FLAGS, badRouteValue, resolveRoute, laneConfig, enabledLanes, LANES } from '../bin/cli-run.mjs';
 
 const ok = (r) => assert.ok(r.text, 'expected a deliverable, got: ' + r.detail);
 const no = (r, why) => assert.equal(r.text, null, 'expected refusal (' + why + '), got text: ' + JSON.stringify(r.text));
@@ -173,4 +176,100 @@ test('#18: killTree uses taskkill /T /F on win32 and the negative-pid group kill
   calls.length = 0;
   assert.equal(killTree(4242, 'darwin', deps), 'group');
   assert.deepEqual(calls, [['kill', -4242, 'SIGKILL']]);
+});
+
+// --- route: model and effort reach the lane in that vendor's own spelling -----
+// Each expectation here was read from the vendor's --help, not remembered. If a
+// vendor renames a flag, this is the test that should go red.
+const argvOf = (lane, opts) => buildArgv(lane, '/bin/' + lane, 'PROMPT', { timeout: 900, ...opts }, '/tmp/x').argv;
+
+test('route: every lane takes a model in its own spelling', () => {
+  assert.deepEqual(argvOf('grok', { model: 'grok-4.1' }).slice(0, 5), ['/bin/grok', '--output-format', 'json', '-m', 'grok-4.1']);
+  assert.ok(argvOf('codex', { model: 'gpt-6-astra' }).includes('-m'));
+  assert.ok(argvOf('agy', { model: 'pro' }).includes('--model'));
+  assert.ok(argvOf('hermes', { model: 'x' }).includes('-m'));
+  assert.ok(argvOf('qwen', { model: 'qwen3.7-flash' }).includes('-m'));
+});
+
+test('route: effort uses each vendor flag, and codex gets a quoted TOML override', () => {
+  assert.ok(argvOf('grok', { effort: 'high' }).includes('--reasoning-effort'));
+  assert.ok(argvOf('agy', { effort: 'high' }).includes('--effort'));
+  assert.ok(argvOf('hermes', { effort: 'minimal' }).includes('--reasoning'));
+  const cx = argvOf('codex', { effort: 'high' });
+  assert.ok(cx.includes('-c'), 'codex takes reasoning effort as a config override');
+  assert.ok(cx.includes('model_reasoning_effort="high"'), 'the TOML value must stay quoted or codex cannot parse it');
+});
+
+test('route: qwen has no effort flag and never grows one silently', () => {
+  assert.equal(LANE_FLAGS.qwen.effort, null);
+  const a = argvOf('qwen', { effort: 'high' });
+  assert.ok(!a.includes('--effort') && !a.includes('--reasoning'), 'an unsupported effort must not be invented');
+});
+
+test('route: flags go in front of a positional prompt', () => {
+  // hermes and codex take the prompt positionally; a flag after it is lost.
+  const h = argvOf('hermes', { model: 'm' });
+  assert.ok(h.indexOf('-m') < h.indexOf('PROMPT'), 'hermes: route flags must precede the prompt');
+  const c = argvOf('codex', { model: 'm' });
+  assert.ok(c.indexOf('-m') < c.indexOf('PROMPT'), 'codex: route flags must precede the prompt');
+});
+
+test('route: values that could become a flag or break out of TOML are refused', () => {
+  for (const bad of ['-x', '--model', 'a b', 'a"b', "a'b", 'a\nb', '', 'x'.repeat(65), 'a;b', '$(id)']) {
+    assert.ok(badRouteValue('model', bad), 'should reject ' + JSON.stringify(bad));
+  }
+  for (const good of ['gpt-6-astra', 'claude-opus-5', 'qwen/qwen3.7-flash', 'high', 'gpt-5.6-sol', 'a_b:c@d+e']) {
+    assert.equal(badRouteValue('model', good), null, 'should accept ' + good);
+  }
+});
+
+test('route: a flag beats lanes.json, lanes.json beats nothing, and the source is recorded', () => {
+  const defaults = { codex: { model: 'from-config', effort: 'low' } };
+  const a = resolveRoute('codex', { model: 'from-flag', effort: null }, defaults);
+  assert.equal(a.model, 'from-flag');
+  assert.equal(a.model_source, 'flag');
+  assert.equal(a.effort, 'low');
+  assert.equal(a.effort_source, 'lanes.json');
+  const b = resolveRoute('grok', { model: null, effort: null }, defaults);
+  assert.equal(b.model, null);
+  assert.equal(b.model_source, 'lane_default', 'an unpinned lane must say so, not look pinned');
+});
+
+test('lanes.json: defaults parse, and anything malformed fails closed', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'orch-lanes-'));
+  const write = (o) => writeFileSync(join(dir, 'lanes.json'), JSON.stringify(o));
+  write({ enabled: ['codex'], defaults: { codex: { model: 'gpt-6-astra', effort: 'high' } } });
+  const good = laneConfig(dir);
+  assert.deepEqual(good.enabled, ['codex']);
+  assert.deepEqual(good.defaults.codex, { model: 'gpt-6-astra', effort: 'high' });
+  write({ enabled: ['codex'] });
+  assert.deepEqual(laneConfig(dir).defaults, {}, 'defaults are optional');
+  for (const bad of [
+    { enabled: ['codex'], defaults: [] },
+    { enabled: ['codex'], defaults: { nope: { model: 'x' } } },
+    { enabled: ['codex'], defaults: { codex: { model: '-x' } } },
+    { enabled: ['codex'], defaults: { codex: { effort: 'high', extra: 1 } } },
+    { enabled: ['codex'], defaults: { qwen: { effort: 'high' } } } // qwen has no reasoning flag
+  ]) {
+    write(bad);
+    assert.equal(laneConfig(dir), null, 'must fail closed on ' + JSON.stringify(bad));
+  }
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('lanes.json: absent means every lane enabled and nothing pinned', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'orch-lanes-none-'));
+  const c = laneConfig(dir);
+  assert.deepEqual(c.enabled, LANES);
+  assert.deepEqual(c.defaults, {});
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('enabledLanes still answers the narrow question, including the malformed case', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'orch-lanes-compat-'));
+  writeFileSync(join(dir, 'lanes.json'), JSON.stringify({ enabled: ['grok'] }));
+  assert.deepEqual(enabledLanes(dir), ['grok']);
+  writeFileSync(join(dir, 'lanes.json'), '{ not json');
+  assert.equal(enabledLanes(dir), null, 'malformed must stay null, not an empty list');
+  rmSync(dir, { recursive: true, force: true });
 });

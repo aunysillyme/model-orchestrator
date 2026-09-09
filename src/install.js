@@ -238,7 +238,8 @@ export function proofSteps(opts) {
     'Expect the fast tier and `apple, banana, pear`. If the agent cannot quote the routing rule, check the snippet location or chat instructions before continuing. This is a manual activation check, not proof that every future task follows the rules.'
   ];
   if (level >= 2) {
-    steps.push('Run `node bin/cli-run.mjs --doctor` from this folder. It checks binary presence, not authentication or loaded instructions. `--doctor --run` additionally uses a little quota to test live responses. No enabled lanes means delegation is inactive.');
+    steps.push('Run `node bin/cli-run.mjs --doctor` from this folder. It checks binary presence, not authentication or loaded instructions, and prints the model and effort each lane is pinned to. `--doctor --run` additionally uses a little quota to test live responses. No enabled lanes means delegation is inactive.');
+    steps.push('Decide whether the route matters to you. Every lane starts unpinned, which means it runs on whatever its own config file says: a CLI configured months ago at a low reasoning effort will keep auditing at that effort while your docs describe something stronger. Pin it in `bin/lanes.json` under `defaults`, or per call with `--model` and `--effort`. Either way the run is recorded in the log with the value requested and where it came from.');
     steps.push('To test a real output contract, choose an enabled lane from `bin/lanes.json` and run `node bin/cli-run.mjs <lane> \'Return only {"sorted":["apple","banana","pear"]}\' --expect-json`. This uses quota. Expect JSON and exit 0; inspect the array yourself. A non-JSON response exits 10, a missing binary exits 13, and an authentication failure reports the vendor error. The explicit lane tests execution; your primary agent still makes delegation decisions.');
   }
   return steps;
@@ -389,7 +390,9 @@ export function planFiles(opts) {
       JSON.stringify(
         {
           enabled: selected.filter((a) => a.cliRun).map((a) => a.id),
-          note: 'Lanes cli-run may call. Edit to enable or disable a lane. A lane not listed here exits 13 (unavailable).'
+          defaults: {},
+          note: 'Lanes cli-run may call. Edit to enable or disable a lane. A lane not listed here exits 13 (unavailable).',
+          defaultsNote: 'Pin what a lane runs with, so the route in your docs is the route that runs: "defaults": {"codex": {"model": "gpt-6-astra", "effort": "high"}}. Left empty, a lane inherits its own config file, which cli-run cannot see and does not guess. `--model` and `--effort` override this per call, and `--doctor` prints what each lane is pinned to. Every lane takes a model; every lane except qwen takes an effort.'
         },
         null,
         2

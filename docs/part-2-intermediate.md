@@ -26,7 +26,9 @@ One driver, no second AI in the mix: the orchestrator invokes the CLIs; it never
 
 Every agent CLI can report success and deliver nothing. `bin/cli-run.mjs` builds the right invocation per lane, reads that lane's **native** terminal event, and exits `10` when a run produced no deliverable, `12` on timeout, `13` when the lane is missing. Byte count is not a check either; a run can emit hundreds of kilobytes and no conclusion. One lane's own success flags lie outright (an upstream 400 reported as success), so its judge reads the two honest signals instead.
 
-Every call goes through it. "This lane is flaky" becomes a query over its log instead of an argument. `node bin/cli-run.mjs --doctor` is the first thing to run after install: enabled lanes, binaries on PATH, and with `--run` a one-word canary per lane.
+Every call goes through it. "This lane is flaky" becomes a query over its log instead of an argument. `node bin/cli-run.mjs --doctor` is the first thing to run after install: enabled lanes, binaries on PATH, the route each lane is pinned to, and with `--run` a one-word canary per lane.
+
+There is a second thing a lane can be quietly wrong about. Left unpinned, it runs on **its own config file**, which the runner cannot see: a CLI set up months ago at a low reasoning effort keeps auditing at that effort while your routing docs describe an adversarial pass, and no error is ever raised. `--model` and `--effort` pin it per call, `defaults` in `bin/lanes.json` pins it per lane, and every run records the value requested and where it came from (`flag`, `lanes.json`, `lane_default`). The log never claims an actual: no vendor CLI reports back the model it used.
 
 ## 4. Every delegation carries a task bundle, on both surfaces
 
@@ -35,6 +37,10 @@ Subagents and CLI lanes are the same problem: something with none of your rules 
 ## 5. Research: three engines, one triager
 
 Fan the same plan to three model families (web sweep, adversarial read, live data), each as one `cli-run` call. The orchestrator opens the primary sources itself, marks every claim, and writes the only durable record. Expect one engine to return confident unsourced numerics; downgrade it. Weight the engines that report their own gaps. Count dispositions, not briefs.
+
+## 5a. A finding is a claim, not a fact
+
+An audit that returns six findings has returned six claims. Hand them to `finding-verifier` before any of them causes a repair: it reads the cited line, states what would trigger the problem, then hunts for the guard, caller or test that makes it impossible, and answers CONFIRMED, NOT_REPRODUCED or INCONCLUSIVE. Only CONFIRMED earns a change. Use a different family from the one that produced the finding, and let INCONCLUSIVE stand: rounding it up to be safe buys unnecessary repairs, rounding it down to be tidy hides real ones.
 
 ## 6. Gap analysis gets a second family
 

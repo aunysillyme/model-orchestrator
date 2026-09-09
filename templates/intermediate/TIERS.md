@@ -19,11 +19,52 @@ Tier sets the price per token. Token discipline sets how many tokens. **Effort s
 |---|---|---|---|
 | deep-planner | deep | xhigh | judges every build twice; expensive to get wrong |
 | code-reviewer | standard | high | every endpoint is internet-facing |
+| finding-verifier | standard | high | judging a claim is harder than producing it |
 | builder | standard | high | a botched deploy is the costly failure |
 | live-researcher | standard | medium | tools do the retrieval |
 | bulk-worker | fast | low | the biggest cost win |
 
-Dials: drop builder to medium when the plan is airtight; raise code-reviewer to xhigh for a security-critical audit.
+## Three inputs, not one
+
+Role alone does not decide a route. Two more inputs move it, and they move it in
+opposite directions, so state them separately instead of folding them into the
+role.
+
+**Complexity moves the effort.** The same role does not need the same reasoning
+on every task.
+
+| Complexity | What it looks like | What moves |
+|---|---|---|
+| simple | one file, one obvious edit, no unknowns | drop one effort level |
+| standard | the default | the table above |
+| complex | several surfaces, or an unknown cause | keep effort, add the deep-tier checkpoint |
+| critical | irreversible, or it rewrites a standing rule | the escalation rule below applies |
+
+The dial that pays for itself: **a worker executing a finished plan needs less
+reasoning than the reviewer judging its output.** When the plan is airtight the
+spec is carrying the thinking, so builder drops to medium. When the plan is
+vague, fix the plan; do not buy reasoning to paper over it.
+
+**Risk moves the tier and the reader, never just the effort.** These four are
+the ones worth naming, because their failures are not recoverable by editing the
+code afterwards.
+
+| Risk | Present when the change touches | What it buys |
+|---|---|---|
+| security | auth, tokens, sessions, routes, untrusted input | the attack pass, ideally a different model family |
+| privacy | personal data, anything leaving the machine | the local lane, and a named check on what is sent |
+| data loss | deletion, bulk mutation, migrations, overwrites | a reviewed rollback path before the change is written |
+| irreversible | publishing, sending, rotating, anything with an audience | a human yes at Stage 5b, never an agent's |
+
+A risk raises code-reviewer to xhigh, and a security-shaped diff goes to the
+attack lane rather than to a second read by the same family. Risk is not a
+synonym for difficulty: a one-line change to an auth check is simple and
+high-risk at the same time, and it is the risk that decides the route.
+
+**Reserve the top of the ladder for evidence.** xhigh and the escalation tier are
+bought with a named reason: a reproduced failure, a checkpoint that came back
+unresolved, an irreversible change. A task that merely feels hard is a deep-tier
+task, not an escalation.
 
 ## Why split tiers: robustness first, cost second
 

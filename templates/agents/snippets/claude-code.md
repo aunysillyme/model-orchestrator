@@ -10,6 +10,7 @@ Routing rules live in `{{RULES_PATH}}/{{ROUTING_FILE}}`. Read them before any bu
 1. Bulk, mechanical, many similar items -> bulk-worker (fast tier).
 2. Needs live data -> live-researcher (standard tier + tools).
 3. Review without changing -> code-reviewer (standard, read-only).
+3a. Holding findings from a review or scanner -> finding-verifier before any repair. Only CONFIRMED findings earn a change.
 4. Ambiguous, architectural, or expensive to get wrong -> deep-planner (deep tier), then hand the plan down.
 5. Everything else that changes files -> build it directly. The main build is never handed off whole; bounded sub-parts go to builder.
 

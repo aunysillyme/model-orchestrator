@@ -45,11 +45,13 @@ test('the primary decides the loading surface, and repo READMEs are not installe
   const ccFiles = planFiles({ level: 1, selected: sel('claude-code'), primary: byId['claude-code'] });
   const cc = ccFiles.map((f) => f.rel);
   assert.ok(cc.includes('.claude/agents/deep-planner.md') && cc.includes('CLAUDE.snippet.md'));
+  assert.ok(cc.includes('.claude/agents/finding-verifier.md'), 'the finding-verifier must ship with the Claude Code agent set');
   assert.equal(ccFiles.find((f) => f.rel === '.claude/agents/deep-planner.md').root, 'project', 'subagents must target the project root');
   assert.equal(ccFiles.find((f) => f.rel === 'CLAUDE.snippet.md').root, 'dir');
   assert.ok(!cc.includes('.claude/agents/README.md'), 'a README inside .claude/agents would be parsed as an agent');
   const agy = rels({ level: 1, selected: sel('agy'), primary: byId.agy });
   assert.ok(agy.includes('.agents/agents/deep-planner.md') && agy.includes('GEMINI.snippet.md'));
+  assert.ok(agy.includes('.agents/agents/finding-verifier.md'), 'the finding-verifier must ship in the agy agent set too');
   const codex = rels({ level: 1, selected: sel('codex'), primary: byId.codex });
   assert.ok(codex.includes('AGENTS.snippet.md') && !codex.some((r) => r.startsWith('.claude/')));
   const chat = rels({ level: 1, selected: sel('chatgpt-app'), primary: byId['chatgpt-app'] });
@@ -630,4 +632,20 @@ test('a selected local runtime gets an install step at every level it is allowed
       .find((f) => f.rel === 'README.md').content;
     assert.ok(readme.includes(step), `level ${level}: README is missing the ollama step`);
   }
+});
+
+test('generated lanes.json carries an empty defaults block and explains it', () => {
+  const p = planFiles({ level: 2, selected: [byId['claude-code'], byId['codex']], primary: byId['claude-code'], dir: 'x', project: 'y' });
+  const lanes = JSON.parse(p.find((f) => f.rel === join('bin', 'lanes.json')).content);
+  assert.deepEqual(lanes.enabled, ['codex'], 'only cli-run lanes are enabled');
+  assert.deepEqual(lanes.defaults, {}, 'the installer pins nothing it was not told');
+  assert.match(lanes.defaultsNote, /inherits its own config file|inherit/, 'the file must say what an unpinned lane does');
+});
+
+test('the finding-verifier is read-only and can answer all three verdicts', () => {
+  const p = planFiles({ level: 2, selected: [byId['claude-code']], primary: byId['claude-code'], dir: 'x', project: 'y' });
+  const fv = p.find((f) => f.rel === join('.claude', 'agents', 'finding-verifier.md')).content;
+  for (const verdict of ['CONFIRMED', 'NOT_REPRODUCED', 'INCONCLUSIVE']) assert.ok(fv.includes(verdict), 'missing verdict ' + verdict);
+  assert.match(fv, /read-only/i);
+  assert.match(fv, /effort: high/, 'judging a claim is not a low-effort job');
 });

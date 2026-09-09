@@ -75,7 +75,11 @@ test('cli-run: usage errors and unavailable lanes exit with their documented cod
   assert.equal(r(['nope', 'p']).status, 2);
   assert.equal(r(['grok']).status, 2);
   assert.equal(r(['grok', 'p', '--audit']).status, 2, '--audit is codex-only');
-  assert.equal(r(['codex', 'p', '--model', 'x']).status, 2, '--model is qwen-only');
+  assert.equal(r(['qwen', 'p', '--effort', 'high']).status, 2, 'qwen has no reasoning flag, so --effort must be refused, not dropped');
+  assert.equal(r(['codex', 'p', '--safe-mode']).status, 2, '--safe-mode is qwen-only');
+  assert.equal(r(['codex', 'p', '--model', '--sandbox']).status, 2, 'a route value may not be a flag');
+  assert.equal(r(['codex', 'p', '--effort', 'hi gh']).status, 2, 'a route value may not contain a space');
+  assert.equal(r(['codex', 'p', '--model', 'a"b']).status, 2, 'a route value may not contain a quote');
   assert.equal(r(['grok', 'p', '--timeout', '0']).status, 2);
   // An empty PATH plus HOME pointed at an empty dir: the binary cannot be found.
   const home = mkdtempSync(join(tmpdir(), 'orch-home-'));
