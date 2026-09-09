@@ -219,9 +219,28 @@ export function activationSteps(opts) {
   else if (snippet) steps.push(`open ${primary.chatName || primary.name} and paste the block in ${join(dirAbs, snippet)} into its ${primary.chatSurface || 'custom instructions'}`);
   if (primary && primary.agentsDir) steps.push(`subagents are in ${join(projectAbs, primary.agentsDir)}; run ${primary.bin} from ${projectAbs} to pick them up`);
   for (const a of selected.filter((a) => a.bin && a.kind === 'agent-cli')) steps.push(`sign in to ${a.name}: ${a.auth}`);
+  // A local runtime has a bin but no sign-in, so the agent-cli loop above skips it
+  // and before this it appeared in no ordered list at any level (#26).
+  for (const a of selected.filter((a) => a.bin && a.kind === 'local')) steps.push(`install ${a.name}: ${a.install.url}, then \`${a.bin} pull <model>\` before the local lane can answer`);
   for (const t of tools) steps.push(`${t.id}: ${t.install}`);
   if (level >= 2) steps.push(`smoke test: node ${join(dirAbs, 'bin', 'cli-run.mjs')} --doctor   (add --run to send each lane one tiny prompt)`);
   if (level >= 3) steps.push(`box: read ${join(dirAbs, 'vm', 'README.md')}; keys named in vm/ENVIRONMENT.md go in your secrets manager, never a file`);
+  return steps;
+}
+
+// The verification list, in order. Gated on level for the same reason
+// activationSteps is: level 1 writes no bin/, so a step naming cli-run.mjs or
+// lanes.json there described an install that did not happen (#27).
+export function proofSteps(opts) {
+  const { level } = opts;
+  const steps = [
+    'Start a fresh agent session and ask: "Read the orchestrator instructions. Quote the routing rule you will use, then sort pear, apple, banana alphabetically. Name the tier and whether you delegated."',
+    'Expect the fast tier and `apple, banana, pear`. If the agent cannot quote the routing rule, check the snippet location or chat instructions before continuing. This is a manual activation check, not proof that every future task follows the rules.'
+  ];
+  if (level >= 2) {
+    steps.push('Run `node bin/cli-run.mjs --doctor` from this folder. It checks binary presence, not authentication or loaded instructions. `--doctor --run` additionally uses a little quota to test live responses. No enabled lanes means delegation is inactive.');
+    steps.push('To test a real output contract, choose an enabled lane from `bin/lanes.json` and run `node bin/cli-run.mjs <lane> \'Return only {"sorted":["apple","banana","pear"]}\' --expect-json`. This uses quota. Expect JSON and exit 0; inspect the array yourself. A non-JSON response exits 10, a missing binary exits 13, and an authentication failure reports the vendor error. The explicit lane tests execution; your primary agent still makes delegation decisions.');
+  }
   return steps;
 }
 
@@ -240,6 +259,7 @@ function vars(opts) {
   const pinOf = (id) => (toolById[id] && toolById[id].pin) || 'latest';
   const snippet = snippetFor(primary);
   const steps = activationSteps({ level, selected, primary, tools, dir: opts.dir, project: opts.project });
+  const proofs = proofSteps({ level });
   // Only claude-code and agy put files under the project root. A chat primary
   // puts nothing there, so naming a project root would name a folder this run
   // never created (#21).
@@ -253,6 +273,7 @@ function vars(opts) {
   return {
     ...laneVars(selected),
     ACTIVATION_STEPS: steps.map((st, i) => `${i + 1}. ${st}`).join('\n'),
+    PROOF_STEPS: proofs.map((st, i) => `${i + 1}. ${st}`).join('\n'),
     LOAD_IT: readsProjectRules
       ? `${primary.name} reads its rules from \`${primary.rulesFile}\` in the project root. The installer wrote \`${snippet}\` next to this README; copy its contents into \`${join(projectAbs, primary.rulesFile)}\`, creating that file if it does not exist. Nothing was appended to a file you already had.`
       : snippet
@@ -272,6 +293,12 @@ function vars(opts) {
     INSTALL_DIR: dirAbs,
     INSTALL_DIR_SH: shellQuote(dirAbs),
     INSTALL_DIR_SYSTEMD: systemdEscape(dirAbs),
+    // vm/README.md step 3 named `grok login` and `agy` whatever you picked (#26).
+    VM_SIGNIN: (() => {
+      const lines = selected.filter((a) => a.bin && a.kind === 'agent-cli').map((a) => `   - ${a.name}: ${a.auth}`);
+      for (const a of selected.filter((a) => a.bin && a.kind === 'local')) lines.push(`   - ${a.name}: no sign-in. Install it from ${a.install.url}, then \`${a.bin} pull <model>\`.`);
+      return lines.length ? lines.join('\n') : '   - none: no CLI you selected needs a sign-in on the box.';
+    })(),
     AUDIT_LANE: lane || 'none',
     // Enforced boundary per lane: codex has a read-only sandbox flag; the others
     // run with whatever their own config allows, and the script says so.

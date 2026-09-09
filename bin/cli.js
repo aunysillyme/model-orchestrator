@@ -93,7 +93,8 @@ Usage
 Flags
   --level 1|2|3      1 beginner (one agent), 2 intermediate (many CLIs), 3 advanced (plus a VM)
   --ais a,b,c        catalog ids you have access to (see --list)
-  --primary id       the agent that runs the system and receives the subagents (any level; required when several qualify)
+  --primary id       the agent that runs the system and receives the subagents (any level). When several qualify
+                     and --yes is set, the run picks one and says so in the plan; pass this to decide it yourself.
   --tools a,b        companion tools to set up, all optional (default with --yes: codecalc only); --no-tools for none
   --apis a,b         level 3 only: metered API keys you HOLD (anthropic,openai,google,xai,openrouter); --no-apis for none.
                      Asked separately from the CLIs because a subscription is not an API key.
@@ -189,6 +190,7 @@ async function main() {
   // 3. Primary agent (the one that runs the system)
   const candidates = agentCandidates(selected);
   let primary = null;
+  let primaryAutoPicked = false;
   if (opt('primary')) {
     primary = byId[opt('primary')];
     if (!primary || !candidates.includes(primary)) bad('--primary must be one of: ' + candidates.map((a) => a.id).join(', '));
@@ -200,7 +202,10 @@ async function main() {
     // --yes picks for the user: claude-code if present, else the first agent that can load subagent
     // definitions (it gets five files written for it), else the first candidate. #19: codex listed
     // before agy used to win and nothing was written to the project root.
-    if (yes) primary = candidates.find((a) => a.id === 'claude-code') || candidates.find((a) => a.agentsDir) || candidates[0];
+    if (yes) {
+      primary = candidates.find((a) => a.id === 'claude-code') || candidates.find((a) => a.agentsDir) || candidates[0];
+      primaryAutoPicked = true;
+    }
     else {
       console.log('\nWhich one is your primary agent (the one that runs the system)?');
       candidates.forEach((a, i) => console.log(`  ${i + 1}  ${a.name}`));
@@ -271,7 +276,7 @@ async function main() {
   const files = planFiles({ level, selected, primary, dir, project, tools, apis });
   const lvl = LEVELS.find((l) => l.id === level);
   const agentFiles = files.filter((f) => f.root === 'project');
-  console.log(`\nPlan\n  level    ${lvl.id} ${lvl.name}\n  access   ${selected.map((a) => a.id).join(', ')}\n  primary  ${primary ? primary.id : 'none'}\n  tools    ${tools.map((t) => t.id).join(', ') || 'none'}` + (level >= 3 ? `\n  api keys ${apis.map((p) => p.id).join(', ') || 'none'}` : '') + `\n  folder   ${dir}\n  project  ${project}${agentFiles.length ? ' (' + agentFiles.length + ' subagent files go here)' : ''}\n  files    ${files.length}`);
+  console.log(`\nPlan\n  level    ${lvl.id} ${lvl.name}\n  access   ${selected.map((a) => a.id).join(', ')}\n  primary  ${primary ? primary.id : 'none'}${primaryAutoPicked ? ` (chosen for you from ${candidates.map((a) => a.id).join(', ')}; pass --primary to decide it yourself)` : ''}\n  tools    ${tools.map((t) => t.id).join(', ') || 'none'}` + (level >= 3 ? `\n  api keys ${apis.map((p) => p.id).join(', ') || 'none'}` : '') + `\n  folder   ${dir}\n  project  ${project}${agentFiles.length ? ' (' + agentFiles.length + ' subagent files go here)' : ''}\n  files    ${files.length}`);
   if (agentFiles.length && !opt('project')) {
     console.log(`\nNote: --project was not given, so the ${agentFiles.length} subagent file(s) go to the current directory (${project}). Pass --project to put them somewhere else.`);
   }
@@ -365,7 +370,7 @@ async function main() {
 
   for (const t of tools) {
     const doc = t.id.toUpperCase() + '.md';
-    console.log(`\n${t.name}\n  optional: ${t.optionalNote}\n  needs:    ${t.requires}\n  run:      ${t.install}\n  one-click or self-registering for: ${t.autoClients.join(', ')}. Other agents and the details: ${dir}/${doc}`);
+    console.log(`\n${t.name}\n  note:     ${t.optionalNote}\n  needs:    ${t.requires}\n  run:      ${t.install}\n  one-click or self-registering for: ${t.autoClients.join(', ')}. Other agents and the details: ${dir}/${doc}`);
   }
 
   // 7. Activation summary: writing the folder is half the job. Say exactly what

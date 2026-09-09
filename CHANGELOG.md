@@ -4,6 +4,21 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.1.13] - 2026-09-08
+
+Three issues from a fresh first-run walkthrough of 0.1.12 (#26, #27, #28). Same class as 0.1.12's five: a surface describing an install that did not happen. A fourth, #25, was filed and closed as a mistake on the reporter's side, not a defect: the warning it said was missing has been printed since 0.1.12 and the repro had been read through a truncated pipe.
+
+### Fixed
+
+- **The "Then prove it took" list no longer sends a level 1 reader to a file level 1 never wrote** (#27). Step 4 told every reader, at every level, to pick a lane out of `bin/lanes.json` and run `node bin/cli-run.mjs`. Level 1 writes no `bin/` at all, and step 3 immediately above it hedged correctly with "At level 2+" while step 4 did not. The list is now `proofSteps()` in `src/install.js`, gated on level the same way `activationSteps()` is, and the template renders it. Two tests: the README's section must equal the array exactly for every level and primary, and no `bin/` path may appear in it that the plan did not write.
+- **The box setup no longer tells you to sign in to CLIs you did not pick** (#26). `templates/advanced/vm/README.md` step 3 was a fixed sentence naming `codex login --device-auth`, `grok login --device-auth` and `agy`. A level 3 install of claude-code, codex, qwen and ollama was told to sign in to two CLIs it does not have and never told about the one it does. The step now renders each selected CLI's own `auth` string from the catalog. Everything else in that file was already computed from the selection, which is what made the one hardcoded line easy to miss.
+- **A selected local runtime is finally told to install itself** (#26). `activationSteps()` filtered on `kind === 'agent-cli'`, so Ollama, which has a binary and a download page, appeared in no ordered list at any level. Its only mention was one row of a URL table in `DELEGATION_MATRIX.md`. It now gets a step naming the download page and the `ollama pull <model>` that has to follow it.
+- **The tool block stopped saying the same word twice** (#28). Every run that selected a tool printed `optional: Optional. Needs Python 3.10+ and uv.`, because the label repeated the note's own first word. The label is `note:` now. The note keeps the word, because `--list` and the interactive picker print it bare with no label.
+
+### Changed
+
+- `--primary` is documented as what it is. `--help` called it "required when several qualify", and then a `--yes` run with several candidates silently picked one in catalog order. The run now names the choice in the plan (`primary  claude-code (chosen for you from claude-code, codex; pass --primary to decide it yourself)`) and the help says the same thing. Behaviour is unchanged: the default was sensible, only the promise was wrong.
+
 ## [0.1.12] - 2026-09-08
 
 Five issues from one first-run walkthrough of 0.1.11 (#20 to #24). Every one of them is the same failure: a page describing an install that did not happen. Each fix removes the second copy of a fact rather than correcting it.
@@ -185,7 +200,8 @@ First release.
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
-[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.12...HEAD
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.13...HEAD
+[0.1.13]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.12...v0.1.13
 [0.1.12]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.11...v0.1.12
 [0.1.11]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.10...v0.1.11
 [0.1.10]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.9...v0.1.10

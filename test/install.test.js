@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync, existsSync, rmSync, writeFileSync, statSync,
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
-import { planFiles, writeFiles, resolveSelection, resolveApis, gatewayModels, envNames, laneVars, activationSteps, snippetFor } from '../src/install.js';
+import { planFiles, writeFiles, resolveSelection, resolveApis, gatewayModels, envNames, laneVars, activationSteps, proofSteps, snippetFor } from '../src/install.js';
 import { byId } from '../src/catalog.js';
 import { render } from '../src/render.js';
 import { buildArgv } from '../bin/cli-run.mjs';
@@ -555,5 +555,79 @@ test('the chat activation line is a sentence, not a possessive around a parenthe
     assert.ok(!step.includes("'s"), id + ': activation line still uses a possessive: ' + step);
     assert.ok(!step.includes('(chat only, no CLI)'), id + ': the catalog note leaked into the sentence');
     assert.match(step, /^open .+ and paste the block in .+ into its /, id + ': ' + step);
+  }
+});
+
+// #27: "Then prove it took" step 4 told a level 1 reader to run bin/cli-run.mjs
+// and read bin/lanes.json. Level 1 writes no bin/. The section is one array now.
+const proveSection = (readme) => {
+  const start = readme.indexOf('## Then prove it took');
+  assert.ok(start >= 0, 'README has no "Then prove it took" section');
+  const rest = readme.slice(start + '## Then prove it took'.length);
+  const end = rest.indexOf('\n## ');
+  return (end >= 0 ? rest.slice(0, end) : rest).trim();
+};
+
+test('the generated README carries exactly the proof steps, for every level and primary', () => {
+  for (const level of [1, 2, 3]) {
+    for (const primary of Object.values(byId).filter((a) => a.kind !== 'local' && a.minLevel <= level)) {
+      const opts = { level, selected: [primary], primary, dir: '/tmp/mo-dir', project: '/tmp/mo-project', tools: [] };
+      const readme = planFiles(opts).find((f) => f.rel === 'README.md').content;
+      const expected = proofSteps({ level }).map((st, i) => `${i + 1}. ${st}`).join('\n');
+      assert.equal(proveSection(readme), expected, `${primary.id} level ${level}: proof section drifted from proofSteps()`);
+    }
+  }
+});
+
+test('the proof steps never name a bin/ file the plan did not write', () => {
+  for (const level of [1, 2, 3]) {
+    for (const primary of Object.values(byId).filter((a) => a.kind !== 'local' && a.minLevel <= level)) {
+      const opts = { level, selected: [primary], primary, dir: '/tmp/mo-dir', project: '/tmp/mo-project', tools: [] };
+      const files = planFiles(opts);
+      const written = new Set(files.map((f) => f.rel.split('\\').join('/')));
+      const section = proveSection(files.find((f) => f.rel === 'README.md').content);
+      for (const ref of section.match(/\bbin\/[A-Za-z0-9_.-]+/g) || []) {
+        assert.ok(written.has(ref), `${primary.id} level ${level}: proof steps name ${ref}, which this run did not write`);
+      }
+      if (level === 1) assert.doesNotMatch(section, /\bbin\//, `${primary.id}: level 1 writes no bin/, so the proof steps must not name one`);
+    }
+  }
+});
+
+// #26: vm/README.md step 3 said `grok login --device-auth` and `agy` whatever
+// you selected. It renders from the selection now.
+test('the vm README names a sign-in for every selected CLI and for no other', () => {
+  const cases = [
+    ['claude-code', 'codex', 'qwen', 'ollama'],
+    ['claude-code', 'grok'],
+    ['agy', 'hermes']
+  ];
+  for (const ids of cases) {
+    const selected = sel(...ids);
+    const primary = selected.find((a) => a.kind !== 'local');
+    const vm = planFiles({ level: 3, selected, primary, dir: '/tmp/mo-dir', project: '/tmp/mo-project', tools: [], apis: [] })
+      .find((f) => f.rel.split('\\').join('/') === 'vm/README.md').content;
+    const setup = vm.slice(vm.indexOf('## Setup, in order'), vm.indexOf('## The dispatch shape'));
+    for (const a of selected.filter((x) => x.kind === 'agent-cli')) {
+      assert.ok(setup.includes(a.auth), `${ids}: vm README omits the sign-in for ${a.id}`);
+    }
+    for (const other of Object.values(byId).filter((a) => a.kind === 'agent-cli' && !ids.includes(a.id))) {
+      assert.ok(!setup.includes(other.auth), `${ids}: vm README carries the sign-in for ${other.id}, which was not selected`);
+      assert.ok(!setup.includes(`\`${other.bin} login`), `${ids}: vm README tells you to run ${other.bin} login`);
+    }
+  }
+});
+
+test('a selected local runtime gets an install step at every level it is allowed', () => {
+  const ollama = byId.ollama;
+  for (const level of [2, 3]) {
+    const selected = sel('claude-code', 'ollama');
+    const steps = activationSteps({ level, selected, primary: byId['claude-code'], dir: '/tmp/mo-dir', project: '/tmp/mo-project', tools: [] });
+    const step = steps.find((st) => st.includes(ollama.install.url));
+    assert.ok(step, `level ${level}: no activation step names ${ollama.name}`);
+    assert.ok(step.includes(`${ollama.bin} pull`), `level ${level}: the step must say how to get a model, not just the download page`);
+    const readme = planFiles({ level, selected, primary: byId['claude-code'], dir: '/tmp/mo-dir', project: '/tmp/mo-project', tools: [] })
+      .find((f) => f.rel === 'README.md').content;
+    assert.ok(readme.includes(step), `level ${level}: README is missing the ollama step`);
   }
 });

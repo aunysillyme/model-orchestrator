@@ -23,7 +23,8 @@ Generated {{DATE}} for: `{{AI_IDS}}`. Installed at `{{INSTALL_DIR}}`; the system
 
 1. Provision a box. Ubuntu, 2+ vCPU, 8 GB is comfortable. Put it on a private mesh network if you can; do not open ports to the internet.
 2. `bash setup-vm.sh`. It installs system deps and the npm-installable CLIs, then **prints** the vendor shell installers for the rest. Read those scripts before running them.
-3. Sign each CLI in with its device-code flow (`codex login --device-auth`, `grok login --device-auth`, `agy` on first run). Run these inside `tmux` so a dropped SSH session does not kill the prompt. Headless Linux has no keyring by default; `setup-vm.sh` installs one so the CLIs stop re-prompting.
+3. Sign each CLI in, using the flow its vendor gives you. Run these inside `tmux` so a dropped SSH session does not kill the prompt. Headless Linux has no keyring by default; `setup-vm.sh` installs one so the CLIs stop re-prompting.
+{{VM_SIGNIN}}
 4. Put provider keys in your secrets manager and export the names listed in `ENVIRONMENT.md` into the gateway's environment at start time. Never write a value into a file in this folder. The gateway config was rendered from the API keys you said you hold, not from your CLI subscriptions: those are different entitlements.
 5. `docker compose up -d`, then list the lanes without putting the key in argv (the key must be a single token, `^[A-Za-z0-9._-]+$`, because it is interpolated into curl's config grammar):
    ```bash

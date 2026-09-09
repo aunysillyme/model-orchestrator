@@ -694,3 +694,40 @@ test('--version and -v print the package version and exit 0; -h is --help; other
   assert.equal(typo.status, 2);
   assert.match(typo.stderr, /unknown flag: --versionn/);
 });
+
+// #28: the tool block printed "optional: Optional. Needs Python 3.10+ and uv."
+// on every run that selected a tool: the label said the note's own first word.
+test('the tool block does not repeat the note label in the note', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'orch-tool-'));
+  try {
+    const r = run(['--yes', '--level', '1', '--ais', 'claude-code', '--tools', 'codecalc', '--dir', dir, '--project', dir, '--no-install']);
+    assert.equal(r.status, 0, r.stderr + r.stdout);
+    assert.match(r.stdout, /uvx 'codecalc\[full\]' setup --write/, 'the tool block must still print');
+    for (const line of r.stdout.split('\n')) {
+      const m = line.match(/^\s*([A-Za-z]+):\s+([A-Za-z]+)/);
+      if (m) assert.notEqual(m[1].toLowerCase(), m[2].toLowerCase(), `label repeats itself: ${line.trim()}`);
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// #28: --help called --primary "required when several qualify", and then a --yes
+// run with several picked one and said nothing.
+test('an auto-picked primary is named in the plan, an explicit one is not', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'orch-prim-'));
+  try {
+    const auto = run(['--yes', '--level', '2', '--ais', 'claude-code,codex', '--dir', dir, '--project', dir, '--dry']);
+    assert.equal(auto.status, 0, auto.stderr + auto.stdout);
+    assert.match(auto.stdout, /primary\s+claude-code \(chosen for you from claude-code, codex; pass --primary to decide it yourself\)/);
+    const explicit = run(['--yes', '--level', '2', '--ais', 'claude-code,codex', '--primary', 'codex', '--dir', dir, '--project', dir, '--dry']);
+    assert.equal(explicit.status, 0, explicit.stderr + explicit.stdout);
+    assert.match(explicit.stdout, /primary\s+codex\n/);
+    assert.doesNotMatch(explicit.stdout, /chosen for you/);
+    const single = run(['--yes', '--level', '2', '--ais', 'claude-code', '--dir', dir, '--project', dir, '--dry']);
+    assert.doesNotMatch(single.stdout, /chosen for you/, 'one candidate is not a choice made for you');
+    assert.doesNotMatch(run(['--help']).stdout, /required when several qualify/, 'the help must not promise a requirement the run does not enforce');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
