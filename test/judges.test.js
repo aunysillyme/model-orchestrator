@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { judgeGrok, judgeCodex, judgeAgy, judgeHermes, judgeQwen, judge, buildArgv, REASONS, checkContracts, snapshotFile, LANE_FLAGS, badRouteValue, resolveRoute, laneConfig, enabledLanes, LANES } from '../bin/cli-run.mjs';
@@ -272,4 +272,18 @@ test('enabledLanes still answers the narrow question, including the malformed ca
   writeFileSync(join(dir, 'lanes.json'), '{ not json');
   assert.equal(enabledLanes(dir), null, 'malformed must stay null, not an empty list');
   rmSync(dir, { recursive: true, force: true });
+});
+
+test('a run refused before the lane starts still records the route it asked for', () => {
+  // Found by the 0.1.14 pre-release audit: the route was resolved after the
+  // disabled / missing-binary returns, so exactly the records you would query
+  // when a route looks wrong were the ones missing it.
+  const src = readFileSync(new URL('../bin/cli-run.mjs', import.meta.url), 'utf8');
+  const resolvedAt = src.indexOf('const route = resolveRoute(');
+  assert.ok(resolvedAt > 0, 'the route must be resolved in main()');
+  for (const refusal of ["reason: 'lanes_json_malformed'", "reason: 'disabled'", "reason: 'unavailable'"]) {
+    const at = src.indexOf(refusal);
+    assert.ok(at > 0, 'missing refusal path: ' + refusal);
+    assert.ok(resolvedAt < at, `the route must be resolved before the ${refusal} log, or that record has no route`);
+  }
 });

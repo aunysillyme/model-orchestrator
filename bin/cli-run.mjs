@@ -46,8 +46,10 @@
 // silently stops being the route that runs. --model / --effort pin it per call,
 // `defaults` in lanes.json pins it per lane, and every run logs the value that
 // was REQUESTED plus where the request came from (flag, lanes.json, or nothing
-// at all). It never logs an "actual": no vendor CLI reports back the model it
-// used, so an actual field could only be a guess wearing a fact's clothes.
+// at all). It does not log an "actual". One lane of five (grok) does report a
+// model id in its own output; the other four report none, and a field present
+// for one lane and absent for four is worse than no field. It would also be a
+// provider-supplied string, which this log deliberately never holds.
 
 import { spawn } from 'node:child_process';
 import { StringDecoder } from 'node:string_decoder';
@@ -643,6 +645,19 @@ export async function main(argv) {
   const digest = createHash('sha256').update(prompt).digest('hex').slice(0, 12);
   const base = { lane, prompt_sha256_12: digest, prompt_chars: prompt.length };
   const cfg = laneConfig();
+  // Resolve the route BEFORE the refusals below. A run that never reached a lane
+  // was still a request for one, and a failure record with no route is the exact
+  // gap this feature exists to close. A malformed lanes.json has no usable
+  // defaults, so the flags stand alone and say so.
+  const route = resolveRoute(lane, opts, cfg === null ? {} : cfg.defaults);
+  opts.model = route.model;
+  opts.effort = route.effort;
+  Object.assign(base, {
+    model_requested: route.model,
+    effort_requested: route.effort,
+    model_source: route.model_source,
+    effort_source: route.effort_source
+  });
   const enabled = cfg === null ? null : cfg.enabled;
   if (enabled === null) {
     console.error('cli-run: lanes.json exists but is not a valid {"enabled": [...]} file; refusing every lane until it is fixed');
@@ -660,16 +675,6 @@ export async function main(argv) {
     log({ ...base, verdict: 'unavailable', rc: UNAVAILABLE, reason: 'unavailable' });
     return UNAVAILABLE;
   }
-
-  const route = resolveRoute(lane, opts, cfg.defaults);
-  opts.model = route.model;
-  opts.effort = route.effort;
-  Object.assign(base, {
-    model_requested: route.model,
-    effort_requested: route.effort,
-    model_source: route.model_source,
-    effort_source: route.effort_source
-  });
 
   const tmp = mkdtempSync(join(tmpdir(), 'cli-run-'));
   const before = opts.expectFile ? snapshotFile(resolve(opts.expectFile)) : null;

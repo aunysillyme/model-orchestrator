@@ -203,9 +203,12 @@ node bin/cli-run.mjs --doctor     # prints what each lane is pinned to, and what
 ```
 
 Every run logs the model and effort **requested** and where the request came
-from: `flag`, `lanes.json`, or `lane_default`. It never logs an actual, because
-no vendor CLI reports back the model it used, and a guessed field in a log is
-worse than an absent one.
+from: `flag`, `lanes.json`, or `lane_default`, on every record including the
+runs that never reached a lane. It does not log an actual. One lane of five
+(grok) reports a model id in its own output and the other four report none, so
+an actual field would be present for one lane and missing for four, and it
+would be a provider-supplied string, which the durable log deliberately never
+holds.
 
 ## Requirements
 
