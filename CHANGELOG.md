@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.1.16] - 2026-09-11
+
 ### Added
 
 - **A third claude-code-only hook, `route-metrics.mjs`, answers "is my agent actually routing and delegating?"** A routing rule nobody measures is a rule nobody knows is followed. Wired to five events (`UserPromptSubmit`, `PreToolUse` on `Agent`/`Task`, `SubagentStart`, `SubagentStop`, `Stop`), it appends one JSON line per event to `~/.ai-orchestrator/route-metrics.jsonl` (the same directory and home resolution `bin/cli-run.mjs` already logs to): a turn, a subagent dispatch (`subagent_type`, background flag), a subagent start and stop (so a duration can be computed from a small state file keyed by `sha256(agent_id)`), and the lane parsed from a new hidden marker, `<!-- route: <lane> | <why> -->`, that the route-gate block now asks every reply to end with. Only named, charset-bounded fields ever reach the log; prompt text, tool descriptions, the raw assistant message, and the marker's "why" half never do. `node .claude/hooks/route-metrics.mjs --summary [--since <ISO date>]` reports turns, route-marker coverage, lanes by count, dispatches by `subagent_type`, dispatches with no matching start, and mean/max duration per agent type. Plain Node, zero deps, prints nothing to stdout on any event, fail-open (a miss is a missing log line, never a blocked turn). Installed and wired only when claude-code is the primary, same no-overwrite rules as the other two hooks. See `docs/audit-brief.md` for the full threat-model writeup.
@@ -254,7 +256,8 @@ First release.
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
-[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.15...HEAD
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.16...HEAD
+[0.1.16]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.15...v0.1.16
 [0.1.15]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.14...v0.1.15
 [0.1.14]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.13...v0.1.14
 [0.1.13]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.12...v0.1.13
