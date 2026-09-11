@@ -39,8 +39,14 @@ test('candidateExtensions: win32 tries the bare name first, then each %PATHEXT% 
   assert.deepEqual(candidateExtensions('win32', '.COM;.EXE;.BAT;.CMD'), ['', '.COM', '.EXE', '.BAT', '.CMD']);
 });
 
-test('candidateExtensions: win32 falls back to the documented default PATHEXT when unset', () => {
-  assert.deepEqual(candidateExtensions('win32', undefined), ['', '.COM', '.EXE', '.BAT', '.CMD']);
+test('candidateExtensions: win32 falls back to the documented default PATHEXT when empty or unset', () => {
+  // An explicit '' (not undefined) is what actually proves the function's own
+  // fallback: passing undefined triggers the DEFAULT PARAMETER, which reads
+  // the live process.env.PATHEXT at call time, so on a real Windows machine
+  // (where PATHEXT is always populated, usually with more than these four
+  // entries) that assertion would depend on the host's own PATHEXT rather
+  // than on which() ever seeing a falsy value at all.
+  assert.deepEqual(candidateExtensions('win32', ''), ['', '.COM', '.EXE', '.BAT', '.CMD']);
 });
 
 test('which(): finds a bare-name file on the default (POSIX-shaped) platform', () => {
@@ -60,16 +66,17 @@ test('which(): finds a bare-name file on the default (POSIX-shaped) platform', (
 test('which(): on win32, a bare name with no extension is never found once a real vendor drops grok.cmd', () => {
   const dir = mkdtempSync(join(tmpdir(), 'orch-which-win-'));
   try {
-    const bin = join(dir, 'grok.cmd');
+    // %PATHEXT%'s conventional casing is uppercase (".CMD"), which is what
+    // candidateExtensions() constructs; the fixture matches that case on
+    // purpose, so this test proves the candidate-generation logic itself
+    // (does which() try the suffix at all?) rather than relying on NTFS's
+    // case-insensitive lookup, a real-Windows-only property this suite
+    // cannot exercise from a case-sensitive CI host (ext4 on Ubuntu).
+    const bin = join(dir, 'grok.CMD');
     writeFileSync(bin, '@echo off\r\necho hi\r\n');
     chmodSync(bin, 0o755);
     withPath(dir, () => {
-      // Case-insensitive: which() echoes back the case it constructed from
-      // %PATHEXT% (conventionally uppercase), not the on-disk file's actual
-      // case. That is fine on both NTFS and this test's filesystem, which
-      // resolve a path case-insensitively; the guarantee that matters is
-      // finding the file at all, not reproducing its exact-case spelling.
-      assert.equal((which('grok', 'win32', FAKE_HOME) || '').toLowerCase(), bin.toLowerCase(), 'which() must try %PATHEXT% suffixes on win32');
+      assert.equal(which('grok', 'win32', FAKE_HOME), bin, 'which() must try %PATHEXT% suffixes on win32');
       assert.equal(which('grok', 'darwin', FAKE_HOME), null, 'the POSIX branch must not guess a Windows extension');
     });
   } finally {
@@ -94,7 +101,10 @@ test('which(): on win32, a bare-name match still wins over guessing an extension
 test('which(): a directory named like the binary is never mistaken for it, on either platform', () => {
   const dir = mkdtempSync(join(tmpdir(), 'orch-which-dir-'));
   try {
-    const fakeDir = join(dir, 'grok.cmd');
+    // Uppercase to match candidateExtensions()'s own casing, so this
+    // actually exercises "found a candidate, but it is a directory" on a
+    // case-sensitive host too, rather than missing the candidate entirely.
+    const fakeDir = join(dir, 'grok.CMD');
     mkdirSync(fakeDir);
     withPath(dir, () => {
       assert.equal(which('grok', 'win32', FAKE_HOME), null);
