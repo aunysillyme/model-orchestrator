@@ -11,6 +11,12 @@ import { resolve, join } from 'node:path';
 import { which } from '../src/detect.js';
 import { AIS, LEVELS, TOOLS, PROVIDERS, aisForLevel, agentCandidates, byId, npmSpec } from '../src/catalog.js';
 import { planFiles, writeFiles, resolveSelection, resolveTools, resolveApis, dirProblems, readManifest, activationSteps, MACHINE_OWNED, RUNTIME, toPosixRel, GENERATOR_VERSION } from '../src/install.js';
+// npm resolves to npm.cmd on Windows; spawning that bare name with no shell
+// hits the same EINVAL bin/cli-run.mjs's lanes did (Node's fix for
+// CVE-2024-27980). windowsSpawnPlan is the same fix reused here rather than
+// duplicated: resolve npm's own cmd-shim and run node on it directly, no
+// shell, or fall back to the escaped cmd.exe path it also provides.
+import { windowsSpawnPlan } from './cli-run.mjs';
 
 // One strict parse. Unknown flags, missing values and duplicates are usage
 // errors (exit 2) before anything is planned, so a typo like --dryy can never
@@ -354,7 +360,8 @@ async function main() {
         const spec = npmSpec(a); // the same pinned spec the table and the box script use
         const run = flag('no-install') || yes ? 'n' : await ask(`  ${a.name}: run \`npm install -g ${spec}\` now? [y/N]: `, 'n');
         if (/^y/i.test(run)) {
-          const r = spawnSync('npm', ['install', '-g', spec], { stdio: 'inherit' });
+          const plan = windowsSpawnPlan([which('npm') || 'npm', 'install', '-g', spec]);
+          const r = spawnSync(plan.command, plan.args, { stdio: 'inherit', ...plan.options });
           console.log(r.status === 0 ? `  installed ${spec}` : `  npm exited ${r.status}; install it by hand`);
         } else {
           console.log(`  ${a.name}: npm install -g ${spec}   (pinned to the version this installer was released with)`);

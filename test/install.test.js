@@ -111,8 +111,10 @@ test('writing to a temp dir produces the plan; a second run keeps existing files
 
     writeFileSync(join(dir, 'README.md'), 'mine');
     const second = writeFiles(files, { dir, project: dir });
-    // machine-owned files (MANIFEST.json, bin/lanes.json) are always rewritten; documents are kept
-    assert.deepEqual(second.written.sort(), ['MANIFEST.json', join('bin', 'lanes.json')]);
+    // machine-owned files (MANIFEST.json, bin/lanes.json) are always rewritten; documents are kept.
+    // written/skipped/etc are report labels: posix-normalized on every host (see writeFiles()),
+    // not the OS-native join() the existsSync() check above correctly uses for a real path.
+    assert.deepEqual(second.written.sort(), ['MANIFEST.json', 'bin/lanes.json']);
     assert.equal(second.skipped.length, files.length - 2);
     assert.equal(readFileSync(join(dir, 'README.md'), 'utf8'), 'mine', 'existing file was overwritten without --force');
 
@@ -434,6 +436,16 @@ function stubTree(d, entries) {
   for (const [name, body] of Object.entries(entries)) writeFileSync(join(bin, name), '#!/bin/sh\n' + body + '\n', { mode: 0o755 });
   return bin;
 }
+// These tests spawn `bash` directly (not through cli-run.mjs's own spawn
+// logic at all), and the script it runs shells out to node/codex/jq/curl by
+// bare name, so PATH has to put the stub dir first and still let bash find
+// its own coreutils. A hand-built minimal PATH ('/usr/bin', '/bin') is a
+// POSIX assumption: neither is a real Windows path, and on windows-latest CI
+// this repo's own job already runs under Git Bash (.github/workflows/test.yml
+// sets defaults.run.shell: bash), so process.env.PATH already carries
+// whatever bash itself needs; only the stub dir needs prepending, to win the
+// lookup for the four names each script explicitly fakes.
+const stubPath = (bin) => [bin, ...(process.env.PATH || '').split(delimiter)].filter(Boolean).join(delimiter);
 
 test('#2: the codex audit passes --audit and the script states the boundary; other lanes state that none is enforced', () => {
   const { sh } = renderAudit('codex', '/x');
@@ -464,7 +476,7 @@ test('#3: a failed rerun never truncates the previous report; failed output is k
   const stubs = stubTree(join(d, 'stubs'), { node: 'echo partial garbage\nexit 13', codex: 'echo codex 1.0', jq: 'cat >/dev/null; echo', curl: 'exit 7' });
   const script = join(d, 'weekly-audit.sh');
   writeFileSync(script, sh);
-  const r = spawnSync('bash', [script], { encoding: 'utf8', env: { ...process.env, PATH: `${stubs}${delimiter}/usr/bin${delimiter}/bin`, HOME: d, USERPROFILE: d } });
+  const r = spawnSync('bash', [script], { encoding: 'utf8', env: { ...process.env, PATH: stubPath(stubs), HOME: d, USERPROFILE: d } });
   assert.equal(r.status, 13, r.stdout + r.stderr);
   assert.equal(readFileSync(report, 'utf8'), 'previous successful report\n', 'the previous report was truncated');
   const failed = readdirSync(join(d, 'reports')).filter((f) => f.startsWith('failed-audit-') && f.endsWith('-rc13.md'));
@@ -472,7 +484,7 @@ test('#3: a failed rerun never truncates the previous report; failed output is k
   assert.match(r.stderr, /previous report kept/);
   // a clean run replaces it
   const ok = stubTree(join(d, 'stubs2'), { node: 'echo fresh report', codex: 'echo codex 1.0', jq: 'cat >/dev/null; echo', curl: 'exit 7' });
-  const r2 = spawnSync('bash', [script], { encoding: 'utf8', env: { ...process.env, PATH: `${ok}${delimiter}/usr/bin${delimiter}/bin`, HOME: d, USERPROFILE: d } });
+  const r2 = spawnSync('bash', [script], { encoding: 'utf8', env: { ...process.env, PATH: stubPath(ok), HOME: d, USERPROFILE: d } });
   assert.equal(r2.status, 0, r2.stderr);
   assert.equal(readFileSync(report, 'utf8'), 'fresh report\n');
   rmSync(d, { recursive: true, force: true });
@@ -498,7 +510,7 @@ test('#10: a hanging --version probe and a hanging gateway are cut off by the wa
   const script = join(d, 'weekly-audit.sh');
   writeFileSync(script, sh);
   const t0 = Date.now();
-  const r = spawnSync('bash', [script], { encoding: 'utf8', env: { ...process.env, PATH: `${stubs}${delimiter}/usr/bin${delimiter}/bin`, HOME: d, USERPROFILE: d, PROBE_SECS: '1', GATEWAY_MASTER_KEY: 'abc123' }, timeout: 20000 });
+  const r = spawnSync('bash', [script], { encoding: 'utf8', env: { ...process.env, PATH: stubPath(stubs), HOME: d, USERPROFILE: d, PROBE_SECS: '1', GATEWAY_MASTER_KEY: 'abc123' }, timeout: 20000 });
   const secs = (Date.now() - t0) / 1000;
   assert.equal(r.status, 0, r.stdout + r.stderr);
   assert.ok(secs < 12, `collection was not bounded: ${secs}s`);

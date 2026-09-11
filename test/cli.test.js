@@ -562,7 +562,10 @@ test('#6: rerunning with an added lane applies it to lanes.json and MANIFEST.jso
   assert.equal(readFileSync(join(dir, 'ROUTING.md'), 'utf8'), 'my edited routing', 'an edited doc must survive a reconfiguration');
   assert.match(second.stdout, /Existing installation found \(MANIFEST\.json from generator/);
   assert.match(second.stdout, /selection changed: ais/);
-  assert.match(second.stdout, new RegExp('applied: .*' + escapeRe(join('bin', 'lanes.json'))));
+  // "applied:" is generated prose, posix-normalized on every host (src/install.js's
+  // writeFiles label), like the rest of this tool's path text; not the OS-native
+  // join() the actual local file read above correctly uses.
+  assert.match(second.stdout, /applied: .*bin\/lanes\.json/);
   assert.match(second.stdout, /documents kept: they may describe the old selection/);
   const same = run(['--yes', '--level', '2', '--ais', 'codex,grok', '--primary', 'codex', '--no-tools', '--no-install', '--dir', dir, '--project', proj]);
   assert.match(same.stdout, /selection identical/);
@@ -647,6 +650,20 @@ test('#13: SIGTERM and SIGINT to the wrapper kill the lane before it can write, 
     const ended = new Promise((r) => p.on('exit', (c, s) => r({ c, s })));
     p.kill(sig);
     const exit = await ended;
+    // Windows has no SIGTERM at the OS level: a ChildProcess.kill('SIGTERM')
+    // there calls TerminateProcess() unconditionally (proven on windows-latest
+    // CI: the wrapper died as {code: null, signal: 'SIGTERM'}, never reaching
+    // its own process.on('SIGTERM', ...) handler at all), so the graceful
+    // exit-143-and-kill-the-lane-first behavior below is a POSIX guarantee
+    // for this specific signal, not a portability gap in the wrapper. SIGINT
+    // is different: Windows delivers it as a real console-control event a
+    // running process can still catch, so the graceful path is expected to
+    // hold for it on every OS.
+    if (process.platform === 'win32' && sig === 'SIGTERM') {
+      assert.equal(exit.s, 'SIGTERM', `SIGTERM: expected an unhandled termination on win32, got ${JSON.stringify(exit)}`);
+      rmSync(d, { recursive: true, force: true });
+      continue;
+    }
     assert.equal(exit.c, code, `${sig}: expected exit ${code}, got ${JSON.stringify(exit)}`);
     await new Promise((r) => setTimeout(r, 1000));
     assert.ok(!existsSync(marker), `${sig}: the lane kept working after the wrapper was interrupted`);
