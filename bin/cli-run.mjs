@@ -337,14 +337,20 @@ export function unfence(text) {
 // cmd.exe, and the injection surface it carries, entirely: this is the
 // preferred path, used whenever the shim matches the shape cmd-shim writes.
 //
-// A .cmd/.bat that does not match (hand-written, or an older cmd-shim
-// layout) falls back to cmd.exe, run through the caret-escaping algorithm
-// documented at https://qntm.org/cmd (the canonical writeup of cmd.exe's
-// quoting rules) and used by the widely-deployed `cross-spawn` package:
-// quote each argument for CommandLineToArgvW, THEN caret-escape cmd.exe's
-// own metacharacters in that quoted text, THEN pass the whole command line
-// as one string with windowsVerbatimArguments so Node does not re-quote it
-// a second, conflicting way.
+// A LANE whose .cmd/.bat does not match (hand-written, or an older cmd-shim
+// layout) is refused, not run through cmd.exe: a batch file re-reads its
+// arguments through %* after cmd.exe has already parsed them once, which is
+// the case CVE-2024-27980 is about, and no escaping fully contains user text
+// through both passes. Removing that path beats guarding it.
+//
+// The cmd.exe path survives only for a caller that opts in with
+// { allowCmdFallback: true } and passes arguments it fully controls (the
+// installer's own `npm install -g <pinned spec>`, whose npm.cmd is not a
+// cmd-shim). It uses the caret-escaping algorithm documented at
+// https://qntm.org/cmd and used by `cross-spawn`: quote each argument for
+// CommandLineToArgvW, THEN caret-escape cmd.exe's own metacharacters, THEN
+// pass the whole line with windowsVerbatimArguments so Node does not
+// re-quote it a second, conflicting way.
 const NPM_CMD_SHIM = /"%_prog%"\s+"([^"]+)"\s*%\*/;
 export function resolveCmdShim(cmdPath) {
   let text;
@@ -392,13 +398,18 @@ function buildCmdExeCommand(cmdPath, args) {
 
 // Decides what spawn() actually receives. POSIX and a plain .exe/extensionless
 // binary on win32 are unchanged: no shell, argv passed straight through.
-export function windowsSpawnPlan(argv, platform = process.platform) {
+export function windowsSpawnPlan(argv, platform = process.platform, { allowCmdFallback = false } = {}) {
   const [bin, ...args] = argv;
   if (platform !== 'win32' || !/\.(cmd|bat)$/i.test(bin)) {
     return { command: bin, args, options: {} };
   }
   const script = resolveCmdShim(bin);
   if (script) return { command: process.execPath, args: [script, ...args], options: {} };
+  if (!allowCmdFallback) {
+    return {
+      refuse: `${bin} is a batch file that is not a standard npm shim, and cli-run never passes a prompt through cmd.exe. Reinstall the CLI with npm (npm install -g <package>) so npm writes a standard shim, or put the CLI's .exe first on PATH.`
+    };
+  }
   const comspec = process.env.ComSpec || process.env.COMSPEC || 'C:\\Windows\\System32\\cmd.exe';
   return { command: comspec, args: ['/d', '/s', '/c', buildCmdExeCommand(bin, args)], options: { windowsVerbatimArguments: true } };
 }
@@ -474,6 +485,7 @@ export function runBounded(argv, timeoutSec, maxBuffer = 16 * 1024 * 1024) {
     process.on('SIGTERM', onSignal);
     try {
       const plan = windowsSpawnPlan(argv);
+      if (plan.refuse) throw new Error(plan.refuse); // reported as lane unavailable, exit 13
       child = spawn(plan.command, plan.args, { stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32', ...plan.options });
     } catch (e) {
       process.off('SIGINT', onSignal);

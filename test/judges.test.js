@@ -302,14 +302,25 @@ test('windowsSpawnPlan: a resolvable .cmd shim spawns node directly on the under
   rmSync(d, { recursive: true, force: true });
 });
 
-test('windowsSpawnPlan: an unresolvable .cmd falls back to cmd.exe with the documented caret-escaping, verbatim', async () => {
+test('windowsSpawnPlan: a lane whose .cmd cannot be resolved is refused, never run through cmd.exe', async () => {
+  const { windowsSpawnPlan } = await import('../bin/cli-run.mjs');
+  // Same unresolvable path as below. Without an explicit opt-in there is no
+  // command at all: a prompt must never reach cmd.exe, escaped or not.
+  const p = windowsSpawnPlan(['C:\\bin\\oldtool.cmd', 'say "hi" & bye | cmd'], 'win32');
+  assert.equal(p.command, undefined, 'no spawn target for a lane');
+  assert.equal(p.args, undefined);
+  assert.match(p.refuse, /not a standard npm shim/);
+  assert.match(p.refuse, /never passes a prompt through cmd\.exe/);
+});
+
+test('windowsSpawnPlan: an unresolvable .cmd falls back to cmd.exe with the documented caret-escaping, verbatim, only when the caller opts in', async () => {
   const { windowsSpawnPlan } = await import('../bin/cli-run.mjs');
   // A literal, non-existent path: resolveCmdShim's readFileSync fails inside
   // it exactly as it would for a real .cmd whose content does not match the
   // npm cmd-shim shape, so this exercises the same fallback either way,
   // without depending on this host's own temp-directory naming.
   const shim = 'C:\\bin\\oldtool.cmd';
-  const p = windowsSpawnPlan([shim, 'say "hi" & bye | cmd'], 'win32');
+  const p = windowsSpawnPlan([shim, 'say "hi" & bye | cmd'], 'win32', { allowCmdFallback: true });
   assert.equal(p.command, process.env.ComSpec || 'C:\\Windows\\System32\\cmd.exe');
   assert.deepEqual(p.args.slice(0, 3), ['/d', '/s', '/c']);
   assert.deepEqual(p.options, { windowsVerbatimArguments: true }, 'Node must not re-quote a command line this function already built');
@@ -323,7 +334,7 @@ test('windowsSpawnPlan: an unresolvable .cmd falls back to cmd.exe with the docu
 test('windowsSpawnPlan cmd.exe fallback: caret, percent, trailing backslash and a literal newline each escape correctly', async () => {
   const { windowsSpawnPlan } = await import('../bin/cli-run.mjs');
   const bin = 'C:\\bin\\oldtool.cmd';
-  const argOf = (arg) => windowsSpawnPlan([bin, arg], 'win32').args[3].split(' ').slice(1).join(' ');
+  const argOf = (arg) => windowsSpawnPlan([bin, arg], 'win32', { allowCmdFallback: true }).args[3].split(' ').slice(1).join(' ');
   assert.equal(argOf('caret^test'), '^"caret^^test^"');
   assert.equal(argOf('percent%VAR%end'), '^"percent^%VAR^%end^"');
   assert.equal(argOf('trailing\\'), '^"trailing\\\\^"');

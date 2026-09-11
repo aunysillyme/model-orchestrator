@@ -360,7 +360,9 @@ async function main() {
         const spec = npmSpec(a); // the same pinned spec the table and the box script use
         const run = flag('no-install') || yes ? 'n' : await ask(`  ${a.name}: run \`npm install -g ${spec}\` now? [y/N]: `, 'n');
         if (/^y/i.test(run)) {
-          const plan = windowsSpawnPlan([which('npm') || 'npm', 'install', '-g', spec]);
+          // Opt-in cmd.exe fallback: npm.cmd is not a cmd-shim, and every argument here
+          // is the catalog's pinned spec, never user text (lanes refuse this path).
+          const plan = windowsSpawnPlan([which('npm') || 'npm', 'install', '-g', spec], process.platform, { allowCmdFallback: true });
           const r = spawnSync(plan.command, plan.args, { stdio: 'inherit', ...plan.options });
           console.log(r.status === 0 ? `  installed ${spec}` : `  npm exited ${r.status}; install it by hand`);
         } else {
