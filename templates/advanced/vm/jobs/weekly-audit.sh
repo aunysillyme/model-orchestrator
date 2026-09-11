@@ -31,17 +31,27 @@ find reports -maxdepth 1 -name '.audit-*' -type f -mtime +0 -delete 2>/dev/null 
 # pipe open). Process groups do not help here: bash disables job control inside
 # pipeline subshells, so `kill -- -pid` would kill nothing. A recursive tree
 # kill via pgrep works on macOS and Linux alike; `timeout(1)` is not on macOS.
+#
+# Two things make a timeout always read as a timeout. killtree freezes each
+# process (SIGSTOP) before walking its children, so a parent cannot run on,
+# print, and exit 0 in the gap after its child dies. And the watchdog leaves a
+# marker when it fires, so bounded returns 124 whatever order the kills land
+# in. Without both, a hung `--version` probe could be recorded as a version
+# string instead of "UNVERIFIED: timed out" (seen once on macOS CI).
 killtree() {
   local p="$1" c
+  kill -STOP "$p" 2>/dev/null
   for c in $(pgrep -P "$p" 2>/dev/null); do killtree "$c"; done
   kill -KILL "$p" 2>/dev/null
 }
 bounded() {
   local secs="$1"; shift
+  local fired; fired="$(mktemp "${TMPDIR:-/tmp}/wa-fired.XXXXXX" 2>/dev/null)" && rm -f "$fired"
   ( "$@" ) & local pid=$!
-  ( sleep "$secs"; killtree "$pid" ) >/dev/null 2>&1 & local wd=$!
+  ( sleep "$secs"; [ -n "$fired" ] && : > "$fired"; killtree "$pid" ) >/dev/null 2>&1 & local wd=$!
   wait "$pid" 2>/dev/null; local rc=$?
   killtree "$wd" >/dev/null 2>&1; wait "$wd" 2>/dev/null
+  if [ -n "$fired" ] && [ -e "$fired" ]; then rm -f "$fired"; return 124; fi
   return $rc
 }
 

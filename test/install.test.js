@@ -535,6 +535,27 @@ test('#10: a hanging --version probe and a hanging gateway are cut off by the wa
   rmSync(d, { recursive: true, force: true });
 });
 
+test('#10b: bounded() reports a timeout (rc 124) even when the killed command runs on after its child dies', { skip: SKIP_WATCHDOG_KILL_ON_WIN32 }, () => {
+  // Seen once on macOS CI: the tree kill reached the hung probe's child first,
+  // the probe's own shell printed and exited 0, and the report recorded
+  // "codex never" instead of "UNVERIFIED: --version timed out". This makes
+  // that ordering deterministic by overriding killtree to reach only the
+  // children, then checks bounded() still says 124.
+  const d = mkdtempSync(join(tmpdir(), 'orch-bounded-'));
+  const { sh } = renderAudit('codex', d);
+  const defs = sh.match(/^killtree\(\) \{[\s\S]*?^\}\nbounded\(\) \{[\s\S]*?^\}/m);
+  assert.ok(defs, 'killtree() and bounded() must be found in the rendered script');
+  const harness = [
+    defs[0],
+    'killtree() { for c in $(pgrep -P "$1" 2>/dev/null); do kill -KILL "$c" 2>/dev/null; done; }',
+    "bounded 1 bash -c '/bin/sleep 30; echo never'",
+    'echo "rc=$?"'
+  ].join('\n');
+  const r = spawnSync('bash', ['-c', harness], { encoding: 'utf8', timeout: 20000 });
+  assert.match(r.stdout, /rc=124/, r.stdout + r.stderr);
+  rmSync(d, { recursive: true, force: true });
+});
+
 test('the agent snippet names the routing file for the level: ORCHESTRATOR.md at 1, ROUTING.md at 2 and 3', () => {
   for (const [level, file] of [[1, 'ORCHESTRATOR.md'], [2, 'ROUTING.md'], [3, 'ROUTING.md']]) {
     for (const primary of ['claude-code', 'codex']) {
