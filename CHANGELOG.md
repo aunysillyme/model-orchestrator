@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.1.15] - 2026-09-10
+
 The portable parts of a live routing revision, delegate by default, gated on one verified fact rather than a guess: [code.claude.com/docs/en/sub-agents](https://code.claude.com/docs/en/sub-agents) states that a non-fork Claude Code subagent's initial context includes "every level of the CLAUDE.md hierarchy the main conversation loads", and that the built-in Explore and Plan agents skip it. No other lane in this catalog has that documented, so everything below is gated on `subagentsLoadRules(primary)`, currently true for claude-code alone; every other primary keeps its original wording unchanged.
 
 ### Added
@@ -16,6 +18,7 @@ The portable parts of a live routing revision, delegate by default, gated on one
 
 ### Changed
 
+- **The package now says what it is for in the first line people and agents read.** npm search, GitHub search and the installer banner showed "Routing instructions and a CLI runner", which named the parts and not the purpose. The description, the README opening and the banner now lead with the goal (each task to the right model, agent or LLM, fewer frontier tokens) while keeping the 0.1.11 correction intact: routing is an instruction your agent follows, and the README still states it does not automatically compare prices or select models. A test holds all three surfaces to that. New: an "At a glance" block and question-shaped "Common questions" in the README, request-level alternatives named for readers who want a proxy, `llms.txt` at the root and a headless-use section in `AGENTS.md` (both now ship in the package), and search keywords matching what comparable routers use.
 - **Corrected the unqualified premise "a subagent holds none of these rules" everywhere it appeared** (`TASK_BUNDLE.md`, `ORCHESTRATOR.md`, the claude-code snippet, `docs/part-1-beginner.md`, `docs/part-2-intermediate.md`, README principle 6, and `ROUTING.md`'s "Who builds"). The corrected fact: a Claude Code subagent loads CLAUDE.md and so keeps the standing rules, just not this task's scope; a second CLI or a fresh chat window may still hold none of it. "Absence is denial" is unchanged; only the premise about who is absent what was wrong.
 - **The claude-code snippet's closing "available as ..." agent list is generated from the files actually shipped in `templates/agents/claude-code/`, never hand-typed.** It had drifted once already: `finding-verifier` shipped in 0.1.14 and was missing from this sentence until now. `claudeAgentIds()` in `src/install.js` reads the folder; a test ties the rendered list to it.
 - **The delegate-by-default gate now reaches every generated surface it should, not just three of them.** `build-protocol.md`'s "Roles, as capabilities" table and its "Why the builder does not hand off the main build" line, `builder.md`'s description, and `ROUTING.md`'s "Plan big, execute small" modifier still said, on a claude-code install, that the orchestrator writes the main build itself, never hands it off whole, and that a delegate inherits none of the session's rules: the exact premise the rest of this release corrects. All four now render through `subagentsLoadRules(primary)` the same way the decision tree and "Who builds" already did; every other primary is unchanged. A semantic-regression test asserts a claude-code install contains none of the old phrasing and a codex install still does.
@@ -235,7 +238,8 @@ First release.
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
-[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.14...HEAD
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.15...HEAD
+[0.1.15]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.14...v0.1.15
 [0.1.14]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.13...v0.1.14
 [0.1.13]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.12...v0.1.13
 [0.1.12]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.11...v0.1.12

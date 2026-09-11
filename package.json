@@ -1,7 +1,7 @@
 {
   "name": "model-orchestrator",
-  "version": "0.1.14",
-  "description": "Routing instructions and a CLI runner for your AI tools. One installer generates a setup for what you have, from one chat app to several agent CLIs or a VM. Routes by role, complexity and risk; pins and logs each lane's model and effort. On Claude Code it delegates to subagents by default, with hooks that inject the routing table every turn.",
+  "version": "0.1.15",
+  "description": "Model orchestrator for AI coding agents and LLMs: Claude Code, Codex, Gemini, Grok, Qwen, Ollama. Routing rules tell your agent which model, subagent or CLI to use for each task, so small work goes to cheap tiers and fewer tokens go to frontier models. One installer, plus a CLI runner that logs every route.",
   "type": "module",
   "bin": {
     "model-orchestrator": "bin/cli.js"
@@ -15,7 +15,9 @@
     "LICENSE",
     "CHANGELOG.md",
     "SECURITY.md",
-    "scripts"
+    "scripts",
+    "llms.txt",
+    "AGENTS.md"
   ],
   "scripts": {
     "start": "node bin/cli.js",
@@ -58,7 +60,26 @@
     "ai-agents",
     "hooks",
     "claude-code-hooks",
-    "delegation"
+    "delegation",
+    "llm-router",
+    "ai-router",
+    "model-switching",
+    "multi-model",
+    "token-optimization",
+    "token-efficiency",
+    "cost-optimization",
+    "llm-orchestration",
+    "agent-orchestration",
+    "ai-orchestration",
+    "claude",
+    "anthropic",
+    "openai",
+    "gemini",
+    "claude-code-router",
+    "agent-routing",
+    "prompt-routing",
+    "coding-agent",
+    "ai-coding"
   ],
   "author": "aunysillyme (https://github.com/aunysillyme)",
   "license": "MIT"

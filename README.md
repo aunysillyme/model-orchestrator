@@ -2,7 +2,16 @@
 
 [![npm](https://img.shields.io/npm/v/model-orchestrator.svg)](https://www.npmjs.com/package/model-orchestrator) [![test](https://github.com/aunysillyme/model-orchestrator/actions/workflows/test.yml/badge.svg)](https://github.com/aunysillyme/model-orchestrator/actions/workflows/test.yml) [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![node >=18](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)](package.json)
 
-**Routing instructions and a CLI runner for your AI tools.** One installer asks what you have access to and generates a matching setup, from one chat app to several agent CLIs or a virtual machine. Your primary agent follows the instructions to choose a tier or lane; the runner executes the lane it is given. On Claude Code it also delegates execution to subagents by default, with two hooks that inject the routing table every turn. It does not automatically compare prices or select models.
+**Route every task to the right model, agent or LLM, and spend fewer tokens.** A model orchestrator for AI coding agents and LLMs: Claude Code, Codex, Gemini, Grok, Qwen, Ollama. One installer asks what you have access to and writes routing rules, subagents and a CLI runner for exactly that setup, from one chat app to several agent CLIs or a virtual machine. Routing rules tell your agent which model, subagent or CLI to use for each task, so small work goes to cheap tiers and fewer tokens go to frontier models; the runner executes the lane it is given. On Claude Code it also delegates execution to subagents by default, with two hooks that inject the routing table every turn.
+
+## At a glance
+
+- **What it is:** routing rules, subagent definitions and a CLI lane runner (`cli-run`) for the AI tools you already pay for.
+- **What it is not:** a proxy, a gateway or an API router. It does not automatically compare prices or select models; your agent follows the rules and chooses.
+- **Install:** `npx model-orchestrator` (interactive), or headless from a script or an agent: `npx model-orchestrator --yes --level 2 --ais claude-code,codex --project . --dir ./ai-orchestrator`.
+- **Use it when:** you run more than one model or agent and want each task sent to the smallest one that can do it well.
+- **What it saves:** frontier-model tokens. Bulk work, reading and checks go to fast tiers; the expensive tier is kept for planning and judgment.
+- **For agents:** [`llms.txt`](llms.txt) summarizes the package and links every doc; [`AGENTS.md`](AGENTS.md) has the headless commands.
 
 Built from a working system, not a diagram: the routing rules, the protocols and the lane runner here run in production, generalized so they transfer to any stack.
 
@@ -215,6 +224,24 @@ runs that never reached a lane. It does not log an actual. One lane of five
 an actual field would be present for one lane and missing for four, and it
 would be a provider-supplied string, which the durable log deliberately never
 holds.
+
+## Common questions
+
+### How do I cut token usage across Claude Code, Codex and Gemini?
+
+Install for the tools you have, then let the generated `ROUTING.md` decide the tier per task: bulk, reading and verification go to the fast tier or a cheaper CLI lane, and the deep tier only plans and judges. On Claude Code, execution goes to the `builder` subagent by default and the main session plans and verifies. Every lane call through `cli-run` logs the model and effort it ran with, so you can check where the tokens went.
+
+### How do I route tasks to cheaper models?
+
+The rules route by role, complexity and risk (see [Routing by role, complexity and risk](#routing-by-role-complexity-and-risk)). Role picks the agent, complexity moves the effort, risk moves the tier. A task a cheap tier finishes correctly never gets a frontier token.
+
+### Is this an LLM router or an AI gateway?
+
+No. It routes at the task level, through instructions your agent follows and a runner for agent CLIs. If you want a service or proxy that picks or forwards the model on every API request, look at request-level routers and gateways such as RouteLLM, LiteLLM, OpenRouter or claude-code-router. They solve a different problem and can sit underneath this.
+
+### Can an agent install and run it without a person?
+
+Yes. `--yes` with `--level`, `--ais` and `--project` runs headless, `--dry-run` previews the plan, and `--list` prints every supported AI. Nothing is appended to a file you already have; activation snippets are written next to your files for you to merge.
 
 ## Requirements
 

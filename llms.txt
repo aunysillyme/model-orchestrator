@@ -1,0 +1,27 @@
+# model-orchestrator
+
+> Model orchestrator for AI coding agents and LLMs (Claude Code, Codex, Gemini, Grok, Qwen, Ollama). One installer writes routing rules, subagent definitions and a CLI lane runner for the AI tools you already have. The rules tell your agent which model, subagent or CLI to use for each task, so small work goes to cheap tiers and fewer tokens go to frontier models. It is not a proxy or gateway: it does not automatically compare prices or select models; your agent follows the rules and chooses.
+
+Install and run: `npx model-orchestrator` (interactive), or headless: `npx model-orchestrator --yes --level 2 --ais claude-code,codex --project . --dir ./ai-orchestrator`. Preview without writing: add `--dry-run`. List every supported AI: `npx model-orchestrator --list`. Node 18 or newer, zero runtime dependencies, MIT licence.
+
+Levels: 1 beginner (one agent or chat app), 2 intermediate (several agent CLIs, each called through `cli-run`), 3 advanced (adds a virtual machine with a gateway and a scheduled audit job). On Claude Code the install also delegates execution to subagents by default and ships two hooks (UserPromptSubmit, SubagentStart) that inject the routing table every turn.
+
+## Docs
+
+- [README](https://github.com/aunysillyme/model-orchestrator/blob/main/README.md): what it writes, flags, principles, what is enforced versus instructed
+- [Part 1: beginner](https://github.com/aunysillyme/model-orchestrator/blob/main/docs/part-1-beginner.md): one agent, tiers, the task bundle every delegation carries
+- [Part 2: intermediate](https://github.com/aunysillyme/model-orchestrator/blob/main/docs/part-2-intermediate.md): several agent CLIs, the lane runner, pinning model and effort per lane
+- [Part 3: advanced](https://github.com/aunysillyme/model-orchestrator/blob/main/docs/part-3-advanced.md): the VM, the gateway, scheduled jobs, privacy gates
+- [AI catalog](https://github.com/aunysillyme/model-orchestrator/blob/main/docs/catalog.md): every supported AI, how to sign in, how each is detected
+
+## Reference
+
+- [CLI runner](https://github.com/aunysillyme/model-orchestrator/blob/main/bin/README.md): `cli-run` lanes, exit codes, the route logged per run
+- [Templates](https://github.com/aunysillyme/model-orchestrator/blob/main/templates/README.md): the routing, tiers, task bundle and protocol files the installer renders
+- [Changelog](https://github.com/aunysillyme/model-orchestrator/blob/main/CHANGELOG.md): every release and the issue behind each fix
+- [Agent instructions](https://github.com/aunysillyme/model-orchestrator/blob/main/AGENTS.md): running the installer from an agent, and contributing
+
+## Optional
+
+- [Security policy](https://github.com/aunysillyme/model-orchestrator/blob/main/SECURITY.md)
+- [Audit brief](https://github.com/aunysillyme/model-orchestrator/blob/main/docs/audit-brief.md): the threat model and what has already been attacked
