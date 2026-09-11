@@ -192,9 +192,9 @@ change. Use a different model family from the one that produced the finding
 where you have one: a family asked to check its own claim tends to agree with
 itself.
 
-## Two more read-only checks
+## Two more fast-tier checks
 
-`done-verifier` probes the artifact a tracker item's done-signal names (a file, a commit, a URL, a log line, a count) and returns MET, NOT_MET or UNVERIFIABLE; it never closes or edits anything itself. `reader` reads and digests many files or notes and hands back exactly what the brief asked for, cited by `path:line`; it never classifies, tags or writes, which is what separates it from `bulk-worker`. Both ship in the claude-code and agy agent sets, at the fast tier.
+`done-verifier` probes the artifact a tracker item's done-signal names (a file, a commit, a URL, a log line, a count) and returns MET, NOT_MET or UNVERIFIABLE; it never closes or edits anything itself. It carries no file-editing tools, but on claude-code it does carry `Bash` for those probes (`git log`, `grep`, `wc -l`, `test -f`); staying to read-only commands there is a rule in its prompt, not a restriction on the tool grant, and its own description says so. On agy, `commandExecutionPolicy: off` blocks command execution mechanically instead. `reader` is the one that is read-only by tool grant on both: no `Write`, `Edit`, or `Bash`. It reads and digests many files or notes and hands back exactly what the brief asked for, cited by `path:line`; it never classifies, tags or writes, which is what separates it from `bulk-worker`. Both ship in the claude-code and agy agent sets, at the fast tier.
 
 ## Pin the route, or know that you did not
 

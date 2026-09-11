@@ -733,3 +733,66 @@ test('routeGateTable renders the fixed rows plus one per selected cli-run lane',
   const withCodex = routeGateTable(sel('claude-code', 'codex'));
   assert.match(withCodex, /`cli-run codex`/);
 });
+
+// ---- pre-release audit finding 2: done-verifier claims read-only but holds unrestricted Bash ----
+
+test('reader has no Bash/Write/Edit in either format; no generated doc calls done-verifier "read-only" unqualified', () => {
+  const ccReader = readFileSync(join('templates', 'agents', 'claude-code', 'reader.md'), 'utf8');
+  const ccToolsLine = ccReader.match(/^tools:.*$/m)[0];
+  assert.doesNotMatch(ccToolsLine, /\bBash\b|\bWrite\b|\bEdit\b/, 'reader (claude-code) must stay genuinely read-only');
+
+  const agyReader = readFileSync(join('templates', 'agents', 'agy', 'reader.md'), 'utf8');
+  assert.match(agyReader, /commandExecutionPolicy:\s*off/, 'reader (agy) must have command execution off');
+
+  // done-verifier's claude-code file DOES carry Bash (needed for its probes);
+  // the finding is that every place describing it called that "read-only"
+  // without saying the boundary is a prompt rule, not a tool restriction.
+  const ccDoneVerifier = readFileSync(join('templates', 'agents', 'claude-code', 'done-verifier.md'), 'utf8');
+  assert.match(ccDoneVerifier, /\bBash\b/, 'done-verifier (claude-code) keeps Bash for its probes');
+  assert.doesNotMatch(ccDoneVerifier.split('\n')[2], /^description:.*\bRead-only\.\B/, 'the frontmatter description must not call it unqualified read-only');
+  assert.match(ccDoneVerifier, /bound by the prompt|bound only by its prompt|not by the tool grant|not a restriction/i, 'must say the boundary is enforced by the prompt, not the grant');
+
+  const docsToCheck = [
+    ['README.md', readFileSync('README.md', 'utf8')],
+    ['CHANGELOG.md', readFileSync('CHANGELOG.md', 'utf8')],
+    ['templates/agents/claude-code/README.md', readFileSync(join('templates', 'agents', 'claude-code', 'README.md'), 'utf8')],
+    ['templates/agents/agy/README.md', readFileSync(join('templates', 'agents', 'agy', 'README.md'), 'utf8')]
+  ];
+  const forbidden = /done-verifier[^.\n]{0,80}\bread-only\b(?![^.\n]*(?:Bash|prompt|grant|tool))/i;
+  for (const [name, text] of docsToCheck) {
+    assert.doesNotMatch(text, forbidden, `${name} still calls done-verifier read-only without qualifying it`);
+  }
+
+  // Same check against what the installer actually generates for a
+  // claude-code install: the rendered done-verifier.md and README must
+  // carry the qualifier too, not just the source templates.
+  const p = planFiles({ level: 2, selected: sel('claude-code'), primary: byId['claude-code'], dir: 'x', project: 'y' });
+  for (const f of p) {
+    if (!f.content.includes('done-verifier')) continue;
+    assert.doesNotMatch(f.content, forbidden, `${f.rel} still calls done-verifier read-only without qualifying it`);
+  }
+});
+
+// ---- pre-release audit finding 3: claude-code installs still contradicted delegate by default ----
+
+test('claude-code level 2 install contains none of the old orchestrator-writes-everything phrasing; codex still does', () => {
+  const forbidden = ['main build itself', 'does not hand off the main build', 'the orchestrator executes', 'never handed off whole'];
+  const cc = planFiles({ level: 2, selected: sel('claude-code'), primary: byId['claude-code'], dir: 'x', project: 'y' });
+  for (const f of cc) {
+    for (const phrase of forbidden) assert.ok(!f.content.includes(phrase), `${f.rel} still contains the old phrase "${phrase}"`);
+  }
+  const codex = planFiles({ level: 2, selected: sel('codex'), primary: byId.codex, dir: 'x', project: 'y' });
+  const codexBlob = codex.map((f) => f.content).join('\n');
+  let stillPresent = 0;
+  for (const phrase of forbidden) if (codexBlob.includes(phrase)) stillPresent++;
+  assert.ok(stillPresent >= 3, 'codex should keep the conservative wording: it has no verified sub-agents premise');
+
+  // The three specific surfaces the audit named, checked directly.
+  const bp = cc.find((f) => f.rel === 'protocols/build-protocol.md').content;
+  assert.match(bp, /Executes Stage 3 from the orchestrator's brief/);
+  assert.match(bp, /Why Stage 3 goes to builder by default/);
+  const builder = cc.find((f) => f.rel === join('.claude', 'agents', 'builder.md')).content;
+  assert.doesNotMatch(builder, /the main build itself/);
+  const routing = cc.find((f) => f.rel === 'ROUTING.md').content;
+  assert.match(routing, /builder executes from the orchestrator's brief/);
+});

@@ -308,6 +308,31 @@ export function delegateRulesNote(primary) {
     : 'Subagents, a fresh chat, a second window: each one holds none of these rules.';
 }
 
+// Pre-release audit finding 3: the delegate-by-default gate reached the
+// decision tree and "Who builds" but missed three other generated surfaces
+// stating the same old premise (the orchestrator writes the main build
+// itself; a delegate inherits none of the session's rules). These three
+// close that gap the same way: gated on subagentsLoadRules(primary), every
+// other primary keeps the original wording unchanged.
+export function planBigExecuteSmallLine(primary) {
+  return subagentsLoadRules(primary)
+    ? `- **Plan big, execute small**, within a build: deep tier plans at Checkpoint 1, builder executes from the orchestrator's brief, bulk and wide searches go down.`
+    : '- **Plan big, execute small**, within a build: deep tier plans at Checkpoint 1, the orchestrator executes, bulk and wide searches go down.';
+}
+export function rolesBuilderRow(primary) {
+  return subagentsLoadRules(primary)
+    ? [
+        '| Orchestrator | Routes, maps, briefs, verifies, records. Stages 0, 1, 2, 4, 5b, 6, 7 | Write the build |',
+        "| Builder | Executes Stage 3 from the orchestrator's brief | Route further, or verify its own work as final |"
+      ].join('\n')
+    : '| Builder / orchestrator | Routes, maps, writes, verifies, records. Stages 0, 1, 3, 6, 7 | Hand off the main build |';
+}
+export function builderHandoffNote(primary) {
+  return subagentsLoadRules(primary)
+    ? `**Why Stage 3 goes to builder by default:** a Claude Code subagent loads this project's CLAUDE.md hierarchy at start, so it already carries the standing rules; the orchestrator's brief only has to restate this task's scope (see \`TASK_BUNDLE.md\`). The orchestrator keeps Stage 3 for itself only when the brief would cost as much as the work, the task needs this conversation's own context, or it is the human's decision or the final verification of delegated work.`
+    : `**Why the builder does not hand off the main build:** a delegated agent does not inherit the session's standing rules and usually cannot delegate further. Any brief must restate every convention it needs (see \`TASK_BUNDLE.md\`), and that cost is itself a reason to build directly when the work fits.`;
+}
+
 // Which activation file this primary gets. ONE decision, read by three
 // surfaces: planFiles writes the file, vars() names it in the generated README,
 // and bin/cli.js prints it in the terminal. Before 0.1.12 the README hardcoded
@@ -477,6 +502,9 @@ function vars(opts) {
     ADD_ENDPOINT_ROW: addEndpointRow(primary),
     INLINE_THRESHOLD_NOTE: inlineThresholdNote(primary),
     DELEGATE_RULES_NOTE: delegateRulesNote(primary),
+    PLAN_BIG_LINE: planBigExecuteSmallLine(primary),
+    ROLES_BUILDER_ROW: rolesBuilderRow(primary),
+    BUILDER_HANDOFF_NOTE: builderHandoffNote(primary),
     ROUTE_GATE_SECTION: subagentsLoadRules(primary) ? '\n' + routeGateSection(selected) + '\n' : '',
     AGENTS_LIST_LINE: claudeAgentIds().map((id) => '`' + id + '`').join(', '),
     RULES_FILE_REL: rulesFileRel,

@@ -104,14 +104,14 @@ Use a different model family from the one that produced the finding where you ha
 
 | Role | Does | Does not |
 |---|---|---|
-| Builder / orchestrator | Routes, maps, writes, verifies, records. Stages 0, 1, 3, 6, 7 | Hand off the main build |
+{{ROLES_BUILDER_ROW}}
 | Judgment tier | Stage 2 and the architectural arm of Stage 5. Argues with a finished map | Perform the retrieval |
 | Adversarial auditor | The security arm of Stage 5. Attacks the diff | Fix anything |
 | Mechanical gates | Stage 4 and any always-on guard | Be overridden without reading |
 | Cheap workers | Bounded sub-parts: bulk passes, wide searches, long loops | Own a stage |
 | Human | Stage 5b, and any irreversible or architectural call | Be the first line of review |
 
-**Why the builder does not hand off the main build:** a delegated agent does not inherit the session's standing rules and usually cannot delegate further. Any brief must restate every convention it needs (see `TASK_BUNDLE.md`), and that cost is itself a reason to build directly when the work fits.
+{{BUILDER_HANDOFF_NOTE}}
 
 ## Checklist
 

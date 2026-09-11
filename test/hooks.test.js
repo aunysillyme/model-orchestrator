@@ -5,9 +5,9 @@
 // would otherwise only surface once a user actually ran Claude Code.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, chmodSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, chmodSync, openSync, writeSync, ftruncateSync, closeSync } from 'node:fs';
 import { join } from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync, execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { planFiles } from '../src/install.js';
 import { byId } from '../src/catalog.js';
@@ -141,5 +141,122 @@ test('subagent-context.mjs: valid JSON, SubagentStart, exit 0 on empty stdin', (
     assert.match(out.hookSpecificOutput.additionalContext, /TASK_BUNDLE\.md/);
   } finally {
     rmSync(scratch, { recursive: true, force: true });
+  }
+});
+
+// ---- pre-release audit finding 1: hang + unbounded read (fixed) ----
+
+// Spawns the hook with stdin left OPEN (never written to, never closed) and
+// measures the wall-clock time to exit. A bare `readFileSync(0)` hangs here
+// forever; this is the exact shape of the reported repro (`sleep 3 | ...
+// node route-gate.mjs` still running at 1.5s). The kill guard is a generous
+// safety net so a regression fails the assertion below rather than hanging
+// the test run; it is deliberately much larger than the hook's own 250ms
+// stdin-drain cap so ordinary scheduling jitter under a loaded CI box never
+// races the guard itself.
+function runWithOpenStdin(hookPath, env, killGuardMs = 5000) {
+  return new Promise((resolve, reject) => {
+    const started = Date.now();
+    const child = spawn('node', [hookPath], { env: { ...process.env, ...env }, stdio: ['pipe', 'pipe', 'pipe'] });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (d) => (stdout += d));
+    child.stderr.on('data', (d) => (stderr += d));
+    const guard = setTimeout(() => {
+      child.kill('SIGKILL');
+      reject(new Error('hook did not exit within ' + killGuardMs + 'ms with stdin left open; stderr: ' + stderr));
+    }, killGuardMs);
+    child.on('exit', (code) => {
+      clearTimeout(guard);
+      resolve({ code, stdout, stderr, elapsedMs: Date.now() - started });
+    });
+    // Deliberately: no write, no .end() on child.stdin. The pipe stays open,
+    // exactly like a caller that never sends EOF.
+  });
+}
+
+test('route-gate.mjs: an open, never-closed stdin pipe still exits within 1s with valid JSON', async () => {
+  const scratch = mkdtempSync(join(tmpdir(), 'orch-hook-'));
+  const project = mkdtempSync(join(tmpdir(), 'orch-proj-'));
+  try {
+    const hookPath = writeHook(scratch, 'route-gate.mjs', renderedHook('route-gate.mjs'));
+    writeRules(project, '<!-- route-gate:start -->\ntable\n<!-- route-gate:end -->\n');
+    const { code, stdout, elapsedMs } = await runWithOpenStdin(hookPath, { CLAUDE_PROJECT_DIR: project });
+    assert.equal(code, 0);
+    assert.ok(elapsedMs < 1000, 'route-gate.mjs took ' + elapsedMs + 'ms to exit with stdin left open; expected under 1s');
+    const out = JSON.parse(stdout);
+    assert.equal(out.hookSpecificOutput.hookEventName, 'UserPromptSubmit');
+  } finally {
+    rmSync(scratch, { recursive: true, force: true });
+    rmSync(project, { recursive: true, force: true });
+  }
+});
+
+test('subagent-context.mjs: an open, never-closed stdin pipe still exits within 1s with valid JSON', async () => {
+  const scratch = mkdtempSync(join(tmpdir(), 'orch-hook-'));
+  try {
+    const hookPath = writeHook(scratch, 'subagent-context.mjs', renderedHook('subagent-context.mjs'));
+    const { code, stdout, elapsedMs } = await runWithOpenStdin(hookPath, {});
+    assert.equal(code, 0);
+    assert.ok(elapsedMs < 1000, 'subagent-context.mjs took ' + elapsedMs + 'ms to exit with stdin left open; expected under 1s');
+    const out = JSON.parse(stdout);
+    assert.equal(out.hookSpecificOutput.hookEventName, 'SubagentStart');
+  } finally {
+    rmSync(scratch, { recursive: true, force: true });
+  }
+});
+
+test('route-gate.mjs: a FIFO at the rules path gives a fallback without hanging', { skip: process.platform === 'win32' ? 'no mkfifo on Windows' : false }, () => {
+  const scratch = mkdtempSync(join(tmpdir(), 'orch-hook-'));
+  const project = mkdtempSync(join(tmpdir(), 'orch-proj-'));
+  try {
+    const hookPath = writeHook(scratch, 'route-gate.mjs', renderedHook('route-gate.mjs'));
+    const rulesDir = join(project, RULES_SUBDIR);
+    mkdirSync(rulesDir, { recursive: true });
+    const fifoPath = join(rulesDir, 'ROUTING.md');
+    execFileSync('mkfifo', [fifoPath]);
+    // Nothing ever opens the write end of this FIFO. Opening it for read
+    // (what a naive readFileSync would do) blocks until a writer shows up,
+    // which is exactly the hang this fix exists to avoid: statSync + isFile()
+    // must refuse it before any open/read call touches it.
+    const r = spawnSync('node', [hookPath], { input: '', encoding: 'utf8', env: { ...process.env, CLAUDE_PROJECT_DIR: project }, timeout: 3000 });
+    assert.notEqual(r.signal, 'SIGTERM', 'the hook was killed for exceeding the timeout: it hung on the FIFO');
+    assert.equal(r.status, 0);
+    const out = JSON.parse(r.stdout);
+    assert.match(out.hookSpecificOutput.additionalContext, /not a regular file/);
+  } finally {
+    rmSync(scratch, { recursive: true, force: true });
+    rmSync(project, { recursive: true, force: true });
+  }
+});
+
+test('route-gate.mjs: a 200 MB sparse rules file still completes fast with bounded output', () => {
+  const scratch = mkdtempSync(join(tmpdir(), 'orch-hook-'));
+  const project = mkdtempSync(join(tmpdir(), 'orch-proj-'));
+  try {
+    const hookPath = writeHook(scratch, 'route-gate.mjs', renderedHook('route-gate.mjs'));
+    const rulesDir = join(project, RULES_SUBDIR);
+    mkdirSync(rulesDir, { recursive: true });
+    const rulesPath = join(rulesDir, 'ROUTING.md');
+    // Real content lives in the first bytes (inside the 64 KB read window);
+    // ftruncate then grows the file's reported length to 200 MB without
+    // writing 200 MB of data, so a fix that still reads the "whole file"
+    // would either allocate ~200 MB or take much longer than a bounded read.
+    const fd = openSync(rulesPath, 'w');
+    writeSync(fd, '<!-- route-gate:start -->\ntable\n<!-- route-gate:end -->\n');
+    ftruncateSync(fd, 200 * 1024 * 1024);
+    closeSync(fd);
+    const start = Date.now();
+    const r = spawnSync('node', [hookPath], { input: '', encoding: 'utf8', env: { ...process.env, CLAUDE_PROJECT_DIR: project }, timeout: 5000 });
+    const elapsed = Date.now() - start;
+    assert.notEqual(r.signal, 'SIGTERM', 'the hook was killed for exceeding the timeout on a 200 MB file');
+    assert.equal(r.status, 0);
+    assert.ok(elapsed < 5000, 'a bounded read must not scale with file size');
+    const out = JSON.parse(r.stdout);
+    assert.match(out.hookSpecificOutput.additionalContext, /route-gate:start/);
+    assert.ok(out.hookSpecificOutput.additionalContext.length < 5000, 'the injected context must stay bounded regardless of on-disk file size');
+  } finally {
+    rmSync(scratch, { recursive: true, force: true });
+    rmSync(project, { recursive: true, force: true });
   }
 });

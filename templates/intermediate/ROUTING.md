@@ -52,7 +52,7 @@ One writer per run; every other lane proposes. Search before writing, index in t
 
 ## Modifier rules
 
-- **Plan big, execute small**, within a build: deep tier plans at Checkpoint 1, the orchestrator executes, bulk and wide searches go down.{{INLINE_THRESHOLD_NOTE}}
+{{PLAN_BIG_LINE}}{{INLINE_THRESHOLD_NOTE}}
 - **Escalation:** never silently retry at the same tier. Escalate one tier or consult deep once, and say which. Two consults that do not unstick it → stop and tell the human.
 - **De-escalation:** a request that sounds deep but is a lookup routes down.
 - **Long context:** mechanical digestion → fast tier in chunks; judgment over a long input → standard tier.
