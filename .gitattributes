@@ -1,0 +1,14 @@
+# Force LF checkout on every OS, regardless of a contributor's core.autocrlf.
+# Several tests compare a file read from disk byte-for-byte against a string
+# assembled in memory with '\n' (docs/catalog.md vs catalogMarkdown(), the
+# generated README section, llms.txt); on windows-latest CI, git's default
+# core.autocrlf=true otherwise rewrites every text file to CRLF on checkout,
+# so the two never match even though nothing in the repo or the generator
+# changed. This is the fix, not a per-test CRLF strip: the checked-out bytes
+# stay what the repo actually stores.
+* text=auto eol=lf
+
+# Fixtures that must stay byte-for-byte what a real vendor produced (see
+# test/fixtures/README.md's compatibility table) are binary as far as git's
+# line-ending handling is concerned, whatever their extension.
+test/fixtures/* -text

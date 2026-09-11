@@ -75,18 +75,33 @@ export const REASONS = new Set([
 
 const LOG = join(homedir(), '.ai-orchestrator', 'cli-run.log.jsonl');
 
+// On win32, a PATH entry never holds a bare "grok": npm and vendor installers
+// drop "grok.cmd" (or .exe/.bat/.ps1), the same way any Windows shell resolves
+// a bare command through %PATHEXT%. Trying the bare name first keeps this a
+// no-op on POSIX and matches an already-extensioned name (a .exe someone put
+// on PATH directly) on Windows too. Kept in sync with src/detect.js's which(),
+// which this file cannot import: it ships standalone into a user's install.
+function candidateExtensions() {
+  if (process.platform !== 'win32') return [''];
+  const pathext = process.env.PATHEXT || '.COM;.EXE;.BAT;.CMD';
+  return ['', ...pathext.split(';').filter(Boolean)];
+}
+
 function which(bin) {
   const dirs = (process.env['PATH'] || '').split(delimiter).filter(Boolean);
   const home = homedir();
   dirs.push(join(home, '.local', 'bin'), join(home, '.grok', 'bin'), join(home, '.npm-global', 'bin'));
+  const exts = candidateExtensions();
   for (const d of dirs) {
-    const p = join(d, bin);
-    try {
-      if (!statSync(p).isFile()) continue; // a directory named like the binary is not the binary
-      accessSync(p, constants.X_OK);
-      return p;
-    } catch {
-      /* next */
+    for (const ext of exts) {
+      const p = join(d, bin + ext);
+      try {
+        if (!statSync(p).isFile()) continue; // a directory named like the binary is not the binary
+        accessSync(p, constants.X_OK);
+        return p;
+      } catch {
+        /* next */
+      }
     }
   }
   return null;

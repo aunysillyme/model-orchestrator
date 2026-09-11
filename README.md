@@ -72,7 +72,7 @@ An install has two targets, and a scripted run should set both.
 | Flag | Default | What lands there |
 |---|---|---|
 | `--dir` | `./ai-orchestrator` | the docs, protocols and (level 2+) `bin/cli-run.mjs`. Named after what it contains, not after this package, so a project can hold one without looking like a checkout of it. Pass `--dir ./model-orchestrator` if you prefer the package name. |
-| `--project` | the current directory | the subagent definitions, and the rules file your agent reads. Only Claude Code (`.claude/agents/`) and Antigravity (`.agents/agents/`) get files here, because that is the only place those CLIs look. Claude Code also gets two hook scripts in `.claude/hooks/`, wired by a settings snippet you merge yourself. |
+| `--project` | the current directory | the subagent definitions, and the rules file your agent reads. Only Claude Code (`.claude/agents/`) and Antigravity (`.agents/agents/`) get files here, because that is the only place those CLIs look. Claude Code also gets three hook scripts in `.claude/hooks/`, wired by a settings snippet you merge yourself. |
 
 `--project` defaulting to the current directory is the one that surprises people: run the command from your home folder with Claude Code as the primary and five agent files land in your home folder. The installer prints the resolved project path in the plan and says when you left it at the default. Set it.
 
@@ -100,7 +100,7 @@ ai-orchestrator/
   protocols/                build-protocol · propagate · gap-analysis · deep-research · numbers-and-logic · memory-and-record
   CODECALC.md  OBSIDIAN-TC.md  mcp/   companion-tool install docs + per-agent registration snippets (if selected)
   <project>/.claude/agents/ one per tier plus finding-verifier, done-verifier, reader, at the PROJECT root (if Claude Code is primary)
-  <project>/.claude/hooks/  route-gate.mjs (UserPromptSubmit) + subagent-context.mjs (SubagentStart), Claude Code only
+  <project>/.claude/hooks/  route-gate.mjs (UserPromptSubmit) + subagent-context.mjs (SubagentStart) + route-metrics.mjs (all five: see "Measuring routing" below), Claude Code only
   CLAUDE.snippet.md         the block to paste into your CLAUDE.md
   settings.hooks.snippet.json  the hooks block to merge into .claude/settings.json (Claude Code only)
   ROUTING.md                multi-lane decision tree (level 2+)
@@ -204,6 +204,17 @@ itself.
 ## Two more fast-tier checks
 
 `done-verifier` probes the artifact a tracker item's done-signal names (a file, a commit, a URL, a log line, a count) and returns MET, NOT_MET or UNVERIFIABLE; it never closes or edits anything itself. It carries no file-editing tools, but on claude-code it does carry `Bash` for those probes (`git log`, `grep`, `wc -l`, `test -f`); staying to read-only commands there is a rule in its prompt, not a restriction on the tool grant, and its own description says so. On agy, `commandExecutionPolicy: off` blocks command execution mechanically instead. `reader` is the one that is read-only by tool grant on both: no `Write`, `Edit`, or `Bash`. It reads and digests many files or notes and hands back exactly what the brief asked for, cited by `path:line`; it never classifies, tags or writes, which is what separates it from `bulk-worker`. Both ship in the claude-code and agy agent sets, at the fast tier.
+
+## Measuring routing
+
+A routing rule nobody measures is a rule nobody knows is followed. On a claude-code install, `route-metrics.mjs` (the third hook, wired to `UserPromptSubmit`, `PreToolUse` on `Agent`/`Task`, `SubagentStart`, `SubagentStop` and `Stop`) turns each of those into one JSON line under `~/.ai-orchestrator/route-metrics.jsonl`: a turn started, a subagent was dispatched (and with what, and in the background or not), a subagent started and stopped (so a duration can be computed), and the lane your agent named in its own hidden `<!-- route: <lane> | <why> -->` marker, which the route-gate block now asks for on every reply. It never logs prompt text, tool descriptions, or the "why" half of the marker: only the named fields above, charset-bounded, same principle as `cli-run.mjs`'s log.
+
+```bash
+node .claude/hooks/route-metrics.mjs --summary                        # since the log began
+node .claude/hooks/route-metrics.mjs --summary --since 2026-09-01     # since a date
+```
+
+The report prints turns, **route-marker coverage** (the percentage of turns whose `Stop` event carried a real lane, not `missing`, which is the number that answers "is the agent actually tagging its routing decisions?"), lanes by count, dispatches by `subagent_type`, dispatches with no matching start (a hook or guard blocked the subagent before it launched), and mean/max duration per agent type. Fail-open by design, like the other two hooks: a miss here is a missing log line, never a blocked turn, and it prints nothing to stdout on any event since stdout on `UserPromptSubmit`/`SubagentStart` becomes model context.
 
 ## Pin the route, or know that you did not
 

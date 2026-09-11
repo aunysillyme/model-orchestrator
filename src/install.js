@@ -251,6 +251,8 @@ export function routeGateSection(selected) {
     "Stay inline only when: (a) the brief would cost as much as the work itself, (b) the task needs this conversation's own context, (c) it is the human's decision or the final verification of delegated work (a delegate never verifies itself).",
     '',
     'Never: the built-in Explore or Plan agents for rule-bound work (they skip CLAUDE.md). general-purpose taking work a named agent already owns.',
+    '',
+    'End every reply with a hidden marker: `<!-- route: <lane> | <why, a few words> -->`. The route-metrics hook reads only the lane out of it, so routing coverage can be measured instead of assumed.',
     '<!-- route-gate:end -->'
   ].join('\n');
 }
@@ -360,7 +362,7 @@ export function activationSteps(opts) {
   if (primary && primary.agentsDir) steps.push(`subagents are in ${join(projectAbs, primary.agentsDir)}; run ${primary.bin} from ${projectAbs} to pick them up`);
   // Only claude-code ships hooks (route-gate, subagent-context): the wiring
   // lives in a snippet, never written into a settings.json the user already has.
-  if (subagentsLoadRules(primary)) steps.push(`merge the hooks in ${join(dirAbs, 'settings.hooks.snippet.json')} into ${join(projectAbs, '.claude', 'settings.json')} (create it if missing) to wire the route-gate and subagent-context hooks`);
+  if (subagentsLoadRules(primary)) steps.push(`merge the hooks in ${join(dirAbs, 'settings.hooks.snippet.json')} into ${join(projectAbs, '.claude', 'settings.json')} (create it if missing) to wire the route-gate, subagent-context and route-metrics hooks`);
   for (const a of selected.filter((a) => a.bin && a.kind === 'agent-cli')) steps.push(`sign in to ${a.name}: ${a.auth}`);
   // A local runtime has a bin but no sign-in, so the agent-cli loop above skips it
   // and before this it appeared in no ordered list at any level (#26).
@@ -545,6 +547,11 @@ export function planFiles(opts) {
     // written into a settings.json they already have.
     add(join('.claude', 'hooks', 'route-gate.mjs'), render(readFileSync(join(TEMPLATES, 'agents', 'snippets', 'route-gate.mjs'), 'utf8'), v), 0o755, 'project');
     add(join('.claude', 'hooks', 'subagent-context.mjs'), render(readFileSync(join(TEMPLATES, 'agents', 'snippets', 'subagent-context.mjs'), 'utf8'), v), 0o755, 'project');
+    // route-metrics.mjs (0.1.16), claude-code only: five events (UserPromptSubmit,
+    // PreToolUse on Agent|Task, SubagentStart, SubagentStop, Stop) turned into one
+    // JSON line each under ~/.ai-orchestrator/, so a routing rule nobody measures
+    // is not a rule nobody knows is followed.
+    add(join('.claude', 'hooks', 'route-metrics.mjs'), render(readFileSync(join(TEMPLATES, 'agents', 'snippets', 'route-metrics.mjs'), 'utf8'), v), 0o755, 'project');
     add('settings.hooks.snippet.json', render(readFileSync(join(TEMPLATES, 'agents', 'snippets', 'settings.hooks.snippet.json'), 'utf8'), v));
   } else if (primary && primary.id === 'agy') {
     for (const f of walk(join(TEMPLATES, 'agents', 'agy'))) {

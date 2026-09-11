@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { spawnSync, spawn } from 'node:child_process';
 import { mkdtempSync, existsSync, rmSync, readFileSync, symlinkSync, writeFileSync, mkdirSync, utimesSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { dirname } from 'node:path';
+import { dirname, delimiter, basename } from 'node:path';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -11,6 +11,70 @@ import { fileURLToPath } from 'node:url';
 const CLI = fileURLToPath(new URL('../bin/cli.js', import.meta.url));
 const CLI_RUN = fileURLToPath(new URL('../bin/cli-run.mjs', import.meta.url));
 const run = (args, opts = {}) => spawnSync(process.execPath, [CLI, ...args], { encoding: 'utf8', ...opts });
+
+// ---- Windows support for this file's fake-lane fixtures ----
+//
+// A fake lane binary is a #!/bin/sh script on POSIX, exactly how a real
+// vendor's shim looks; Windows cannot execute a shebang script as argv[0].
+// This file's CI job runs under Git Bash (.github/workflows/test.yml sets
+// defaults.run.shell: bash), so sh.exe (and the coreutils these bodies use:
+// sleep, kill) are already reachable from THIS process's own PATH, in the
+// same directory as sh.exe. writeShellStub()/writeNodeStub() below write a
+// tiny .cmd launcher there that hands off to it, so every test BODY stays
+// identical POSIX shell (or a plain Node script) on every OS: the behavior
+// under test (cli-run.mjs's own spawn, timeout, signal and process-group
+// handling) is exercised for real, not skipped. which()'s %PATHEXT% fix
+// (src/detect.js) is what lets the installed name resolve to the .cmd.
+function findPosixToolsDir() {
+  if (process.platform !== 'win32') return null;
+  for (const dir of (process.env.PATH || '').split(delimiter)) {
+    if (dir && existsSync(join(dir, 'sh.exe'))) return dir;
+  }
+  return null;
+}
+const WIN_SH_DIR = findPosixToolsDir();
+
+// Writes a fake lane binary at binPath (no extension) whose body is POSIX
+// shell. body must not depend on argv beyond "$@"/"$1" etc., which survive
+// the Windows .cmd -> sh hop unchanged.
+function writeShellStub(binPath, body) {
+  if (process.platform === 'win32') {
+    writeFileSync(binPath + '.sh', '#!/bin/sh\n' + body + '\n');
+    writeFileSync(binPath + '.cmd', '@sh "%~dp0' + basename(binPath) + '.sh" %*\r\n');
+  } else {
+    writeFileSync(binPath, '#!/bin/sh\n' + body + '\n', { mode: 0o755 });
+  }
+}
+
+// Same idea for a fake lane whose body is a plain Node script rather than a
+// shell one (used where the fixture needs real byte-level control that `sh`
+// cannot express, such as writing raw bytes to stdout on a timer).
+function writeNodeStub(binPath, jsBody) {
+  if (process.platform === 'win32') {
+    writeFileSync(binPath + '.mjs', jsBody);
+    writeFileSync(binPath + '.cmd', '@node "%~dp0' + basename(binPath) + '.mjs" %*\r\n');
+  } else {
+    writeFileSync(binPath, '#!' + process.execPath + '\n' + jsBody, { mode: 0o755 });
+  }
+}
+
+// { PATH, HOME } is how most tests below build a deliberately narrow child
+// env (no inherited PATH, so a real vendor CLI elsewhere on the machine
+// cannot leak into a test that expects only the stub). Windows needs
+// USERPROFILE too (os.homedir() does not consult HOME there) and benefits
+// from the rest of process.env surviving (SystemRoot and friends, which a
+// bare two-key env object silently drops and Windows can be picky about).
+function winEnv(pathValue, home) {
+  return { ...process.env, PATH: pathValue, HOME: home, USERPROFILE: home };
+}
+
+// A bin dir holding only stub lanes needs sh.exe alongside it on win32 too,
+// since the .cmd wrapper written by writeShellStub() calls out to sh; on
+// POSIX the bin dir alone is enough (sh is invoked by the OS via shebang,
+// with echo/kill/sleep resolved by that sh itself, not by this PATH).
+function withSh(bin) {
+  return process.platform === 'win32' ? [bin, WIN_SH_DIR].filter(Boolean).join(delimiter) : bin;
+}
 
 test('--help and --list exit 0 and mention every level', () => {
   const h = run(['--help']);
@@ -148,19 +212,19 @@ test('cli-run: a malformed lanes.json refuses every lane without spawning anythi
   const bin = join(d, 'bin');
   mkdirSync(bin);
   const marker = join(d, 'spawned');
-  writeFileSync(join(bin, 'grok'), `#!/bin/sh\ntouch "${marker}"\necho '{"stopReason":"end_turn","text":"hi"}'\n`, { mode: 0o755 });
+  writeShellStub(join(bin, 'grok'), `touch "${marker}"\necho '{"stopReason":"end_turn","text":"hi"}'`);
   const copy = join(d, 'cli-run.mjs');
   writeFileSync(copy, readFileSync(CLI_RUN));
   writeFileSync(join(d, 'lanes.json'), '{bad');
-  const r = spawnSync(process.execPath, [copy, 'grok', 'p', '--quiet'], { encoding: 'utf8', env: { PATH: bin, HOME: d } });
+  const r = spawnSync(process.execPath, [copy, 'grok', 'p', '--quiet'], { encoding: 'utf8', env: winEnv(withSh(bin), d) });
   assert.equal(r.status, 13, r.stderr);
   assert.match(r.stderr, /lanes\.json exists but is not a valid/);
   assert.ok(!existsSync(marker), 'the lane binary was spawned despite a malformed lanes.json');
   // a valid lanes.json that disables the lane is also 13, and absent means enabled
   writeFileSync(join(d, 'lanes.json'), '{"enabled":["codex"]}');
-  assert.equal(spawnSync(process.execPath, [copy, 'grok', 'p', '--quiet'], { encoding: 'utf8', env: { PATH: bin, HOME: d } }).status, 13);
+  assert.equal(spawnSync(process.execPath, [copy, 'grok', 'p', '--quiet'], { encoding: 'utf8', env: winEnv(withSh(bin), d) }).status, 13);
   rmSync(join(d, 'lanes.json'));
-  const ok = spawnSync(process.execPath, [copy, 'grok', 'p', '--quiet'], { encoding: 'utf8', env: { PATH: bin, HOME: d } });
+  const ok = spawnSync(process.execPath, [copy, 'grok', 'p', '--quiet'], { encoding: 'utf8', env: winEnv(withSh(bin), d) });
   assert.equal(ok.status, 0, ok.stderr);
   assert.equal(ok.stdout.trim(), 'hi');
   rmSync(d, { recursive: true, force: true });
@@ -170,8 +234,8 @@ test('cli-run: a lane killed by a signal is exit 10, never 0, even if it printed
   const d = mkdtempSync(join(tmpdir(), 'orch-sig-'));
   const bin = join(d, 'bin');
   mkdirSync(bin);
-  writeFileSync(join(bin, 'grok'), '#!/bin/sh\necho \'{"stopReason":"end_turn","text":"hi"}\'\nkill -TERM $$\n', { mode: 0o755 });
-  const r = spawnSync(process.execPath, [CLI_RUN, 'grok', 'p'], { encoding: 'utf8', env: { PATH: bin, HOME: d } });
+  writeShellStub(join(bin, 'grok'), 'echo \'{"stopReason":"end_turn","text":"hi"}\'\nkill -TERM $$');
+  const r = spawnSync(process.execPath, [CLI_RUN, 'grok', 'p'], { encoding: 'utf8', env: winEnv(withSh(bin), d) });
   assert.equal(r.status, 10, r.stdout + r.stderr);
   assert.match(r.stderr, /killed by SIGTERM/);
   assert.equal(r.stdout, '', 'a killed lane must not print the partial deliverable');
@@ -182,8 +246,8 @@ test('cli-run: the log carries a prompt digest, never the prompt text', () => {
   const d = mkdtempSync(join(tmpdir(), 'orch-log-'));
   const bin = join(d, 'bin');
   mkdirSync(bin);
-  writeFileSync(join(bin, 'grok'), '#!/bin/sh\necho \'{"stopReason":"end_turn","text":"hi"}\'\n', { mode: 0o755 });
-  const r = spawnSync(process.execPath, [CLI_RUN, 'grok', 'sensitive-marker-text', '--quiet'], { encoding: 'utf8', env: { PATH: bin, HOME: d } });
+  writeShellStub(join(bin, 'grok'), 'echo \'{"stopReason":"end_turn","text":"hi"}\'');
+  const r = spawnSync(process.execPath, [CLI_RUN, 'grok', 'sensitive-marker-text', '--quiet'], { encoding: 'utf8', env: winEnv(withSh(bin), d) });
   assert.equal(r.status, 0, r.stderr);
   const log = readFileSync(join(d, '.ai-orchestrator', 'cli-run.log.jsonl'), 'utf8');
   assert.doesNotMatch(log, /sensitive-marker-text/);
@@ -194,7 +258,7 @@ test('cli-run: the log carries a prompt digest, never the prompt text', () => {
 test('a directory named like a binary is not detected as installed', () => {
   const d = mkdtempSync(join(tmpdir(), 'orch-which-'));
   mkdirSync(join(d, 'agy'));
-  const r = run(['--list'], { env: { PATH: d, HOME: d } });
+  const r = run(['--list'], { env: winEnv(d, d) });
   assert.equal(r.status, 0, r.stderr);
   const agyBlock = r.stdout.split('\n').find((l) => l.startsWith('agy'));
   const next = r.stdout.split('\n')[r.stdout.split('\n').indexOf(agyBlock) + 1];
@@ -204,7 +268,7 @@ test('a directory named like a binary is not detected as installed', () => {
 
 // ---- audit round 2 fixes ----
 test('cli-run: value flags need values, one prompt only, no stray positionals', () => {
-  const r = (args) => spawnSync(process.execPath, [CLI_RUN, ...args], { encoding: 'utf8', env: { PATH: '', HOME: tmpdir() } });
+  const r = (args) => spawnSync(process.execPath, [CLI_RUN, ...args], { encoding: 'utf8', env: winEnv('', tmpdir()) });
   assert.equal(r(['qwen', 'p', '--model']).status, 2);
   const eaten = r(['qwen', 'p', '--model', '--safe-mode']);
   assert.equal(eaten.status, 2, 'a flag was consumed as the model id');
@@ -220,8 +284,8 @@ test('cli-run: provider message text reaches stderr but never the durable log', 
   const d = mkdtempSync(join(tmpdir(), 'orch-plog-'));
   const bin = join(d, 'bin');
   mkdirSync(bin);
-  writeFileSync(join(bin, 'qwen'), `#!/bin/sh\necho '[{"type":"result","subtype":"error","error":{"message":"PRIVATE_MARKER_FROM_PROVIDER"}}]'\n`, { mode: 0o755 });
-  const r = spawnSync(process.execPath, [CLI_RUN, 'qwen', 'p'], { encoding: 'utf8', env: { PATH: bin, HOME: d } });
+  writeShellStub(join(bin, 'qwen'), `echo '[{"type":"result","subtype":"error","error":{"message":"PRIVATE_MARKER_FROM_PROVIDER"}}]'`);
+  const r = spawnSync(process.execPath, [CLI_RUN, 'qwen', 'p'], { encoding: 'utf8', env: winEnv(withSh(bin), d) });
   assert.equal(r.status, 10, r.stderr);
   assert.match(r.stderr, /PRIVATE_MARKER_FROM_PROVIDER/, 'the operator should still see the provider message on stderr');
   const log = readFileSync(join(d, '.ai-orchestrator', 'cli-run.log.jsonl'), 'utf8');
@@ -258,21 +322,21 @@ test('cli-run --doctor reports enabled lanes and binaries, refuses a lane argume
   const d = mkdtempSync(join(tmpdir(), 'orch-doc-'));
   const bin = join(d, 'bin');
   mkdirSync(bin);
-  writeFileSync(join(bin, 'grok'), '#!/bin/sh\necho \'{"stopReason":"end_turn","text":"OK"}\'\n', { mode: 0o755 });
+  writeShellStub(join(bin, 'grok'), 'echo \'{"stopReason":"end_turn","text":"OK"}\'');
   const copy = join(d, 'cli-run.mjs');
   writeFileSync(copy, readFileSync(CLI_RUN));
   writeFileSync(join(d, 'lanes.json'), '{"enabled":["grok","codex"]}');
-  const r = spawnSync(process.execPath, [copy, '--doctor'], { encoding: 'utf8', env: { PATH: bin, HOME: d } });
+  const r = spawnSync(process.execPath, [copy, '--doctor'], { encoding: 'utf8', env: winEnv(withSh(bin), d) });
   assert.equal(r.status, 10, r.stdout + r.stderr);
   assert.match(r.stdout, /grok\s+enabled\s+binary ok/);
   assert.match(r.stdout, /codex\s+enabled\s+binary MISSING/);
   assert.match(r.stdout, /1 problem/);
   writeFileSync(join(d, 'lanes.json'), '{"enabled":["grok"]}');
-  const ok = spawnSync(process.execPath, [copy, '--doctor', '--run'], { encoding: 'utf8', env: { PATH: bin, HOME: d } });
+  const ok = spawnSync(process.execPath, [copy, '--doctor', '--run'], { encoding: 'utf8', env: winEnv(withSh(bin), d) });
   assert.equal(ok.status, 0, ok.stdout + ok.stderr);
   assert.match(ok.stdout, /canary ok/);
-  assert.equal(spawnSync(process.execPath, [copy, '--doctor', 'grok'], { encoding: 'utf8', env: { PATH: bin, HOME: d } }).status, 2);
-  assert.equal(spawnSync(process.execPath, [copy, 'grok', 'p', '--run'], { encoding: 'utf8', env: { PATH: bin, HOME: d } }).status, 2);
+  assert.equal(spawnSync(process.execPath, [copy, '--doctor', 'grok'], { encoding: 'utf8', env: winEnv(withSh(bin), d) }).status, 2);
+  assert.equal(spawnSync(process.execPath, [copy, 'grok', 'p', '--run'], { encoding: 'utf8', env: winEnv(withSh(bin), d) }).status, 2);
   rmSync(d, { recursive: true, force: true });
 });
 
@@ -287,11 +351,20 @@ test('--list names the metered providers separately from the AIs', () => {
 function stubLane(d, lane, body) {
   const bin = join(d, 'bin');
   if (!existsSync(bin)) mkdirSync(bin);
-  writeFileSync(join(bin, lane), '#!/bin/sh\n' + body + '\n', { mode: 0o755 });
+  writeShellStub(join(bin, lane), body);
   return bin;
 }
-const withNode = (bin) => `${bin}:${dirname(process.execPath)}:/usr/bin:/bin`;
-const runLane = (args, env) => spawnSync(process.execPath, [CLI_RUN, ...args], { encoding: 'utf8', env });
+const withNode = (bin) =>
+  process.platform === 'win32'
+    ? [bin, dirname(process.execPath), WIN_SH_DIR].filter(Boolean).join(delimiter)
+    : [bin, dirname(process.execPath), '/usr/bin', '/bin'].join(delimiter);
+// Every runLane() caller already builds its PATH deliberately (withNode(bin),
+// scoped to the fake lane only); this just fills in the rest of a usable
+// child env around that choice: process.env for whatever Windows itself
+// needs (SystemRoot, ComSpec, ...), and USERPROFILE alongside whatever HOME
+// the caller set, so os.homedir() resolves the same sandboxed directory on
+// every OS without touching each call site individually.
+const runLane = (args, env) => spawnSync(process.execPath, [CLI_RUN, ...args], { encoding: 'utf8', env: { ...process.env, ...env, USERPROFILE: (env && (env.HOME ?? env.USERPROFILE)) ?? process.env.USERPROFILE } });
 
 test('#1: a background child of the lane does not survive the timeout', async () => {
   const d = mkdtempSync(join(tmpdir(), 'orch-pg-'));
@@ -400,12 +473,12 @@ test('#8: the interactive install spawns npm with the same pinned spec the table
   const bin = join(d, 'bin');
   mkdirSync(bin);
   const captured = join(d, 'npm-argv.txt');
-  writeFileSync(join(bin, 'npm'), `#!/bin/sh\necho "$@" > "${captured}"\nexit 0`, { mode: 0o755 });
+  writeShellStub(join(bin, 'npm'), `echo "$@" > "${captured}"\nexit 0`);
   // codex is NOT on this PATH, so the installer offers to install it; answer y.
   const r = run(['--level', '1', '--ais', 'codex', '--primary', 'codex', '--no-tools', '--dir', join(d, 'out'), '--project', join(d, 'proj')], {
     input: 'y\ny\n',
     // PATH deliberately excludes /usr/bin: a machine with a real codex there would skip the install prompt.
-    env: { PATH: `${bin}:${dirname(process.execPath)}:/bin`, HOME: d }
+    env: winEnv(process.platform === 'win32' ? [bin, dirname(process.execPath), WIN_SH_DIR].filter(Boolean).join(delimiter) : [bin, dirname(process.execPath), '/bin'].join(delimiter), d)
   });
   assert.equal(r.status, 0, r.stderr + r.stdout);
   assert.ok(existsSync(captured), 'the installer never offered to install codex (is a real codex on this PATH?):\n' + r.stdout);
@@ -450,7 +523,7 @@ test('#14: multibyte UTF-8 split across chunks survives on stdout and stderr, an
   for (let i = 1; i < payload.length; i++) if ((payload[i] & 0xc0) === 0x80) cuts.push(i); // continuation bytes
   assert.ok(cuts.length >= 6, 'test payload must contain multibyte characters');
   for (const cut of cuts.slice(0, 6)) {
-    writeFileSync(join(bin, 'grok'), `#!${process.execPath}\nconst b=Buffer.from(${JSON.stringify(payload.toString('base64'))},'base64');process.stdout.write(b.subarray(0,${cut}));process.stderr.write(Buffer.from('é'.repeat(3)).subarray(0,1));setTimeout(()=>{process.stdout.write(b.subarray(${cut}));process.stderr.write(Buffer.from('é'.repeat(3)).subarray(1));},60);\n`, { mode: 0o755 });
+    writeNodeStub(join(bin, 'grok'), `const b=Buffer.from(${JSON.stringify(payload.toString('base64'))},'base64');process.stdout.write(b.subarray(0,${cut}));process.stderr.write(Buffer.from('é'.repeat(3)).subarray(0,1));setTimeout(()=>{process.stdout.write(b.subarray(${cut}));process.stderr.write(Buffer.from('é'.repeat(3)).subarray(1));},60);\n`);
     const r = runLane(['grok', 't', '--quiet'], { PATH: withNode(bin), HOME: d });
     assert.equal(r.status, 0, r.stderr);
     assert.equal(r.stdout.trim(), text, `split at byte ${cut} corrupted the text: ${r.stdout}`);
@@ -467,7 +540,7 @@ test('#13: SIGTERM and SIGINT to the wrapper kill the lane before it can write, 
     const marker = join(d, 'after-interruption');
     const ready = join(d, 'ready');
     const bin = stubLane(d, 'grok', `echo ready > "${ready}"\n/bin/sleep 0.7\necho survived > "${marker}"`);
-    const p = spawn(process.execPath, [CLI_RUN, 'grok', 't', '--timeout', '5', '--quiet'], { env: { PATH: withNode(bin), HOME: d }, stdio: 'ignore' });
+    const p = spawn(process.execPath, [CLI_RUN, 'grok', 't', '--timeout', '5', '--quiet'], { env: winEnv(withNode(bin), d), stdio: 'ignore' });
     for (let i = 0; i < 200 && !existsSync(ready); i++) await new Promise((r) => setTimeout(r, 10));
     assert.ok(existsSync(ready), 'stub did not start; this is not a passing cleanup test');
     const ended = new Promise((r) => p.on('exit', (c, s) => r({ c, s })));
@@ -554,15 +627,15 @@ test('cli-run --doctor explains why the primary agent is not a lane, and says no
   writeFileSync(copy, readFileSync(CLI_RUN));
   writeFileSync(join(d, 'bin', 'lanes.json'), '{"enabled":[]}');
   writeFileSync(join(d, 'MANIFEST.json'), JSON.stringify({ primary: 'claude-code' }));
-  const r = spawnSync(process.execPath, [copy, '--doctor'], { encoding: 'utf8', env: { PATH: '/nonexistent', HOME: d } });
+  const r = spawnSync(process.execPath, [copy, '--doctor'], { encoding: 'utf8', env: winEnv('/nonexistent', d) });
   assert.equal(r.status, 13, r.stdout + r.stderr);
   assert.match(r.stdout, /note: claude-code is the primary agent and is not an executable lane/);
   writeFileSync(join(d, 'bin', 'lanes.json'), '{"enabled":["codex"]}');
   writeFileSync(join(d, 'MANIFEST.json'), JSON.stringify({ primary: 'codex' }));
-  const r2 = spawnSync(process.execPath, [copy, '--doctor'], { encoding: 'utf8', env: { PATH: '/nonexistent', HOME: d } });
+  const r2 = spawnSync(process.execPath, [copy, '--doctor'], { encoding: 'utf8', env: winEnv('/nonexistent', d) });
   assert.doesNotMatch(r2.stdout, /is the primary agent/);
   writeFileSync(join(d, 'MANIFEST.json'), '{"primary": "../evil; rm"}');
-  assert.doesNotMatch(spawnSync(process.execPath, [copy, '--doctor'], { encoding: 'utf8', env: { PATH: '/nonexistent', HOME: d } }).stdout, /evil/, 'a manifest primary that is not a catalog-shaped id is ignored');
+  assert.doesNotMatch(spawnSync(process.execPath, [copy, '--doctor'], { encoding: 'utf8', env: winEnv('/nonexistent', d) }).stdout, /evil/, 'a manifest primary that is not a catalog-shaped id is ignored');
   rmSync(d, { recursive: true, force: true });
 });
 
@@ -666,7 +739,7 @@ test('chat-only level 2 warns and doctor refuses zero lanes, including --run', (
     assert.equal(r.status, 0, r.stderr);
     assert.match(r.stdout, /no executable lanes selected; delegation is inactive/);
     for (const flags of [['--doctor'], ['--doctor', '--run']]) {
-      const check = spawnSync(process.execPath, [join(d, 'docs', 'bin', 'cli-run.mjs'), ...flags], { encoding: 'utf8', env: { PATH: '/nonexistent', HOME: d } });
+      const check = spawnSync(process.execPath, [join(d, 'docs', 'bin', 'cli-run.mjs'), ...flags], { encoding: 'utf8', env: winEnv('/nonexistent', d) });
       assert.equal(check.status, 13, check.stdout + check.stderr);
       assert.match(check.stderr, /inactive: no executable lanes/);
       assert.doesNotMatch(check.stdout, /all enabled lanes|it calls cli-run/);

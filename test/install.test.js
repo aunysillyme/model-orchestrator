@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, existsSync, rmSync, writeFileSync, statSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, delimiter } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { planFiles, writeFiles, resolveSelection, resolveApis, gatewayModels, envNames, laneVars, activationSteps, proofSteps, snippetFor } from '../src/install.js';
@@ -23,9 +23,9 @@ test('planning is pure and level-additive', () => {
   const rels = (p) => new Set(p.map((f) => f.rel));
   for (const r of rels(l1)) assert.ok(rels(l2).has(r), 'level 2 dropped ' + r);
   for (const r of rels(l2)) assert.ok(rels(l3).has(r), 'level 3 dropped ' + r);
-  assert.ok(rels(l1).has('README.md') && rels(l1).has('ORCHESTRATOR.md') && rels(l1).has('protocols/build-protocol.md'));
+  assert.ok(rels(l1).has('README.md') && rels(l1).has('ORCHESTRATOR.md') && rels(l1).has(join('protocols', 'build-protocol.md')));
   assert.ok(!rels(l1).has('ROUTING.md') && rels(l2).has('ROUTING.md'));
-  assert.ok(!rels(l2).has('vm/README.md') && rels(l3).has('vm/README.md'));
+  assert.ok(!rels(l2).has(join('vm', 'README.md')) && rels(l3).has(join('vm', 'README.md')));
 });
 
 test('no rendered file still contains a placeholder, at any level, for any primary', () => {
@@ -44,14 +44,14 @@ test('the primary decides the loading surface, and repo READMEs are not installe
   const rels = (p) => planFiles(p).map((f) => f.rel);
   const ccFiles = planFiles({ level: 1, selected: sel('claude-code'), primary: byId['claude-code'] });
   const cc = ccFiles.map((f) => f.rel);
-  assert.ok(cc.includes('.claude/agents/deep-planner.md') && cc.includes('CLAUDE.snippet.md'));
-  assert.ok(cc.includes('.claude/agents/finding-verifier.md'), 'the finding-verifier must ship with the Claude Code agent set');
-  assert.equal(ccFiles.find((f) => f.rel === '.claude/agents/deep-planner.md').root, 'project', 'subagents must target the project root');
+  assert.ok(cc.includes(join('.claude', 'agents', 'deep-planner.md')) && cc.includes('CLAUDE.snippet.md'));
+  assert.ok(cc.includes(join('.claude', 'agents', 'finding-verifier.md')), 'the finding-verifier must ship with the Claude Code agent set');
+  assert.equal(ccFiles.find((f) => f.rel === join('.claude', 'agents', 'deep-planner.md')).root, 'project', 'subagents must target the project root');
   assert.equal(ccFiles.find((f) => f.rel === 'CLAUDE.snippet.md').root, 'dir');
-  assert.ok(!cc.includes('.claude/agents/README.md'), 'a README inside .claude/agents would be parsed as an agent');
+  assert.ok(!cc.includes(join('.claude', 'agents', 'README.md')), 'a README inside .claude/agents would be parsed as an agent');
   const agy = rels({ level: 1, selected: sel('agy'), primary: byId.agy });
-  assert.ok(agy.includes('.agents/agents/deep-planner.md') && agy.includes('GEMINI.snippet.md'));
-  assert.ok(agy.includes('.agents/agents/finding-verifier.md'), 'the finding-verifier must ship in the agy agent set too');
+  assert.ok(agy.includes(join('.agents', 'agents', 'deep-planner.md')) && agy.includes('GEMINI.snippet.md'));
+  assert.ok(agy.includes(join('.agents', 'agents', 'finding-verifier.md')), 'the finding-verifier must ship in the agy agent set too');
   const codex = rels({ level: 1, selected: sel('codex'), primary: byId.codex });
   assert.ok(codex.includes('AGENTS.snippet.md') && !codex.some((r) => r.startsWith('.claude/')));
   const chat = rels({ level: 1, selected: sel('chatgpt-app'), primary: byId['chatgpt-app'] });
@@ -76,7 +76,7 @@ test('generated gateway config references keys by name only, and only for keys t
 
 test('lanes.json lists only selected cli-run lanes', () => {
   const p = planFiles({ level: 2, selected: sel('claude-code', 'codex', 'ollama'), primary: byId['claude-code'] });
-  const lanes = JSON.parse(p.find((f) => f.rel === 'bin/lanes.json').content);
+  const lanes = JSON.parse(p.find((f) => f.rel === join('bin', 'lanes.json')).content);
   assert.deepEqual(lanes.enabled, ['codex']);
 });
 
@@ -93,7 +93,7 @@ test('writing to a temp dir produces the plan; a second run keeps existing files
     writeFileSync(join(dir, 'README.md'), 'mine');
     const second = writeFiles(files, { dir, project: dir });
     // machine-owned files (MANIFEST.json, bin/lanes.json) are always rewritten; documents are kept
-    assert.deepEqual(second.written.sort(), ['MANIFEST.json', 'bin/lanes.json']);
+    assert.deepEqual(second.written.sort(), ['MANIFEST.json', join('bin', 'lanes.json')]);
     assert.equal(second.skipped.length, files.length - 2);
     assert.equal(readFileSync(join(dir, 'README.md'), 'utf8'), 'mine', 'existing file was overwritten without --force');
 
@@ -119,12 +119,12 @@ test('resolveSelection reports unknown ids instead of guessing', () => {
 
 test('setup-vm.sh stays valid bash when nothing npm-installable is selected', () => {
   const p = planFiles({ level: 3, selected: sel('grok', 'agy'), primary: byId.agy });
-  const sh = p.find((f) => f.rel === 'vm/setup-vm.sh').content;
+  const sh = p.find((f) => f.rel === join('vm', 'setup-vm.sh')).content;
   assert.match(sh, /for pkg in ""; do/);
   assert.match(sh, /\[ -z "\$pkg" \] && continue/);
   const r = spawnSync('bash', ['-n'], { input: sh, encoding: 'utf8' });
   assert.equal(r.status, 0, 'bash -n rejected the rendered script: ' + r.stderr);
-  const full = planFiles({ level: 3, selected: sel('claude-code', 'codex', 'grok'), primary: byId['claude-code'] }).find((f) => f.rel === 'vm/setup-vm.sh').content;
+  const full = planFiles({ level: 3, selected: sel('claude-code', 'codex', 'grok'), primary: byId['claude-code'] }).find((f) => f.rel === join('vm', 'setup-vm.sh')).content;
   assert.equal(spawnSync('bash', ['-n'], { input: full, encoding: 'utf8' }).status, 0);
 });
 
@@ -168,17 +168,17 @@ test('the weekly audit is rendered for an enabled lane, the install dir, and ref
   assert.equal(auditLane(sel('claude-code', 'hermes', 'codex')), 'hermes');
   assert.equal(auditLane(sel('claude-code', 'ollama')), null);
   const withLane = planFiles({ level: 3, selected: sel('codex'), primary: byId.codex, dir: '/opt/custom-orch' });
-  const sh = withLane.find((f) => f.rel === 'vm/jobs/weekly-audit.sh').content;
+  const sh = withLane.find((f) => f.rel === join('vm', 'jobs', 'weekly-audit.sh')).content;
   assert.match(sh, /AUDIT_LANE="codex"/);
   assert.match(sh, /INSTALL_DIR='\/opt\/custom-orch'/);
   assert.match(sh, /audit-brief-.*\.md/, 'the composed brief is what the lane reads');
   assert.match(sh, /live-state\.md/);
   assert.doesNotMatch(sh, /exit 13/, 'guard must be empty when a lane exists');
-  const svc = withLane.find((f) => f.rel === 'vm/jobs/weekly-audit.service').content;
+  const svc = withLane.find((f) => f.rel === join('vm', 'jobs', 'weekly-audit.service')).content;
   assert.match(svc, /WorkingDirectory=\/opt\/custom-orch/);
   assert.match(svc, /ExecStart=\/bin\/bash "\/opt\/custom-orch\/vm\/jobs\/weekly-audit\.sh"/);
   const noLane = planFiles({ level: 3, selected: sel('claude-code', 'ollama'), primary: byId['claude-code'], dir: '/x' });
-  const sh2 = noLane.find((f) => f.rel === 'vm/jobs/weekly-audit.sh').content;
+  const sh2 = noLane.find((f) => f.rel === join('vm', 'jobs', 'weekly-audit.sh')).content;
   assert.match(sh2, /AUDIT_LANE="none"/);
   assert.match(sh2, /exit 13/);
   assert.equal(spawnSync('bash', ['-n'], { input: sh2, encoding: 'utf8' }).status, 0);
@@ -186,11 +186,11 @@ test('the weekly audit is rendered for an enabled lane, the install dir, and ref
 });
 
 test('the weekly audit refuses a gateway key that would inject curl config', () => {
-  const sh = planFiles({ level: 3, selected: sel('codex'), primary: byId.codex, dir: '/x' }).find((f) => f.rel === 'vm/jobs/weekly-audit.sh').content;
+  const sh = planFiles({ level: 3, selected: sel('codex'), primary: byId.codex, dir: '/x' }).find((f) => f.rel === join('vm', 'jobs', 'weekly-audit.sh')).content;
   const d = mkdtempSync(join(tmpdir(), 'orch-key-'));
   const script = join(d, 'a.sh');
   writeFileSync(script, sh.replace("INSTALL_DIR='/x'", `INSTALL_DIR='${d}'`));
-  const r = spawnSync('bash', [script], { encoding: 'utf8', env: { HOME: d, GATEWAY_MASTER_KEY: 'marker"\nheader = "X-Injected: yes' } });
+  const r = spawnSync('bash', [script], { encoding: 'utf8', env: { ...process.env, HOME: d, USERPROFILE: d, GATEWAY_MASTER_KEY: 'marker"\nheader = "X-Injected: yes' } });
   assert.equal(r.status, 2, r.stdout + r.stderr);
   assert.match(r.stderr, /must match/);
   rmSync(d, { recursive: true, force: true });
@@ -201,11 +201,11 @@ test('codecalc: selected writes CODECALC.md and snippets; the numbers-and-logic 
   assert.deepEqual(tools.map((t) => t.id), ['codecalc']);
   assert.deepEqual(unknown, ['nope']);
   const withTool = planFiles({ level: 1, selected: sel('codex'), primary: byId.codex, tools }).map((f) => f.rel);
-  assert.ok(withTool.includes('CODECALC.md') && withTool.includes('mcp/codex.config.toml') && withTool.includes('protocols/numbers-and-logic.md'));
+  assert.ok(withTool.includes('CODECALC.md') && withTool.includes(join('mcp', 'codex.config.toml')) && withTool.includes(join('protocols', 'numbers-and-logic.md')));
   const without = planFiles({ level: 1, selected: sel('codex'), primary: byId.codex, tools: [] });
   assert.ok(!without.some((f) => f.rel === 'CODECALC.md'));
-  assert.ok(without.some((f) => f.rel === 'protocols/numbers-and-logic.md'));
-  const nl = without.find((f) => f.rel === 'protocols/numbers-and-logic.md').content;
+  assert.ok(without.some((f) => f.rel === join('protocols', 'numbers-and-logic.md')));
+  const nl = without.find((f) => f.rel === join('protocols', 'numbers-and-logic.md')).content;
   assert.match(nl, /not selected/);
   assert.match(nl, /github\.com\/The-40-Thieves\/codecalc/);
 });
@@ -217,8 +217,8 @@ import { realpathSync } from 'node:fs';
 test('--dir is data in the rendered script and unit, never syntax', () => {
   const dir = '/tmp/safe"; echo DIR_INJECTED >&2; #';
   const files = planFiles({ level: 3, selected: sel('codex'), primary: byId.codex, dir, tools: [] });
-  const sh = files.find((f) => f.rel === 'vm/jobs/weekly-audit.sh').content;
-  const r = spawnSync('bash', ['-s'], { input: sh, encoding: 'utf8', env: { HOME: '/nonexistent' } });
+  const sh = files.find((f) => f.rel === join('vm', 'jobs', 'weekly-audit.sh')).content;
+  const r = spawnSync('bash', ['-s'], { input: sh, encoding: 'utf8', env: { ...process.env, HOME: '/nonexistent', USERPROFILE: '/nonexistent' } });
   // An executed injection prints a line that is exactly the marker. The
   // script's own "missing" message legitimately echoes the directory name as
   // data, marker included, so the oracle is the whole line, not a substring.
@@ -227,7 +227,7 @@ test('--dir is data in the rendered script and unit, never syntax', () => {
   assert.match(sh, /INSTALL_DIR='\/tmp\/safe"; echo DIR_INJECTED >&2; #'/);
   assert.equal(shellQuote("it's"), "'it'\\''s'");
   assert.equal(systemdEscape('/a/100%/b'), '/a/100%%/b');
-  const svc = planFiles({ level: 3, selected: sel('codex'), primary: byId.codex, dir: '/opt/100% sure', tools: [] }).find((f) => f.rel === 'vm/jobs/weekly-audit.service').content;
+  const svc = planFiles({ level: 3, selected: sel('codex'), primary: byId.codex, dir: '/opt/100% sure', tools: [] }).find((f) => f.rel === join('vm', 'jobs', 'weekly-audit.service')).content;
   assert.match(svc, /WorkingDirectory=\/opt\/100%% sure/);
   assert.match(svc, /ExecStart=\/bin\/bash "\/opt\/100%% sure\/vm\/jobs\/weekly-audit\.sh"/);
 });
@@ -290,11 +290,11 @@ test('obsidian-tc: optional, off by default, writes its doc and snippets only wh
   assert.match(tools[0].requires, /nomic-embed-text/);
   const withTool = planFiles({ level: 1, selected: sel('codex'), primary: byId.codex, tools }).map((f) => f.rel);
   assert.ok(withTool.includes('OBSIDIAN-TC.md'));
-  assert.ok(withTool.includes('mcp/obsidian-tc.codex.config.toml'));
-  assert.ok(withTool.includes('protocols/memory-and-record.md'));
+  assert.ok(withTool.includes(join('mcp', 'obsidian-tc.codex.config.toml')));
+  assert.ok(withTool.includes(join('protocols', 'memory-and-record.md')));
   const without = planFiles({ level: 1, selected: sel('codex'), primary: byId.codex, tools: [] });
   assert.ok(!without.some((f) => f.rel === 'OBSIDIAN-TC.md'));
-  const mr = without.find((f) => f.rel === 'protocols/memory-and-record.md').content;
+  const mr = without.find((f) => f.rel === join('protocols', 'memory-and-record.md')).content;
   assert.match(mr, /not selected/);
   assert.match(mr, /github\.com\/The-40-Thieves\/obsidian-tc/);
   const both = planFiles({ level: 2, selected: sel('claude-code'), primary: byId['claude-code'], tools: resolveTools(['codecalc', 'obsidian-tc']).tools }).map((f) => f.rel);
@@ -338,7 +338,7 @@ test('snippet paths and the agents note are computed from --dir and --project', 
   assert.match(same, /`\.\/ORCHESTRATOR\.md`/);
   const outside = planFiles({ level: 3, selected: sel('claude-code'), primary: byId['claude-code'], dir: '/elsewhere/orch', project: '/proj' });
   assert.match(outside.find((f) => f.rel === 'CLAUDE.snippet.md').content, /`\/elsewhere\/orch\/ROUTING\.md`/, 'a dir outside the project renders an absolute path (level 3 points at ROUTING.md)');
-  assert.match(outside.find((f) => f.rel === 'vm/box-CLAUDE.md').content, /\/elsewhere\/orch\/ROUTING\.md/);
+  assert.match(outside.find((f) => f.rel === join('vm', 'box-CLAUDE.md')).content, /\/elsewhere\/orch\/ROUTING\.md/);
   const readme = p.find((f) => f.rel === 'README.md').content;
   assert.match(readme, /cli-run\.log\.jsonl/, 'uninstall must name the log outside the folder');
   assert.match(readme, /\/proj\/\.claude\/agents/);
@@ -370,11 +370,11 @@ test('writeFiles honours two roots and rolls back across both', () => {
 
 test('pins: images and npm installs are versioned, and the pin reaches the rendered box files', () => {
   const p = planFiles({ level: 3, selected: sel('claude-code', 'codex', 'ollama'), primary: byId['claude-code'], dir: '/x', project: '/x', tools: resolveTools(['codecalc', 'obsidian-tc']).tools });
-  const compose = p.find((f) => f.rel === 'vm/docker-compose.yml').content;
+  const compose = p.find((f) => f.rel === join('vm', 'docker-compose.yml')).content;
   assert.doesNotMatch(compose, /:latest|main-latest/);
   assert.match(compose, /litellm:v\d+\.\d+\.\d+/);
   assert.match(compose, /ollama\/ollama:\d+\.\d+\.\d+/);
-  const sh = p.find((f) => f.rel === 'vm/setup-vm.sh').content;
+  const sh = p.find((f) => f.rel === join('vm', 'setup-vm.sh')).content;
   assert.match(sh, /@anthropic-ai\/claude-code@\d+\.\d+\.\d+/);
   assert.match(sh, /@openai\/codex@\d+\.\d+\.\d+/);
   assert.equal(spawnSync('bash', ['-n'], { input: sh, encoding: 'utf8' }).status, 0);
@@ -387,16 +387,16 @@ test('agy as primary renders concrete model tiers and a builder that may run com
   const orch = p.find((f) => f.rel === 'ORCHESTRATOR.md').content;
   assert.doesNotMatch(orch, /your strongest model/);
   assert.match(orch, /\| pro, highest effort/);
-  const builder = p.find((f) => f.rel === '.agents/agents/builder.md').content;
+  const builder = p.find((f) => f.rel === join('.agents', 'agents', 'builder.md')).content;
   assert.match(builder, /commandExecutionPolicy: auto/);
-  assert.match(p.find((f) => f.rel === '.agents/agents/code-reviewer.md').content, /commandExecutionPolicy: off/);
+  assert.match(p.find((f) => f.rel === join('.agents', 'agents', 'code-reviewer.md')).content, /commandExecutionPolicy: off/);
 });
 
 
 // ---- audit issues #2, #3, #10: the generated weekly audit, executed ----
 function renderAudit(lane, dir) {
   const files = planFiles({ level: 3, selected: sel(lane), primary: byId[lane === 'hermes' ? 'codex' : lane], dir, project: dir });
-  return { sh: files.find((f) => f.rel === 'vm/jobs/weekly-audit.sh').content, svc: files.find((f) => f.rel === 'vm/jobs/weekly-audit.service').content };
+  return { sh: files.find((f) => f.rel === join('vm', 'jobs', 'weekly-audit.sh')).content, svc: files.find((f) => f.rel === join('vm', 'jobs', 'weekly-audit.service')).content };
 }
 function stubTree(d, entries) {
   const bin = join(d, 'bin');
@@ -411,7 +411,7 @@ test('#2: the codex audit passes --audit and the script states the boundary; oth
   assert.match(sh, /cli-run\.mjs "\$AUDIT_LANE" \$AUDIT_LANE_FLAGS --brief/);
   assert.match(sh, /read-only filesystem sandbox/);
   const files = planFiles({ level: 3, selected: sel('codex', 'hermes'), primary: byId.codex, dir: '/x', project: '/x' });
-  const hermes = files.find((f) => f.rel === 'vm/jobs/weekly-audit.sh').content;
+  const hermes = files.find((f) => f.rel === join('vm', 'jobs', 'weekly-audit.sh')).content;
   assert.match(hermes, /AUDIT_LANE="hermes"/);
   assert.match(hermes, /AUDIT_LANE_FLAGS=""/);
   assert.match(hermes, /instruction-level only/);
@@ -434,7 +434,7 @@ test('#3: a failed rerun never truncates the previous report; failed output is k
   const stubs = stubTree(join(d, 'stubs'), { node: 'echo partial garbage\nexit 13', codex: 'echo codex 1.0', jq: 'cat >/dev/null; echo', curl: 'exit 7' });
   const script = join(d, 'weekly-audit.sh');
   writeFileSync(script, sh);
-  const r = spawnSync('bash', [script], { encoding: 'utf8', env: { PATH: `${stubs}:/usr/bin:/bin`, HOME: d } });
+  const r = spawnSync('bash', [script], { encoding: 'utf8', env: { ...process.env, PATH: `${stubs}${delimiter}/usr/bin${delimiter}/bin`, HOME: d, USERPROFILE: d } });
   assert.equal(r.status, 13, r.stdout + r.stderr);
   assert.equal(readFileSync(report, 'utf8'), 'previous successful report\n', 'the previous report was truncated');
   const failed = readdirSync(join(d, 'reports')).filter((f) => f.startsWith('failed-audit-') && f.endsWith('-rc13.md'));
@@ -442,7 +442,7 @@ test('#3: a failed rerun never truncates the previous report; failed output is k
   assert.match(r.stderr, /previous report kept/);
   // a clean run replaces it
   const ok = stubTree(join(d, 'stubs2'), { node: 'echo fresh report', codex: 'echo codex 1.0', jq: 'cat >/dev/null; echo', curl: 'exit 7' });
-  const r2 = spawnSync('bash', [script], { encoding: 'utf8', env: { PATH: `${ok}:/usr/bin:/bin`, HOME: d } });
+  const r2 = spawnSync('bash', [script], { encoding: 'utf8', env: { ...process.env, PATH: `${ok}${delimiter}/usr/bin${delimiter}/bin`, HOME: d, USERPROFILE: d } });
   assert.equal(r2.status, 0, r2.stderr);
   assert.equal(readFileSync(report, 'utf8'), 'fresh report\n');
   rmSync(d, { recursive: true, force: true });
@@ -468,7 +468,7 @@ test('#10: a hanging --version probe and a hanging gateway are cut off by the wa
   const script = join(d, 'weekly-audit.sh');
   writeFileSync(script, sh);
   const t0 = Date.now();
-  const r = spawnSync('bash', [script], { encoding: 'utf8', env: { PATH: `${stubs}:/usr/bin:/bin`, HOME: d, PROBE_SECS: '1', GATEWAY_MASTER_KEY: 'abc123' }, timeout: 20000 });
+  const r = spawnSync('bash', [script], { encoding: 'utf8', env: { ...process.env, PATH: `${stubs}${delimiter}/usr/bin${delimiter}/bin`, HOME: d, USERPROFILE: d, PROBE_SECS: '1', GATEWAY_MASTER_KEY: 'abc123' }, timeout: 20000 });
   const secs = (Date.now() - t0) / 1000;
   assert.equal(r.status, 0, r.stdout + r.stderr);
   assert.ok(secs < 12, `collection was not bounded: ${secs}s`);
@@ -653,27 +653,48 @@ test('the finding-verifier is read-only and can answer all three verdicts', () =
 // ---- delegate by default (0.1.15): delegate by default, claude-code only ----
 import { subagentsLoadRules, claudeAgentIds, routeGateTable, decisionRule5 } from '../src/install.js';
 
-test('claude-code --yes plan includes both hooks, the settings snippet, and both new agents; other primaries include none of it', () => {
+test('claude-code --yes plan includes all three hooks, the settings snippet, and both new agents; other primaries include none of it', () => {
   const cc = planFiles({ level: 2, selected: sel('claude-code'), primary: byId['claude-code'], dir: 'x', project: 'y' });
   const ccRels = cc.map((f) => f.rel);
   assert.ok(ccRels.includes(join('.claude', 'hooks', 'route-gate.mjs')), 'claude-code plan is missing route-gate.mjs');
   assert.ok(ccRels.includes(join('.claude', 'hooks', 'subagent-context.mjs')), 'claude-code plan is missing subagent-context.mjs');
+  assert.ok(ccRels.includes(join('.claude', 'hooks', 'route-metrics.mjs')), 'claude-code plan is missing route-metrics.mjs');
   assert.ok(ccRels.includes('settings.hooks.snippet.json'), 'claude-code plan is missing the settings snippet');
   assert.ok(ccRels.includes(join('.claude', 'agents', 'done-verifier.md')), 'claude-code plan is missing done-verifier');
   assert.ok(ccRels.includes(join('.claude', 'agents', 'reader.md')), 'claude-code plan is missing reader');
-  assert.equal(cc.find((f) => f.rel === join('.claude', 'hooks', 'route-gate.mjs')).mode, 0o755, 'hooks must be executable');
-  assert.equal(cc.find((f) => f.rel === join('.claude', 'hooks', 'route-gate.mjs')).root, 'project', 'hooks belong at the project root, like the agents Claude Code reads');
+  for (const hook of ['route-gate.mjs', 'subagent-context.mjs', 'route-metrics.mjs']) {
+    assert.equal(cc.find((f) => f.rel === join('.claude', 'hooks', hook)).mode, 0o755, hook + ' must be executable');
+    assert.equal(cc.find((f) => f.rel === join('.claude', 'hooks', hook)).root, 'project', hook + ' belongs at the project root, like the agents Claude Code reads');
+  }
 
   for (const id of ['codex', 'agy', 'chatgpt-app']) {
     const p = planFiles({ level: 2, selected: sel(id), primary: byId[id], dir: 'x', project: 'y' });
     const rels = p.map((f) => f.rel);
-    assert.ok(!rels.some((r) => r.includes('route-gate') || r.includes('subagent-context') || r.includes('settings.hooks')), `${id}: hooks leaked into a non-claude-code primary's plan`);
+    assert.ok(!rels.some((r) => r.includes('route-gate') || r.includes('subagent-context') || r.includes('route-metrics') || r.includes('settings.hooks')), `${id}: hooks leaked into a non-claude-code primary's plan`);
     // agy gets the same new agents in its own format, just no hooks (hooks are claude-code only).
     if (id === 'agy') {
       assert.ok(rels.includes(join('.agents', 'agents', 'done-verifier.md')));
       assert.ok(rels.includes(join('.agents', 'agents', 'reader.md')));
     }
   }
+});
+
+test('settings.hooks.snippet.json wires all five route-metrics events plus the two existing hooks', () => {
+  const cc = planFiles({ level: 2, selected: sel('claude-code'), primary: byId['claude-code'], dir: 'x', project: 'y' });
+  const snippet = JSON.parse(cc.find((f) => f.rel === 'settings.hooks.snippet.json').content);
+  const commandsFor = (event) => (snippet.hooks[event] || []).flatMap((g) => g.hooks.map((h) => h.args.join(' ')));
+  for (const event of ['UserPromptSubmit', 'PreToolUse', 'SubagentStart', 'SubagentStop', 'Stop']) {
+    assert.ok(snippet.hooks[event], event + ' is missing from the settings snippet');
+    assert.ok(commandsFor(event).some((c) => c.includes('route-metrics.mjs')), event + ' does not wire route-metrics.mjs');
+  }
+  assert.ok(commandsFor('UserPromptSubmit').some((c) => c.includes('route-gate.mjs')), 'UserPromptSubmit must keep route-gate.mjs');
+  assert.ok(commandsFor('SubagentStart').some((c) => c.includes('subagent-context.mjs')), 'SubagentStart must keep subagent-context.mjs');
+  assert.equal(snippet.hooks.PreToolUse[0].matcher, 'Agent|Task', 'PreToolUse must be scoped to Agent|Task, not every tool call');
+});
+
+test('the route-gate block ends with the hidden route marker instruction', () => {
+  const routing = planFiles({ level: 2, selected: sel('claude-code'), primary: byId['claude-code'], dir: 'x', project: 'y' }).find((f) => f.rel === 'ROUTING.md').content;
+  assert.match(routing, /<!-- route: <lane> \| <why, a few words> -->/, 'ROUTING.md route-gate block must instruct the hidden route marker');
 });
 
 test('ROUTING.md rule 5 names builder for claude-code and keeps "builds it directly" for codex', () => {
@@ -813,7 +834,7 @@ test('claude-code level 2 install contains none of the old orchestrator-writes-e
   assert.ok(stillPresent >= 3, 'codex should keep the conservative wording: it has no verified sub-agents premise');
 
   // The three specific surfaces the audit named, checked directly.
-  const bp = cc.find((f) => f.rel === 'protocols/build-protocol.md').content;
+  const bp = cc.find((f) => f.rel === join('protocols', 'build-protocol.md')).content;
   assert.match(bp, /Executes Stage 3 from the orchestrator's brief/);
   assert.match(bp, /Why Stage 3 goes to builder by default/);
   const builder = cc.find((f) => f.rel === join('.claude', 'agents', 'builder.md')).content;
