@@ -38,7 +38,7 @@ Every build gets two checkpoints. **Before writing:** you map what it touches an
 
 ## 4. Every hand-off carries a brief
 
-A subagent, a fresh chat, a second window holds none of your rules and reads an unspecified edge as an open one. The brief: purpose, task class, granted scope, capabilities, denied actions, conventions it does not have, report contract (what was not done, what is unverified), exit parameters (when to stop, and what to return if it hits the bound). Absence is denial.
+A subagent, a fresh chat, a second window may hold none of your rules, and that is the default to assume. The one documented exception is a Claude Code subagent: it loads the project's CLAUDE.md hierarchy at start, so it keeps the standing rules, just not this task's scope. Either way, it reads an unspecified edge as an open one. The brief: purpose, task class, granted scope, capabilities, denied actions, conventions it does not have, report contract (what was not done, what is unverified), exit parameters (when to stop, and what to return if it hits the bound). Absence is denial.
 
 ## 5. The second pass
 

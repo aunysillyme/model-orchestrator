@@ -193,6 +193,121 @@ export function laneVars(selected) {
   };
 }
 
+// Only claude-code has a verified sub-agents doc quote saying its subagents
+// load the project's CLAUDE.md hierarchy (code.claude.com/docs/en/sub-agents,
+// see the comment on the catalog entry). Every delegate-by-default surface below
+// (builder-by-default wording, the route-gate hook, the inline-threshold
+// note) is gated on this so a primary with no verified premise keeps the
+// original, more conservative wording.
+export function subagentsLoadRules(primary) {
+  return !!(primary && primary.subagentsLoadRules);
+}
+
+// Canonical agent order, tier-first. Used to render a stable, non-hardcoded
+// "available as" list for the claude-code snippet from the files actually
+// shipped, so a future agent addition or removal cannot leave the sentence
+// stale the way the finding-verifier omission did.
+const AGENT_ORDER = ['deep-planner', 'builder', 'code-reviewer', 'finding-verifier', 'live-researcher', 'bulk-worker', 'done-verifier', 'reader'];
+export function claudeAgentIds() {
+  const dir = join(TEMPLATES, 'agents', 'claude-code');
+  if (!existsSync(dir)) return [];
+  const files = readdirSync(dir).filter((f) => f.endsWith('.md') && f !== 'README.md').map((f) => f.replace(/\.md$/, ''));
+  const set = new Set(files);
+  const ordered = AGENT_ORDER.filter((id) => set.has(id));
+  const extra = files.filter((id) => !AGENT_ORDER.includes(id)).sort();
+  return [...ordered, ...extra];
+}
+
+// The compact "pick the lane before acting" table, rendered from the AIs the
+// user actually selected and the agents actually installed, never a second
+// hand-typed copy of ROUTING.md's decision tree.
+export function routeGateTable(selected) {
+  const rows = [
+    ['Bulk or mechanical, many similar items', 'bulk-worker'],
+    ['Needs live data', 'live-researcher'],
+    ['Review without changing', 'code-reviewer'],
+    ['Findings from a review or a scanner', 'finding-verifier, before any repair'],
+    ['Reading or digesting many files or notes', 'reader'],
+    ['Checking a tracker item against its stated done-signal', 'done-verifier'],
+    ['Ambiguous, architectural, expensive to get wrong', 'deep-planner'],
+    ['Everything else that changes files', 'builder, by default']
+  ];
+  for (const a of selected.filter((x) => x.cliRun)) rows.push([a.role, '`cli-run ' + a.id + '`']);
+  return table(rows, ['Task', 'Lane']);
+}
+
+// The marked block route-gate.mjs extracts at runtime. Installed only for
+// claude-code so the hook always finds a block to read; other primaries get
+// no hook and so get no block.
+export function routeGateSection(selected) {
+  return [
+    '<!-- route-gate:start -->',
+    '## Route gate: pick the lane before acting',
+    '',
+    'Injected on every turn by the `route-gate` hook, so this table is read at runtime rather than recalled from memory.',
+    '',
+    routeGateTable(selected),
+    '',
+    "Stay inline only when: (a) the brief would cost as much as the work itself, (b) the task needs this conversation's own context, (c) it is the human's decision or the final verification of delegated work (a delegate never verifies itself).",
+    '',
+    'Never: the built-in Explore or Plan agents for rule-bound work (they skip CLAUDE.md). general-purpose taking work a named agent already owns.',
+    '<!-- route-gate:end -->'
+  ].join('\n');
+}
+
+// ROUTING.md / ORCHESTRATOR.md decision-tree rule 5 and the "Who builds"
+// section read differently for claude-code, because only claude-code has the
+// verified premise that its subagents load CLAUDE.md. Every other primary
+// keeps the original wording: the orchestrator builds the main line directly
+// and a subagent or second CLI is assumed to hold none of these rules.
+export function decisionRule5(primary) {
+  return subagentsLoadRules(primary)
+    ? `5. **Everything else that changes files** → builder executes by default. The orchestrator plans, briefs, verifies and talks to the human; it stays inline only when (a) the brief would cost as much as the work, (b) the task needs this conversation's own context, or (c) it is the human's decision, or the final verification of delegated work (a delegate never verifies itself). Never route rule-bound work to the built-in Explore or Plan agents: both skip CLAUDE.md. general-purpose should not take work a named agent already owns.`
+    : `5. **Everything else that changes files** → the orchestrator builds it directly. Bounded sub-parts go to cheaper tiers; the main build is never handed off whole.`;
+}
+export function decisionRule5Beginner(primary) {
+  return subagentsLoadRules(primary)
+    ? `5. **Everything else that changes files or executes a known plan** → builder executes by default, at standard tier. The orchestrator plans, briefs, verifies and talks to you; it stays inline only when (a) the brief would cost as much as the work, (b) the task needs this conversation's own context, or (c) it is your decision, or the final verification of delegated work. Never route rule-bound work to the built-in Explore or Plan agents: both skip CLAUDE.md.`
+    : `5. **Everything else that changes files or executes a known plan** → you build it directly, at standard tier. The main build is never handed off whole; bounded sub-parts (a bulk pass, a wide search, a long audit loop) can go to cheaper tiers.`;
+}
+export function whoBuildsSection(primary) {
+  if (subagentsLoadRules(primary)) {
+    return [
+      '## Who builds',
+      '',
+      `**Builder executes by default.** A Claude Code subagent loads this project's CLAUDE.md hierarchy at start (verified: code.claude.com/docs/en/sub-agents), so it already carries the standing rules; the orchestrator's job is to plan, brief, verify and talk to the human, not to hold work a delegate can do. Stay inline only when: (a) the brief would cost as much as the work itself, (b) the task needs this conversation's own context, or (c) it is the human's decision to make, or the final verification of delegated work (a delegate never verifies its own output as final). Never route rule-bound work to the built-in Explore or Plan agents: both skip CLAUDE.md and the git status the router depends on. general-purpose should not take work a named agent already owns.`,
+      '',
+      `Delegate: the main build, background and long-running tasks, small tasks, scoping, verification, research, bounded sub-parts. Never delegate: the human's own decision, or the final sign-off on a delegate's work.`,
+      '',
+      `Every delegation carries \`TASK_BUNDLE.md\`. Its brief must restate this task's scope: a Claude Code subagent already has the standing rules, just not that.`
+    ].join('\n');
+  }
+  return [
+    '## Who builds',
+    '',
+    '**The orchestrator owns the main build.** It is the only surface that holds these rules: a subagent or a second CLI starts with none of them and cannot route. Handing the main build to one hands it to something the router cannot reach.',
+    '',
+    'Delegate: background and long-running tasks, small tasks, scoping, verification, research, bounded sub-parts. Never delegate: the main build, or any step that must carry a house rule (secrets handling, the loud-negative verification, the durable record).',
+    '',
+    'Every delegation carries `TASK_BUNDLE.md`. Its brief must restate every convention the delegate needs.'
+  ].join('\n');
+}
+export function addEndpointRow(primary) {
+  return subagentsLoadRules(primary)
+    ? '| "Add an endpoint" | builder, briefed and verified by the orchestrator |'
+    : '| "Add an endpoint" | the orchestrator builds it |';
+}
+export function inlineThresholdNote(primary) {
+  return subagentsLoadRules(primary)
+    ? '\n- **Measure your inline threshold once.** A subagent starts with your CLAUDE.md and tool definitions already loaded, so it has a fixed start-up cost before it does anything. Spawn one with a one-line task and read its token count. Work smaller than that stays inline.'
+    : '';
+}
+export function delegateRulesNote(primary) {
+  return subagentsLoadRules(primary)
+    ? `Subagents, a fresh chat, a second window: a Claude Code subagent loads this project's CLAUDE.md hierarchy, so it holds the standing rules already, just not this task's scope; a second CLI or a fresh chat window may hold none of them.`
+    : 'Subagents, a fresh chat, a second window: each one holds none of these rules.';
+}
+
 // Which activation file this primary gets. ONE decision, read by three
 // surfaces: planFiles writes the file, vars() names it in the generated README,
 // and bin/cli.js prints it in the terminal. Before 0.1.12 the README hardcoded
@@ -218,6 +333,9 @@ export function activationSteps(opts) {
   // replaces (#22).
   else if (snippet) steps.push(`open ${primary.chatName || primary.name} and paste the block in ${join(dirAbs, snippet)} into its ${primary.chatSurface || 'custom instructions'}`);
   if (primary && primary.agentsDir) steps.push(`subagents are in ${join(projectAbs, primary.agentsDir)}; run ${primary.bin} from ${projectAbs} to pick them up`);
+  // Only claude-code ships hooks (route-gate, subagent-context): the wiring
+  // lives in a snippet, never written into a settings.json the user already has.
+  if (subagentsLoadRules(primary)) steps.push(`merge the hooks in ${join(dirAbs, 'settings.hooks.snippet.json')} into ${join(projectAbs, '.claude', 'settings.json')} (create it if missing) to wire the route-gate and subagent-context hooks`);
   for (const a of selected.filter((a) => a.bin && a.kind === 'agent-cli')) steps.push(`sign in to ${a.name}: ${a.auth}`);
   // A local runtime has a bin but no sign-in, so the agent-cli loop above skips it
   // and before this it appeared in no ordered list at any level (#26).
@@ -232,7 +350,7 @@ export function activationSteps(opts) {
 // activationSteps is: level 1 writes no bin/, so a step naming cli-run.mjs or
 // lanes.json there described an install that did not happen (#27).
 export function proofSteps(opts) {
-  const { level } = opts;
+  const { level, primary } = opts;
   const steps = [
     'Start a fresh agent session and ask: "Read the orchestrator instructions. Quote the routing rule you will use, then sort pear, apple, banana alphabetically. Name the tier and whether you delegated."',
     'Expect the fast tier and `apple, banana, pear`. If the agent cannot quote the routing rule, check the snippet location or chat instructions before continuing. This is a manual activation check, not proof that every future task follows the rules.'
@@ -241,6 +359,12 @@ export function proofSteps(opts) {
     steps.push('Run `node bin/cli-run.mjs --doctor` from this folder. It checks binary presence, not authentication or loaded instructions, and prints the model and effort each lane is pinned to. `--doctor --run` additionally uses a little quota to test live responses. No enabled lanes means delegation is inactive.');
     steps.push('Decide whether the route matters to you. Every lane starts unpinned, which means it runs on whatever its own config file says: a CLI configured months ago at a low reasoning effort will keep auditing at that effort while your docs describe something stronger. Pin it in `bin/lanes.json` under `defaults`, or per call with `--model` and `--effort`. Either way the run is recorded in the log with the value requested and where it came from.');
     steps.push('To test a real output contract, choose an enabled lane from `bin/lanes.json` and run `node bin/cli-run.mjs <lane> \'Return only {"sorted":["apple","banana","pear"]}\' --expect-json`. This uses quota. Expect JSON and exit 0; inspect the array yourself. A non-JSON response exits 10, a missing binary exits 13, and an authentication failure reports the vendor error. The explicit lane tests execution; your primary agent still makes delegation decisions.');
+  }
+  // Only claude-code ships the route-gate hook, so only claude-code gets a
+  // proof step that checks it fired: the table must come from the hook's
+  // injected context, not from the agent reciting ROUTING.md from memory.
+  if (subagentsLoadRules(primary)) {
+    steps.push('Ask the agent: "Quote the route-gate table you were given this turn." It should quote the injected table verbatim, not recite it from memory. If it cannot, the hooks snippet was not merged into `.claude/settings.json`, or the hook found no rules file: check both before trusting the routing docs are actually reaching the agent.');
   }
   return steps;
 }
@@ -260,7 +384,14 @@ function vars(opts) {
   const pinOf = (id) => (toolById[id] && toolById[id].pin) || 'latest';
   const snippet = snippetFor(primary);
   const steps = activationSteps({ level, selected, primary, tools, dir: opts.dir, project: opts.project });
-  const proofs = proofSteps({ level });
+  const proofs = proofSteps({ level, primary });
+  const routingFile = level >= 2 ? 'ROUTING.md' : 'ORCHESTRATOR.md';
+  // The path route-gate.mjs and subagent-context.mjs resolve at runtime,
+  // relative to CLAUDE_PROJECT_DIR. Mirrors the RULES_PATH fallback below:
+  // outside the project, the honest path is absolute, never a hardcoded one.
+  const relJoin = (name) => (rulesPath === dirAbs ? join(dirAbs, name) : rulesPath === '.' ? name : rulesPath + '/' + name);
+  const rulesFileRel = relJoin(routingFile);
+  const taskBundleRel = relJoin('TASK_BUNDLE.md');
   // Only claude-code and agy put files under the project root. A chat primary
   // puts nothing there, so naming a project root would name a folder this run
   // never created (#21).
@@ -336,7 +467,21 @@ function vars(opts) {
     NPM_PACKAGES: selected.map(npmSpec).filter(Boolean).join(' ') || '""',
     SCRIPT_INSTALLERS: scriptInstallers(selected),
     COMPOSE_ENV: composeEnv(selected, apis),
-    COMPOSE_OLLAMA: composeOllama(selected)
+    COMPOSE_OLLAMA: composeOllama(selected),
+    // Delegate by default (0.1.15): gated on subagentsLoadRules(primary), currently
+    // claude-code only. Every other primary keeps the original, more
+    // conservative wording these replace.
+    DECISION_RULE5: decisionRule5(primary),
+    DECISION_RULE5_L1: decisionRule5Beginner(primary),
+    WHO_BUILDS: whoBuildsSection(primary),
+    ADD_ENDPOINT_ROW: addEndpointRow(primary),
+    INLINE_THRESHOLD_NOTE: inlineThresholdNote(primary),
+    DELEGATE_RULES_NOTE: delegateRulesNote(primary),
+    ROUTE_GATE_SECTION: subagentsLoadRules(primary) ? '\n' + routeGateSection(selected) + '\n' : '',
+    AGENTS_LIST_LINE: claudeAgentIds().map((id) => '`' + id + '`').join(', '),
+    RULES_FILE_REL: rulesFileRel,
+    RULES_FILE_REL_JSON: JSON.stringify(rulesFileRel),
+    TASK_BUNDLE_REL_JSON: JSON.stringify(taskBundleRel)
   };
 }
 
@@ -366,6 +511,13 @@ export function planFiles(opts) {
       add(join('.claude', 'agents', f.rel), render(readFileSync(f.abs, 'utf8'), v), 0o644, 'project');
     }
     add('CLAUDE.snippet.md', render(readFileSync(join(TEMPLATES, 'agents', 'snippets', 'claude-code.md'), 'utf8'), v));
+    // Delegate-by-default hooks (0.1.15), claude-code only: route-gate.mjs (UserPromptSubmit)
+    // and subagent-context.mjs (SubagentStart) live where Claude Code looks for
+    // project hooks; the wiring snippet is a document the user merges in, never
+    // written into a settings.json they already have.
+    add(join('.claude', 'hooks', 'route-gate.mjs'), render(readFileSync(join(TEMPLATES, 'agents', 'snippets', 'route-gate.mjs'), 'utf8'), v), 0o755, 'project');
+    add(join('.claude', 'hooks', 'subagent-context.mjs'), render(readFileSync(join(TEMPLATES, 'agents', 'snippets', 'subagent-context.mjs'), 'utf8'), v), 0o755, 'project');
+    add('settings.hooks.snippet.json', render(readFileSync(join(TEMPLATES, 'agents', 'snippets', 'settings.hooks.snippet.json'), 'utf8'), v));
   } else if (primary && primary.id === 'agy') {
     for (const f of walk(join(TEMPLATES, 'agents', 'agy'))) {
       if (!installable('agents', f.rel)) continue;

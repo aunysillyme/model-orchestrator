@@ -20,10 +20,10 @@ Robustness first, cost second. Split tiers because the split produces better wor
 2. **Needs live data?** trends, current docs, pricing, recent events → standard tier with tools; freshness comes from tools, not from a bigger model.
 3. **Reviewing without changing?** → standard tier, read-only, findings ranked by severity. Escalate to deep only for security-critical review.
 4. **Ambiguous, strategic, or expensive to get wrong?** "design my…", "figure out…", unknown cause → deep tier. Then hand the plan down.
-5. **Everything else that changes files or executes a known plan** → you build it directly, at standard tier. The main build is never handed off whole; bounded sub-parts (a bulk pass, a wide search, a long audit loop) can go to cheaper tiers.
+{{DECISION_RULE5_L1}}
 
 Modifiers:
-- **Plan big, execute small.** The expensive tier steers, the cheaper tier does the volume. Never make the fast tier design anything; never make the deep tier grind out bulk output.
+- **Plan big, execute small.** The expensive tier steers, the cheaper tier does the volume. Never make the fast tier design anything; never make the deep tier grind out bulk output.{{INLINE_THRESHOLD_NOTE}}
 - **Never silently retry at the same tier after a failure.** Escalate one tier, or consult the deep tier once, and say which you did. If two consults do not unstick it, stop and tell the human.
 - **De-escalate.** If a request sounds deep but is a lookup or a small edit, route down. Default down, escalate on evidence.
 
@@ -36,7 +36,7 @@ Cap: two deep-tier consults per build. The full procedure is `protocols/build-pr
 
 ## Delegating inside one agent
 
-Subagents, a fresh chat, a second window: each one holds none of these rules. Every hand-off carries a `TASK_BUNDLE.md` brief: purpose, task class, granted scope, capabilities, denied actions, conventions it does not have, report contract, exit parameters. Absence is denial.
+{{DELEGATE_RULES_NOTE}} Every hand-off carries a `TASK_BUNDLE.md` brief: purpose, task class, granted scope, capabilities, denied actions, conventions it does not have, report contract, exit parameters. Absence is denial.
 
 ## Numbers and logic go through a tool, never your head
 
@@ -53,3 +53,4 @@ Anything durable is searched for before it is written, its folder index is corre
 ## When you outgrow this
 
 You will know: you keep wanting a second model family to read your diff, a $0 lane for bulk, or a live-data lane your primary does not have. That is level 2. Re-run the installer with `--level 2`.
+{{ROUTE_GATE_SECTION}}

@@ -32,7 +32,7 @@ There is a second thing a lane can be quietly wrong about. Left unpinned, it run
 
 ## 4. Every delegation carries a task bundle, on both surfaces
 
-Subagents and CLI lanes are the same problem: something with none of your rules and broad tool access. The brief (purpose, task class, scope, capabilities, denied actions, conventions, report contract, exit parameters) goes in the prompt or in the file passed to `--brief`. If you can, gate it mechanically: a pre-dispatch hook that refuses a brief missing purpose, denied actions or a report contract.
+Subagents and CLI lanes are close to the same problem: something that may hold none of your rules, and broad tool access. A Claude Code subagent is the one documented exception, loading the project's CLAUDE.md hierarchy at start, so it keeps the standing rules but not this task's scope; a CLI lane and a fresh chat window get no such credit. The brief (purpose, task class, scope, capabilities, denied actions, conventions, report contract, exit parameters) goes in the prompt or in the file passed to `--brief` either way. If you can, gate it mechanically: a pre-dispatch hook that refuses a brief missing purpose, denied actions or a report contract. On claude-code, a `SubagentStart` hook can inject the essentials (where the rules and the brief format live) automatically; `.claude/hooks/subagent-context.mjs` is the generated example.
 
 ## 5. Research: three engines, one triager
 

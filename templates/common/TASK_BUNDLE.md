@@ -1,6 +1,6 @@
 # Task Bundle: the brief every delegation carries
 
-A subagent, a second CLI, or a fresh chat window holds none of the rules your main session is holding. It cannot see your conventions, it cannot route, and it will read an unspecified edge as an open one.
+A subagent, a second CLI, or a fresh chat window may hold none of the rules your main session is holding, and that is the default to assume. One exception: a Claude Code subagent loads the project's CLAUDE.md hierarchy at start, so it already carries the standing rules, just not this task's scope. Either way, it cannot see this task's conventions and will read an unspecified edge as an open one.
 
 > A delegate gets an approved, bounded brief. Absence is not permission.
 
@@ -25,7 +25,7 @@ Copy this into the delegate's prompt. Delete nothing; write `none` where a field
 **Denied actions.** <explicit list: do not commit, push, deploy, delete, send, publish, close a ticket...>
 - Anything absent from Capabilities is denied. Absence is not permission.
 
-**Conventions you do not have.** <restate every house rule this task needs; the delegate holds none>
+**Conventions you do not have.** <restate every house rule this task needs; even a delegate that loaded the standing rules still needs this task's scope, and a second CLI or a fresh chat window may hold none of it>
 
 **Report contract.** Return: <exactly what to hand back>. State plainly what you did NOT do
 and anything you could not verify. "Unverified" is an acceptable answer; a confident guess is not.

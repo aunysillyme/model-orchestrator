@@ -15,19 +15,15 @@ Rule of thumb: never spend a frontier token on a task a cheap tier finishes corr
 0. **Is there a cheaper or better external lane for this?** Check `DELEGATION_MATRIX.md`. Your enabled lanes, every one called through `bin/cli-run.mjs`:
 {{LANE_STEP0}}
 1. **Bulk and mechanical?** → fast tier{{BULK_LANE}}. Many independent items each needing its own agent turn → a concurrent fan-out lane if you have one.
+1a. **Reading or digesting many files or notes, not writing?** → reader. Different from a bulk pass: reader reports, it does not classify, tag or transform.
 2. **Needs live data?** → {{LIVE_LANE}} standard tier with web tools.
 3. **Reviewing without changing?** → standard tier read-only. Security-critical → {{ATTACK_LANE}}.
 3a. **Holding findings from a review or a scanner?** → finding-verifier before any of them cause a repair. A finding is a claim, not a fact.
+3b. **Checking a tracker item or task against its stated done-signal?** → done-verifier. It probes the named artifact and returns MET, NOT_MET or UNVERIFIABLE; it never closes anything itself.
 4. **Ambiguous, strategic, expensive to get wrong?** → deep tier (deep-planner). Then hand the plan down.
-5. **Everything else that changes files** → the orchestrator builds it directly. Bounded sub-parts go to cheaper tiers; the main build is never handed off whole.
+{{DECISION_RULE5}}
 
-## Who builds
-
-**The orchestrator owns the main build.** It is the only surface that holds these rules: a subagent or a second CLI starts with none of them and cannot route. Handing the main build to one hands it to something the router cannot reach.
-
-Delegate: background and long-running tasks, small tasks, scoping, verification, research, bounded sub-parts. Never delegate: the main build, or any step that must carry a house rule (secrets handling, the loud-negative verification, the durable record).
-
-Every delegation carries `TASK_BUNDLE.md`. Its brief must restate every convention the delegate needs.
+{{WHO_BUILDS}}
 
 ## The Build Protocol, with lanes bound
 
@@ -56,7 +52,7 @@ One writer per run; every other lane proposes. Search before writing, index in t
 
 ## Modifier rules
 
-- **Plan big, execute small**, within a build: deep tier plans at Checkpoint 1, the orchestrator executes, bulk and wide searches go down.
+- **Plan big, execute small**, within a build: deep tier plans at Checkpoint 1, the orchestrator executes, bulk and wide searches go down.{{INLINE_THRESHOLD_NOTE}}
 - **Escalation:** never silently retry at the same tier. Escalate one tier or consult deep once, and say which. Two consults that do not unstick it → stop and tell the human.
 - **De-escalation:** a request that sounds deep but is a lookup routes down.
 - **Long context:** mechanical digestion → fast tier in chunks; judgment over a long input → standard tier.
@@ -71,8 +67,11 @@ One writer per run; every other lane proposes. Search before writing, index in t
 |---|---|
 | "Design the architecture for X" | deep-planner |
 | "Review this service for bugs" | code-reviewer |
-| "Add an endpoint" | the orchestrator builds it |
+{{ADD_ENDPOINT_ROW}}
 | "Why does this silently drop rows sometimes" | deep-planner (unknown cause), then build the fix directly |
 | "Summarize these 30 notes into one index" | bulk-worker |
+| "Read every note in this folder and pull out every mention of X" | reader |
 | "The audit returned 6 findings" | finding-verifier first; repair only what comes back CONFIRMED |
+| "Is issue #123 actually done" | done-verifier |
 {{LANE_EXAMPLES}}
+{{ROUTE_GATE_SECTION}}

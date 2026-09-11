@@ -69,7 +69,15 @@ export const AIS = [
     rulesFile: 'CLAUDE.md',
     agentsDir: '.claude/agents',
     cliRun: false,
-    models: { deep: 'opus', standard: 'sonnet', fast: 'haiku' }
+    models: { deep: 'opus', standard: 'sonnet', fast: 'haiku' },
+    // Verified at code.claude.com/docs/en/sub-agents (fetched 2026-09-10): "A
+    // non-fork subagent's initial context contains: CLAUDE.md files: every
+    // level of the CLAUDE.md hierarchy the main conversation loads ... The
+    // built-in Explore and Plan agents skip this." No other lane in this
+    // catalog has that documented, so the builder-by-default routing, the
+    // route-gate hook and the inline-threshold note are gated on this field
+    // and stay claude-code only.
+    subagentsLoadRules: true
   },
   {
     id: 'codex',

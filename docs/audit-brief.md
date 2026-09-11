@@ -81,3 +81,13 @@ Re-audit the same scope. Every round-1 finding was reproduced before it was touc
 Also new since round 1: the companion-tool path (`--tools codecalc`, `--no-tools`, `templates/tools/codecalc/`, `protocols/numbers-and-logic.md`, `resolveTools`). Attack it the same way: unknown tool ids, interaction with `--yes`, the extra interactive question, and whether any written snippet could be confused for a file the installer should not touch.
 
 Report only what reproduces on the current tree. `CLEAN` per area is expected where the fix holds.
+
+## New in 0.1.15: two claude-code-only hooks, not yet audited
+
+`route-gate.mjs` (`UserPromptSubmit`) and `subagent-context.mjs` (`SubagentStart`) ship to `.claude/hooks/` only when claude-code is the primary. Both are plain Node, zero deps, and installed with mode `0o755`.
+
+- **Reads.** `route-gate.mjs` reads at most 64 KB from one file: the routing rules file (`ROUTING.md` or `ORCHESTRATOR.md`) at a path rendered in at install time relative to `CLAUDE_PROJECT_DIR`, never a hardcoded absolute path. It extracts the text between `<!-- route-gate:start -->` and `<!-- route-gate:end -->` and nothing else. `subagent-context.mjs` reads nothing from disk; its context is static text plus the same two rendered paths. Neither parses or executes anything it reads; the extracted block is passed through as a string.
+- **Writes.** Neither writes a file. Both write one JSON object to stdout: `{"hookSpecificOutput":{"hookEventName":"...","additionalContext":"..."}}`.
+- **Fail-open, on purpose.** A missing `CLAUDE_PROJECT_DIR`, a missing rules file, or a missing block each produce a one-line fallback `additionalContext` naming what was not found, and the script still exits 0. This is acceptable because a miss here is a stray context string reaching the model, not a security gate: nothing downstream trusts the hook's output for anything but a routing suggestion, and the settings snippet that wires it in is a document the user merges by hand, never written automatically over an existing `settings.json`.
+- **Bounded.** `route-gate.mjs` caps the read at 64 KB and the injected string at 4000 characters, so a rules file bloated by a bad edit cannot balloon the context on every turn.
+- **Not yet attacked.** Untested here: a rules file with a `route-gate:start` marker but no matching end marker very far into the file (bounded by `MAX_READ`, so the end marker past that point is treated as absent, which is the intended fail-open path, but worth a deliberate case); a `CLAUDE_PROJECT_DIR` pointing at a path with no read permission; behavior under the Windows exec-form `node` + `args` invocation named in the settings snippet.

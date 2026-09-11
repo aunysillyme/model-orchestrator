@@ -575,7 +575,7 @@ test('the generated README carries exactly the proof steps, for every level and 
     for (const primary of Object.values(byId).filter((a) => a.kind !== 'local' && a.minLevel <= level)) {
       const opts = { level, selected: [primary], primary, dir: '/tmp/mo-dir', project: '/tmp/mo-project', tools: [] };
       const readme = planFiles(opts).find((f) => f.rel === 'README.md').content;
-      const expected = proofSteps({ level }).map((st, i) => `${i + 1}. ${st}`).join('\n');
+      const expected = proofSteps({ level, primary }).map((st, i) => `${i + 1}. ${st}`).join('\n');
       assert.equal(proveSection(readme), expected, `${primary.id} level ${level}: proof section drifted from proofSteps()`);
     }
   }
@@ -648,4 +648,88 @@ test('the finding-verifier is read-only and can answer all three verdicts', () =
   for (const verdict of ['CONFIRMED', 'NOT_REPRODUCED', 'INCONCLUSIVE']) assert.ok(fv.includes(verdict), 'missing verdict ' + verdict);
   assert.match(fv, /read-only/i);
   assert.match(fv, /effort: high/, 'judging a claim is not a low-effort job');
+});
+
+// ---- delegate by default (0.1.15): delegate by default, claude-code only ----
+import { subagentsLoadRules, claudeAgentIds, routeGateTable, decisionRule5 } from '../src/install.js';
+
+test('claude-code --yes plan includes both hooks, the settings snippet, and both new agents; other primaries include none of it', () => {
+  const cc = planFiles({ level: 2, selected: sel('claude-code'), primary: byId['claude-code'], dir: 'x', project: 'y' });
+  const ccRels = cc.map((f) => f.rel);
+  assert.ok(ccRels.includes(join('.claude', 'hooks', 'route-gate.mjs')), 'claude-code plan is missing route-gate.mjs');
+  assert.ok(ccRels.includes(join('.claude', 'hooks', 'subagent-context.mjs')), 'claude-code plan is missing subagent-context.mjs');
+  assert.ok(ccRels.includes('settings.hooks.snippet.json'), 'claude-code plan is missing the settings snippet');
+  assert.ok(ccRels.includes(join('.claude', 'agents', 'done-verifier.md')), 'claude-code plan is missing done-verifier');
+  assert.ok(ccRels.includes(join('.claude', 'agents', 'reader.md')), 'claude-code plan is missing reader');
+  assert.equal(cc.find((f) => f.rel === join('.claude', 'hooks', 'route-gate.mjs')).mode, 0o755, 'hooks must be executable');
+  assert.equal(cc.find((f) => f.rel === join('.claude', 'hooks', 'route-gate.mjs')).root, 'project', 'hooks belong at the project root, like the agents Claude Code reads');
+
+  for (const id of ['codex', 'agy', 'chatgpt-app']) {
+    const p = planFiles({ level: 2, selected: sel(id), primary: byId[id], dir: 'x', project: 'y' });
+    const rels = p.map((f) => f.rel);
+    assert.ok(!rels.some((r) => r.includes('route-gate') || r.includes('subagent-context') || r.includes('settings.hooks')), `${id}: hooks leaked into a non-claude-code primary's plan`);
+    // agy gets the same new agents in its own format, just no hooks (hooks are claude-code only).
+    if (id === 'agy') {
+      assert.ok(rels.includes(join('.agents', 'agents', 'done-verifier.md')));
+      assert.ok(rels.includes(join('.agents', 'agents', 'reader.md')));
+    }
+  }
+});
+
+test('ROUTING.md rule 5 names builder for claude-code and keeps "builds it directly" for codex', () => {
+  const cc = planFiles({ level: 2, selected: sel('claude-code'), primary: byId['claude-code'], dir: 'x', project: 'y' }).find((f) => f.rel === 'ROUTING.md').content;
+  assert.match(cc, /builder executes by default/, 'claude-code ROUTING.md should route the main build to builder');
+  assert.doesNotMatch(cc, /the orchestrator builds it directly\. Bounded sub-parts/, 'claude-code should not keep the old wording');
+
+  const codex = planFiles({ level: 2, selected: sel('codex'), primary: byId.codex, dir: 'x', project: 'y' }).find((f) => f.rel === 'ROUTING.md').content;
+  assert.match(codex, /the orchestrator builds it directly\. Bounded sub-parts/, 'codex should keep the conservative wording: it has no verified premise');
+  assert.doesNotMatch(codex, /builder executes by default/, 'codex has no builder agent to route to');
+
+  assert.equal(subagentsLoadRules(byId['claude-code']), true);
+  assert.equal(subagentsLoadRules(byId.codex), false);
+  assert.equal(subagentsLoadRules(byId.agy), false, 'only claude-code has the verified sub-agents doc quote');
+  assert.match(decisionRule5(byId['claude-code']), /general-purpose should not take work a named agent already owns/);
+});
+
+test('no generated claude-code file states the old unqualified "holds none of these rules" premise', () => {
+  const p = planFiles({ level: 2, selected: sel('claude-code'), primary: byId['claude-code'], dir: 'x', project: 'y' });
+  for (const f of p) {
+    assert.doesNotMatch(f.content, /holds none of (these|your) rules/i, `${f.rel} still states the unqualified premise`);
+    assert.doesNotMatch(f.content, /starts with none of them/i, `${f.rel} still states the unqualified premise`);
+  }
+});
+
+test('done-verifier and reader are read-only in both agent formats: no Write or Edit, agy commandExecutionPolicy off', () => {
+  for (const [dirName, format] of [['claude-code', 'cc'], ['agy', 'agy']]) {
+    for (const name of ['done-verifier', 'reader']) {
+      const raw = readFileSync(join('templates', 'agents', dirName, name + '.md'), 'utf8');
+      const frontmatter = raw.slice(0, raw.indexOf('---', 3));
+      if (format === 'cc') {
+        assert.match(frontmatter, /^tools:/m, `${dirName}/${name}.md must declare an explicit tools list`);
+        const toolsLine = frontmatter.match(/^tools:.*$/m)[0];
+        assert.doesNotMatch(toolsLine, /\bWrite\b|\bEdit\b/, `${dirName}/${name}.md must not carry Write or Edit`);
+      } else {
+        assert.match(frontmatter, /commandExecutionPolicy:\s*off/, `${dirName}/${name}.md must be commandExecutionPolicy off`);
+      }
+    }
+  }
+});
+
+test('the claude-code snippet\'s agent list is generated from the agent files actually shipped', () => {
+  const ids = claudeAgentIds();
+  assert.ok(ids.includes('done-verifier') && ids.includes('reader') && ids.includes('finding-verifier'), 'claudeAgentIds() dropped a shipped agent');
+  const onDisk = readdirSync(join('templates', 'agents', 'claude-code')).filter((f) => f.endsWith('.md') && f !== 'README.md').map((f) => f.replace(/\.md$/, ''));
+  assert.deepEqual([...ids].sort(), onDisk.sort(), 'claudeAgentIds() must list exactly the files on disk');
+  const snippet = planFiles({ level: 1, selected: sel('claude-code'), primary: byId['claude-code'], dir: 'x', project: 'y' }).find((f) => f.rel === 'CLAUDE.snippet.md').content;
+  for (const id of ids) assert.ok(snippet.includes('`' + id + '`'), `CLAUDE.snippet.md agent list is missing ${id}`);
+});
+
+test('routeGateTable renders the fixed rows plus one per selected cli-run lane', () => {
+  const base = routeGateTable(sel('claude-code'));
+  assert.match(base, /bulk-worker/);
+  assert.match(base, /done-verifier/);
+  assert.match(base, /reader/);
+  assert.doesNotMatch(base, /cli-run/, 'no cli-run lane was selected');
+  const withCodex = routeGateTable(sel('claude-code', 'codex'));
+  assert.match(withCodex, /`cli-run codex`/);
 });

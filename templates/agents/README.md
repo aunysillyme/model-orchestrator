@@ -10,4 +10,6 @@ Loading surfaces for the primary agent. The installer writes exactly one of thes
 | `grok`, `hermes` | nothing agent-specific | rules travel with the prompt or the task bundle |
 | a chat app | `PASTE-INTO-YOUR-AGENT.md` | no files to load; paste into custom instructions |
 
-`snippets/` are rendered with the chosen agent's name and rules file. Nothing here is appended to a file the user already has.
+`snippets/` are rendered with the chosen agent's name and rules file. Nothing here is appended to a file the user already has. `snippets/route-gate.mjs`, `snippets/subagent-context.mjs`, and `snippets/settings.hooks.snippet.json` are claude-code only: two hooks and the settings block that wires them, installed to `.claude/hooks/` and next to `CLAUDE.snippet.md`.
+
+`claude-code/` and `agy/` both ship the same agent set: one per tier, plus `finding-verifier`, `done-verifier` and `reader`. Add an agent to one folder and its README, and the other.

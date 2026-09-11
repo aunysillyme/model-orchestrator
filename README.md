@@ -90,8 +90,10 @@ ai-orchestrator/
   TASK_BUNDLE.md            the brief every delegation carries
   protocols/                build-protocol · propagate · gap-analysis · deep-research · numbers-and-logic · memory-and-record
   CODECALC.md  OBSIDIAN-TC.md  mcp/   companion-tool install docs + per-agent registration snippets (if selected)
-  <project>/.claude/agents/ six subagents, one per tier plus finding-verifier, at the PROJECT root (if Claude Code is primary)
+  <project>/.claude/agents/ one per tier plus finding-verifier, done-verifier, reader, at the PROJECT root (if Claude Code is primary)
+  <project>/.claude/hooks/  route-gate.mjs (UserPromptSubmit) + subagent-context.mjs (SubagentStart), Claude Code only
   CLAUDE.snippet.md         the block to paste into your CLAUDE.md
+  settings.hooks.snippet.json  the hooks block to merge into .claude/settings.json (Claude Code only)
   ROUTING.md                multi-lane decision tree (level 2+)
   TIERS.md  DELEGATION_MATRIX.md  RESEARCH_TRIAGE.md  CLI-RUN.md
   bin/cli-run.mjs  bin/lanes.json          (node bin/cli-run.mjs --doctor is the smoke test)
@@ -159,7 +161,7 @@ It deliberately does not run in this repository's CI. A canary is only meaningfu
 3. **Exit 0 is not a deliverable.** Check for the artifact, not the status line. `cli-run` checks the response is structurally there; `--expect-file` checks the artifact.
 4. **Numbers are computed, never guessed.** A tool that calculates beats a model that feels finished.
 5. **A write nobody can find again did not happen.** Search first, keep the index true, one writer.
-6. **The orchestrator owns the main build.** Delegates hold none of your rules; they get bounded sub-parts and a brief.
+6. **A delegate's brief carries this task's scope, whatever it already holds.** A Claude Code subagent loads the project's CLAUDE.md hierarchy at start, so it already has the standing rules; a second CLI or a fresh chat window may hold none of them. Either way, only the brief carries what this task needs. On claude-code, that changes who executes: see "Who builds" in `ROUTING.md`.
 7. **Only one process holds keys.** Names in the environment, values in a secrets manager, never in a file here.
 
 ## Routing by role, complexity and risk
@@ -189,6 +191,10 @@ caller or test that makes it impossible, and returns **CONFIRMED**,
 change. Use a different model family from the one that produced the finding
 where you have one: a family asked to check its own claim tends to agree with
 itself.
+
+## Two more read-only checks
+
+`done-verifier` probes the artifact a tracker item's done-signal names (a file, a commit, a URL, a log line, a count) and returns MET, NOT_MET or UNVERIFIABLE; it never closes or edits anything itself. `reader` reads and digests many files or notes and hands back exactly what the brief asked for, cited by `path:line`; it never classifies, tags or writes, which is what separates it from `bulk-worker`. Both ship in the claude-code and agy agent sets, at the fast tier.
 
 ## Pin the route, or know that you did not
 

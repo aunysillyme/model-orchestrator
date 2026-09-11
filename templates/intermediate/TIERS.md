@@ -23,6 +23,8 @@ Tier sets the price per token. Token discipline sets how many tokens. **Effort s
 | builder | standard | high | a botched deploy is the costly failure |
 | live-researcher | standard | medium | tools do the retrieval |
 | bulk-worker | fast | low | the biggest cost win |
+| done-verifier | fast | low | a done-signal check is a lookup, not a judgment call |
+| reader | fast | low | digestion, not judgment |
 
 ## Three inputs, not one
 
