@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.1.17] - 2026-09-11
+
 ### Changed
 
 - **User-facing text now uses plain language instead of security-audit jargon.** Words like "risk", "attack lane", "adversarial", "blast radius", "fail closed" and "threat model" read as alarming to someone deciding whether to try the tool, so they scared off exactly the readers this project needs. No rule any of them described changed, only the wording: "risk" is now "stakes" everywhere it names a routing input (with a one-line definition added to `README.md` and `TIERS.md`), "attack lane" / "Stage 5 Attack" / "attack pass" are now "challenge lane" / "Stage 5 Challenge" / "challenge pass", "adversarial" (auditor, read, critique, turn, pass) is now "second-opinion", "blast radius" is now "everything it touches", "fail(s) closed" is now "refuses by default", and "threat model" is now "security notes" in the files that link to it. `test/prose.test.js` gained a permanent check (`no alarming security wording in user-facing text`) over the purely-prose, user-facing surface (`docs/`, `templates/`, `README.md`, `llms.txt`, `CONTRIBUTING.md`, the PR template) so the old wording cannot silently creep back in. `docs/audit-brief.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md` and code identifiers/comments (for example the `ATTACK_LANE` render var) are unchanged, since these words are expected or load-bearing there.
@@ -260,7 +262,8 @@ First release.
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
-[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.16...HEAD
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.17...HEAD
+[0.1.17]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.16...v0.1.17
 [0.1.16]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.15...v0.1.16
 [0.1.15]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.14...v0.1.15
 [0.1.14]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.13...v0.1.14

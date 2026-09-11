@@ -1,6 +1,6 @@
 {
   "name": "model-orchestrator",
-  "version": "0.1.16",
+  "version": "0.1.17",
   "description": "Model orchestrator for AI coding agents and LLMs: Claude Code, Codex, Gemini, Grok, Qwen, Ollama. Routing rules tell your agent which model, subagent or CLI to use for each task, so small work goes to cheap tiers and fewer tokens go to frontier models. One installer, plus a CLI runner that logs every route.",
   "type": "module",
   "bin": {
