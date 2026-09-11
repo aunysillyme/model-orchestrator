@@ -175,17 +175,17 @@ test('route-metrics.mjs: Stop parses the LAST route marker, splits lanes on "+",
   }
 });
 
-test('route-metrics.mjs: an injected marker with disallowed characters is stripped to the safe charset', () => {
+test('route-metrics.mjs: a lane token with disallowed characters is logged as "invalid", never stripped into a lane nobody chose', () => {
   const home = newHome();
   const hookPath = writeHook(home);
   try {
-    const message = '<!-- route: builder";DROP TABLE x;--\n|inject | why -->';
+    const message = '<!-- route: builder";DROP TABLE x;--\n|inject | why --> then <!-- route: builder+main","evil":"1 | why -->';
     const r = run(hookPath, home, { hook_event_name: 'Stop', session_id: 's', last_assistant_message: message });
     assert.equal(r.status, 0);
     const log = readLog(home);
     assert.equal(log.length, 1);
-    for (const lane of log[0].lane) assert.match(lane, /^[A-Za-z0-9_.+-]*$/, 'a logged lane token must stay inside the declared charset');
-    assert.ok(!log[0].lane.some((l) => l.includes(';') || l.includes(' ') || l.includes('\n')), 'no disallowed character may survive into a logged lane');
+    assert.deepEqual(log[0].lane, ['builder', 'invalid'], 'the clean token survives; the injected one becomes "invalid", not "mainevil1"');
+    for (const lane of log[0].lane) assert.match(lane, /^[A-Za-z0-9_.-]+$/, 'a logged lane token must stay inside the declared charset');
   } finally {
     rmSync(home, { recursive: true, force: true });
   }

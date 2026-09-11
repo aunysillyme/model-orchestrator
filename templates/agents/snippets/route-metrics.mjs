@@ -149,8 +149,14 @@ export function extractLane(text) {
   let last = null;
   while ((match = re.exec(text)) !== null) last = match;
   if (!last) return ['missing'];
-  const raw = sanitize(last[1].trim(), TOKEN_MAX_LEN);
-  const parts = raw.split('+').map((s) => s.trim()).filter(Boolean);
+  // A token carrying any character outside the charset is logged as
+  // "invalid", never stripped into a plausible-looking lane: stripping
+  // `main","evil":"1` would log a lane named "mainevil1" that nobody chose.
+  const parts = last[1]
+    .split('+')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((t) => (t.length > TOKEN_MAX_LEN || /[^A-Za-z0-9_.-]/.test(t) ? 'invalid' : t));
   return parts.length ? parts : ['missing'];
 }
 

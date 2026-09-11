@@ -256,7 +256,7 @@ Yes. `--yes` with `--level`, `--ais` and `--project` runs headless, `--dry-run` 
 
 ## Requirements
 
-Node 18 or newer. No dependencies. Works on macOS and Linux; the level 3 box templates assume Ubuntu. Windows is untested: `cli-run` ends a lane's process tree there with `taskkill`, but nothing in CI runs on Windows, so treat it as unsupported until someone reports otherwise.
+Node 18 or newer. No dependencies. Works on macOS and Linux; the level 3 box templates assume Ubuntu. Windows: CI runs the suite on `windows-latest` (Node 18, 20, 22). Install, detection, the hooks and `cli-run`'s `taskkill` tree kill are tested there; a named set of tests is skipped on Windows, each with its reason in the test file, mainly running a lane end to end through `cli-run`, so treat lane execution on Windows as unproven until someone reports otherwise.
 
 **Privacy.** The installer sends no telemetry and makes no network call of its own once it is running. Two things around that are worth being exact about:
 
