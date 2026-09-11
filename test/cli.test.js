@@ -173,6 +173,24 @@ function withSh(bin) {
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const reOfPath = (...segments) => new RegExp(escapeRe(join(...segments)));
 
+// A vendor lane dying mid-run from a real POSIX signal (a crash, an OOM
+// kill, `kill -TERM` from outside) is a real scenario cli-run.mjs's own
+// `r.signal || r.status === null` branch in main() exists to catch. It
+// genuinely cannot be reproduced on win32 through this file's fixtures: a
+// real Windows lane is a plain `node <script>` process (via the resolved
+// cmd-shim in windowsSpawnPlan), so a real lane dying "by signal" cannot
+// happen there any more than it can for the product being tested; Windows
+// has no OS-level POSIX signals at all. The only way the fixture below can
+// simulate it (a nested `sh -c "...; kill -TERM $$"`, since writeShellStub's
+// win32 branch has to go through a .cjs -> sh bridge for the body to run at
+// all) puts an extra node process between cli-run.mjs and the dying shell,
+// so cli-run.mjs observes only that node's own translated exit code, not a
+// real signal. Measured on windows-latest CI: MSYS bash's own self-kill
+// encoding leaks through as a plain nonzero exit code (3840), which is
+// exactly as informative as the OS gives a real Windows lane crashing, and
+// this tool already handles that honestly via the exit_nonzero verdict.
+const SKIP_LANE_SIGNAL_DEATH_ON_WIN32 = process.platform === 'win32' && 'a lane dying by a real POSIX signal cannot be reproduced through this fixture on win32, which has no OS-level signals; see the comment above SKIP_LANE_SIGNAL_DEATH_ON_WIN32';
+
 test('--help and --list exit 0 and mention every level', () => {
   const h = run(['--help']);
   assert.doesNotMatch(h.stdout, /level 1 only/, '--primary applies at every level');
@@ -327,7 +345,7 @@ test('cli-run: a malformed lanes.json refuses every lane without spawning anythi
   rmSync(d, { recursive: true, force: true });
 });
 
-test('cli-run: a lane killed by a signal is exit 10, never 0, even if it printed a deliverable first', () => {
+test('cli-run: a lane killed by a signal is exit 10, never 0, even if it printed a deliverable first', { skip: SKIP_LANE_SIGNAL_DEATH_ON_WIN32 }, () => {
   const d = mkdtempSync(join(tmpdir(), 'orch-sig-'));
   const bin = join(d, 'bin');
   mkdirSync(bin);
@@ -650,17 +668,16 @@ test('#13: SIGTERM and SIGINT to the wrapper kill the lane before it can write, 
     const ended = new Promise((r) => p.on('exit', (c, s) => r({ c, s })));
     p.kill(sig);
     const exit = await ended;
-    // Windows has no SIGTERM at the OS level: a ChildProcess.kill('SIGTERM')
-    // there calls TerminateProcess() unconditionally (proven on windows-latest
-    // CI: the wrapper died as {code: null, signal: 'SIGTERM'}, never reaching
-    // its own process.on('SIGTERM', ...) handler at all), so the graceful
-    // exit-143-and-kill-the-lane-first behavior below is a POSIX guarantee
-    // for this specific signal, not a portability gap in the wrapper. SIGINT
-    // is different: Windows delivers it as a real console-control event a
-    // running process can still catch, so the graceful path is expected to
-    // hold for it on every OS.
-    if (process.platform === 'win32' && sig === 'SIGTERM') {
-      assert.equal(exit.s, 'SIGTERM', `SIGTERM: expected an unhandled termination on win32, got ${JSON.stringify(exit)}`);
+    // Windows has no OS-level signals at all: ChildProcess.kill(sig) there
+    // calls TerminateProcess() unconditionally for both names, proven on
+    // windows-latest CI (the wrapper died as {code: null, signal: sig} for
+    // SIGTERM AND SIGINT alike; a hypothesis that SIGINT gets a real,
+    // catchable console-control event on Windows was tried here first and
+    // measured false in this exact scenario, not assumed). So the graceful
+    // exit-143/130-and-kill-the-lane-first behavior below is a POSIX
+    // guarantee for both signals, not a portability gap in the wrapper.
+    if (process.platform === 'win32') {
+      assert.equal(exit.s, sig, `${sig}: expected an unhandled termination on win32, got ${JSON.stringify(exit)}`);
       rmSync(d, { recursive: true, force: true });
       continue;
     }
