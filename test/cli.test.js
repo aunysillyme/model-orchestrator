@@ -19,12 +19,19 @@ const run = (args, opts = {}) => spawnSync(process.execPath, [CLI, ...args], { e
 // This file's CI job runs under Git Bash (.github/workflows/test.yml sets
 // defaults.run.shell: bash), so sh.exe (and the coreutils these bodies use:
 // sleep, kill) are already reachable from THIS process's own PATH, in the
-// same directory as sh.exe. writeShellStub()/writeNodeStub() below write a
-// tiny .cmd launcher there that hands off to it, so every test BODY stays
-// identical POSIX shell (or a plain Node script) on every OS: the behavior
-// under test (cli-run.mjs's own spawn, timeout, signal and process-group
-// handling) is exercised for real, not skipped. which()'s %PATHEXT% fix
-// (src/detect.js) is what lets the installed name resolve to the .cmd.
+// same directory as sh.exe.
+//
+// writeShellStub()/writeNodeStub() below install the fake lane as an npm
+// cmd-shim on win32: a ".cmd" launcher whose "%_prog%" ... "<path>" %* line
+// is the exact shape resolveCmdShim() in bin/cli-run.mjs parses, next to a
+// ".js" file that node runs. That is deliberate, not incidental: it is the
+// SAME path a real vendor CLI's shim takes through cli-run.mjs (see the
+// comment above resolveCmdShim), so these tests exercise cli-run.mjs's own
+// spawn, timeout, signal and process-group handling for real, through the
+// real resolution code, not a bespoke bridge that happens to also produce
+// a runnable binary. For a shell-bodied stub, the ".js" file is a thin
+// pass-through to `sh -c body ...args`, so every test BODY stays identical
+// POSIX shell (or a plain Node script) on every OS.
 function findPosixToolsDir() {
   if (process.platform !== 'win32') return null;
   for (const dir of (process.env.PATH || '').split(delimiter)) {
@@ -34,13 +41,59 @@ function findPosixToolsDir() {
 }
 const WIN_SH_DIR = findPosixToolsDir();
 
+// Mirrors the shape npm's own `cmd-shim` package writes (cmd-shim >= v6,
+// npm >= 7): a short launcher whose "%_prog%" ... "<jsPath>" %* line is what
+// resolveCmdShim() parses. Kept minimal on purpose: the fields that matter
+// to the parser (node.exe-or-node fallback, %dp0%-relative quoted path,
+// trailing %*) are exactly what a real npm install produces; comment lines
+// and other cosmetic differences between cmd-shim versions are not.
+function writeCmdShim(binPath, jsPath) {
+  // Matches the real output of npm's own `cmd-shim` package (verified
+  // against cmd-shim@9.0.2 directly: bin/judges.test.js pins its exact
+  // bytes as a fixture), not a simplified guess: the "set PATHEXT=..." and
+  // "endLocal & goto ..." text sits on the SAME line as "%_prog%", which is
+  // exactly the shape resolveCmdShim() in bin/cli-run.mjs has to parse.
+  const rel = basename(jsPath);
+  writeFileSync(
+    binPath + '.cmd',
+    '@ECHO off\r\n' +
+      'GOTO start\r\n' +
+      ':find_dp0\r\n' +
+      'SET dp0=%~dp0\r\n' +
+      'EXIT /b\r\n' +
+      ':start\r\n' +
+      'SETLOCAL\r\n' +
+      'CALL :find_dp0\r\n' +
+      '\r\n' +
+      'IF EXIST "%dp0%node.exe" (\r\n' +
+      '  SET "_prog=%dp0%node.exe"\r\n' +
+      ') ELSE (\r\n' +
+      '  SET "_prog=node"\r\n' +
+      ')\r\n' +
+      '\r\n' +
+      'endLocal & goto #_undefined_# 2>NUL || title %COMSPEC% & set PATHEXT=%PATHEXT:;.JS;=;% & "%_prog%"  "%dp0%' +
+      rel +
+      '" %*\r\n'
+  );
+}
+
 // Writes a fake lane binary at binPath (no extension) whose body is POSIX
 // shell. body must not depend on argv beyond "$@"/"$1" etc., which survive
-// the Windows .cmd -> sh hop unchanged.
+// the Windows .cmd -> node -> sh hop unchanged.
 function writeShellStub(binPath, body) {
   if (process.platform === 'win32') {
-    writeFileSync(binPath + '.sh', '#!/bin/sh\n' + body + '\n');
-    writeFileSync(binPath + '.cmd', '@sh "%~dp0' + basename(binPath) + '.sh" %*\r\n');
+    // .cjs, not .js: this file has no package.json of its own to declare a
+    // module type, and require() below must not depend on Node guessing
+    // "commonjs" from the nearest ancestor package.json (which could be this
+    // repo's own "type": "module" if the temp dir ever lands under it).
+    const js = binPath + '.cjs';
+    writeFileSync(
+      js,
+      'const { spawnSync } = require("node:child_process");\n' +
+        'const r = spawnSync("sh", ["-c", ' + JSON.stringify(body) + ', "sh", ...process.argv.slice(2)], { stdio: "inherit" });\n' +
+        'process.exit(r.status === null ? (r.signal ? 1 : 0) : r.status);\n'
+    );
+    writeCmdShim(binPath, js);
   } else {
     writeFileSync(binPath, '#!/bin/sh\n' + body + '\n', { mode: 0o755 });
   }
@@ -51,8 +104,9 @@ function writeShellStub(binPath, body) {
 // cannot express, such as writing raw bytes to stdout on a timer).
 function writeNodeStub(binPath, jsBody) {
   if (process.platform === 'win32') {
-    writeFileSync(binPath + '.mjs', jsBody);
-    writeFileSync(binPath + '.cmd', '@node "%~dp0' + basename(binPath) + '.mjs" %*\r\n');
+    const js = binPath + '.cjs';
+    writeFileSync(js, jsBody);
+    writeCmdShim(binPath, js);
   } else {
     writeFileSync(binPath, '#!' + process.execPath + '\n' + jsBody, { mode: 0o755 });
   }
@@ -94,23 +148,22 @@ function withSh(bin) {
   return process.platform === 'win32' ? [bin, WIN_SH_DIR].filter(Boolean).join(delimiter) : bin;
 }
 
-// The .cmd -> sh bridge above (writeShellStub/writeNodeStub) resolves and
-// launches on win32, but the fake lanes it runs are not reliably reachable
-// end to end from inside cli-run.mjs's own child process yet (observed:
-// which() reports the binary present, but the actual spawn+run comes back
-// unavailable). Root-causing that fully is a real, separate Windows spawn
-// investigation, not a mechanical port; skipping here rather than shipping
-// a flaky green is the honest call for this pass. killTree's own win32
-// branch (taskkill) is unit-tested via argv capture in test/judges.test.js,
-// and which()'s %PATHEXT% resolution has its own test in test/detect.test.js,
-// so the platform-specific logic these tests exercise indirectly is not
-// entirely unverified on Windows, just not exercised through a live fake CLI.
-const SKIP_STUB_LANE_ON_WIN32 = process.platform === 'win32' && 'fake-lane end-to-end execution via cli-run.mjs is not yet reliable on Windows CI; see the comment above SKIP_STUB_LANE_ON_WIN32';
-// The #12 upgrade-path tests below diverge on Windows for a reason this pass
-// did not track down (the "no MANIFEST.json" / upgrade messaging never
-// appears in stdout, though the run itself exits 0); a genuine Windows-only
-// behavior in the upgrade/manifest-diff path, not a portability shim.
-const SKIP_MANIFEST_UPGRADE_ON_WIN32 = process.platform === 'win32' && 'the #12 upgrade-path messaging diverges on Windows for a reason this pass did not root-cause; needs dedicated investigation';
+// Previously: the .cmd -> sh bridge above resolved and launched on win32,
+// but the fake lanes it ran were not reachable end to end from inside
+// cli-run.mjs's own child process (which() reported the binary present, but
+// the actual spawn came back unavailable). Root cause: Node's fix for
+// CVE-2024-27980 makes spawn() throw EINVAL for a .cmd target without
+// shell:true, so cli-run.mjs's own un-shimmed spawn() call never reached the
+// stub at all. bin/cli-run.mjs's windowsSpawnPlan() (resolveCmdShim first,
+// a caret-escaped cmd.exe fallback second) fixes that for real lanes and for
+// these fixtures alike, so the tests below run unconditionally now.
+//
+// The #12 upgrade-path tests previously diverged on Windows because the
+// "runtime upgraded:" / "runtime CONFLICT, kept:" report lines were built
+// from a raw, OS-native f.rel (backslash-joined on win32), while every
+// assertion below expects the forward-slash form the rest of this tool's
+// generated text uses. Fixed in src/install.js's writeFiles(): the report
+// label is posix-normalized the same way the manifest key already was.
 
 // A regex literal like /mcp\/obsidian-tc\.mcpServers\.json/ hardcodes the
 // POSIX separator; the terminal output it matches against renders real
@@ -251,7 +304,7 @@ test('--list names the companion tool and its repo; --no-tools omits it; --tools
   assert.equal(bad.status, 2);
 });
 
-test('cli-run: a malformed lanes.json refuses every lane without spawning anything', { skip: SKIP_STUB_LANE_ON_WIN32 }, () => {
+test('cli-run: a malformed lanes.json refuses every lane without spawning anything', () => {
   const d = mkdtempSync(join(tmpdir(), 'orch-lanes-'));
   const bin = join(d, 'bin');
   mkdirSync(bin);
@@ -274,7 +327,7 @@ test('cli-run: a malformed lanes.json refuses every lane without spawning anythi
   rmSync(d, { recursive: true, force: true });
 });
 
-test('cli-run: a lane killed by a signal is exit 10, never 0, even if it printed a deliverable first', { skip: SKIP_STUB_LANE_ON_WIN32 }, () => {
+test('cli-run: a lane killed by a signal is exit 10, never 0, even if it printed a deliverable first', () => {
   const d = mkdtempSync(join(tmpdir(), 'orch-sig-'));
   const bin = join(d, 'bin');
   mkdirSync(bin);
@@ -286,7 +339,7 @@ test('cli-run: a lane killed by a signal is exit 10, never 0, even if it printed
   rmSync(d, { recursive: true, force: true });
 });
 
-test('cli-run: the log carries a prompt digest, never the prompt text', { skip: SKIP_STUB_LANE_ON_WIN32 }, () => {
+test('cli-run: the log carries a prompt digest, never the prompt text', () => {
   const d = mkdtempSync(join(tmpdir(), 'orch-log-'));
   const bin = join(d, 'bin');
   mkdirSync(bin);
@@ -324,7 +377,7 @@ test('cli-run: value flags need values, one prompt only, no stray positionals', 
   rmSync(d, { recursive: true, force: true });
 });
 
-test('cli-run: provider message text reaches stderr but never the durable log', { skip: SKIP_STUB_LANE_ON_WIN32 }, () => {
+test('cli-run: provider message text reaches stderr but never the durable log', () => {
   const d = mkdtempSync(join(tmpdir(), 'orch-plog-'));
   const bin = join(d, 'bin');
   mkdirSync(bin);
@@ -362,7 +415,7 @@ test('--tools obsidian-tc is accepted, --yes alone does not select it, --list sa
 });
 
 
-test('cli-run --doctor reports enabled lanes and binaries, refuses a lane argument, and --run needs --doctor', { skip: SKIP_STUB_LANE_ON_WIN32 }, () => {
+test('cli-run --doctor reports enabled lanes and binaries, refuses a lane argument, and --run needs --doctor', () => {
   const d = mkdtempSync(join(tmpdir(), 'orch-doc-'));
   const bin = join(d, 'bin');
   mkdirSync(bin);
@@ -414,7 +467,7 @@ const runLane = (args, env) =>
     env: mergeEnv(process.env, { ...env, USERPROFILE: (env && (env.HOME ?? env.USERPROFILE)) ?? process.env.USERPROFILE })
   });
 
-test('#1: a background child of the lane does not survive the timeout', { skip: SKIP_STUB_LANE_ON_WIN32 }, async () => {
+test('#1: a background child of the lane does not survive the timeout', async () => {
   const d = mkdtempSync(join(tmpdir(), 'orch-pg-'));
   const marker = join(d, 'child-survived');
   const bin = stubLane(d, 'grok', `(/bin/sleep 0.8; echo survived > "${marker}") >/dev/null 2>&1 &\n/bin/sleep 5`);
@@ -425,7 +478,7 @@ test('#1: a background child of the lane does not survive the timeout', { skip: 
   rmSync(d, { recursive: true, force: true });
 });
 
-test('#1: a grandchild holding the stdout pipe cannot keep the wrapper from returning 12 promptly', { skip: SKIP_STUB_LANE_ON_WIN32 }, () => {
+test('#1: a grandchild holding the stdout pipe cannot keep the wrapper from returning 12 promptly', () => {
   const d = mkdtempSync(join(tmpdir(), 'orch-pipe-'));
   const bin = stubLane(d, 'grok', '/bin/sleep 5 &\n/bin/sleep 5'); // the backgrounded sleep inherits stdout
   const t0 = Date.now();
@@ -435,7 +488,7 @@ test('#1: a grandchild holding the stdout pipe cannot keep the wrapper from retu
   rmSync(d, { recursive: true, force: true });
 });
 
-test('#4: a marker in stopReason, status, subtype or event type never reaches the durable log', { skip: SKIP_STUB_LANE_ON_WIN32 }, () => {
+test('#4: a marker in stopReason, status, subtype or event type never reaches the durable log', () => {
   const d = mkdtempSync(join(tmpdir(), 'orch-leak-'));
   const bin = stubLane(d, 'grok', `echo '{"stopReason":"PRIVATE_MARKER_123","text":""}'`);
   stubLane(d, 'agy', `echo '{"event":"result","result":{"status":"PRIVATE_MARKER_456","response":"x"}}'`);
@@ -451,7 +504,7 @@ test('#4: a marker in stopReason, status, subtype or event type never reaches th
   rmSync(d, { recursive: true, force: true });
 });
 
-test('#9: a vendor exit 7 with an auth error keeps its code, shows the stderr head on the terminal, and is not logged ok', { skip: SKIP_STUB_LANE_ON_WIN32 }, () => {
+test('#9: a vendor exit 7 with an auth error keeps its code, shows the stderr head on the terminal, and is not logged ok', () => {
   const d = mkdtempSync(join(tmpdir(), 'orch-auth-'));
   const bin = stubLane(d, 'grok', 'echo "authentication failed: token expired" >&2\nexit 7');
   const r = runLane(['grok', 't'], { PATH: withNode(bin), HOME: d });
@@ -471,7 +524,7 @@ test('#9: a vendor exit 7 with an auth error keeps its code, shows the stderr he
   rmSync(d, { recursive: true, force: true });
 });
 
-test('#5: a refusal is exit 0 by default, exit 10 under --expect-file, and a fresh file satisfies it', { skip: SKIP_STUB_LANE_ON_WIN32 }, () => {
+test('#5: a refusal is exit 0 by default, exit 10 under --expect-file, and a fresh file satisfies it', () => {
   const d = mkdtempSync(join(tmpdir(), 'orch-expect-'));
   const bin = stubLane(d, 'grok', `echo '{"stopReason":"end_turn","text":"I cannot create that file."}'`);
   const target = join(d, 'required-output.txt');
@@ -516,7 +569,7 @@ test('#6: rerunning with an added lane applies it to lanes.json and MANIFEST.jso
   rmSync(d, { recursive: true, force: true });
 });
 
-test('#8: the interactive install spawns npm with the same pinned spec the table prints', { skip: SKIP_STUB_LANE_ON_WIN32 }, () => {
+test('#8: the interactive install spawns npm with the same pinned spec the table prints', () => {
   const d = mkdtempSync(join(tmpdir(), 'orch-pin-'));
   const bin = join(d, 'bin');
   mkdirSync(bin);
@@ -538,7 +591,7 @@ test('#8: the interactive install spawns npm with the same pinned spec the table
 
 
 // ---- follow-up audit #13, #14, #15 ----
-test('#15: an untouched artifact created immediately before the run fails --expect-file; a rewrite with new content passes', { skip: SKIP_STUB_LANE_ON_WIN32 }, () => {
+test('#15: an untouched artifact created immediately before the run fails --expect-file; a rewrite with new content passes', () => {
   const d = mkdtempSync(join(tmpdir(), 'orch-fresh-'));
   const target = join(d, 'artifact.txt');
   const bin = stubLane(d, 'grok', `echo '{"stopReason":"end_turn","text":"I did not write the artifact"}'`);
@@ -560,7 +613,7 @@ test('#15: an untouched artifact created immediately before the run fails --expe
   rmSync(d, { recursive: true, force: true });
 });
 
-test('#14: multibyte UTF-8 split across chunks survives on stdout and stderr, and limits count bytes', { skip: SKIP_STUB_LANE_ON_WIN32 }, () => {
+test('#14: multibyte UTF-8 split across chunks survives on stdout and stderr, and limits count bytes', () => {
   const d = mkdtempSync(join(tmpdir(), 'orch-utf8-'));
   const bin = join(d, 'bin');
   mkdirSync(bin);
@@ -582,7 +635,7 @@ test('#14: multibyte UTF-8 split across chunks survives on stdout and stderr, an
   rmSync(d, { recursive: true, force: true });
 });
 
-test('#13: SIGTERM and SIGINT to the wrapper kill the lane before it can write, and exit 143 / 130', { skip: SKIP_STUB_LANE_ON_WIN32 }, async () => {
+test('#13: SIGTERM and SIGINT to the wrapper kill the lane before it can write, and exit 143 / 130', async () => {
   for (const [sig, code] of [['SIGTERM', 143], ['SIGINT', 130]]) {
     const d = mkdtempSync(join(tmpdir(), 'orch-sig-'));
     const marker = join(d, 'after-interruption');
@@ -613,7 +666,7 @@ test('#13: repeated runs do not accumulate signal listeners', async () => {
 });
 
 // ---- #12: upgrade path ----
-test('#12: an install without a manifest keeps runtime files and says executable fixes were not applied; --upgrade-runtime replaces runtime only', { skip: SKIP_MANIFEST_UPGRADE_ON_WIN32 }, () => {
+test('#12: an install without a manifest keeps runtime files and says executable fixes were not applied; --upgrade-runtime replaces runtime only', () => {
   const d = mkdtempSync(join(tmpdir(), 'orch-legacy-'));
   const dir = join(d, 'i');
   const proj = join(d, 'p');
@@ -638,7 +691,7 @@ test('#12: an install without a manifest keeps runtime files and says executable
   rmSync(d, { recursive: true, force: true });
 });
 
-test('#12: with a manifest, an untouched runtime file is upgraded, an edited one is kept and reported as a conflict, and the manifest records the generator version', { skip: SKIP_MANIFEST_UPGRADE_ON_WIN32 }, () => {
+test('#12: with a manifest, an untouched runtime file is upgraded, an edited one is kept and reported as a conflict, and the manifest records the generator version', () => {
   const d = mkdtempSync(join(tmpdir(), 'orch-upg-'));
   const dir = join(d, 'i');
   const proj = join(d, 'p');

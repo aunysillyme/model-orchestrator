@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { judgeGrok, judgeCodex, judgeAgy, judgeHermes, judgeQwen, judge, buildArgv, REASONS, checkContracts, snapshotFile, LANE_FLAGS, badRouteValue, resolveRoute, laneConfig, enabledLanes, LANES } from '../bin/cli-run.mjs';
@@ -176,6 +176,130 @@ test('#18: killTree uses taskkill /T /F on win32 and the negative-pid group kill
   calls.length = 0;
   assert.equal(killTree(4242, 'darwin', deps), 'group');
   assert.deepEqual(calls, [['kill', -4242, 'SIGKILL']]);
+});
+
+// --- Windows: resolving a .cmd shim, and the cmd.exe fallback's escaping -----
+// resolveCmdShim/windowsSpawnPlan are pure string logic (no real spawn), so
+// this is exercised on every CI host, not only win32; the platform parameter
+// on windowsSpawnPlan is the same testability pattern killTree above uses.
+test('resolveCmdShim: parses the shape npm cmd-shim writes, and only that shape', async () => {
+  const { resolveCmdShim } = await import('../bin/cli-run.mjs');
+  const d = mkdtempSync(join(tmpdir(), 'orch-shim-'));
+  const js = join(d, 'grok.js');
+  writeFileSync(js, 'console.log("hi")');
+  const shim = join(d, 'grok.cmd');
+  writeFileSync(
+    shim,
+    '@ECHO off\r\nSETLOCAL\r\nSET "dp0=%~dp0"\r\nIF EXIST "%dp0%node.exe" (\r\n  SET "_prog=%dp0%node.exe"\r\n) ELSE (\r\n  SET "_prog=node"\r\n)\r\n"%_prog%" "%dp0%grok.js" %*\r\n'
+  );
+  assert.equal(resolveCmdShim(shim), js);
+  // %~dp0% (with the tilde) is the other spelling cmd-shim has used.
+  writeFileSync(shim, '"%_prog%"  "%~dp0%grok.js" %*\r\n');
+  assert.equal(resolveCmdShim(shim), js);
+  // a target that does not exist: never resolved to a path nothing can run.
+  writeFileSync(shim, '"%_prog%" "%dp0%missing.js" %*\r\n');
+  assert.equal(resolveCmdShim(shim), null);
+  // a shim for a non-node binary (no %dp0%-relative js target): falls through.
+  writeFileSync(shim, '"%_prog%" "C:\\Program Files\\Foo\\foo.exe" %*\r\n');
+  assert.equal(resolveCmdShim(shim), null);
+  // not a cmd-shim at all: a hand-written batch file.
+  writeFileSync(shim, '@echo off\r\necho hello\r\n');
+  assert.equal(resolveCmdShim(shim), null);
+  // the file does not exist.
+  assert.equal(resolveCmdShim(join(d, 'nope.cmd')), null);
+  rmSync(d, { recursive: true, force: true });
+});
+
+// This is the ACTUAL, byte-for-byte output of npm's own `cmd-shim@9.0.2`
+// package (the tool `npm install -g` itself uses to write a .cmd for a
+// package.json "bin" entry with a "#!/usr/bin/env node" shebang), captured
+// by running cmdShim('lib/cli.js', 'grok') and reading grok.cmd back. Not a
+// hand-typed guess at the shape: proof this parser handles what a real
+// Windows install actually has on disk, including the "set PATHEXT=..." and
+// "endLocal & goto ..." prefix on the same line as "%_prog%", which a
+// simplified fixture would not exercise.
+const REAL_NPM_CMD_SHIM = '@ECHO off\r\n'
+  + 'GOTO start\r\n'
+  + ':find_dp0\r\n'
+  + 'SET dp0=%~dp0\r\n'
+  + 'EXIT /b\r\n'
+  + ':start\r\n'
+  + 'SETLOCAL\r\n'
+  + 'CALL :find_dp0\r\n'
+  + '\r\n'
+  + 'IF EXIST "%dp0%\\node.exe" (\r\n'
+  + '  SET "_prog=%dp0%\\node.exe"\r\n'
+  + ') ELSE (\r\n'
+  + '  SET "_prog=node"\r\n'
+  + ')\r\n'
+  + '\r\n'
+  + 'endLocal & goto #_undefined_# 2>NUL || title %COMSPEC% & set PATHEXT=%PATHEXT:;.JS;=;% & "%_prog%"  "%dp0%\\lib\\cli.js" %*\r\n';
+
+test('resolveCmdShim: resolves the real, byte-for-byte output of npm cmd-shim@9.0.2', async () => {
+  const { resolveCmdShim } = await import('../bin/cli-run.mjs');
+  const d = mkdtempSync(join(tmpdir(), 'orch-realshim-'));
+  mkdirSync(join(d, 'lib'), { recursive: true });
+  const js = join(d, 'lib', 'cli.js');
+  writeFileSync(js, '#!/usr/bin/env node\nconsole.log("hi")\n');
+  const shim = join(d, 'grok.cmd');
+  writeFileSync(shim, REAL_NPM_CMD_SHIM);
+  assert.equal(resolveCmdShim(shim), js);
+  rmSync(d, { recursive: true, force: true });
+});
+
+test('windowsSpawnPlan: POSIX and a plain .exe/extensionless binary on win32 pass through with no shell', async () => {
+  const { windowsSpawnPlan } = await import('../bin/cli-run.mjs');
+  for (const platform of ['darwin', 'linux']) {
+    const p = windowsSpawnPlan(['/bin/grok', '-p', 'hi'], platform);
+    assert.deepEqual(p, { command: '/bin/grok', args: ['-p', 'hi'], options: {} });
+  }
+  const exe = windowsSpawnPlan(['C:\\bin\\grok.exe', '-p', 'hi'], 'win32');
+  assert.deepEqual(exe, { command: 'C:\\bin\\grok.exe', args: ['-p', 'hi'], options: {} });
+  const bare = windowsSpawnPlan(['C:\\bin\\grok', '-p', 'hi'], 'win32');
+  assert.deepEqual(bare, { command: 'C:\\bin\\grok', args: ['-p', 'hi'], options: {} });
+});
+
+test('windowsSpawnPlan: a resolvable .cmd shim spawns node directly on the underlying script, no shell', async () => {
+  const { windowsSpawnPlan } = await import('../bin/cli-run.mjs');
+  const d = mkdtempSync(join(tmpdir(), 'orch-shimplan-'));
+  const js = join(d, 'grok.js');
+  writeFileSync(js, 'console.log("hi")');
+  const shim = join(d, 'grok.cmd');
+  writeFileSync(shim, '"%_prog%" "%dp0%grok.js" %*\r\n');
+  const p = windowsSpawnPlan([shim, '-p', 'a prompt with spaces & a pipe |'], 'win32');
+  assert.equal(p.command, process.execPath);
+  assert.deepEqual(p.args, [js, '-p', 'a prompt with spaces & a pipe |'], 'the prompt reaches node argv untouched: no shell, nothing to escape');
+  assert.deepEqual(p.options, {});
+  rmSync(d, { recursive: true, force: true });
+});
+
+test('windowsSpawnPlan: an unresolvable .cmd falls back to cmd.exe with the documented caret-escaping, verbatim', async () => {
+  const { windowsSpawnPlan } = await import('../bin/cli-run.mjs');
+  // A literal, non-existent path: resolveCmdShim's readFileSync fails inside
+  // it exactly as it would for a real .cmd whose content does not match the
+  // npm cmd-shim shape, so this exercises the same fallback either way,
+  // without depending on this host's own temp-directory naming.
+  const shim = 'C:\\bin\\oldtool.cmd';
+  const p = windowsSpawnPlan([shim, 'say "hi" & bye | cmd'], 'win32');
+  assert.equal(p.command, process.env.ComSpec || 'C:\\Windows\\System32\\cmd.exe');
+  assert.deepEqual(p.args.slice(0, 3), ['/d', '/s', '/c']);
+  assert.deepEqual(p.options, { windowsVerbatimArguments: true }, 'Node must not re-quote a command line this function already built');
+  // Exact strings from the algorithm documented at https://qntm.org/cmd
+  // (quote for CommandLineToArgvW, then caret-escape cmd.exe's own
+  // metacharacters in that quoted text), computed once with node itself
+  // and pinned here so a change to the escaping logic is a visible diff.
+  assert.equal(p.args[3], '^"C:\\bin\\oldtool.cmd^" ^"say^ \\^"hi\\^"^ ^&^ bye^ ^|^ cmd^"');
+});
+
+test('windowsSpawnPlan cmd.exe fallback: caret, percent, trailing backslash and a literal newline each escape correctly', async () => {
+  const { windowsSpawnPlan } = await import('../bin/cli-run.mjs');
+  const bin = 'C:\\bin\\oldtool.cmd';
+  const argOf = (arg) => windowsSpawnPlan([bin, arg], 'win32').args[3].split(' ').slice(1).join(' ');
+  assert.equal(argOf('caret^test'), '^"caret^^test^"');
+  assert.equal(argOf('percent%VAR%end'), '^"percent^%VAR^%end^"');
+  assert.equal(argOf('trailing\\'), '^"trailing\\\\^"');
+  assert.equal(argOf('quote\\"end'), '^"quote\\\\\\^"end^"');
+  assert.equal(argOf('line1\nline2'), '^"line1\nline2^"', 'a literal newline is not a cmd.exe metacharacter; it is neither doubled nor dropped');
 });
 
 // --- route: model and effort reach the lane in that vendor's own spelling -----

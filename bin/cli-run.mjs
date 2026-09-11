@@ -322,9 +322,91 @@ export function unfence(text) {
   return m ? m[1].trim() : t;
 }
 
+// --- Windows: spawning a lane without a shell ------------------------------
+// Node's fix for CVE-2024-27980 makes spawn() throw EINVAL for a .bat/.cmd
+// target unless shell:true is set: launching a batch file always goes
+// through cmd.exe, and cmd.exe reads metacharacters (& | ^ < > ( ) % " and
+// space) directly off the command line before the target program's own argv
+// is parsed, even inside quotes. A lane's argv[1] here is a user PROMPT, text
+// this wrapper does not control the contents of, so that is a real injection
+// surface, not a theoretical one.
+//
+// npm installs every CLI on Windows as a "cmd-shim": a short .cmd launcher
+// that hands off to node with a script path (see npm's own `cmd-shim`
+// package). Reading that path out and spawning node directly sidesteps
+// cmd.exe, and the injection surface it carries, entirely: this is the
+// preferred path, used whenever the shim matches the shape cmd-shim writes.
+//
+// A .cmd/.bat that does not match (hand-written, or an older cmd-shim
+// layout) falls back to cmd.exe, run through the caret-escaping algorithm
+// documented at https://qntm.org/cmd (the canonical writeup of cmd.exe's
+// quoting rules) and used by the widely-deployed `cross-spawn` package:
+// quote each argument for CommandLineToArgvW, THEN caret-escape cmd.exe's
+// own metacharacters in that quoted text, THEN pass the whole command line
+// as one string with windowsVerbatimArguments so Node does not re-quote it
+// a second, conflicting way.
+const NPM_CMD_SHIM = /"%_prog%"\s+"([^"]+)"\s*%\*/;
+export function resolveCmdShim(cmdPath) {
+  let text;
+  try {
+    text = readFileSync(cmdPath, 'utf8');
+  } catch {
+    return null;
+  }
+  const m = NPM_CMD_SHIM.exec(text);
+  if (!m) return null;
+  const dp0 = /^%~?dp0%?[\\/]?/i;
+  if (!dp0.test(m[1])) return null; // only the %dp0%-relative shape cmd-shim writes
+  const rel = m[1].replace(dp0, '').replace(/\\/g, '/');
+  let script;
+  try {
+    script = resolve(dirname(cmdPath), rel);
+    if (!statSync(script).isFile()) return null;
+  } catch {
+    return null;
+  }
+  // Only ever hand off to node for a real JS entry point; anything else (a
+  // shim generated for a non-node binary, or a hand-edited file) falls
+  // through to the cmd.exe fallback instead of being executed as a script.
+  return /\.(m?js|cjs)$/i.test(script) ? script : null;
+}
+
+function escapeCmdArg(arg) {
+  let s = String(arg);
+  // A run of backslashes immediately before a quote (or at the very end of
+  // the argument) must be doubled, or CommandLineToArgvW on the receiving
+  // end eats one; this is the standard Windows argv-quoting rule, not a
+  // cmd.exe-specific one.
+  s = s.replace(/(\\*)"/g, '$1$1\\"');
+  s = s.replace(/(\\*)$/, '$1$1');
+  s = `"${s}"`;
+  // cmd.exe reads these characters off the raw command line and acts on
+  // them (pipe, redirect, chain, subshell, percent-expand, the caret escape
+  // itself) whether or not they sit inside a quoted argument.
+  return s.replace(/[()%!^"<>&|;, ]/g, '^$&');
+}
+
+function buildCmdExeCommand(cmdPath, args) {
+  return [escapeCmdArg(cmdPath), ...args.map(escapeCmdArg)].join(' ');
+}
+
+// Decides what spawn() actually receives. POSIX and a plain .exe/extensionless
+// binary on win32 are unchanged: no shell, argv passed straight through.
+export function windowsSpawnPlan(argv, platform = process.platform) {
+  const [bin, ...args] = argv;
+  if (platform !== 'win32' || !/\.(cmd|bat)$/i.test(bin)) {
+    return { command: bin, args, options: {} };
+  }
+  const script = resolveCmdShim(bin);
+  if (script) return { command: process.execPath, args: [script, ...args], options: {} };
+  const comspec = process.env.ComSpec || process.env.COMSPEC || 'C:\\Windows\\System32\\cmd.exe';
+  return { command: comspec, args: ['/d', '/s', '/c', buildCmdExeCommand(bin, args)], options: { windowsVerbatimArguments: true } };
+}
+
 // Kill a lane and everything it spawned. POSIX: the detached process group.
-// Windows has no process groups a signal can reach, so taskkill walks the tree (#18).
-// Windows is not exercised by CI; this branch is unit-tested by argv capture only.
+// Windows has no process groups a signal can reach, so taskkill walks the
+// tree (#18): whether the direct child is node (the resolved-shim path) or
+// cmd.exe (the fallback), taskkill /T reaches every descendant either way.
 export function killTree(pid, platform = process.platform, deps = { kill: (p, sig) => process.kill(p, sig), spawn }) {
   if (platform === 'win32') {
     deps.spawn('taskkill', ['/pid', String(pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true });
@@ -367,7 +449,8 @@ export function runBounded(argv, timeoutSec, maxBuffer = 16 * 1024 * 1024) {
     process.on('SIGINT', onSignal);
     process.on('SIGTERM', onSignal);
     try {
-      child = spawn(argv[0], argv.slice(1), { stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32' });
+      const plan = windowsSpawnPlan(argv);
+      child = spawn(plan.command, plan.args, { stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32', ...plan.options });
     } catch (e) {
       process.off('SIGINT', onSignal);
       process.off('SIGTERM', onSignal);

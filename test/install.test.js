@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, existsSync, rmSync, writeFileSync, statSync, readdirSync } from 'node:fs';
-import { join, delimiter } from 'node:path';
+import { join, delimiter, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { planFiles, writeFiles, resolveSelection, resolveApis, gatewayModels, envNames, laneVars, activationSteps, proofSteps, snippetFor } from '../src/install.js';
@@ -11,17 +11,19 @@ import { buildArgv } from '../bin/cli-run.mjs';
 
 const sel = (...ids) => ids.map((i) => byId[i]);
 
-// A handful of tests below assert an EXACT literal path string (e.g.
-// '/tmp/mo-dir') appears verbatim in rendered output, using a bare POSIX
-// absolute path as --dir/--project. install.js resolves that with
-// node:path's resolve(), which on win32 treats a leading "/" as
-// drive-relative ("D:\tmp\mo-dir"), not as the literal string the test
-// wrote. That is a real, narrow design question (should a --dir meant to
-// describe a REMOTE Linux box's path, per the vm/ level-3 templates, ever
-// be reinterpreted through the LOCAL host's path semantics at all?) rather
-// than a mechanical separator fix, so it is out of scope for this pass;
-// flagged as a follow-up rather than decided here.
-const SKIP_POSIX_PATH_LITERAL_ON_WIN32 = process.platform === 'win32' && "asserts an exact POSIX --dir/--project path string; path.resolve() reinterprets a leading '/' as drive-relative on win32 (see the comment above SKIP_POSIX_PATH_LITERAL_ON_WIN32)";
+// A bare POSIX absolute path used as --dir/--project (e.g. '/tmp/mo-dir')
+// means two different things depending on what the rendered text describes:
+//   - a REMOTE Linux box's path, baked into a vm/ level-3 template (bash,
+//     systemd) that can only ever run on Linux. src/install.js's dirPosix
+//     keeps that value POSIX on every host, so tests below assert it as a
+//     literal forward-slash string, unconditionally.
+//   - a LOCAL path (where THIS run wrote files on THIS host), which is
+//     correctly rendered with this host's own separators. A test asserting
+//     one of those needs the SAME platform-native value the product
+//     computes, not a hardcoded POSIX literal, so it builds its expectation
+//     with node:path's own resolve()/join() rather than typing the path out.
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const reOfPath = (...segments) => new RegExp(escapeRe(join(...segments)));
 
 test('render fills placeholders and throws on an unknown one', () => {
   assert.equal(render('a {{X}} b', { X: 1 }), 'a 1 b');
@@ -180,7 +182,7 @@ test('a conflicting parent is caught before any write, so nothing is left behind
   }
 });
 
-test('the weekly audit is rendered for an enabled lane, the install dir, and refuses when no lane exists', { skip: SKIP_POSIX_PATH_LITERAL_ON_WIN32 }, () => {
+test('the weekly audit is rendered for an enabled lane, the install dir, and refuses when no lane exists', () => {
   assert.equal(auditLane(sel('claude-code', 'codex', 'ollama')), 'codex');
   assert.equal(auditLane(sel('claude-code', 'hermes', 'codex')), 'hermes');
   assert.equal(auditLane(sel('claude-code', 'ollama')), null);
@@ -202,7 +204,7 @@ test('the weekly audit is rendered for an enabled lane, the install dir, and ref
   assert.equal(spawnSync('bash', ['-n'], { input: sh, encoding: 'utf8' }).status, 0);
 });
 
-test('the weekly audit refuses a gateway key that would inject curl config', { skip: SKIP_POSIX_PATH_LITERAL_ON_WIN32 }, () => {
+test('the weekly audit refuses a gateway key that would inject curl config', () => {
   const sh = planFiles({ level: 3, selected: sel('codex'), primary: byId.codex, dir: '/x' }).find((f) => f.rel === join('vm', 'jobs', 'weekly-audit.sh')).content;
   const d = mkdtempSync(join(tmpdir(), 'orch-key-'));
   const script = join(d, 'a.sh');
@@ -231,7 +233,7 @@ test('codecalc: selected writes CODECALC.md and snippets; the numbers-and-logic 
 import { shellQuote, systemdEscape, dirProblems, realRoot } from '../src/install.js';
 import { realpathSync } from 'node:fs';
 
-test('--dir is data in the rendered script and unit, never syntax', { skip: SKIP_POSIX_PATH_LITERAL_ON_WIN32 }, () => {
+test('--dir is data in the rendered script and unit, never syntax', () => {
   const dir = '/tmp/safe"; echo DIR_INJECTED >&2; #';
   const files = planFiles({ level: 3, selected: sel('codex'), primary: byId.codex, dir, tools: [] });
   const sh = files.find((f) => f.rel === join('vm', 'jobs', 'weekly-audit.sh')).content;
@@ -345,20 +347,31 @@ test('lane sections render from the selection: a claude-code-only install names 
   assert.match(lv.ATTACK_LANE, /code-reviewer at deep tier/, 'no codex means no codex audit lane');
 });
 
-test('snippet paths and the agents note are computed from --dir and --project', { skip: SKIP_POSIX_PATH_LITERAL_ON_WIN32 }, () => {
+test('snippet paths and the agents note are computed from --dir and --project', () => {
   const p = planFiles({ level: 1, selected: sel('claude-code'), primary: byId['claude-code'], dir: '/proj/tools/orch', project: '/proj' });
   const snip = p.find((f) => f.rel === 'CLAUDE.snippet.md').content;
+  // rulesPath is a relative offset between --dir and --project, posix-joined
+  // unconditionally: correct on every host without adjustment (the shared,
+  // reinterpreted drive letter --dir and --project both pick up on win32
+  // cancels out of a *relative* path between them).
   assert.match(snip, /`tools\/orch\/ORCHESTRATOR\.md`/);
   assert.doesNotMatch(snip, /ai-orchestrator\//);
-  assert.match(snip, /\/proj\/\.claude\/agents/);
+  // AGENTS_DIR names where THIS run wrote subagent files on THIS host: a
+  // local path, rendered with this host's own separators. Build the
+  // expectation with resolve()/join(), the same functions install.js uses,
+  // instead of a hardcoded POSIX literal.
+  assert.match(snip, reOfPath(resolve('/proj'), '.claude', 'agents'));
   const same = planFiles({ level: 1, selected: sel('claude-code'), primary: byId['claude-code'], dir: '/proj', project: '/proj' }).find((f) => f.rel === 'CLAUDE.snippet.md').content;
   assert.match(same, /`\.\/ORCHESTRATOR\.md`/);
+  // --dir outside --project at level 3: RULES_PATH also reaches vm/box-CLAUDE.md,
+  // read by an agent running ON the remote Linux box, so it (and CLAUDE.snippet.md's
+  // copy of the same value) stays an absolute POSIX path on every host.
   const outside = planFiles({ level: 3, selected: sel('claude-code'), primary: byId['claude-code'], dir: '/elsewhere/orch', project: '/proj' });
-  assert.match(outside.find((f) => f.rel === 'CLAUDE.snippet.md').content, /`\/elsewhere\/orch\/ROUTING\.md`/, 'a dir outside the project renders an absolute path (level 3 points at ROUTING.md)');
+  assert.match(outside.find((f) => f.rel === 'CLAUDE.snippet.md').content, /`\/elsewhere\/orch\/ROUTING\.md`/, 'a dir outside the project renders an absolute POSIX path (level 3 points at ROUTING.md)');
   assert.match(outside.find((f) => f.rel === join('vm', 'box-CLAUDE.md')).content, /\/elsewhere\/orch\/ROUTING\.md/);
   const readme = p.find((f) => f.rel === 'README.md').content;
   assert.match(readme, /cli-run\.log\.jsonl/, 'uninstall must name the log outside the folder');
-  assert.match(readme, /\/proj\/\.claude\/agents/);
+  assert.match(readme, reOfPath(resolve('/proj'), '.claude', 'agents'));
 });
 
 test('writeFiles honours two roots and rolls back across both', () => {
@@ -437,7 +450,7 @@ test('#2: the codex audit passes --audit and the script states the boundary; oth
   assert.ok(argv.includes('--sandbox') && argv.includes('read-only'));
 });
 
-test('#3: a failed rerun never truncates the previous report; failed output is kept beside it', { skip: SKIP_POSIX_PATH_LITERAL_ON_WIN32 }, () => {
+test('#3: a failed rerun never truncates the previous report; failed output is kept beside it', () => {
   const d = mkdtempSync(join(tmpdir(), 'orch-audit3-'));
   const { sh } = renderAudit('codex', d);
   mkdirSync(join(d, 'reports'), { recursive: true });
@@ -465,7 +478,7 @@ test('#3: a failed rerun never truncates the previous report; failed output is k
   rmSync(d, { recursive: true, force: true });
 });
 
-test('#10: a hanging --version probe and a hanging gateway are cut off by the watchdog, and the unit has a whole-job deadline', { skip: SKIP_POSIX_PATH_LITERAL_ON_WIN32 }, () => {
+test('#10: a hanging --version probe and a hanging gateway are cut off by the watchdog, and the unit has a whole-job deadline', () => {
   const d = mkdtempSync(join(tmpdir(), 'orch-audit10-'));
   const { sh, svc } = renderAudit('codex', d);
   assert.match(svc, /TimeoutStartSec=900/);
@@ -549,16 +562,20 @@ test('the generated README never names an activation file this run did not write
 
 // #21: a chat-app install writes no project files, so it must not print a
 // project root that does not exist.
-test('a chat primary reports no project root; a subagent primary reports the real one', { skip: SKIP_POSIX_PATH_LITERAL_ON_WIN32 }, () => {
+test('a chat primary reports no project root; a subagent primary reports the real one', () => {
+  // These are LOCAL paths (a project root on THIS host), so the expectation is
+  // built with resolve()/join() rather than a hardcoded POSIX literal.
+  const missingProject = resolve('/tmp/mo-project-that-does-not-exist');
   const chat = planFiles({ level: 1, selected: [byId['claude-app']], primary: byId['claude-app'], dir: '/tmp/mo-dir', project: '/tmp/mo-project-that-does-not-exist' })
     .find((f) => f.rel === 'README.md').content;
   assert.ok(chat.includes('Project root: none'), 'chat install still claims a project root');
-  assert.ok(!chat.includes('/tmp/mo-project-that-does-not-exist'), 'chat install printed a path nothing was written to');
+  assert.ok(!chat.includes(missingProject), 'chat install printed a path nothing was written to');
 
+  const project = resolve('/tmp/mo-project');
   const cc = planFiles({ level: 1, selected: [byId['claude-code']], primary: byId['claude-code'], dir: '/tmp/mo-dir', project: '/tmp/mo-project' })
     .find((f) => f.rel === 'README.md').content;
-  assert.ok(cc.includes('Project root (where your agent reads rules and subagents): `/tmp/mo-project`'));
-  assert.ok(cc.includes('/tmp/mo-project/.claude/agents'));
+  assert.ok(cc.includes('Project root (where your agent reads rules and subagents): `' + project + '`'));
+  assert.ok(cc.includes(join(project, '.claude', 'agents')));
 
   // codex reads AGENTS.md from the project root but gets no files there: name the
   // path, and say plainly that this run did not create it.

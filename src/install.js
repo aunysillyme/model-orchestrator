@@ -405,9 +405,30 @@ function vars(opts) {
   const codecalc = tools.some((t) => t.id === 'codecalc');
   const dirAbs = resolve(opts.dir || 'ai-orchestrator');
   const projectAbs = resolve(opts.project || process.cwd());
+  // dirPosix backs two things that must read the same on every host:
+  //   1. INSTALL_DIR / INSTALL_DIR_SH / INSTALL_DIR_SYSTEMD (below), rendered
+  //      into vm/jobs/weekly-audit.sh (bash) and vm/jobs/weekly-audit.service
+  //      (a systemd unit) for the REMOTE Linux box, neither of which can run
+  //      anywhere but Linux;
+  //   2. rulesPath below when --dir falls outside --project, which is
+  //      prose in generated markdown ("a dir outside the project renders an
+  //      absolute path"), not a filesystem call.
+  // An absolute --dir given as a bare POSIX path ("/opt/x") is never
+  // re-resolved through this host's own path semantics for either: a real
+  // Windows path always names a drive ("C:\...", caught by the `startsWith`
+  // check below falling through to dirAbs), so a bare "/opt/x" only ever
+  // means "a Linux path, or documentation text, verbatim" - resolving it
+  // with plain path.resolve() reads that leading "/" as drive-relative on
+  // win32 and silently turns it into a local path that does not exist,
+  // on the box or in the doc. A relative --dir resolves against this
+  // host's cwd exactly as before, which is already correct in the common
+  // case: level 3 is normally installed by running this CLI ON the box,
+  // where "this host" and "the box" are the same filesystem.
+  const rawDir = opts.dir || 'ai-orchestrator';
+  const dirPosix = rawDir.startsWith('/') ? posix.normalize(rawDir) : dirAbs;
   let rulesPath = relative(projectAbs, dirAbs).split(sep).join(posix.sep);
   if (rulesPath === '') rulesPath = '.';
-  else if (rulesPath.startsWith('..')) rulesPath = dirAbs; // outside the project: absolute is the only honest path
+  else if (rulesPath.startsWith('..')) rulesPath = dirPosix; // outside the project: absolute is the only honest path
   const pinOf = (id) => (toolById[id] && toolById[id].pin) || 'latest';
   const snippet = snippetFor(primary);
   const steps = activationSteps({ level, selected, primary, tools, dir: opts.dir, project: opts.project });
@@ -416,7 +437,7 @@ function vars(opts) {
   // The path route-gate.mjs and subagent-context.mjs resolve at runtime,
   // relative to CLAUDE_PROJECT_DIR. Mirrors the RULES_PATH fallback below:
   // outside the project, the honest path is absolute, never a hardcoded one.
-  const relJoin = (name) => (rulesPath === dirAbs ? join(dirAbs, name) : rulesPath === '.' ? name : rulesPath + '/' + name);
+  const relJoin = (name) => (rulesPath === dirPosix ? posix.join(dirPosix, name) : rulesPath === '.' ? name : rulesPath + '/' + name);
   const rulesFileRel = relJoin(routingFile);
   const taskBundleRel = relJoin('TASK_BUNDLE.md');
   // Only claude-code and agy put files under the project root. A chat primary
@@ -449,9 +470,9 @@ function vars(opts) {
     CODECALC_PIN: pinOf('codecalc'),
     OBSIDIAN_TC_PIN: pinOf('obsidian-tc'),
     APIS_LIST: apis.length ? apis.map((prov) => '- ' + prov.name + ' (`' + prov.envName + '`)').join('\n') : '- none: no metered provider key was selected, so the gateway serves only a local lane if you picked one',
-    INSTALL_DIR: dirAbs,
-    INSTALL_DIR_SH: shellQuote(dirAbs),
-    INSTALL_DIR_SYSTEMD: systemdEscape(dirAbs),
+    INSTALL_DIR: dirPosix,
+    INSTALL_DIR_SH: shellQuote(dirPosix),
+    INSTALL_DIR_SYSTEMD: systemdEscape(dirPosix),
     // vm/README.md step 3 named `grok login` and `agy` whatever you picked (#26).
     VM_SIGNIN: (() => {
       const lines = selected.filter((a) => a.bin && a.kind === 'agent-cli').map((a) => `   - ${a.name}: ${a.auth}`);
@@ -784,8 +805,14 @@ export function writeFiles(files, opts) {
       for (const f of groups[k]) {
         const abs = resolve(root, f.rel);
         const exists = existsSync(abs);
-        const label = k === 'project' ? '[project] ' + f.rel : f.rel;
-        const key = (k === 'project' ? '[project] ' : '') + f.rel.split(sep).join('/');
+        // label is what reaches the terminal report (bin/cli.js's "runtime
+        // upgraded:", "runtime CONFLICT, kept:", etc lines): posix-normalized
+        // like key, below, so the report reads the same on every host. Before
+        // this it carried f.rel verbatim, which is native-separated (join()),
+        // so on win32 the report named "bin\cli-run.mjs" while everything
+        // else in this tool (docs, other path prose) uses forward slashes.
+        const label = (k === 'project' ? '[project] ' : '') + f.rel.split(sep).join('/');
+        const key = label;
         const cls = k === 'dir' ? fileClass(f.rel) : 'document';
         if (exists && !force) {
           if (cls === 'document') {
