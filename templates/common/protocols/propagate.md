@@ -1,10 +1,10 @@
 # Propagate: change completeness
 
-**A rename is a refactor, not a single-file edit.** Any change to a name, term, path, slug, schema field, routing rule or shared convention has a blast radius, and the goal is zero silent strays.
+**A rename is a refactor, not a single-file edit.** Any change to a name, term, path, slug, schema field, routing rule or shared convention reaches everything that uses it, and the goal is zero silent strays.
 
 This is retrieval work. It stays with the orchestrator (or a cheap worker for the grep sweep). It never goes to the deep tier: a judgment model re-deriving a file list is the most expensive routing mistake there is.
 
-## 1. Map the blast radius (before editing anything)
+## 1. Map everything it touches (before editing anything)
 
 - **Docs and notes:** backlinks to the thing being renamed; literal search for the old term and its link forms. With obsidian-tc: `get_backlinks`, `search_text`, then `find_unresolved_links` after the change (`protocols/memory-and-record.md`).
 - **Memory / instructions:** grep every instructions file your agents read (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `QWEN.md`, custom instructions) and any memory store.

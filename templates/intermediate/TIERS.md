@@ -47,21 +47,25 @@ reasoning than the reviewer judging its output.** When the plan is airtight the
 spec is carrying the thinking, so builder drops to medium. When the plan is
 vague, fix the plan; do not buy reasoning to paper over it.
 
-**Risk moves the tier and the reader, never just the effort.** These four are
+**Stakes move the tier and the reader, never just the effort.** These four are
 the ones worth naming, because their failures are not recoverable by editing the
 code afterwards.
 
-| Risk | Present when the change touches | What it buys |
+Stakes means what a mistake would cost: a security hole, leaked personal data,
+lost data, or something you can't undo. Most tasks are low-stakes and route
+normally.
+
+| Stakes | Present when the change touches | What it buys |
 |---|---|---|
-| security | auth, tokens, sessions, routes, untrusted input | the attack pass, ideally a different model family |
+| security | auth, tokens, sessions, routes, untrusted input | the challenge pass, ideally a different model family |
 | privacy | personal data, anything leaving the machine | the local lane, and a named check on what is sent |
 | data loss | deletion, bulk mutation, migrations, overwrites | a reviewed rollback path before the change is written |
 | irreversible | publishing, sending, rotating, anything with an audience | a human yes at Stage 5b, never an agent's |
 
-A risk raises code-reviewer to xhigh, and a security-shaped diff goes to the
-attack lane rather than to a second read by the same family. Risk is not a
-synonym for difficulty: a one-line change to an auth check is simple and
-high-risk at the same time, and it is the risk that decides the route.
+High stakes raise code-reviewer to xhigh, and a security-shaped diff goes to
+the challenge lane rather than to a second read by the same family. Stakes are
+not a synonym for difficulty: a one-line change to an auth check is simple and
+high-stakes at the same time, and it is the stakes that decide the route.
 
 **Reserve the top of the ladder for evidence.** xhigh and the escalation tier are
 bought with a named reason: a reproduced failure, a checkpoint that came back
@@ -70,7 +74,7 @@ task, not an escalation.
 
 ## Why split tiers: robustness first, cost second
 
-The split produces better work. The deep tier steers every build twice, and what it steers is **judgment, never retrieval**: the orchestrator sweeps the blast radius itself and hands the deep tier a finished map. Paying deep-tier rates for a file list is the most expensive routing mistake available.
+The split produces better work. The deep tier steers every build twice, and what it steers is **judgment, never retrieval**: the orchestrator sweeps everything it touches itself and hands the deep tier a finished map. Paying deep-tier rates for a file list is the most expensive routing mistake available.
 
 Against a baseline of "standard tier with no consults", default checkpoints are a spend increase. That is the accepted trade, not a saving to claim.
 

@@ -17,7 +17,7 @@ Routing rules live in `{{RULES_PATH}}/{{ROUTING_FILE}}`. Read them before any bu
 
 A subagent starts with your CLAUDE.md and tool definitions already loaded, so it has a fixed start-up cost before it does anything. Measure yours once: spawn a subagent with a one-line task and read its token count. Work smaller than that stays inline.
 
-Every build runs `{{RULES_PATH}}/protocols/build-protocol.md`: two deep-tier checkpoints, a mechanical scan, one adversarial pass, an explicit human yes before anything irreversible, then the loud negative.
+Every build runs `{{RULES_PATH}}/protocols/build-protocol.md`: two deep-tier checkpoints, a mechanical scan, one challenge pass, an explicit human yes before anything irreversible, then the loud negative.
 
 Every delegation carries an `{{RULES_PATH}}/TASK_BUNDLE.md` brief. A Claude Code subagent loads this CLAUDE.md hierarchy, so it holds the standing rules already, just not this task's scope; a second CLI or a fresh chat window may hold none of them. Absence is denial either way.
 

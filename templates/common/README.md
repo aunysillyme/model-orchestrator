@@ -47,7 +47,7 @@ Level 2 adds `ROUTING.md`, `TIERS.md`, `DELEGATION_MATRIX.md`, `RESEARCH_TRIAGE.
 ## The three rules that carry everything
 
 1. **Route by capability tier, not by model name.** deep = ambiguous or expensive to get wrong · standard = well-specified execution and review · fast = bulk and mechanical. Default down, escalate on evidence.
-2. **A gate you cannot fail is not a gate.** "Does it look good?" passes every time. "Name the single biggest risk and the flaw in the request" can come back empty, which is how you know it worked.
+2. **A gate you cannot fail is not a gate.** "Does it look good?" passes every time. "Name what is most likely to go wrong, and what the request missed" can come back empty, which is how you know it worked.
 3. **Exit 0 is not a deliverable.** Any tool, CLI or subagent can report success and hand back nothing. Check for the artifact, not the status line.
 
 ## Where things went

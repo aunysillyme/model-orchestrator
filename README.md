@@ -44,7 +44,7 @@ Read the thinking behind each level in [docs/](docs/README.md): [Part 1](docs/pa
 | Id | What | Level |
 |---|---|---|
 | `claude-code` | Claude Code CLI, the default orchestrator | 1+ |
-| `codex` | Codex CLI on a ChatGPT plan: second coder, adversarial auditor | 1+ |
+| `codex` | Codex CLI on a ChatGPT plan: second coder and second-opinion reviewer (a different model family reading your diff) | 1+ |
 | `agy` | Antigravity CLI on a Google AI plan: research sweeps, concurrent fan-out | 1+ |
 | `grok` | Grok CLI on X Premium: live X and web reads at $0 | 1+ |
 | `hermes` | Hermes Agent: the free tier | 2+ |
@@ -173,7 +173,7 @@ It deliberately does not run in this repository's CI. A canary is only meaningfu
 6. **A delegate's brief carries this task's scope, whatever it already holds.** A Claude Code subagent loads the project's CLAUDE.md hierarchy at start, so it already has the standing rules; a second CLI or a fresh chat window may hold none of them. Either way, only the brief carries what this task needs. On claude-code, that changes who executes: see "Who builds" in `ROUTING.md`.
 7. **Only one process holds keys.** Names in the environment, values in a secrets manager, never in a file here.
 
-## Routing by role, complexity and risk
+## Routing by role, complexity and stakes
 
 Role picks the agent. Two more inputs move the choice, and they move it in
 different directions, so `TIERS.md` states them separately rather than folding
@@ -182,10 +182,14 @@ them into the role:
 - **Complexity moves the effort.** A worker executing a finished plan needs less
   reasoning than the reviewer judging its output. When the plan is airtight the
   spec is carrying the thinking.
-- **Risk moves the tier and the reader.** Security, privacy, data loss and
-  irreversible changes buy the attack lane, a named check, a rollback path or a
-  human yes. A one-line change to an auth check is simple and high-risk at the
-  same time, and it is the risk that decides.
+- **Stakes move the tier and the reader.** Security, privacy, data loss and
+  irreversible changes buy the challenge lane, a named check, a rollback path or
+  a human yes. A one-line change to an auth check is simple and high-stakes at
+  the same time, and it is the stakes that decide.
+
+Stakes means what a mistake would cost: a security hole, leaked personal data,
+lost data, or something you can't undo. Most tasks are low-stakes and route
+normally.
 
 The top of the ladder is bought with evidence: a reproduced failure, an
 unresolved checkpoint, an irreversible change. A task that merely feels hard is
@@ -221,7 +225,7 @@ The report prints turns, **route-marker coverage** (the percentage of turns whos
 A lane with no `--model`, no `--effort` and no `defaults` entry in
 `bin/lanes.json` runs on **its own config file**, which `cli-run` cannot see. A
 CLI configured months ago at a low reasoning effort keeps auditing at that
-effort while your routing docs describe an adversarial pass.
+effort while your routing docs describe a second-opinion pass.
 
 ```bash
 node bin/cli-run.mjs codex "<prompt>" --model gpt-6-astra --effort high
@@ -244,7 +248,7 @@ Install for the tools you have, then let the generated `ROUTING.md` decide the t
 
 ### How do I route tasks to cheaper models?
 
-The rules route by role, complexity and risk (see [Routing by role, complexity and risk](#routing-by-role-complexity-and-risk)). Role picks the agent, complexity moves the effort, risk moves the tier. A task a cheap tier finishes correctly never gets a frontier token.
+The rules route by role, complexity and stakes (see [Routing by role, complexity and stakes](#routing-by-role-complexity-and-stakes)). Role picks the agent, complexity moves the effort, stakes move the tier. A task a cheap tier finishes correctly never gets a frontier token.
 
 ### Is this an LLM router or an AI gateway?
 
@@ -272,7 +276,7 @@ Add an AI to `src/catalog.js` and every prompt, table, config and doc picks it u
 ## Credits
 
 - [@shawnwows](https://x.com/shawnwows) reviewed the router and made the case for
-  separating role, complexity and risk instead of compressing them into one
+  separating role, complexity and stakes instead of compressing them into one
   scale, for recording the model and effort a lane was actually asked for, and
   for verifying findings before they trigger repairs. All three shipped in
   0.1.14.

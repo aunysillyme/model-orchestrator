@@ -1,6 +1,6 @@
 ---
 name: finding-verifier
-description: Adversarial verification of review findings. Use after a review or audit returns findings and before any of them trigger a repair. No file-editing tools; Bash is for read-only checks, bound by the prompt below, not by the tool grant. Tries to DISPROVE each finding and returns CONFIRMED, NOT_REPRODUCED or INCONCLUSIVE per finding. Do not use to find new problems, and do not use to fix anything.
+description: Second-opinion verification of review findings. Use after a review or audit returns findings and before any of them trigger a repair. No file-editing tools; Bash is for read-only checks, bound by the prompt below, not by the tool grant. Tries to DISPROVE each finding and returns CONFIRMED, NOT_REPRODUCED or INCONCLUSIVE per finding. Do not use to find new problems, and do not use to fix anything.
 tools: Read, Glob, Grep, Bash
 model: sonnet
 effort: high

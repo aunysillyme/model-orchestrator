@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Changed
+
+- **User-facing text now uses plain language instead of security-audit jargon.** Words like "risk", "attack lane", "adversarial", "blast radius", "fail closed" and "threat model" read as alarming to someone deciding whether to try the tool, so they scared off exactly the readers this project needs. No rule any of them described changed, only the wording: "risk" is now "stakes" everywhere it names a routing input (with a one-line definition added to `README.md` and `TIERS.md`), "attack lane" / "Stage 5 Attack" / "attack pass" are now "challenge lane" / "Stage 5 Challenge" / "challenge pass", "adversarial" (auditor, read, critique, turn, pass) is now "second-opinion", "blast radius" is now "everything it touches", "fail(s) closed" is now "refuses by default", and "threat model" is now "security notes" in the files that link to it. `test/prose.test.js` gained a permanent check (`no alarming security wording in user-facing text`) over the purely-prose, user-facing surface (`docs/`, `templates/`, `README.md`, `llms.txt`, `CONTRIBUTING.md`, the PR template) so the old wording cannot silently creep back in. `docs/audit-brief.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md` and code identifiers/comments (for example the `ATTACK_LANE` render var) are unchanged, since these words are expected or load-bearing there.
+
 ## [0.1.16] - 2026-09-11
 
 ### Added

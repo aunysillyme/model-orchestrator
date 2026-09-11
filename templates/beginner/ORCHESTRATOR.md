@@ -29,8 +29,8 @@ Modifiers:
 
 ## The two checkpoints (every build)
 
-- **Checkpoint 1, before writing anything.** You map the blast radius yourself (files, systems, docs, tickets). Then ask the deep tier, on the finished map: *is this the simplest way, what is the single biggest risk, where is the request as filed wrong?* It must return a named risk and a named flaw. Approval alone is not an answer.
-- **Checkpoint 2, after the build is green.** Security-shaped diffs get an adversarial read (in a fresh context, told to attack, allowed to answer CLEAN). Architecture-shaped diffs get the deep tier reviewing build against plan. Never both on one diff. Every finding reproduced before it reaches a human.
+- **Checkpoint 1, before writing anything.** You map everything it touches yourself (files, systems, docs, tickets). Then ask the deep tier, on the finished map: *is this the simplest way, what is most likely to go wrong, what did the request miss?* It must return one named weak spot and one gap in the request. Approval alone is not an answer.
+- **Checkpoint 2, after the build is green.** Security-shaped diffs get a second-opinion read (in a fresh context, told to challenge, allowed to answer CLEAN). Architecture-shaped diffs get the deep tier reviewing build against plan. Never both on one diff. Every finding reproduced before it reaches a human.
 
 Cap: two deep-tier consults per build. The full procedure is `protocols/build-protocol.md`.
 

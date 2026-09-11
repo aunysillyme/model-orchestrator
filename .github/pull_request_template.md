@@ -10,7 +10,7 @@
 
 - [ ] `npm test` green locally (say which OS and Node)
 - [ ] CI green on Ubuntu, macOS and Windows
-- [ ] If `bin/` or `src/install.js` changed: what I attacked and how it refused (symlinked dir, path outside the root, quote in `--dir`, lane exiting 0 with nothing, signal mid-run)
+- [ ] If `bin/` or `src/install.js` changed: what I challenged and how it refused (symlinked dir, path outside the root, quote in `--dir`, lane exiting 0 with nothing, signal mid-run)
 - [ ] If a judge changed: its red case in `test/judges.test.js` still fails without the fix
 - [ ] A line under `[Unreleased]` in `CHANGELOG.md`
 - [ ] Nothing that looks like a credential; no em dashes in prose

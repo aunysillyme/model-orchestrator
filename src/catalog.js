@@ -87,7 +87,7 @@ export const AIS = [
     bin: 'codex',
     access: 'subscription',
     lane: 'A',
-    role: 'second coder and adversarial auditor (a different model family reading your diff)',
+    role: 'second coder and second-opinion reviewer (a different model family reading your diff)',
     minLevel: 1,
     install: { npm: '@openai/codex', pin: '0.153.4' },
     builtAgainst: '0.153.4',

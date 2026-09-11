@@ -36,7 +36,7 @@ The tools cannot help a model that never reaches for them. codecalc ships `SKILL
 
 ## What it is not
 
-Not a cloud sandbox for multi-tenant loads, not a replacement for a vendor's built-in interpreter when zero setup matters more than measurement. Its threat model is single-operator, local, stdio. It earns its keep when the correctness of a claim, not "it ran", is the point.
+Not a cloud sandbox for multi-tenant loads, not a replacement for a vendor's built-in interpreter when zero setup matters more than measurement. It assumes a single-operator, local, stdio setup. It earns its keep when the correctness of a claim, not "it ran", is the point.
 
 ## On a box (level 3)
 

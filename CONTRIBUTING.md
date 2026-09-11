@@ -30,7 +30,7 @@ An entry in `TOOLS` in `src/catalog.js`, a doc under `templates/tools/<id>/`, an
 ## Pull requests
 
 - One concern per PR. `npm test` green on your OS; CI green on both.
-- If you touched `bin/cli.js`, `src/install.js` or `bin/cli-run.mjs`, say what you attacked and how it refused: a symlinked `--dir`, a path outside the root, a `--dir` with a quote in it, a lane that exits 0 with nothing, a signal mid-run.
+- If you touched `bin/cli.js`, `src/install.js` or `bin/cli-run.mjs`, say what you challenged and how it refused: a symlinked `--dir`, a path outside the root, a `--dir` with a quote in it, a lane that exits 0 with nothing, a signal mid-run.
 - Templates carry no logic and nothing that looks like a credential. Keys are named by environment variable, never by value.
 - No em dashes in prose you add. It is a house rule and `test/prose.test.js` checks it.
 - Add a line under `[Unreleased]` in `CHANGELOG.md`.

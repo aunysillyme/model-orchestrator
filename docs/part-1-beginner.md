@@ -14,7 +14,7 @@ If your agent exposes model choice (Claude Code, Codex, Antigravity), map the ti
 
 Three cost levers, always together: tier (price per token), token discipline (how many tokens: read only what you will touch, never re-read, deliverables not narration), effort (how hard each call thinks).
 
-And three inputs into the choice, not one. **Role** picks the agent. **Complexity** moves the effort: a worker executing a finished plan needs less reasoning than the reviewer judging its output, so when the plan is airtight the spec is carrying the thinking. **Risk** moves the tier and who reads the result: security, privacy, data loss and irreversible changes are the four worth naming, because none of their failures can be fixed by editing the code afterwards. A one-line change to an auth check is simple and high-risk at once, and it is the risk that decides.
+And three inputs into the choice, not one. **Role** picks the agent. **Complexity** moves the effort: a worker executing a finished plan needs less reasoning than the reviewer judging its output, so when the plan is airtight the spec is carrying the thinking. **Stakes** move the tier and who reads the result: security, privacy, data loss and irreversible changes are the four worth naming, because none of their failures can be fixed by editing the code afterwards. A one-line change to an auth check is simple and high-stakes at once, and it is the stakes that decide.
 
 Robustness first, cost second. You split tiers because the split produces better work.
 
@@ -32,9 +32,9 @@ Modifiers: plan big, execute small · never silently retry a failed attempt at t
 
 > A gate you cannot fail is not a gate.
 
-"Does this look good?" passes every time. "Name the single biggest risk and the flaw in the request as filed" can come back empty, which is how you know it worked.
+"Does this look good?" passes every time. "Name what is most likely to go wrong, and what the request as filed missed" can come back empty, which is how you know it worked.
 
-Every build gets two checkpoints. **Before writing:** you map what it touches and what could break, then ask the deep tier on the finished map for a named risk and a named flaw. **After it is green:** a fresh context attacks it (bad input, failing dependency, drift from the plan), allowed to answer CLEAN, every finding reproduced before it reaches you. Then the ship, with a rollback named and an explicit yes. Then the loud negative: re-check the old name everywhere and expect zero.
+Every build gets two checkpoints. **Before writing:** you map what it touches and what could break, then ask the deep tier on the finished map for one named weak spot and one gap in the request. **After it is green:** a fresh context challenges it (bad input, failing dependency, drift from the plan), allowed to answer CLEAN, every finding reproduced before it reaches you. Then the ship, with a rollback named and an explicit yes. Then the loud negative: re-check the old name everywhere and expect zero.
 
 ## 4. Every hand-off carries a brief
 
@@ -46,7 +46,7 @@ After anything comprehensive, a fresh turn that hunts for what is **missing**, n
 
 ## 6. Deep research, single agent
 
-Plan the sub-questions as their own turn and inspect them before spending anything. Sweep. Then a fresh adversarial turn told to attack the premise. Plant one deliberately wrong figure and see whether it corrects it. Mark every claim CONFIRMED / DISAGREEMENT / REPORTED / UNVERIFIED. Agreement is weak evidence; disagreement is the signal.
+Plan the sub-questions as their own turn and inspect them before spending anything. Sweep. Then a fresh second-opinion turn told to question the premise. Plant one deliberately wrong figure and see whether it corrects it. Mark every claim CONFIRMED / DISAGREEMENT / REPORTED / UNVERIFIED. Agreement is weak evidence; disagreement is the signal.
 
 ## 7. Numbers and logic are computed, never guessed
 

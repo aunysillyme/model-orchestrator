@@ -9,7 +9,7 @@ Routing rules live in `{{RULES_PATH}}/{{ROUTING_FILE}}`. Read them before any bu
 
 Route by capability tier, first match wins: bulk and mechanical -> fast tier · needs live data -> standard tier with tools · review without changing -> standard, read-only · ambiguous or expensive to get wrong -> deep tier, then hand the plan down · everything else -> build it directly at standard tier.
 
-Every build runs `{{RULES_PATH}}/protocols/build-protocol.md`: map the blast radius yourself, ask the deep tier for a named risk and a named flaw, build green, scan the added lines, one adversarial pass with every finding reproduced, an explicit human yes before anything irreversible, then re-grep the old identifier and expect zero.
+Every build runs `{{RULES_PATH}}/protocols/build-protocol.md`: map everything it touches yourself, ask the deep tier for one named weak spot and one gap in the request, build green, scan the added lines, one challenge pass with every finding reproduced, an explicit human yes before anything irreversible, then re-grep the old identifier and expect zero.
 
 Every delegation carries an `{{RULES_PATH}}/TASK_BUNDLE.md` brief. A fresh context holds none of these rules; absence is denial.
 

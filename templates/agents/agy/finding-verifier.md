@@ -1,6 +1,6 @@
 ---
 name: finding-verifier
-description: Adversarial verification of review findings; tries to disprove each one and returns CONFIRMED, NOT_REPRODUCED or INCONCLUSIVE. Read-only, never repairs.
+description: Second-opinion verification of review findings; tries to disprove each one and returns CONFIRMED, NOT_REPRODUCED or INCONCLUSIVE. Read-only, never repairs.
 model: flash
 subagent: true
 mainAgent: true

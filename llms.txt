@@ -24,4 +24,4 @@ Levels: 1 beginner (one agent or chat app), 2 intermediate (several agent CLIs, 
 ## Optional
 
 - [Security policy](https://github.com/aunysillyme/model-orchestrator/blob/main/SECURITY.md)
-- [Audit brief](https://github.com/aunysillyme/model-orchestrator/blob/main/docs/audit-brief.md): the threat model and what has already been attacked
+- [Audit brief](https://github.com/aunysillyme/model-orchestrator/blob/main/docs/audit-brief.md): the security notes and what has already been security-reviewed

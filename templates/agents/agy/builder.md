@@ -4,7 +4,7 @@ description: Well-specified execution of a bounded sub-part of a build.
 model: flash
 subagent: true
 mainAgent: true
-commandExecutionPolicy: auto   # standard build/test commands run unattended; high-risk commands stay gated
+commandExecutionPolicy: auto   # standard build/test commands run unattended; destructive commands, like deletes, still ask before running
 ---
 
 # builder

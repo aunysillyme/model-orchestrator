@@ -13,7 +13,7 @@ Rule: never spend a frontier token on a task a cheap tier finishes correctly. Es
 | Lane | Wins at |
 |---|---|
 | the orchestrator (Claude Code, or whichever you chose) | routes, maps, builds, verifies, records; drives the others as CLIs |
-| Codex | second coder and adversarial auditor: a different model family reading your diff |
+| Codex | second coder and second-opinion reviewer: a different model family reading your diff |
 | Antigravity `agy` | deep research sweeps; concurrent fan-out (its subagent call takes an array) |
 | Grok CLI | X and live web reads at $0 (the same search on the API bills per call) |
 | Hermes | the free tier: rough drafts, first-pass summaries, divergent reads, cron jobs |
@@ -28,7 +28,7 @@ Every agent CLI can report success and deliver nothing. `bin/cli-run.mjs` builds
 
 Every call goes through it. "This lane is flaky" becomes a query over its log instead of an argument. `node bin/cli-run.mjs --doctor` is the first thing to run after install: enabled lanes, binaries on PATH, the route each lane is pinned to, and with `--run` a one-word canary per lane.
 
-There is a second thing a lane can be quietly wrong about. Left unpinned, it runs on **its own config file**, which the runner cannot see: a CLI set up months ago at a low reasoning effort keeps auditing at that effort while your routing docs describe an adversarial pass, and no error is ever raised. `--model` and `--effort` pin it per call, `defaults` in `bin/lanes.json` pins it per lane, and every run records the value requested and where it came from (`flag`, `lanes.json`, `lane_default`). The log claims no actual: grok reports a model id in its output, the other four lanes report none, so the field would be populated for one lane and empty for four, and it would be a provider-supplied string the durable log never holds.
+There is a second thing a lane can be quietly wrong about. Left unpinned, it runs on **its own config file**, which the runner cannot see: a CLI set up months ago at a low reasoning effort keeps auditing at that effort while your routing docs describe a second-opinion pass, and no error is ever raised. `--model` and `--effort` pin it per call, `defaults` in `bin/lanes.json` pins it per lane, and every run records the value requested and where it came from (`flag`, `lanes.json`, `lane_default`). The log claims no actual: grok reports a model id in its output, the other four lanes report none, so the field would be populated for one lane and empty for four, and it would be a provider-supplied string the durable log never holds.
 
 ## 4. Every delegation carries a task bundle, on both surfaces
 
@@ -36,7 +36,7 @@ Subagents and CLI lanes are close to the same problem: something that may hold n
 
 ## 5. Research: three engines, one triager
 
-Fan the same plan to three model families (web sweep, adversarial read, live data), each as one `cli-run` call. The orchestrator opens the primary sources itself, marks every claim, and writes the only durable record. Expect one engine to return confident unsourced numerics; downgrade it. Weight the engines that report their own gaps. Count dispositions, not briefs.
+Fan the same plan to three model families (web sweep, second-opinion read, live data), each as one `cli-run` call. The orchestrator opens the primary sources itself, marks every claim, and writes the only durable record. Expect one engine to return confident unsourced numerics; downgrade it. Weight the engines that report their own gaps. Count dispositions, not briefs.
 
 ## 5a. A finding is a claim, not a fact
 
@@ -48,7 +48,7 @@ The second pass is now a different model reading the same artifact, in read-only
 
 ## 7. The build protocol, bound to lanes
 
-Stage 1 Map: the orchestrator sweeps; CLI lanes critique the map at $0. Stage 2: deep tier, a named risk and a named flaw. Stage 4: scanners on the added lines, fail closed. Stage 5: security-shaped diff → the second coder in read-only audit mode; architecture-shaped → deep tier reviewing build against plan; never both. Two deep checkpoints per build; CLI lanes are uncapped.
+Stage 1 Map: the orchestrator sweeps; CLI lanes critique the map at $0. Stage 2: deep tier, one named weak spot and one gap in the request. Stage 4: scanners on the added lines, refuses by default. Stage 5: security-shaped diff → the second coder in read-only audit mode; architecture-shaped → deep tier reviewing build against plan; never both. Two deep checkpoints per build; CLI lanes are uncapped.
 
 ## 8. Privacy gate
 

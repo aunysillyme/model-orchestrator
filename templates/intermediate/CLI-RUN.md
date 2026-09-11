@@ -68,7 +68,7 @@ qwen is the lane whose own success flags lie: an upstream 400 comes back as exit
 
 ## The route: which model, and how hard it thinks
 
-A lane you do not pin runs on **its own config file**, which this tool cannot see. That is the quiet failure this section exists for: a CLI configured months ago at `reasoning_effort = "low"` keeps auditing at low effort while your routing docs describe an adversarial pass, and nothing anywhere says so.
+A lane you do not pin runs on **its own config file**, which this tool cannot see. That is the quiet failure this section exists for: a CLI configured months ago at `reasoning_effort = "low"` keeps auditing at low effort while your routing docs describe a second-opinion pass, and nothing anywhere says so.
 
 Pin it per call, or per lane:
 
@@ -114,9 +114,9 @@ The log records what was **requested**, on every record including a run refused 
 
 That is each vendor's documented headless shape (`-p`, `exec`). Two consequences: argv is visible to other processes on the machine, so a prompt is never the place for a key; and argv is bounded by the OS (`ARG_MAX`), so a very large brief should be referenced by path inside the prompt rather than pasted whole.
 
-## lanes.json fails closed
+## lanes.json refuses by default
 
-Absent: every lane enabled, nothing pinned. Present but malformed or unreadable: every lane refused (exit 13) until it is fixed. A half-written config never re-enables a lane the installer disabled. `defaults` is optional and held to the same standard: a malformed entry, an unknown lane, an unknown key, a value outside the charset, or an effort pinned on a lane that has no reasoning flag all fail the whole file closed rather than being skipped quietly.
+Absent: every lane enabled, nothing pinned. Present but malformed or unreadable: every lane refused (exit 13) until it is fixed. A half-written config never re-enables a lane the installer disabled. `defaults` is optional and held to the same standard: a malformed entry, an unknown lane, an unknown key, a value outside the charset, or an effort pinned on a lane that has no reasoning flag all make the whole file refuse by default rather than being skipped quietly.
 
 ## A killed lane is not a deliverable
 

@@ -14,7 +14,7 @@ Verification asks "is what I did correct?". Gap analysis asks "what did I not do
 ## Who runs it
 
 - **Level 1 (one agent):** the same agent, in a fresh turn, with a brief that says "you are looking for what is missing; do not re-verify what is present". Fresh context matters more than a different model.
-- **Level 2 and up:** a **different model family** reading the same artifact. Disagreement between two families is the cheapest available signal that something is soft. The adversarial coder lane (a second-opinion CLI in read-only mode) is the natural fit.
+- **Level 2 and up:** a **different model family** reading the same artifact. Disagreement between two families is the cheapest available signal that something is soft. The second-opinion coder lane (read-only mode) is the natural fit.
 - **Level 3:** make it recurring. A weekly audit job enumerates live state (lanes, jobs, services, model lists), diffs it against the plan, and files a report. It catches the dead lane and the silently renamed model nobody noticed.
 
 ## The second half: analyze, compare, suggest

@@ -15,7 +15,7 @@ Generated {{DATE}} from the AIs you said you have: `{{AI_IDS}}`.
 | Many independent items each needing its own agent turn | a concurrent fan-out lane | one call, N children, on a subscription |
 | Live web or social reads | the live-data CLI | subscription-covered; the same search on the API bills per call |
 | Code review, no changes | standard tier, or the second-coder CLI | a different model family catches what one misses |
-| Adversarial audit of a security-shaped diff | the second-coder CLI in read-only audit mode | Claude writes, a second family attacks, the orchestrator reproduces |
+| Second-opinion audit of a security-shaped diff | the second-coder CLI in read-only audit mode | Claude writes, a second family challenges, the orchestrator reproduces |
 | Deep architecture / planning | deep tier | expensive to get wrong |
 | Well-specified execution | the orchestrator | execution does not need the top tier |
 | Long-document analysis | the largest-context lane, or caching on the primary | window size vs re-query cost |

@@ -24,7 +24,7 @@ Generated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrite
 ### `codex` · Codex CLI (OpenAI, ChatGPT plan)
 
 - **Kind:** agent-cli · **Access:** subscription · **Lane:** A · **Level:** 1+
-- **Wins at:** second coder and adversarial auditor (a different model family reading your diff)
+- **Wins at:** second coder and second-opinion reviewer (a different model family reading your diff)
 - **Install:** `npm install -g @openai/codex@0.153.4`
 - **Sign in:** `codex login` (add `--device-auth` on a machine with no browser)
 - **Reads rules from:** `AGENTS.md`

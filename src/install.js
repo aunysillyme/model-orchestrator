@@ -155,21 +155,21 @@ export function laneVars(selected) {
   if (has('hermes')) step0.push(`${cr('hermes')} (the free tier) for rough drafts and divergent reads`);
   if (has('qwen')) step0.push(`${cr('qwen')} (the cheapest metered lane) for structured bulk, never for anything citing a line, number or source`);
   if (has('grok')) step0.push(`${cr('grok')} for X and live web reads at $0`);
-  if (has('codex')) step0.push(`${cr('codex --audit')} for an adversarial read by a second model family`);
+  if (has('codex')) step0.push(`${cr('codex --audit')} for a second-opinion read by a second model family`);
   if (has('agy')) step0.push(`${cr('agy')} for research sweeps and concurrent fan-out`);
   const stage1 = [];
-  if (has('codex')) stage1.push(`${cr('codex')} for adversarial critique of the map`);
+  if (has('codex')) stage1.push(`${cr('codex')} for a second-opinion critique of the map`);
   if (has('grok')) stage1.push(`${cr('grok')} to verify current API behaviour instead of trusting recall`);
   if (has('hermes')) stage1.push(`${cr('hermes')} for a divergent read`);
   if (has('agy')) stage1.push(`${cr('agy')} for a wide sweep of prior art`);
   const examples = [];
   examples.push(has('grok') ? `| "What is trending on X today" | ${cr('grok')} |` : '| "What is trending on X today" | live-researcher (standard tier with web tools) |');
-  examples.push(has('codex') ? `| "Audit this auth diff" | ${cr('codex --audit')} |` : '| "Audit this auth diff" | code-reviewer at deep tier, in a fresh context told to attack |');
+  examples.push(has('codex') ? `| "Audit this auth diff" | ${cr('codex --audit')} |` : '| "Audit this auth diff" | code-reviewer at deep tier, in a fresh context told to challenge |');
   examples.push(has('qwen') ? `| "Classify these 200 items" | bulk-worker, or ${cr('qwen')} if the items may leave the machine |` : '| "Classify these 200 items" | bulk-worker |');
-  examples.push(enabled.length >= 2 ? '| "Research this topic properly" | several engines in parallel, see `RESEARCH_TRIAGE.md` |' : '| "Research this topic properly" | deep tier plans, standard tier sweeps, a fresh context attacks; see `RESEARCH_TRIAGE.md` |');
+  examples.push(enabled.length >= 2 ? '| "Research this topic properly" | several engines in parallel, see `RESEARCH_TRIAGE.md` |' : '| "Research this topic properly" | deep tier plans, standard tier sweeps, a fresh context challenges; see `RESEARCH_TRIAGE.md` |');
   const roles = [];
   if (has('agy')) roles.push('| Web sweep | `cli-run agy` | widest landscape pass |');
-  if (has('codex')) roles.push('| Adversarial read | `cli-run codex --audit` | attack the premise, hunt for what the others would get wrong |');
+  if (has('codex')) roles.push('| Second-opinion read | `cli-run codex --audit` | question the premise, hunt for what the others would get wrong |');
   if (has('grok')) roles.push('| Live data | `cli-run grok` | dated primary sources, real-time reads |');
   if (has('hermes')) roles.push('| Cheap divergent read | `cli-run hermes` | another opinion at $0 |');
   if (has('qwen')) roles.push('| Structured extraction | `cli-run qwen` | pull the facts into a table; never trust its citations without a check |');
@@ -183,12 +183,12 @@ export function laneVars(selected) {
   return {
     LANE_STEP0: step0.length ? step0.map((l) => '   - ' + l).join('\n') : '   - none selected yet: every task stays on your primary agent\'s tiers until you add a lane (re-run the installer with more AIs)',
     STAGE1_LANES: stage1.length ? '; ' + stage1.join(', ') : '',
-    ATTACK_LANE: has('codex') ? '`cli-run codex --audit` (a second model family in a read-only sandbox)' : 'code-reviewer at deep tier, in a fresh context told to attack and allowed to answer CLEAN',
+    ATTACK_LANE: has('codex') ? '`cli-run codex --audit` (a second model family in a read-only sandbox)' : 'code-reviewer at deep tier, in a fresh context told to challenge and allowed to answer CLEAN',
     LIVE_LANE: has('grok') ? '`cli-run grok` first ($0), then' : '',
     BULK_LANE: has('qwen') ? ', or `cli-run qwen` if the data may leave your machine' : has('hermes') ? ', or `cli-run hermes` for a free rough pass' : '',
     LANE_EXAMPLES: examples.join('\n'),
     RESEARCH_ROLES: roles.join('\n'),
-    RESEARCH_RUN: run.length ? run.join('\n') : '# no cli-run lane selected: run the sweep on your primary agent, then a fresh adversarial turn (protocols/deep-research.md, level 1 shape)',
+    RESEARCH_RUN: run.length ? run.join('\n') : '# no cli-run lane selected: run the sweep on your primary agent, then a fresh second-opinion turn (protocols/deep-research.md, level 1 shape)',
     RESEARCH_ENGINES: String(run.length)
   };
 }

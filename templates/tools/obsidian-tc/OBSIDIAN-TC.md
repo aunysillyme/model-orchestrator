@@ -11,7 +11,7 @@ A durable, searchable, governed store that the protocols can call by name:
 | Need in the protocols | obsidian-tc tool |
 |---|---|
 | find what exists before writing (deep research dedupe, gap analysis) | `semantic_search`, `search_text`, `search_regex` |
-| map a rename's blast radius (propagate) | `get_backlinks`, `find_unresolved_links`, `rewrite_link` |
+| map everything a rename touches (propagate) | `get_backlinks`, `find_unresolved_links`, `rewrite_link` |
 | record the end-to-end doc (build Stage 7) | `write_note` (compare-and-swap, confirmation on overwrite), `patch_note`, `append_note` |
 | keep inferred content honest | `write_note` with `provenance: "agent_synthesis"` runs a poison scan before the write lands |
 | keep a shared vault safe for several agents | JWT scopes, per-vault folder ACLs, a read-only kill switch, human-in-the-loop tokens |
@@ -56,9 +56,9 @@ Merge the block; do not replace the file.
 
 ## Security posture, read before a second agent touches it
 
-Zero-config mode boots with **auth off and no folder ACL**: anything that can reach the server has the same authority as raw filesystem access to the vault. That is acceptable only because the surface is local-only (the config fail-closes if you enable HTTP on a non-loopback host with auth off, and a DNS-rebinding guard protects loopback). Before exposing it to partially-trusted, remote or multi-agent callers, turn on `auth.mode: "jwt"` and set `acl.readPaths` / `writePaths` / `deletePaths` in the config file. Upstream `SECURITY.md` has the threat model and a private disclosure path.
+Zero-config mode boots with **auth off and no folder ACL**: anything that can reach the server has the same authority as raw filesystem access to the vault. That is acceptable only because the surface is local-only (the config refuses by default if you enable HTTP on a non-loopback host with auth off, and a DNS-rebinding guard protects loopback). Before exposing it to partially-trusted, remote or multi-agent callers, turn on `auth.mode: "jwt"` and set `acl.readPaths` / `writePaths` / `deletePaths` in the config file. Upstream `SECURITY.md` has the security notes and a private disclosure path.
 
-Track record worth knowing: an independent code audit of v1.8.1 (July 2026) found three security-relevant gaps (an ACL fail-closed bypass in enumeration tools, a compare-and-swap bypass through `upsert`, a poison-eligibility gap in preference extraction). All three were fixed upstream before they were filed; verified against the v1.25.0 source on 2026-09-03.
+Track record worth knowing: an independent code audit of v1.8.1 (July 2026) found three security-relevant gaps (an ACL bypass that let enumeration tools skip its refuse-by-default rule, a compare-and-swap bypass through `upsert`, a poison-eligibility gap in preference extraction). All three were fixed upstream before they were filed; verified against the v1.25.0 source on 2026-09-03.
 
 ## Level 3
 

@@ -31,10 +31,10 @@ Rule of thumb: never spend a frontier token on a task a cheap tier finishes corr
 |---|---|
 | 0 Route | live probe for access; `cli-run` lanes are $0 and uncapped |
 | 1 Map | the orchestrator sweeps{{STAGE1_LANES}} |
-| 2 Judge | deep tier, on the finished map: a named risk and a named flaw |
+| 2 Judge | deep tier, on the finished map: one named weak spot and one gap in the request |
 | 3 Build | the orchestrator, against the installed dependency's source |
-| 4 Scan | secret + static + dependency scanners, diff-scoped, fail closed |
-| 5 Attack | security-shaped diff → {{ATTACK_LANE}}. Architecture-shaped → deep tier, build against plan. Never both |
+| 4 Scan | secret + static + dependency scanners, diff-scoped, refuses by default |
+| 5 Challenge | security-shaped diff → {{ATTACK_LANE}}. Architecture-shaped → deep tier, build against plan. Never both |
 | 5a Verify findings | finding-verifier, a different model family where you have one: CONFIRMED, NOT_REPRODUCED or INCONCLUSIVE per finding. Only CONFIRMED earns a repair |
 | 5b Ship | rollback id recorded, explicit human yes |
 | 6 Verify | real test, negative test seen red, old identifier re-grepped to zero |
@@ -58,7 +58,7 @@ One writer per run; every other lane proposes. Search before writing, index in t
 - **Long context:** mechanical digestion → fast tier in chunks; judgment over a long input → standard tier.
 - **Token discipline on every delegation:** pass only the context the delegate needs, never the conversation.
 - **Effort per agent:** deep xhigh, review, verification and build high, live research medium, bulk low.
-- **Three inputs, not one:** role picks the agent, complexity moves the effort, risk moves the tier and who reads it. A one-line auth change is simple and high-risk at once, and the risk decides. See `TIERS.md`.
+- **Three inputs, not one:** role picks the agent, complexity moves the effort, stakes move the tier and who reads it. A one-line auth change is simple and high-stakes at once, and the stakes decide. See `TIERS.md`.
 - **Pin the route when it matters:** a lane with no `--model`/`--effort` and no `defaults` entry in `bin/lanes.json` runs on its own config, which may be nothing like what this file describes. `cli-run --doctor` prints what each lane is pinned to, and every run logs the value requested and where it came from.
 
 ## Example routings

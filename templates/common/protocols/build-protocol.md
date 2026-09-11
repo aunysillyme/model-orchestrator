@@ -2,7 +2,7 @@
 
 **Three phases, eight stages, and every gate is a question that can be answered wrong.**
 
-Fires on any task that builds, codes, implements, migrates or deploys. Rough test: if it would earn an adversarial audit or a tracker issue, it runs this.
+Fires on any task that builds, codes, implements, migrates or deploys. Rough test: if it would earn a second-opinion audit or a tracker issue, it runs this.
 
 > **The one rule underneath:** a gate you cannot fail is not a gate. If a stage's exit reads like "confirm it looks good", it is written wrong and it will pass every time, including the times it should not.
 
@@ -14,7 +14,7 @@ Three corollaries:
 | Phase | Master question | Stages |
 |---|---|---|
 | 1 Pre-build | What exactly are we building, what do we need first, and what does this touch or break? | 0 Route · 1 Map · 2 Judge |
-| 2 Build | Is it secure, built on current code, and correct without hidden flaws? | 3 Build · 4 Scan · 5 Attack · 5b Ship gate |
+| 2 Build | Is it secure, built on current code, and correct without hidden flaws? | 3 Build · 4 Scan · 5 Challenge · 5b Ship gate |
 | 3 Post-build | Did it land everywhere, is it proven against the real thing, and is it recorded? | 6 Verify · 7 Record |
 
 The two seams are the point. Pre-build to Build: nothing is written yet, changing your mind costs a conversation. Build to Post-build: the ship, the only irreversible step, the only one that needs an explicit human yes.
@@ -38,9 +38,9 @@ Four bounded questions, not four exhaustive scans. **The builder maps; the judgm
 ### Stage 2 · Judge (Checkpoint 1)
 Ask the judgment tier, on the finished map:
 1. Is this the simplest way to build it, or are we overcomplicating?
-2. What is the single biggest risk, and where is the request as filed wrong?
+2. What is most likely to go wrong, and what did the request miss?
 
-**Gate:** a **named risk** and a **named flaw in the request**. Approval alone is not an exit; an advisor asked only to approve will approve. If a consult comes back mostly restating the map, the brief asked it to retrieve when it should have asked it to decide.
+**Gate:** **one named weak spot** and **one gap in the request**. Approval alone is not an exit; an advisor asked only to approve will approve. If a consult comes back mostly restating the map, the brief asked it to retrieve when it should have asked it to decide.
 
 ## Phase 2 · Build
 
@@ -56,15 +56,15 @@ Ask the judgment tier, on the finished map:
 1. Any secret, key or token in the new code?
 2. Any vulnerability or vulnerable dependency in the lines we added?
 
-Secret detection, static analysis and dependency scanning, filtered to lines this diff added. Fail closed: a missing or erroring scanner exits non-zero, never a silent green.
+Secret detection, static analysis and dependency scanning, filtered to lines this diff added. Refuses by default: a missing or erroring scanner exits non-zero, never a silent green.
 
 **Gate:** zero flags on added lines. Pre-existing flags are reported, never inherited as blockers, and never waved through unread. A scanner finding is a claim; read the code before calling it anything.
 
-### Stage 5 · Attack (Checkpoint 2, one pass, never two)
+### Stage 5 · Challenge (Checkpoint 2, one pass, never two)
 1. Can bad input or a bad actor break it, and what happens when a dependency fails?
 2. Did the build stick to the approved plan, or did unintended changes sneak in?
 
-Route by shape: security-shaped diffs (auth, tokens, routes, deletion, bulk mutation, untrusted input) go to an adversarial auditor, ideally a **different model family**. Architecture-shaped diffs go to the judgment tier reviewing build against plan. Never both on one diff.
+Route by shape: security-shaped diffs (auth, tokens, routes, deletion, bulk mutation, untrusted input) go to a second-opinion reviewer, ideally a **different model family**. Architecture-shaped diffs go to the judgment tier reviewing build against plan. Never both on one diff.
 
 Findings do not go straight to a repair. Hand them to the **finding-verifier**, whose job is to DISPROVE each one: read the cited line, state what would trigger it, then hunt for the guard, caller or test that makes it impossible. It returns one of three verdicts per finding, and rounding between them is the failure mode to watch for.
 
@@ -106,7 +106,7 @@ Use a different model family from the one that produced the finding where you ha
 |---|---|---|
 {{ROLES_BUILDER_ROW}}
 | Judgment tier | Stage 2 and the architectural arm of Stage 5. Argues with a finished map | Perform the retrieval |
-| Adversarial auditor | The security arm of Stage 5. Attacks the diff | Fix anything |
+| Second-opinion reviewer | The security arm of Stage 5. Reviews the diff | Fix anything |
 | Mechanical gates | Stage 4 and any always-on guard | Be overridden without reading |
 | Cheap workers | Bounded sub-parts: bulk passes, wide searches, long loops | Own a stage |
 | Human | Stage 5b, and any irreversible or architectural call | Be the first line of review |
@@ -119,9 +119,9 @@ Use a different model family from the one that produced the finding where you ha
 PRE-BUILD
 [ ] 0  Inputs and access verified by live probe, not assumed
 [ ] 0  Confirmed this is a build and not a quick fix
-[ ] 1  Blast radius written: files, systems, issues
+[ ] 1  Everything it touches written: files, systems, issues
 [ ] 1  Asked what could break, and whether this already exists
-[ ] 2  Judgment tier named a risk AND a flaw in the request
+[ ] 2  Judgment tier named a weak spot AND a gap in the request
 
 BUILD
 [ ] 3  Repo clean, on a branch, base ref recorded
