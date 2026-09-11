@@ -407,9 +407,33 @@ export function windowsSpawnPlan(argv, platform = process.platform) {
 // Windows has no process groups a signal can reach, so taskkill walks the
 // tree (#18): whether the direct child is node (the resolved-shim path) or
 // cmd.exe (the fallback), taskkill /T reaches every descendant either way.
+// taskkill is resolved by an absolute path under SystemRoot rather than a
+// bare command name: this call must not depend on PATH containing
+// System32, which real callers cannot guarantee (this project's own test
+// harness deliberately narrows PATH to isolate a fake lane, and hit
+// exactly this on windows-latest CI: `spawn taskkill ENOENT`) and a
+// sandboxed or otherwise stripped-down environment might not either.
+// %SystemRoot% is the documented, always-set location; %windir% is the
+// older equivalent kept as a fallback; C:\Windows is the last resort.
+export function taskkillPath(env = process.env) {
+  // Always a Windows path, built with a literal backslash rather than
+  // node:path's join(): join() picks its separator from the HOST running
+  // this code, not from the OS the path describes, so on a POSIX host (this
+  // test suite runs on all three) it would join with "/" and silently
+  // produce a path Windows itself would not recognize as one.
+  const root = String(env.SystemRoot || env.windir || 'C:\\Windows').replace(/[\\/]+$/, '');
+  return `${root}\\System32\\taskkill.exe`;
+}
+
 export function killTree(pid, platform = process.platform, deps = { kill: (p, sig) => process.kill(p, sig), spawn }) {
   if (platform === 'win32') {
-    deps.spawn('taskkill', ['/pid', String(pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true });
+    const child = deps.spawn(taskkillPath(), ['/pid', String(pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true });
+    // Fire-and-forget: nothing here awaits taskkill's own exit. But a spawn
+    // failure (ENOENT if this host's layout is unusual, EPERM, ...) still
+    // emits an async 'error' event on the returned ChildProcess, and Node
+    // treats an EventEmitter's unheard 'error' as fatal, crashing the whole
+    // wrapper mid-run over what should be a best-effort cleanup step.
+    if (child && typeof child.on === 'function') child.on('error', () => {});
     return 'taskkill';
   }
   deps.kill(-pid, 'SIGKILL');

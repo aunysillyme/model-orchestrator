@@ -165,17 +165,46 @@ test('#17: --expect-json accepts JSON wrapped in one markdown fence, still refus
 });
 
 test('#18: killTree uses taskkill /T /F on win32 and the negative-pid group kill elsewhere', async () => {
-  const { killTree } = await import('../bin/cli-run.mjs');
+  const { killTree, taskkillPath } = await import('../bin/cli-run.mjs');
   const calls = [];
   const deps = { kill: (p, sig) => calls.push(['kill', p, sig]), spawn: (cmd, args) => calls.push(['spawn', cmd, args]) };
   assert.equal(killTree(4242, 'win32', deps), 'taskkill');
-  assert.deepEqual(calls, [['spawn', 'taskkill', ['/pid', '4242', '/T', '/F']]]);
+  assert.deepEqual(calls, [['spawn', taskkillPath(), ['/pid', '4242', '/T', '/F']]]);
   calls.length = 0;
   assert.equal(killTree(4242, 'linux', deps), 'group');
   assert.deepEqual(calls, [['kill', -4242, 'SIGKILL']]);
   calls.length = 0;
   assert.equal(killTree(4242, 'darwin', deps), 'group');
   assert.deepEqual(calls, [['kill', -4242, 'SIGKILL']]);
+});
+
+// windows-latest CI (proof this test now catches): killTree's spawn('taskkill', ...)
+// used a bare command name, which depends on PATH containing System32.
+// This project's own test harness deliberately narrows PATH to isolate a fake
+// lane, so a real end-to-end run hit `spawn taskkill ENOENT` the first time
+// lane execution actually reached Windows: an unheard 'error' event on the
+// returned ChildProcess crashed the whole wrapper over what should be a
+// best-effort cleanup step. Reproduced here without needing win32 at all: an
+// env with no SystemRoot/windir falls back to a fixed path, and a deliberately
+// broken deps.spawn (one that returns an EventEmitter and asynchronously
+// emits 'error', exactly like a real ENOENT spawn) must not crash this
+// process either.
+test('taskkillPath: resolves under SystemRoot, falls back through windir to a fixed path', async () => {
+  const { taskkillPath } = await import('../bin/cli-run.mjs');
+  assert.equal(taskkillPath({ SystemRoot: 'C:\\Windows' }), 'C:\\Windows\\System32\\taskkill.exe');
+  assert.equal(taskkillPath({ windir: 'C:\\WINNT' }), 'C:\\WINNT\\System32\\taskkill.exe');
+  assert.equal(taskkillPath({}), 'C:\\Windows\\System32\\taskkill.exe');
+});
+
+test('killTree: a spawn failure (ENOENT-shaped) on win32 never crashes the process', async () => {
+  const { EventEmitter } = await import('node:events');
+  const { killTree } = await import('../bin/cli-run.mjs');
+  const fakeChild = new EventEmitter();
+  const deps = { kill: () => {}, spawn: () => fakeChild };
+  assert.equal(killTree(4242, 'win32', deps), 'taskkill');
+  // Before the fix, this emit would throw (Node's default behavior for an
+  // 'error' event with no listener), because killTree never attached one.
+  assert.doesNotThrow(() => fakeChild.emit('error', Object.assign(new Error('spawn taskkill ENOENT'), { code: 'ENOENT' })));
 });
 
 // --- Windows: resolving a .cmd shim, and the cmd.exe fallback's escaping -----
