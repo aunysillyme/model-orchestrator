@@ -33,3 +33,28 @@ test('no em dash in any text file', () => {
 test('the check can go red', () => {
   assert.ok(('a ' + EM + ' b').includes(EM));
 });
+
+// House rule: no fixed test count in prose. AGENTS.md, CONTRIBUTING.md and CLAUDE.md each
+// pinned a number ("132 cases at the time of writing", "123 cases") that drifted out of date
+// the moment a test was added or removed; AGENTS.md already carried the fix ("the suite prints
+// the current number"). Scoped to top-level .md files, the ones read as contributor-facing
+// instructions; docs/audit-brief.md is an explicitly historical document and CHANGELOG.md
+// records counts as of the release they describe, so neither is checked here.
+const CASE_COUNT = /\b\d+\s+(?:node --test )?cases\b/i;
+
+test('no top-level .md states a fixed test count', () => {
+  const hits = [];
+  for (const name of readdirSync(ROOT)) {
+    if (!name.endsWith('.md')) continue;
+    const p = join(ROOT, name);
+    if (statSync(p).isDirectory()) continue;
+    const lines = readFileSync(p, 'utf8').split('\n');
+    lines.forEach((l, i) => { if (CASE_COUNT.test(l)) hits.push(`${name}:${i + 1}`); });
+  }
+  assert.deepEqual(hits, [], `fixed test count found at: ${hits.join(', ')}; say "the suite prints the current number" instead`);
+});
+
+test('the fixed-test-count check can go red', () => {
+  assert.ok(CASE_COUNT.test('132 cases at the time of writing'));
+  assert.ok(CASE_COUNT.test('node --test: 123 cases, no network'));
+});

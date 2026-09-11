@@ -10,12 +10,12 @@ Thanks for looking. Two kinds of contribution land well here: a **failure you hi
 ## Running the checks
 
 ```bash
-npm test                 # node --test: 123 cases, no network, no CLI spawned
+npm test                 # node --test: the suite prints the current number, no network, no CLI spawned
 npm run dry-run          # plan a level 2 install and write nothing
 node bin/cli.js --help
 ```
 
-CI runs the same on Ubuntu and macOS across Node 18, 20 and 22, then packs the tarball and installs it into a clean consumer project. A green run on your machine is not a green run on a foreign one; the first Ubuntu run of this repo found a race 60 local passes had missed.
+CI runs the same on Ubuntu, macOS and Windows across Node 18, 20 and 22, then packs the tarball and installs it into a clean consumer project. A green run on your machine is not a green run on a foreign one; the first Ubuntu run of this repo found a race 60 local passes had missed.
 
 ## Adding an AI
 

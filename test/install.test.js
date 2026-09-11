@@ -734,23 +734,48 @@ test('routeGateTable renders the fixed rows plus one per selected cli-run lane',
   assert.match(withCodex, /`cli-run codex`/);
 });
 
-// ---- pre-release audit finding 2: done-verifier claims read-only but holds unrestricted Bash ----
+// ---- pre-release audit finding 2, generalized: any claude-code agent whose tools include
+// Bash must not call itself unqualified "Read-only" in its description, and no generated
+// doc surface may describe it that way either. done-verifier (0.1.15) was the first fix;
+// finding-verifier and code-reviewer carried the same overclaim and are caught here too. ----
 
-test('reader has no Bash/Write/Edit in either format; no generated doc calls done-verifier "read-only" unqualified', () => {
+function bashAgentsOnDisk() {
+  const dir = join('templates', 'agents', 'claude-code');
+  const names = [];
+  for (const file of readdirSync(dir)) {
+    if (!file.endsWith('.md') || file === 'README.md') continue;
+    const raw = readFileSync(join(dir, file), 'utf8');
+    const frontmatter = raw.slice(0, raw.indexOf('---', 3));
+    const toolsLine = frontmatter.match(/^tools:.*$/m);
+    if (toolsLine && /\bBash\b/.test(toolsLine[0])) names.push(file.replace(/\.md$/, ''));
+  }
+  return names;
+}
+
+test('reader has no Bash/Write/Edit in either format', () => {
   const ccReader = readFileSync(join('templates', 'agents', 'claude-code', 'reader.md'), 'utf8');
   const ccToolsLine = ccReader.match(/^tools:.*$/m)[0];
   assert.doesNotMatch(ccToolsLine, /\bBash\b|\bWrite\b|\bEdit\b/, 'reader (claude-code) must stay genuinely read-only');
 
   const agyReader = readFileSync(join('templates', 'agents', 'agy', 'reader.md'), 'utf8');
   assert.match(agyReader, /commandExecutionPolicy:\s*off/, 'reader (agy) must have command execution off');
+});
 
-  // done-verifier's claude-code file DOES carry Bash (needed for its probes);
-  // the finding is that every place describing it called that "read-only"
-  // without saying the boundary is a prompt rule, not a tool restriction.
-  const ccDoneVerifier = readFileSync(join('templates', 'agents', 'claude-code', 'done-verifier.md'), 'utf8');
-  assert.match(ccDoneVerifier, /\bBash\b/, 'done-verifier (claude-code) keeps Bash for its probes');
-  assert.doesNotMatch(ccDoneVerifier.split('\n')[2], /^description:.*\bRead-only\.\B/, 'the frontmatter description must not call it unqualified read-only');
-  assert.match(ccDoneVerifier, /bound by the prompt|bound only by its prompt|not by the tool grant|not a restriction/i, 'must say the boundary is enforced by the prompt, not the grant');
+test('every claude-code agent carrying Bash qualifies any "Read-only" claim, in its own file and in every generated doc', () => {
+  const bashAgents = bashAgentsOnDisk();
+  // Sanity check: this suite exists because agents with Bash exist. An empty list here would
+  // make every assertion below vacuously true, which is the failure mode this test guards.
+  assert.ok(bashAgents.length >= 2, `expected at least done-verifier and one more Bash-carrying agent, found: ${bashAgents.join(', ')}`);
+
+  const dir = join('templates', 'agents', 'claude-code');
+  for (const name of bashAgents) {
+    const raw = readFileSync(join(dir, name + '.md'), 'utf8');
+    const descriptionLine = raw.split('\n').find((l) => l.startsWith('description:'));
+    assert.doesNotMatch(descriptionLine, /\bRead-only\b(?![^.\n]*(?:Bash|prompt|grant|tool))/i,
+      `${name}.md carries Bash but its description calls it unqualified "Read-only"`);
+    assert.match(raw, /bound by the prompt|bound only by its prompt|not by the tool grant|not a restriction/i,
+      `${name}.md carries Bash but never says the read-only boundary is a prompt rule, not a tool restriction`);
+  }
 
   const docsToCheck = [
     ['README.md', readFileSync('README.md', 'utf8')],
@@ -758,18 +783,18 @@ test('reader has no Bash/Write/Edit in either format; no generated doc calls don
     ['templates/agents/claude-code/README.md', readFileSync(join('templates', 'agents', 'claude-code', 'README.md'), 'utf8')],
     ['templates/agents/agy/README.md', readFileSync(join('templates', 'agents', 'agy', 'README.md'), 'utf8')]
   ];
-  const forbidden = /done-verifier[^.\n]{0,80}\bread-only\b(?![^.\n]*(?:Bash|prompt|grant|tool))/i;
-  for (const [name, text] of docsToCheck) {
-    assert.doesNotMatch(text, forbidden, `${name} still calls done-verifier read-only without qualifying it`);
-  }
-
-  // Same check against what the installer actually generates for a
-  // claude-code install: the rendered done-verifier.md and README must
-  // carry the qualifier too, not just the source templates.
   const p = planFiles({ level: 2, selected: sel('claude-code'), primary: byId['claude-code'], dir: 'x', project: 'y' });
-  for (const f of p) {
-    if (!f.content.includes('done-verifier')) continue;
-    assert.doesNotMatch(f.content, forbidden, `${f.rel} still calls done-verifier read-only without qualifying it`);
+  for (const name of bashAgents) {
+    const forbidden = new RegExp(name + '[^.\\n]{0,80}\\bread-only\\b(?![^.\\n]*(?:Bash|prompt|grant|tool))', 'i');
+    for (const [docName, text] of docsToCheck) {
+      assert.doesNotMatch(text, forbidden, `${docName} still calls ${name} read-only without qualifying it`);
+    }
+    // Same check against what the installer actually generates for a claude-code install:
+    // the rendered agent file and README must carry the qualifier too, not just the source.
+    for (const f of p) {
+      if (!f.content.includes(name)) continue;
+      assert.doesNotMatch(f.content, forbidden, `${f.rel} still calls ${name} read-only without qualifying it`);
+    }
   }
 });
 

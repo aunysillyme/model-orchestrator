@@ -117,7 +117,7 @@ ai-orchestrator/
 | [`src/`](src/README.md) | the catalog, the pure planner, detection, rendering |
 | [`templates/`](templates/README.md) | everything the installer can write, by level, plus `tools/` for companions |
 | [`docs/`](docs/README.md) | the three parts and the catalog |
-| [`test/`](test/README.md) | `npm test`: judges proven to go red, catalog integrity, planner, end-to-end install in a temp dir; `.github/workflows/test.yml` runs it on Ubuntu and macOS, Node 18/20/22 |
+| [`test/`](test/README.md) | `npm test`: judges proven to go red, catalog integrity, planner, end-to-end install in a temp dir; `.github/workflows/test.yml` runs it on Ubuntu, macOS and Windows, Node 18/20/22 |
 
 ## What is enforced, what is delegated, what is an instruction
 
@@ -161,7 +161,7 @@ One number per lane, and it is the same number the installer pins: where a lane 
 
 **The live canary runs on your machine, with your credentials.** That is what `node bin/cli-run.mjs --doctor --run` is: it sends every enabled lane one tiny prompt through your own sign-ins and reports `canary ok` or `canary FAILED rc=` per lane. Run it after install, and again after any vendor upgrade.
 
-It deliberately does not run in this repository's CI. A canary is only meaningful against real credentials, and there are no credentials a maintainer could supply that would tell **you** anything about **your** lanes: your sign-ins, your quota, your vendor versions. A maintainer-credential canary in CI would prove one machine works and bill someone per run to do it. So CI runs the full suite against stub lanes on Ubuntu and macOS, Node 18/20/22, plus a packaged install into a clean consumer, and the live check ships to you instead.
+It deliberately does not run in this repository's CI. A canary is only meaningful against real credentials, and there are no credentials a maintainer could supply that would tell **you** anything about **your** lanes: your sign-ins, your quota, your vendor versions. A maintainer-credential canary in CI would prove one machine works and bill someone per run to do it. So CI runs the full suite against stub lanes on Ubuntu, macOS and Windows, Node 18/20/22, plus a packaged install into a clean consumer, and the live check ships to you instead.
 
 ## Principles the whole thing rests on
 

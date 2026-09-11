@@ -9,7 +9,7 @@ Routing rules live in `{{RULES_PATH}}/{{ROUTING_FILE}}`. Read them before any bu
 
 1. Bulk, mechanical, many similar items -> bulk-worker (fast tier).
 2. Needs live data -> live-researcher (standard tier + tools).
-3. Review without changing -> code-reviewer (standard, read-only).
+3. Review without changing -> code-reviewer (standard; no file-editing tools, Bash for checks only).
 3a. Holding findings from a review or scanner -> finding-verifier before any repair. Only CONFIRMED findings earn a change.
 3b. Checking a tracker item against its stated done-signal -> done-verifier. It never closes anything itself.
 4. Ambiguous, architectural, or expensive to get wrong -> deep-planner (deep tier), then hand the plan down.

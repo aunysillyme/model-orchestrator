@@ -3,7 +3,7 @@
 Pointers for any coding agent working on this repository. This file is for contributors' agents; the files the installer writes for end users live under `templates/`.
 
 - Read `CONTRIBUTING.md` first, then `src/README.md` (the catalog drives everything) and `docs/audit-brief.md` (the threat model and what has already been attacked).
-- Run `npm test` before proposing a change and quote the count and the exit code. 132 cases at the time of writing; the suite prints the current number.
+- Run `npm test` before proposing a change and quote the count and the exit code; the suite prints the current number.
 - `test/systemd/run-on-ubuntu.sh` is NOT in `npm test`: it needs a Linux host with systemd. Run it by hand when you touch `templates/advanced/vm/jobs/`, because the unit's `TimeoutStartSec` and `KillMode` cannot be checked any other way. `test/systemd/README.md` has the steps.
 - `test/fixtures/` is real vendor output, not hand-written. When a vendor upgrade changes a shape, capture again at the new version and update `manifest.json` and the README compatibility table together.
 - Everything renders from `src/catalog.js`. Add an AI or a tool there, not in a template. Templates carry no logic.

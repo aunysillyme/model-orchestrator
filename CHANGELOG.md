@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- **CI now runs on `windows-latest` too, node 18/20/22, alongside Ubuntu and macOS.** `defaults.run.shell: bash` makes every workflow step Git Bash on the Windows runner instead of the default `pwsh`, so the same script runs on all three OSes with no parallel Windows rewrite.
+
+### Fixed
+
+- **`finding-verifier` and `code-reviewer` (claude-code) called themselves unqualified "Read-only" in their descriptions while carrying an unrestricted `Bash` grant**, the same overclaim `done-verifier` shipped with in 0.1.15 and was fixed there; nothing in that grant stops either from running a mutating command. Both descriptions and bodies now say plainly that they carry no file-editing tools and that Bash is bound by the prompt, not the tool grant. `templates/agents/claude-code/README.md` and `templates/agents/snippets/claude-code.md` are corrected the same way. The done-verifier-only test is replaced with one that walks every claude-code agent file: any agent whose `tools:` line includes `Bash` must qualify any "Read-only" claim, checked against its own file and against every generated doc surface.
+- **`CLAUDE.md` and `CONTRIBUTING.md` each pinned a fixed test count that drifted the moment a test was added or removed**, the same class of drift `AGENTS.md` already avoided by saying the suite prints the current number instead. Both now say the same thing `AGENTS.md` does. A new test in `test/prose.test.js` fails if any top-level `.md` states a fixed count of test cases.
+
 ## [0.1.15] - 2026-09-10
 
 The portable parts of a live routing revision, delegate by default, gated on one verified fact rather than a guess: [code.claude.com/docs/en/sub-agents](https://code.claude.com/docs/en/sub-agents) states that a non-fork Claude Code subagent's initial context includes "every level of the CLAUDE.md hierarchy the main conversation loads", and that the built-in Explore and Plan agents skip it. No other lane in this catalog has that documented, so everything below is gated on `subagentsLoadRules(primary)`, currently true for claude-code alone; every other primary keeps its original wording unchanged.

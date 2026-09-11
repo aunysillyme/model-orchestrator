@@ -1,9 +1,13 @@
-# Runs `npm test` on every push to main and every pull request, on Ubuntu and macOS across the
-# active Node lines, then packs the tarball and installs it into a clean consumer project.
+# Runs `npm test` on every push to main and every pull request, on Ubuntu, macOS and Windows
+# across the active Node lines, then packs the tarball and installs it into a clean consumer
+# project.
 # What it proves: the judges, planner and installer behave as the tests assert on a machine that is
 # not the author's (the first Ubuntu run found a signal race 60 local passes had missed), and the
-# packaged files are enough to run outside the checkout.
+# packaged files are enough to run outside the checkout, on all three OSes.
 # What it does NOT run: any vendor CLI. `cli-run --doctor` reports presence; exit 0 or 10 (lane binary absent) passes, anything else fails.
+# Shell: every step below is bash syntax (`[ ]`, `&&`, `mkdir -p`, `$?`). `defaults.run.shell: bash`
+# makes that Git Bash on the Windows runner instead of the default pwsh, so one script works on
+# all three OSes without a parallel Windows rewrite.
 name: test
 
 on:
@@ -24,9 +28,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
         node: [18, 20, 22]
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
