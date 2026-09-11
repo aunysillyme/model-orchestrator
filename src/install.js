@@ -710,8 +710,22 @@ export const RUNTIME = new Set([
   'vm/jobs/weekly-audit.service',
   'vm/jobs/weekly-audit.timer'
 ]);
-export function fileClass(rel) {
-  const r = rel.split(sep).join('/');
+// MACHINE_OWNED and RUNTIME are keyed with forward slashes (they read as
+// prose in the comment above them, and every caller needs the same one
+// spelling regardless of host OS); an f.rel or a writeFiles() "written" path
+// is built with path.join, so it is backslash-separated on win32. Both sets
+// must be checked against the SAME normalized form, or a win32 install
+// silently drops bin/lanes.json and every RUNTIME file from set membership
+// (found: bin/cli.js's own "applied:"/existing-runtime checks did exactly
+// that before this was exported for them to use too).
+// separator is a parameter (default the real path.sep) so a test can prove
+// the win32 case from any host, the same pattern which()'s platform
+// parameter already uses.
+export function toPosixRel(rel, separator = sep) {
+  return rel.split(separator).join('/');
+}
+export function fileClass(rel, separator = sep) {
+  const r = toPosixRel(rel, separator);
   if (MACHINE_OWNED.has(r)) return 'owned';
   if (RUNTIME.has(r)) return 'runtime';
   return 'document';

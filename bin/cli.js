@@ -10,7 +10,7 @@ import { spawnSync } from 'node:child_process';
 import { resolve, join } from 'node:path';
 import { which } from '../src/detect.js';
 import { AIS, LEVELS, TOOLS, PROVIDERS, aisForLevel, agentCandidates, byId, npmSpec } from '../src/catalog.js';
-import { planFiles, writeFiles, resolveSelection, resolveTools, resolveApis, dirProblems, readManifest, activationSteps, MACHINE_OWNED, RUNTIME, GENERATOR_VERSION } from '../src/install.js';
+import { planFiles, writeFiles, resolveSelection, resolveTools, resolveApis, dirProblems, readManifest, activationSteps, MACHINE_OWNED, RUNTIME, toPosixRel, GENERATOR_VERSION } from '../src/install.js';
 
 // One strict parse. Unknown flags, missing values and duplicates are usage
 // errors (exit 2) before anything is planned, so a typo like --dryy can never
@@ -310,10 +310,10 @@ async function main() {
     if (e && e.code === 'PREFLIGHT') bad(e.message);
     throw e;
   }
-  const ownedWritten = written.filter((w) => MACHINE_OWNED.has(w));
+  const ownedWritten = written.filter((w) => MACHINE_OWNED.has(toPosixRel(w)));
   console.log(`\nWrote ${written.length} file(s)` + (skipped.length ? `, kept ${skipped.length} existing:` : '.'));
   for (const s of skipped) console.log('  kept ' + s);
-  const existingRuntime = files.filter((f) => f.root !== 'project' && RUNTIME.has(f.rel)).length;
+  const existingRuntime = files.filter((f) => f.root !== 'project' && RUNTIME.has(toPosixRel(f.rel))).length;
   if (prev || existingRuntime && (upgraded.length || conflicts.length || unverifiable.length) || docsUnverifiable.length) {
     console.log(`\nExisting installation found${prev ? ` (MANIFEST.json from generator ${prev.generatorVersion || 'pre-0.1.1'}, ${prev.generatedAt || 'undated'}; this run is ${GENERATOR_VERSION})` : ' (no MANIFEST.json: it predates 0.1.1)'}.`);
     if (prev) {

@@ -859,3 +859,31 @@ test('claude-code level 2 install contains none of the old orchestrator-writes-e
   const routing = cc.find((f) => f.rel === 'ROUTING.md').content;
   assert.match(routing, /builder executes from the orchestrator's brief/);
 });
+
+// ---- windows CI finding: MACHINE_OWNED/RUNTIME membership checks must not
+// depend on the host's path separator ----
+import { MACHINE_OWNED, RUNTIME, fileClass, toPosixRel } from '../src/install.js';
+
+test('toPosixRel/fileClass normalize a backslash-separated rel (win32 path.join output) to the forward-slash form MACHINE_OWNED/RUNTIME are keyed with', () => {
+  // A win32 f.rel from path.join looks like 'bin\\lanes.json'; MACHINE_OWNED
+  // and RUNTIME are hand-written with forward slashes. Checking one against
+  // the other directly (as bin/cli.js's "applied:" and existing-runtime
+  // checks did before this fix) silently drops every match on Windows: the
+  // "applied:" line in a real reconfigure would report "nothing" instead of
+  // naming bin/lanes.json. Reproduced on windows-latest CI (test/cli.test.js's
+  // "#6: rerunning with an added lane..."), fixed by routing both call sites
+  // in bin/cli.js through the same normalizer fileClass() already used.
+  // separator is a parameter (default the real path.sep) so the win32 case
+  // is provable from any host, the same pattern which()'s platform param uses.
+  const winStyleRel = 'bin\\lanes.json';
+  assert.equal(toPosixRel(winStyleRel, '\\'), 'bin/lanes.json');
+  assert.ok(!MACHINE_OWNED.has(winStyleRel), 'sanity: the raw win32-separated string must NOT already match by accident');
+  assert.ok(MACHINE_OWNED.has(toPosixRel(winStyleRel, '\\')), 'normalized, it must match');
+  assert.equal(fileClass(winStyleRel, '\\'), 'owned', 'fileClass must normalize before checking membership');
+  assert.equal(fileClass('vm\\setup-vm.sh', '\\'), 'runtime');
+  assert.equal(fileClass('protocols\\build-protocol.md', '\\'), 'document');
+  // And the real, non-simulated case: whatever THIS host's path.join actually
+  // produces must still classify correctly with no separator override at all.
+  assert.equal(fileClass(join('bin', 'lanes.json')), 'owned');
+  assert.equal(fileClass(join('vm', 'setup-vm.sh')), 'runtime');
+});
