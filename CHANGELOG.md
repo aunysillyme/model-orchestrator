@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.1.18] - 2026-09-11
+
 ### Fixed
 
 - **On Windows, `bin/cli-run.mjs` could not run any lane at all: `spawn()` threw `EINVAL` for every `.cmd` binary, which is how npm installs every agent CLI there.** Since Node's fix for CVE-2024-27980 (18.20.2, 20.12.2, and every 22.x), spawning a `.bat`/`.cmd` target without `shell: true` throws instead of silently running it through an unsafely-escaped `cmd.exe`. This was a real, shipped defect, not a test gap: a Windows user following this README could not have run a single lane before this release. `bin/cli-run.mjs` now resolves the `.cmd` shim to the Node script npm's own `cmd-shim` tool wrote underneath it and spawns Node directly on that script (`resolveCmdShim`, `windowsSpawnPlan`), so a prompt (untrusted text this tool does not control) never passes through a shell at all in the common case. A lane whose `.cmd`/`.bat` cannot be resolved that way (an old or hand-edited shim) is refused with exit 13 and a message saying how to fix it, never run through `cmd.exe`: a batch file re-reads its arguments through `%*` after `cmd.exe` has parsed them once, and no escaping fully contains a prompt through both passes. The escaped `cmd.exe` path (the algorithm documented at [qntm.org/cmd](https://qntm.org/cmd) and used by `cross-spawn`, with `windowsVerbatimArguments`) survives only as an explicit opt-in for the installer's own `npm install -g <pinned spec>`, whose arguments never include user text. Verified against the real, byte-for-byte output of `cmd-shim@9.0.2` (the package npm itself uses), not a guessed shape; the escaping is pinned to exact expected strings for `&`, `|`, `^`, `%`, `"`, a trailing backslash and a literal newline in `test/judges.test.js`.
@@ -279,7 +281,8 @@ First release.
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
-[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.17...HEAD
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.18...HEAD
+[0.1.18]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.17...v0.1.18
 [0.1.17]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.16...v0.1.17
 [0.1.16]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.15...v0.1.16
 [0.1.15]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.14...v0.1.15
