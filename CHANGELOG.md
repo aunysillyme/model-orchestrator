@@ -4,6 +4,20 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.1.21] - 2026-09-12
+
+### Added
+
+- **Subscription plans, stated by you and never guessed.** The installer asks which plan you hold for Claude Code, Codex, `agy` and `grok` (interactive, or `--plans codex=pro-20x,agy=ultra-5x`; `--plans none` clears). Each plan row in `src/catalog.js` carries only a name, a headroom level (`base`, `high`, `max`), its official source page and the date it was checked; no prices and no model ids, because both change faster than releases. `--list` prints them.
+- **Plan guidance in the generated docs.** The lanes table gains a `Plan` column, and `ROUTING.md` and `DELEGATION_MATRIX.md` gain a plan guidance block: high and max headroom lanes take volume (scoped builds, pre-ship second-family audits, first-pass research), base headroom lanes keep short second opinions. Headroom moves volume only; who reviews what does not change.
+- **`--effort auto` in `cli-run`.** Accepted as a flag or as a `lanes.json` default on every lane with an effort flag (qwen still refuses it). A call sizes from prompt length: under 4,000 characters is `medium`, otherwise `high`. A codex `--audit` always runs at `high` and logs the larger of prompt length and changed lines as evidence. Auto never resolves above `high`: `xhigh`, `max` and `ultra` are sent only when named. The durable log gains `effort_resolved`, `effort_basis` (`explicit`, `prompt_chars`, `audit_floor`, `none`), `effort_scope` and `effort_truncated`.
+- **Bounded change counting for audits.** Untracked files are listed NUL-delimited, only regular files are opened (FIFOs, devices and symlinks are skipped by `lstat`), and the pass stops at 200 files, 256 KiB per file, 2 MiB total or 2 seconds, marking the evidence truncated. An unborn `HEAD` or any git failure falls back to prompt length.
+
+### Changed
+
+- **Automatic effort is opt-in.** A high or max headroom plan does not change `bin/lanes.json` by itself; `--effort-auto` (or yes to the question) writes `"effort": "auto"` for exactly those cli-run lanes. Claude Code is never written there, since it is not a cli-run lane and an entry for it would fail the whole file closed. With no plan stated, `bin/lanes.json` is byte-identical to 0.1.20 and `MANIFEST.json` records no plan keys. A re-run that omits `--plans` keeps the previous plans.
+- **Five documented Windows skips, not four.** The FIFO half of the new untracked-file test needs `mkfifo`; its symlink half runs everywhere.
+
 ## [0.1.20] - 2026-09-12
 
 ### Added
@@ -315,7 +329,8 @@ First release.
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
-[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.20...HEAD
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.21...HEAD
+[0.1.21]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.20...v0.1.21
 [0.1.20]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.19...v0.1.20
 [0.1.19]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.18...v0.1.19
 [0.1.18]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.17...v0.1.18

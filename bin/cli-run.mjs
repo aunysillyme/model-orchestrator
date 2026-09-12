@@ -51,10 +51,10 @@
 // for one lane and absent for four is worse than no field. It would also be a
 // provider-supplied string, which this log deliberately never holds.
 
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { StringDecoder } from 'node:string_decoder';
 import { createHash } from 'node:crypto';
-import { readFileSync, existsSync, mkdirSync, appendFileSync, mkdtempSync, rmSync, accessSync, constants, realpathSync, statSync } from 'node:fs';
+import { readFileSync, existsSync, mkdirSync, appendFileSync, mkdtempSync, rmSync, accessSync, constants, realpathSync, statSync, lstatSync, openSync, readSync, closeSync } from 'node:fs';
 import { join, dirname, delimiter, resolve } from 'node:path';
 import { tmpdir, homedir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -232,6 +232,82 @@ export const LANE_FLAGS = {
   hermes: { model: (v) => ['-m', v], effort: (v) => ['--reasoning', v] },
   qwen: { model: (v) => ['-m', v], effort: null }
 };
+
+// Auto is deliberately a small, static ladder. It is not a vendor capability
+// probe and it never chooses the top of a vendor's effort range.
+export const AUTO_EFFORT = {
+  codex: { small: 'medium', large: 'high' },
+  grok: { small: 'medium', large: 'high' },
+  agy: { small: 'medium', large: 'high' },
+  hermes: { small: 'medium', large: 'high' }
+};
+
+export function gitChangedLines(cwd) {
+  try {
+    const r = spawnSync('git', ['diff', '--numstat', '-z', 'HEAD'], { cwd, timeout: 5000, maxBuffer: 1024 * 1024 });
+    if (r.error || r.status !== 0) return null;
+    let total = 0;
+    for (const row of String(r.stdout).split('\0')) {
+      if (!row) continue;
+      const [added, removed] = row.split('\t');
+      total += (Number.isFinite(Number(added)) ? Number(added) : 0) + (Number.isFinite(Number(removed)) ? Number(removed) : 0);
+    }
+    const listed = spawnSync('git', ['ls-files', '--others', '--exclude-standard', '-z'], { cwd, timeout: 5000, maxBuffer: 1024 * 1024 });
+    if (listed.error || listed.status !== 0) return null;
+    const root = realpathSync(cwd);
+    const deadline = Date.now() + 2000;
+    let files = 0, bytes = 0, truncated = false;
+    for (const rel of String(listed.stdout).split('\0')) {
+      if (!rel) continue;
+      if (files >= 200 || Date.now() > deadline) { truncated = true; break; }
+      const p = resolve(root, rel);
+      if (p !== root && !p.startsWith(root + '/') && !p.startsWith(root + '\\')) continue;
+      let st;
+      try { st = lstatSync(p); } catch { continue; }
+      if (!st.isFile()) continue;
+      const limit = Math.min(st.size, 256 * 1024, 2 * 1024 * 1024 - bytes);
+      if (limit <= 0) { truncated = true; break; }
+      let fd;
+      try {
+        fd = openSync(p, 'r');
+        const buf = Buffer.alloc(Math.min(limit, 64 * 1024));
+        let read = 0, last = -1;
+        while (read < limit && Date.now() <= deadline) {
+          const n = readSync(fd, buf, 0, Math.min(buf.length, limit - read), read);
+          if (!n) break;
+          for (let i = 0; i < n; i++) if (buf[i] === 10) total++;
+          last = buf[n - 1];
+          read += n;
+        }
+        if (read && last !== 10) total++;
+        bytes += read;
+        if (read < st.size || Date.now() > deadline) truncated = true;
+      } catch {
+        // A changed file disappearing is ordinary repository churn. The caller
+        // falls back to prompt sizing only when the git probes themselves fail.
+      } finally { if (fd !== undefined) try { closeSync(fd); } catch {} }
+      files++;
+      if (bytes >= 2 * 1024 * 1024) { truncated = true; break; }
+    }
+    return { lines: total, truncated };
+  } catch {
+    return null;
+  }
+}
+
+export function resolveAutoEffort(lane, requested, prompt, audit, cwd = process.cwd()) {
+  if (requested !== 'auto') return { resolved: requested || null, basis: requested ? 'explicit' : 'none', scope: null, truncated: false };
+  const promptScope = prompt.length;
+  if (!audit) {
+    const bucket = promptScope < 4000 ? 'small' : 'large';
+    return { resolved: AUTO_EFFORT[lane][bucket], basis: 'prompt_chars', scope: promptScope, truncated: false };
+  }
+  const git = gitChangedLines(cwd);
+  const scope = Math.max(promptScope, git ? git.lines : 0);
+  // Audit is a stakes floor. Scope records the larger independently observed
+  // input, but never moves an audit above or below high.
+  return { resolved: 'high', basis: 'audit_floor', scope, truncated: !!(git && git.truncated) };
+}
 
 // A model id or effort level becomes an argv element and, for codex, part of a
 // TOML value. Bounding the charset is what makes both safe: no leading dash (a
@@ -579,6 +655,7 @@ export function laneConfig(here = dirname(fileURLToPath(import.meta.url))) {
         if (model !== undefined && badRouteValue('model', model)) return null;
         if (effort !== undefined) {
           if (badRouteValue('effort', effort)) return null;
+          if (effort.startsWith('auto') && effort !== 'auto') return null;
           if (!LANE_FLAGS[lane] || !LANE_FLAGS[lane].effort) return null; // a lane with no reasoning flag cannot have one pinned
         }
         defaults[lane] = { model: model ?? null, effort: effort ?? null };
@@ -618,6 +695,7 @@ function usage(msg) {
   own config. Every lane takes --model; every lane except qwen takes --effort.
   Levels are the vendor's own (agy low|medium|high, hermes none|minimal|...): an
   unknown level is rejected by the lane, and reported as that lane's exit code.
+  auto sizes per call: below 4,000 prompt characters is medium, otherwise high; a codex audit is always high. Auto never resolves above high.
   Pin them per lane instead of per call with "defaults" in bin/lanes.json.`);
   return USAGE;
 }
@@ -665,7 +743,7 @@ export async function doctor(run) {
     const d = defaults[lane] || {};
     // A disabled lane has no route worth reporting; saying "not pinned" there
     // reads as a finding about a lane that is not going to run.
-    const route = !on ? '' : d.model || d.effort ? `route ${d.model || 'lane default'}/${d.effort || 'lane default'}` : 'route not pinned (inherits the lane\'s own config)';
+    const route = !on ? '' : d.effort === 'auto' ? `route ${d.model || 'lane default'}/auto (sized per call)` : d.model || d.effort ? `route ${d.model || 'lane default'}/${d.effort || 'lane default'}` : 'route not pinned (inherits the lane\'s own config)';
     let line = `  ${lane.padEnd(7)} ${on ? 'enabled ' : 'disabled'} ${bin ? 'binary ok' : 'binary MISSING'}${route ? '  ' + route : ''}`;
     if (on && !bin) bad++;
     if (on && bin && run) {
@@ -771,6 +849,7 @@ export async function main(argv) {
     if (v == null) continue;
     const bad = badRouteValue(kind, v);
     if (bad) return usage(bad);
+    if (kind === 'effort' && v.startsWith('auto') && v !== 'auto') return usage('--effort auto must be spelled exactly');
   }
   // qwen has no reasoning flag. Dropping --effort silently would leave the caller
   // believing a route that never happened, which is the defect this feature fixes.
@@ -784,13 +863,18 @@ export async function main(argv) {
   // gap this feature exists to close. A malformed lanes.json has no usable
   // defaults, so the flags stand alone and say so.
   const route = resolveRoute(lane, opts, cfg === null ? {} : cfg.defaults);
+  const sizing = resolveAutoEffort(lane, route.effort, prompt, opts.audit);
   opts.model = route.model;
-  opts.effort = route.effort;
+  opts.effort = sizing.resolved;
   Object.assign(base, {
     model_requested: route.model,
     effort_requested: route.effort,
     model_source: route.model_source,
-    effort_source: route.effort_source
+    effort_source: route.effort_source,
+    effort_resolved: sizing.resolved,
+    effort_basis: sizing.basis,
+    effort_scope: sizing.scope,
+    effort_truncated: sizing.truncated
   });
   const enabled = cfg === null ? null : cfg.enabled;
   if (enabled === null) {
@@ -809,6 +893,8 @@ export async function main(argv) {
     log({ ...base, verdict: 'unavailable', rc: UNAVAILABLE, reason: 'unavailable' });
     return UNAVAILABLE;
   }
+
+  if (route.effort === 'auto' && !opts.quiet) console.error(`cli-run: effort auto -> ${sizing.resolved} (${sizing.basis})`);
 
   const tmp = mkdtempSync(join(tmpdir(), 'cli-run-'));
   const before = opts.expectFile ? snapshotFile(resolve(opts.expectFile)) : null;

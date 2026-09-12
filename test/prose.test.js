@@ -123,6 +123,7 @@ const SKIPS = [
   { file: 'cli.test.js', marker: 'skip: SKIP_LANE_SIGNAL_DEATH_ON_WIN32', tests: 1, readme: 'cannot die "by signal"' },
   { file: 'install.test.js', marker: 'skip: SKIP_WATCHDOG_KILL_ON_WIN32', tests: 2, readme: "weekly-audit.sh" },
   { file: 'hooks.test.js', marker: "skip: process.platform === 'win32' ? 'no mkfifo on Windows'", tests: 1, readme: 'mkfifo' },
+  { file: 'plans-auto.test.js', marker: "skip: process.platform === 'win32' ? 'no mkfifo on Windows'", tests: 1, readme: 'mkfifo' },
 ];
 // Not a test skip: one assertion inside a test that otherwise runs everywhere. Listed so the README
 // sentence and this guard describe the same set, and asserted by its own shape below.

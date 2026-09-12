@@ -19,6 +19,10 @@ Generated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrite
 - **Install:** `npm install -g @anthropic-ai/claude-code@2.1.226`
 - **Sign in:** run `claude` once and sign in with your Anthropic account
 - **Reads rules from:** `CLAUDE.md` · subagents in `.claude/agents/`
+- **Plans:**
+  - Claude Pro (base headroom, checked 2026-09-12): https://support.claude.com/en/articles/11049762-choose-a-claude-plan
+  - Claude Max 5x (high headroom, checked 2026-09-12): https://support.claude.com/en/articles/11049762-choose-a-claude-plan
+  - Claude Max 20x (max headroom, checked 2026-09-12): https://support.claude.com/en/articles/11049762-choose-a-claude-plan
 - **Built against:** 2.1.226 (the same number the npm pin uses)
 
 ### `codex` · Codex CLI (OpenAI, ChatGPT plan)
@@ -29,6 +33,10 @@ Generated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrite
 - **Sign in:** `codex login` (add `--device-auth` on a machine with no browser)
 - **Reads rules from:** `AGENTS.md`
 - **cli-run lane:** yes
+- **Plans:**
+  - ChatGPT Plus (base headroom, checked 2026-09-12): https://learn.chatgpt.com/codex/pricing.md
+  - ChatGPT Pro 5x (high headroom, checked 2026-09-12): https://learn.chatgpt.com/codex/pricing.md
+  - ChatGPT Pro 20x (max headroom, checked 2026-09-12): https://learn.chatgpt.com/codex/pricing.md
 - **Built against:** 0.153.4 (the same number the npm pin uses)
 
 ### `agy` · Antigravity CLI `agy` (Google AI plan)
@@ -39,6 +47,10 @@ Generated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrite
 - **Sign in:** first run opens a device-code sign-in with your Google account
 - **Reads rules from:** `GEMINI.md` · subagents in `.agents/agents/`
 - **cli-run lane:** yes
+- **Plans:**
+  - Google AI Pro (base headroom, checked 2026-09-12): https://gemini.google/subscriptions/
+  - Google AI Ultra 5x (high headroom, checked 2026-09-12): https://gemini.google/subscriptions/
+  - Google AI Ultra 20x (max headroom, checked 2026-09-12): https://gemini.google/subscriptions/
 - **Built against:** 1.1.27
 - **Note:** Gemini CLI was retired by Google in June 2026. agy is the successor. Do not install `gemini`.
 
@@ -49,6 +61,9 @@ Generated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrite
 - **Install:** vendor script (read it first): `https://x.ai/cli/install.sh`
 - **Sign in:** `grok login` (add `--device-auth` on a headless machine)
 - **cli-run lane:** yes
+- **Plans:**
+  - SuperGrok (base headroom, checked 2026-09-12): https://x.ai/news/grok-build-cli
+  - X Premium Plus (base headroom, checked 2026-09-12): https://x.ai/news/grok-build-cli
 - **Built against:** 1.0.5
 
 ### `hermes` · Hermes Agent (Nous Research)

@@ -15,6 +15,8 @@ Non-primary lanes are owned by `DELEGATION_MATRIX.md`.
 
 Tier sets the price per token. Token discipline sets how many tokens. **Effort sets how hard each call thinks.**
 
+`cli-run --effort auto` is a heuristic, not a measurement: prompts below 4,000 characters resolve to medium and longer prompts resolve to high. A codex `--audit` always resolves to high because stakes set the floor. Auto never resolves above high. Name `xhigh` explicitly for a security-critical or irreversible audit.
+
 | Agent | Tier | Effort | Why |
 |---|---|---|---|
 | deep-planner | deep | xhigh | judges every build twice; expensive to get wrong |

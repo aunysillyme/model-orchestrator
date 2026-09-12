@@ -20,6 +20,10 @@ Claude Code plugin: `/plugin marketplace add aunysillyme/model-orchestrator`, th
 
 - [Claude Code plugin](https://github.com/aunysillyme/model-orchestrator/blob/main/plugin/README.md): installing the hooks and subagents with `/plugin install`, what the plugin reads, and what it leaves to the installer
 - [CLI runner](https://github.com/aunysillyme/model-orchestrator/blob/main/bin/README.md): `cli-run` lanes, exit codes, the route logged per run
+
+## Plans and automatic effort
+
+Use `--plans AI=plan` to state a subscription plan and receive volume-allocation guidance. `--effort-auto` is opt-in and writes bounded `auto` effort only for selected high or max headroom CLI lanes. Auto is medium or high, never above high; name xhigh explicitly for security-critical or irreversible work.
 - [Templates](https://github.com/aunysillyme/model-orchestrator/blob/main/templates/README.md): the routing, tiers, task bundle and protocol files the installer renders
 - [Changelog](https://github.com/aunysillyme/model-orchestrator/blob/main/CHANGELOG.md): every release and the issue behind each fix
 - [Agent instructions](https://github.com/aunysillyme/model-orchestrator/blob/main/AGENTS.md): running the installer from an agent, and contributing

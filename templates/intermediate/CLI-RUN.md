@@ -19,6 +19,7 @@ Enabled lanes (edit `bin/lanes.json`): {{CLI_RUN_LANES}}
 node bin/cli-run.mjs <grok|codex|agy|hermes|qwen> "<prompt>" [--brief FILE] [--timeout SECS] [--quiet]
 node bin/cli-run.mjs codex --audit "<prompt>"                  # read-only sandbox, the audit shape
 node bin/cli-run.mjs codex "<prompt>" --model gpt-6-astra --effort high
+node bin/cli-run.mjs codex "<prompt>" --effort auto                 # medium or high, bounded heuristic
 node bin/cli-run.mjs qwen [--safe-mode] "<prompt>"             # qwen-only flag
 ```
 
@@ -98,6 +99,7 @@ Three rules that keep this honest:
 
 - **A level `cli-run` does not recognise is not rejected here.** Levels are the vendor's, they change, and guessing the valid set would date this tool. An unknown level is refused by the lane and surfaces as that lane's own exit code and stderr.
 - **`--effort` on qwen is a usage error, not a silent drop.** A flag that vanishes leaves you believing a route that never ran.
+- **`--effort auto` is bounded.** It uses prompt size, or an audit's changed-file evidence, and resolves only medium or high. An audit is always high. Auto is a heuristic, not a measurement: name `xhigh` explicitly for security-critical or irreversible work.
 - **Values are charset-bounded** (letters, digits, and `. _ : @ / + -`, no leading dash, 64 characters). A model id becomes an argv element and, on codex, part of a TOML value; bounding it is what stops either from being escaped.
 
 ## Permissions are a separate layer
@@ -106,7 +108,7 @@ Three rules that keep this honest:
 
 ## Log
 
-`~/.ai-orchestrator/cli-run.log.jsonl`, one line per run: lane, verdict, rc, the lane's own exit code, signal, seconds, raw bytes, deliverable bytes, a 12-hex sha256 prefix of the prompt and its length, the route (`model_requested`, `effort_requested`, and `model_source` / `effort_source`, each one of `flag`, `lanes.json` or `lane_default`), and `reason`: one of a fixed set of codes (`ok`, `not_json`, `bad_stop_reason`, `empty_text`, `no_terminal_event`, `bad_status`, `api_error_in_result`, `total_errors`, `contract_unmet`, `exit_nonzero`, `timeout`, `killed`, `disabled`, `lanes_json_malformed`, ...). Never the prompt text, never a provider-supplied value, never free text: a value the log does not recognise is written as `unknown`. The human-readable detail, which may quote the provider, goes to your terminal only (and nowhere with `--quiet`). "This lane is flaky" becomes a query instead of an argument, and so does "we route audits at high effort".
+`~/.ai-orchestrator/cli-run.log.jsonl`, one line per run: lane, verdict, rc, the lane's own exit code, signal, seconds, raw bytes, deliverable bytes, a 12-hex sha256 prefix of the prompt and its length, the route (`model_requested`, `effort_requested`, and `model_source` / `effort_source`, each one of `flag`, `lanes.json` or `lane_default`), auto-sizing evidence (`effort_resolved`, `effort_basis`, `effort_scope`), and `reason`: one of a fixed set of codes (`ok`, `not_json`, `bad_stop_reason`, `empty_text`, `no_terminal_event`, `bad_status`, `api_error_in_result`, `total_errors`, `contract_unmet`, `exit_nonzero`, `timeout`, `killed`, `disabled`, `lanes_json_malformed`, ...). `effort_basis` is exactly one of `explicit`, `prompt_chars`, `audit_floor`, or `none`. Never the prompt text, never a provider-supplied value, never free text: a value the log does not recognise is written as `unknown`. The human-readable detail, which may quote the provider, goes to your terminal only (and nowhere with `--quiet`). "This lane is flaky" becomes a query instead of an argument, and so does "we route audits at high effort".
 
 The log records what was **requested**, on every record including a run refused before the lane started. It does not record an actual. Reporting is inconsistent: grok returns a `modelUsage` block naming a model, the other four lanes return nothing of the kind, so an `actual` field would be populated for one lane and empty for four. It would also be a provider-supplied string, and this log holds fixed codes and bounded caller-supplied values only. `model_source: "lane_default"` is the honest way to say this run inherited something invisible from here.
 

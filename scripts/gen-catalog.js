@@ -22,6 +22,10 @@ export function catalogMarkdown() {
     md += `### \`${a.id}\` · ${a.name}\n\n- **Kind:** ${a.kind} · **Access:** ${a.access} · **Lane:** ${a.lane} · **Level:** ${a.minLevel}+\n- **Wins at:** ${a.role}\n- **Install:** ${how}\n- **Sign in:** ${a.auth}\n`;
     if (a.rulesFile) md += `- **Reads rules from:** \`${a.rulesFile}\`` + (a.agentsDir ? ` · subagents in \`${a.agentsDir}/\`` : '') + '\n';
     if (a.cliRun) md += '- **cli-run lane:** yes\n';
+    if (a.plans) {
+      md += '- **Plans:**\n';
+      for (const p of a.plans) md += `  - ${p.name} (${p.headroom} headroom, checked ${p.checked}): ${p.source}\n`;
+    }
     if (a.builtAgainst) md += `- **Built against:** ${a.builtAgainst}` + (a.install.npm ? ' (the same number the npm pin uses)' : '') + '\n';
     if (a.note) md += `- **Note:** ${a.note}\n`;
     md += '\n';

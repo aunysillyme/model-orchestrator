@@ -2,6 +2,10 @@
 
 Everything in Part 1, plus lanes. One agent stays the orchestrator; every other AI becomes a lane it calls from the terminal.
 
+## Plans and automatic effort
+
+The installer can record plans with `--plans codex=pro-20x,agy=ultra-5x`. Plan headroom changes volume allocation only, never capability or the independent-review rule. `--effort-auto` is explicit consent to write `auto` for eligible high or max headroom CLI lanes. Auto resolves to medium or high from prompt size, and a codex audit is always high. It is a heuristic, not a measurement: name xhigh explicitly for security-critical or irreversible work.
+
 ## 1. Two kinds of lane
 
 **Lane A, subscription CLIs.** Claude Code, Codex, Antigravity, Grok, Hermes. Already paid for, $0 per call, used for interactive and agentic work. **Lane B, metered APIs.** Per token, used for programmatic bulk where a subscription CLI cannot serve. **Local.** A privacy lane, never a cost lane.

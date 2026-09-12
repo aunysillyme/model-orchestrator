@@ -6,6 +6,10 @@ Generated {{DATE}} from the AIs you said you have: `{{AI_IDS}}`.
 
 {{LANES_TABLE}}
 
+## Plan guidance
+
+{{PLAN_GUIDANCE}}
+
 ## Task → lane
 
 | Task type | Pick | Why |

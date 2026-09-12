@@ -27,6 +27,8 @@
 //              "(chat only, no CLI)" catalog note, so the activation line stays
 //              a sentence you can read once (#22)
 //   chatSurface chat apps only: where the pasted block goes in that app
+//   plans      optional known subscription plans: { id, name, headroom,
+//              source, checked }. Guidance uses headroom only, never prices.
 
 export const LEVELS = [
   {
@@ -70,6 +72,11 @@ export const AIS = [
     agentsDir: '.claude/agents',
     cliRun: false,
     models: { deep: 'opus', standard: 'sonnet', fast: 'haiku' },
+    plans: [
+      { id: 'pro', name: 'Claude Pro', headroom: 'base', source: 'https://support.claude.com/en/articles/11049762-choose-a-claude-plan', checked: '2026-09-12' },
+      { id: 'max-5x', name: 'Claude Max 5x', headroom: 'high', source: 'https://support.claude.com/en/articles/11049762-choose-a-claude-plan', checked: '2026-09-12' },
+      { id: 'max-20x', name: 'Claude Max 20x', headroom: 'max', source: 'https://support.claude.com/en/articles/11049762-choose-a-claude-plan', checked: '2026-09-12' }
+    ],
     // Verified at code.claude.com/docs/en/sub-agents (fetched 2026-09-10): "A
     // non-fork subagent's initial context contains: CLAUDE.md files: every
     // level of the CLAUDE.md hierarchy the main conversation loads ... The
@@ -95,6 +102,11 @@ export const AIS = [
     rulesFile: 'AGENTS.md',
     agentsDir: null,
     cliRun: true
+    , plans: [
+      { id: 'plus', name: 'ChatGPT Plus', headroom: 'base', source: 'https://learn.chatgpt.com/codex/pricing.md', checked: '2026-09-12' },
+      { id: 'pro-5x', name: 'ChatGPT Pro 5x', headroom: 'high', source: 'https://learn.chatgpt.com/codex/pricing.md', checked: '2026-09-12' },
+      { id: 'pro-20x', name: 'ChatGPT Pro 20x', headroom: 'max', source: 'https://learn.chatgpt.com/codex/pricing.md', checked: '2026-09-12' }
+    ]
   },
   {
     id: 'agy',
@@ -113,6 +125,11 @@ export const AIS = [
     agentsDir: '.agents/agents',
     cliRun: true,
     models: { deep: 'pro', standard: 'flash', fast: 'flash' },
+    plans: [
+      { id: 'ai-pro', name: 'Google AI Pro', headroom: 'base', source: 'https://gemini.google/subscriptions/', checked: '2026-09-12' },
+      { id: 'ultra-5x', name: 'Google AI Ultra 5x', headroom: 'high', source: 'https://gemini.google/subscriptions/', checked: '2026-09-12' },
+      { id: 'ultra-20x', name: 'Google AI Ultra 20x', headroom: 'max', source: 'https://gemini.google/subscriptions/', checked: '2026-09-12' }
+    ],
     note: 'Gemini CLI was retired by Google in June 2026. agy is the successor. Do not install `gemini`.'
   },
   {
@@ -131,6 +148,10 @@ export const AIS = [
     rulesFile: null,
     agentsDir: null,
     cliRun: true
+    , plans: [
+      { id: 'supergrok', name: 'SuperGrok', headroom: 'base', source: 'https://x.ai/news/grok-build-cli', checked: '2026-09-12' },
+      { id: 'x-premium-plus', name: 'X Premium Plus', headroom: 'base', source: 'https://x.ai/news/grok-build-cli', checked: '2026-09-12' }
+    ]
   },
   {
     id: 'hermes',

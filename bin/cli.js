@@ -22,8 +22,8 @@ import { windowsSpawnPlan } from './cli-run.mjs';
 // errors (exit 2) before anything is planned, so a typo like --dryy can never
 // turn a dry run into a real one.
 const SPEC = {
-  level: 'value', ais: 'value', primary: 'value', dir: 'value', project: 'value', tools: 'value', apis: 'value',
-  yes: 'bool', force: 'bool', dry: 'bool', 'dry-run': 'bool', 'no-install': 'bool', 'no-tools': 'bool', 'no-apis': 'bool', 'upgrade-runtime': 'bool', 'update-docs': 'bool', list: 'bool', help: 'bool', h: 'bool', version: 'bool', v: 'bool'
+  level: 'value', ais: 'value', primary: 'value', dir: 'value', project: 'value', tools: 'value', apis: 'value', plans: 'value',
+  yes: 'bool', force: 'bool', dry: 'bool', 'dry-run': 'bool', 'no-install': 'bool', 'no-tools': 'bool', 'no-apis': 'bool', 'effort-auto': 'bool', 'upgrade-runtime': 'bool', 'update-docs': 'bool', list: 'bool', help: 'bool', h: 'bool', version: 'bool', v: 'bool'
 };
 export function parseArgs(argv) {
   const out = {};
@@ -104,6 +104,8 @@ Flags
   --tools a,b        companion tools to set up, all optional (default with --yes: codecalc only); --no-tools for none
   --apis a,b         level 3 only: metered API keys you HOLD (anthropic,openai,google,xai,openrouter); --no-apis for none.
                      Asked separately from the CLIs because a subscription is not an API key.
+  --plans a=plan,b=plan  stated subscription plans for guidance; --plans none clears prior stated plans
+  --effort-auto      consent to write auto effort defaults for selected high or max plan cli-run lanes
   --dir path         where to write the docs and protocols (default ./ai-orchestrator)
   --project path     the project root your agent runs from; subagent definitions go here (default: current directory,
                      so set it: a run from your home folder otherwise drops the subagent files there)
@@ -129,6 +131,7 @@ if (flag('list')) {
   for (const a of AIS) {
     const here = a.bin ? (which(a.bin) ? 'installed' : 'not on PATH') : 'app';
     console.log(`${a.id.padEnd(13)} ${a.name}\n${''.padEnd(13)} level ${a.minLevel}+ · ${a.access} · ${here}\n${''.padEnd(13)} ${a.role}`);
+    if (a.plans) for (const p of a.plans) console.log(`${''.padEnd(13)} plan ${p.id}: ${p.name} (${p.headroom} headroom, checked ${p.checked}, ${p.source})`);
   }
   console.log('\nmetered API providers (--apis a,b, level 3 gateway only):');
   for (const prov of PROVIDERS) console.log(`${prov.id.padEnd(13)} ${prov.name}  (variable name: ${prov.envName})`);
@@ -144,6 +147,29 @@ const ask = (q, fallback) => (rl ? rl.ask(q, fallback) : Promise.resolve(fallbac
 function bad(msg) {
   console.error('model-orchestrator: ' + msg);
   process.exit(2);
+}
+
+function plansFromIds(raw, selected) {
+  if (raw === 'none') return {};
+  const out = {};
+  for (const part of raw.split(',')) {
+    const [id, plan, ...extra] = part.split('=');
+    if (!id || !plan || extra.length) bad(`--plans entry must be AI=plan: ${part}`);
+    if (Object.hasOwn(out, id)) bad(`--plans names ${id} more than once`);
+    const ai = byId[id];
+    if (!ai) bad(`--plans names unknown AI id: ${id}`);
+    if (!selected.includes(ai)) bad(`--plans names ${id}, which is not selected`);
+    const found = (ai.plans || []).find((p) => p.id === plan);
+    if (!found) bad(`--plans names unknown plan ${plan} for ${id}`);
+    out[id] = found;
+  }
+  return Object.fromEntries(Object.entries(out).sort(([a], [b]) => a.localeCompare(b)));
+}
+
+function plansFromManifest(manifest, selected) {
+  const raw = manifest && manifest.plans;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  return plansFromIds(Object.entries(raw).map(([id, plan]) => `${id}=${plan}`).join(','), selected);
 }
 
 async function main() {
@@ -278,11 +304,51 @@ async function main() {
   const projectBad = dirProblems(project);
   if (projectBad.length) bad('--project: ' + projectBad.join('; '));
 
+  // A prior manifest is read before planning so an omitted reconfiguration
+  // preserves consent and stated plans instead of silently clearing either.
+  const prev = readManifest(dir);
+  let plans;
+  let plansKept = false;
+  if (opt('plans') !== null) {
+    plans = plansFromIds(opt('plans'), selected);
+  } else if (prev) {
+    plans = plansFromManifest(prev, selected);
+    plansKept = Object.keys(plans).length > 0;
+  } else if (!yes) {
+    plans = {};
+    for (const ai of selected.filter((a) => a.plans)) {
+      const first = ai.plans[0];
+      console.log(`\nWhich ${ai.vendor} plan? (checked ${first.checked}, source ${first.source})`);
+      ai.plans.forEach((p, i) => console.log(`  ${i + 1}  ${p.name} (${p.headroom} headroom)`));
+      console.log(`  ${ai.plans.length + 1}  not sure`);
+      const answer = Number(await ask(`Plan [${ai.plans.length + 1}]: `, String(ai.plans.length + 1)));
+      if (!Number.isInteger(answer) || answer < 1 || answer > ai.plans.length + 1) bad('pick a listed plan number');
+      if (answer <= ai.plans.length) plans[ai.id] = ai.plans[answer - 1];
+    }
+  } else {
+    plans = {};
+  }
+
+  const eligibleAuto = selected.filter((a) => a.cliRun && plans[a.id] && ['high', 'max'].includes(plans[a.id].headroom)).map((a) => a.id).sort();
+  let effortAuto;
+  if (flag('effort-auto')) {
+    effortAuto = eligibleAuto;
+  } else if (prev && Array.isArray(prev.effortAuto)) {
+    effortAuto = prev.effortAuto.filter((id) => selected.some((a) => a.id === id && a.cliRun));
+  } else if (!yes && eligibleAuto.length) {
+    const answer = await ask(`\nSize reasoning effort per task automatically on ${eligibleAuto.join(', ')}? [y/N] `, 'n');
+    effortAuto = /^y/i.test(answer) ? eligibleAuto : [];
+  } else {
+    effortAuto = [];
+  }
+
   // 5. Plan
-  const files = planFiles({ level, selected, primary, dir, project, tools, apis });
+  const files = planFiles({ level, selected, primary, dir, project, tools, apis, plans, effortAuto });
   const lvl = LEVELS.find((l) => l.id === level);
   const agentFiles = files.filter((f) => f.root === 'project');
-  console.log(`\nPlan\n  level    ${lvl.id} ${lvl.name}\n  access   ${selected.map((a) => a.id).join(', ')}\n  primary  ${primary ? primary.id : 'none'}${primaryAutoPicked ? ` (chosen for you from ${candidates.map((a) => a.id).join(', ')}; pass --primary to decide it yourself)` : ''}\n  tools    ${tools.map((t) => t.id).join(', ') || 'none'}` + (level >= 3 ? `\n  api keys ${apis.map((p) => p.id).join(', ') || 'none'}` : '') + `\n  folder   ${dir}\n  project  ${project}${agentFiles.length ? ' (' + agentFiles.length + ' subagent files go here)' : ''}\n  files    ${files.length}`);
+  const statedPlans = Object.entries(plans).map(([id, p]) => `${id}=${p.id}`).join(', ');
+  console.log(`\nPlan\n  level    ${lvl.id} ${lvl.name}\n  access   ${selected.map((a) => a.id).join(', ')}\n  primary  ${primary ? primary.id : 'none'}${primaryAutoPicked ? ` (chosen for you from ${candidates.map((a) => a.id).join(', ')}; pass --primary to decide it yourself)` : ''}\n  tools    ${tools.map((t) => t.id).join(', ') || 'none'}\n  plans    ${statedPlans || 'none stated'}` + (level >= 3 ? `\n  api keys ${apis.map((p) => p.id).join(', ') || 'none'}` : '') + `\n  folder   ${dir}\n  project  ${project}${agentFiles.length ? ' (' + agentFiles.length + ' subagent files go here)' : ''}\n  files    ${files.length}`);
+  if (plansKept) console.log('  plans kept from the previous run');
   if (agentFiles.length && !opt('project')) {
     console.log(`\nNote: --project was not given, so the ${agentFiles.length} subagent file(s) go to the current directory (${project}). Pass --project to put them somewhere else.`);
   }
@@ -303,10 +369,11 @@ async function main() {
   }
 
   // Reconfiguration: compare what a previous run recorded with what was asked now.
-  const prev = readManifest(dir);
   const changed = prev
     ? ['level', 'primary'].filter((k) => String(prev[k]) !== String(k === 'level' ? level : primary ? primary.id : null))
         .concat(['ais', 'tools', 'apis'].filter((k) => JSON.stringify(prev[k] || []) !== JSON.stringify({ ais: selected, tools, apis }[k].map((x) => x.id))))
+        .concat(JSON.stringify(prev.plans || {}) !== JSON.stringify(Object.fromEntries(Object.entries(plans).map(([id, p]) => [id, p.id]))) ? ['plans'] : [])
+        .concat(JSON.stringify((prev.effortAuto || []).slice().sort()) !== JSON.stringify(effortAuto.slice().sort()) ? ['effortAuto'] : [])
     : [];
 
   let written, skipped, upgraded, conflicts, unverifiable, docsUpdated, docsConflict, docsUnverifiable;

@@ -37,14 +37,26 @@ function table(rows, header) {
   return [line(header), line(header.map(() => '---')), ...rows.map(line)].join('\n');
 }
 
-export function lanesTable(selected) {
+export function lanesTable(selected, plans = {}) {
   const rows = selected.map((a) => [
     a.name,
     a.lane === 'A' ? 'A (subscription, $0 per call)' : a.lane === 'B' ? 'B (metered)' : a.lane === 'local' ? 'local' : 'chat',
     a.role,
-    a.cliRun ? '`cli-run ' + a.id + '`' : a.bin ? '`' + a.bin + '`' : 'the app'
+    a.cliRun ? '`cli-run ' + a.id + '`' : a.bin ? '`' + a.bin + '`' : 'the app',
+    plans[a.id] ? `${plans[a.id].name} (${plans[a.id].headroom} headroom)` : 'not stated'
   ]);
-  return table(rows, ['AI', 'Lane', 'Wins at', 'Call it with']);
+  return table(rows, ['AI', 'Lane', 'Wins at', 'Call it with', 'Plan']);
+}
+
+function planGuidance(selected, plans = {}) {
+  const lines = selected.filter((a) => plans[a.id]).map((a) => {
+    const p = plans[a.id];
+    const volume = p.headroom === 'base'
+      ? 'Keep this base-headroom lane for short second opinions. If it is primary, delegate volume to high or max headroom lanes.'
+      : 'Use this high or max headroom lane for volume: scoped well-specified builds, pre-ship second-family checks through cli-run, and first-pass research.';
+    return `- **${a.name}: ${p.name} (${p.headroom} headroom).** ${volume} Capability and independent-review rules are unchanged. Checked ${p.checked}.`;
+  });
+  return lines.length ? lines.join('\n') : 'State subscription plans with `--plans` to receive volume-allocation guidance. Capability and independent-review rules stay unchanged.';
 }
 
 export function installTable(selected) {
@@ -398,6 +410,7 @@ export function proofSteps(opts) {
 
 function vars(opts) {
   const { level, selected, primary } = opts;
+  const plans = opts.plans || {};
   const tools = opts.tools || [];
   const apis = opts.apis || [];
   const lvl = LEVELS.find((l) => l.id === level);
@@ -506,7 +519,8 @@ function vars(opts) {
     PRIMARY_FAST: primary && primary.models ? primary.models.fast : 'your cheapest model',
     AIS_LIST: selected.map((a) => '- ' + a.name + ': ' + a.role).join('\n'),
     AI_IDS: selected.map((a) => a.id).join(','),
-    LANES_TABLE: lanesTable(selected),
+    LANES_TABLE: lanesTable(selected, plans),
+    PLAN_GUIDANCE: planGuidance(selected, plans),
     INSTALL_TABLE: installTable(selected),
     CLI_RUN_LANES: selected.filter((a) => a.cliRun).map((a) => a.id).join(', ') || 'none selected',
     GATEWAY_MODELS: gatewayModels(selected, apis),
@@ -605,7 +619,7 @@ export function planFiles(opts) {
       JSON.stringify(
         {
           enabled: selected.filter((a) => a.cliRun).map((a) => a.id),
-          defaults: {},
+          defaults: Object.fromEntries((opts.effortAuto || []).map((lane) => [lane, { effort: 'auto' }])),
           note: 'Lanes cli-run may call. Edit to enable or disable a lane. A lane not listed here exits 13 (unavailable).',
           defaultsNote: 'Pin what a lane runs with, so the route in your docs is the route that runs: "defaults": {"codex": {"model": "gpt-6-astra", "effort": "high"}}. Left empty, a lane inherits its own config file, which cli-run cannot see and does not guess. `--model` and `--effort` override this per call, and `--doctor` prints what each lane is pinned to. Every lane takes a model; every lane except qwen takes an effort.'
         },
@@ -640,6 +654,8 @@ export function planFiles(opts) {
           primary: primary ? primary.id : null,
           tools: (opts.tools || []).map((t) => t.id),
           apis: (opts.apis || []).map((p) => p.id),
+          ...(Object.keys(opts.plans || {}).length ? { plans: Object.fromEntries(Object.entries(opts.plans).sort(([a], [b]) => a.localeCompare(b)).map(([id, p]) => [id, p.id])) } : {}),
+          ...((opts.effortAuto || []).length ? { effortAuto: [...opts.effortAuto].sort() } : {}),
           dir: resolve(opts.dir || 'ai-orchestrator'),
           project: resolve(opts.project || process.cwd()),
           files: fileHashes,

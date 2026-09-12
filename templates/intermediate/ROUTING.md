@@ -6,6 +6,10 @@ Your lanes:
 
 {{LANES_TABLE}}
 
+## Plan guidance
+
+{{PLAN_GUIDANCE}}
+
 Two kinds of lane. **Lane A** = subscription CLIs: $0 marginal, already paid for, used for interactive and agentic work. **Lane B** = metered APIs: per token, used for programmatic bulk where a subscription CLI cannot serve. **Local** = stays on the machine; a privacy lane, never a cost lane.
 
 Rule of thumb: never spend a frontier token on a task a cheap tier finishes correctly. Escalate on signal (low confidence, explicit complexity, a failed verification), not by default. And an external lane must earn the hop with a real strength; when in doubt, stay in-house.

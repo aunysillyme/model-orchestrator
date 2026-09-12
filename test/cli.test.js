@@ -269,7 +269,7 @@ test('cli-run: usage errors and unavailable lanes exit with their documented cod
 
 test('interactive path accepts piped answers and aborts on EOF instead of defaulting', () => {
   const dir = join(mkdtempSync(join(tmpdir(), 'orch-int-')), 'out');
-  const ok = run(["--no-install"], { input: `2\n1,2\n1\ny\nn\n${dir}\n${dir}\ny\n` }); // level, AIs, primary, codecalc?, obsidian-tc?, dir, project, confirm
+  const ok = run(["--no-install"], { input: `2\n1,2\n1\ny\nn\n${dir}\n${dir}\n4\n4\ny\n` }); // level, AIs, primary, tools, targets, plan choices, confirm
   assert.equal(ok.status, 0, ok.stderr + ok.stdout);
   assert.ok(existsSync(join(dir, 'ROUTING.md')), 'level 2 file missing after interactive run');
   const eof = run(['--no-install'], { input: '2\n' });
@@ -598,7 +598,7 @@ test('#8: the interactive install spawns npm with the same pinned spec the table
   writeShellStub(join(bin, 'npm'), `echo "$@" > "${captured}"\nexit 0`);
   // codex is NOT on this PATH, so the installer offers to install it; answer y.
   const r = run(['--level', '1', '--ais', 'codex', '--primary', 'codex', '--no-tools', '--dir', join(d, 'out'), '--project', join(d, 'proj')], {
-    input: 'y\ny\n',
+    input: '4\ny\ny\n',
     // PATH deliberately excludes /usr/bin: a machine with a real codex there would skip the install prompt.
     env: winEnv(process.platform === 'win32' ? [bin, dirname(process.execPath), WIN_SH_DIR].filter(Boolean).join(delimiter) : [bin, dirname(process.execPath), '/bin'].join(delimiter), d)
   });
