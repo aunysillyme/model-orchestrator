@@ -150,6 +150,7 @@ export const AIS = [
     cliRun: true
     , plans: [
       { id: 'supergrok', name: 'SuperGrok', headroom: 'base', source: 'https://x.ai/news/grok-build-cli', checked: '2026-09-12' },
+      { id: 'supergrok-plus', name: 'SuperGrok Plus', headroom: 'high', source: 'https://x.ai/pricing', checked: '2026-09-12' },
       { id: 'x-premium-plus', name: 'X Premium Plus', headroom: 'base', source: 'https://x.ai/news/grok-build-cli', checked: '2026-09-12' }
     ]
   },

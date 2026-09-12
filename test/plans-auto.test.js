@@ -55,6 +55,15 @@ test('catalog subscription plans are complete, dated, and use bounded headroom',
   }
 });
 
+test('grok plans include SuperGrok Plus as high headroom, sourced from the xAI pricing page', () => {
+  const grok = AIS.find((a) => a.id === 'grok');
+  const plus = grok.plans.find((p) => p.id === 'supergrok-plus');
+  assert.ok(plus, 'supergrok-plus plan missing');
+  assert.equal(plus.headroom, 'high');
+  assert.equal(plus.source, 'https://x.ai/pricing');
+  assert.equal(grok.plans.some((p) => /heavy/i.test(p.id)), false, 'SuperGrok Heavy states no Build usage; keep it out until it does');
+});
+
 test('auto effort stays bounded at the prompt boundary and audits hold high', () => {
   for (const lane of Object.keys(AUTO_EFFORT)) {
     assert.equal(resolveAutoEffort(lane, 'auto', 'x'.repeat(3999), false).resolved, 'medium');

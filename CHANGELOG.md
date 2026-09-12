@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.1.22] - 2026-09-12
+
+### Added
+
+- **SuperGrok Plus as a `grok` plan (high headroom).** xAI's pricing page lists it with "Significantly higher usage across Chat, Imagine, Voice & Build", so `--plans grok=supergrok-plus` now works and counts as a high-headroom lane for plan guidance and `--effort-auto`. SuperGrok Heavy stays out: the page states no Build usage for it. A test holds both.
+
 ## [0.1.21] - 2026-09-12
 
 ### Added
@@ -329,7 +335,8 @@ First release.
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
-[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.21...HEAD
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.22...HEAD
+[0.1.22]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.21...v0.1.22
 [0.1.21]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.20...v0.1.21
 [0.1.20]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.19...v0.1.20
 [0.1.19]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.18...v0.1.19

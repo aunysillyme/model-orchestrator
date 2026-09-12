@@ -63,6 +63,7 @@ Generated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrite
 - **cli-run lane:** yes
 - **Plans:**
   - SuperGrok (base headroom, checked 2026-09-12): https://x.ai/news/grok-build-cli
+  - SuperGrok Plus (high headroom, checked 2026-09-12): https://x.ai/pricing
   - X Premium Plus (base headroom, checked 2026-09-12): https://x.ai/news/grok-build-cli
 - **Built against:** 1.0.5
 
