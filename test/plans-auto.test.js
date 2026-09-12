@@ -110,7 +110,7 @@ test('git changed-line sizing treats binary numstat rows as zero lines', () => {
     const binary = join(dir, 'binary');
     writeFileSync(binary, Buffer.from([0, 1, 2]));
     git(dir, ['add', 'binary']);
-    git(dir, ['commit', '-m', 'binary']);
+    git(dir, ['-c', 'user.name=test', '-c', 'user.email=test@example.invalid', 'commit', '-m', 'binary']);
     writeFileSync(binary, Buffer.from([0, 1, 3]));
     assert.deepEqual(gitChangedLines(dir), { lines: 0, truncated: false });
   } finally {
