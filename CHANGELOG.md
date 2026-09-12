@@ -4,6 +4,17 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.1.19] - 2026-09-12
+
+### Added
+
+- **The `route-gate.mjs` non-regular-file guard is now tested on every OS, not only where `mkfifo` exists.** The FIFO test is the only one that can prove the HANG the guard exists to prevent (a naive `readFileSync` on a writer-less FIFO blocks forever), and Windows has no `mkfifo` to build one, so that test was skipped there and nothing exercised `!st.isFile()` on Windows at all. A directory at the same rules path reaches the same guard before any `open` or `read` call, on every OS, so the guard itself is covered everywhere and the win32 skip is no longer its only coverage.
+- **A guard that refuses an undocumented test skip.** `test/prose.test.js` pins each skip to its file, its exact marker and a phrase the README has to carry, then counts every `{ skip:` in the suite and fails if the totals disagree. Proved in both directions: adding a skip anywhere fails it, and removing a skip's explanation from the README fails it.
+
+### Fixed
+
+- **The README's Windows skip list named three of the four skips.** The `mkfifo` skip in `test/hooks.test.js` had never been documented, in the README or the changelog, while the sentence above it read "a few narrow skips remain" and enumerated the rest. A skipped test reads as a test that passed, so an undocumented skip is a coverage claim nobody made deliberately. All four are named now, the conditional `statSync().mode` assertion is labelled as the one-assertion case it is rather than a skipped test, and the sentence says outright that the list is enforced by a test rather than maintained by hand.
+
 ## [0.1.18] - 2026-09-11
 
 ### Fixed
@@ -282,7 +293,8 @@ First release.
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
-[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.18...HEAD
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.19...HEAD
+[0.1.19]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.18...v0.1.19
 [0.1.18]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.17...v0.1.18
 [0.1.17]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.16...v0.1.17
 [0.1.16]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.15...v0.1.16

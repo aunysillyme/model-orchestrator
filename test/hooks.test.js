@@ -230,6 +230,28 @@ test('route-gate.mjs: a FIFO at the rules path gives a fallback without hanging'
   }
 });
 
+// The same !isFile() guard, through the one non-regular file EVERY OS has. The FIFO case above is
+// the only one that can prove the HANG (a naive readFileSync on a writer-less FIFO blocks forever,
+// and Windows has no mkfifo to build one), but the guard itself is not POSIX-specific, and before
+// this test nothing exercised it on Windows at all. A directory also reaches it before any open or
+// read call, so this runs unconditionally and the win32 skip above is no longer the only coverage.
+test('route-gate.mjs: a directory at the rules path gives the same fallback, on every OS', () => {
+  const scratch = mkdtempSync(join(tmpdir(), 'orch-hook-'));
+  const project = mkdtempSync(join(tmpdir(), 'orch-proj-'));
+  try {
+    const hookPath = writeHook(scratch, 'route-gate.mjs', renderedHook('route-gate.mjs'));
+    mkdirSync(join(project, RULES_SUBDIR, 'ROUTING.md'), { recursive: true });
+    const r = spawnSync('node', [hookPath], { input: '', encoding: 'utf8', env: { ...process.env, CLAUDE_PROJECT_DIR: project }, timeout: 3000 });
+    assert.notEqual(r.signal, 'SIGTERM', 'the hook was killed for exceeding the timeout');
+    assert.equal(r.status, 0);
+    const out = JSON.parse(r.stdout);
+    assert.match(out.hookSpecificOutput.additionalContext, /not a regular file/);
+  } finally {
+    rmSync(scratch, { recursive: true, force: true });
+    rmSync(project, { recursive: true, force: true });
+  }
+});
+
 test('route-gate.mjs: a 200 MB sparse rules file still completes fast with bounded output', () => {
   const scratch = mkdtempSync(join(tmpdir(), 'orch-hook-'));
   const project = mkdtempSync(join(tmpdir(), 'orch-proj-'));

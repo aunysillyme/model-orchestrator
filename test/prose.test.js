@@ -113,3 +113,40 @@ test('the alarming-wording check can go red', () => {
   assert.ok(ALARM_WORDS.test('a named risk and a named flaw'));
   assert.ok(ALARM_WORDS.test('high-risk commands stay gated'));
 });
+
+// Every test this suite skips has to be named in the README, and nothing may be skipped that is not.
+// The skip list drifted once already: the mkfifo skip in test/hooks.test.js was never documented, and
+// the README's "a few narrow skips" sentence named three of the four. A sentence is not a mechanism,
+// so this is the mechanism. Each entry pins the file, the exact skip marker in it, how many tests
+// that marker guards, and a phrase the README has to carry so a reader can find out why.
+const SKIPS = [
+  { file: 'cli.test.js', marker: 'skip: SKIP_LANE_SIGNAL_DEATH_ON_WIN32', tests: 1, readme: 'cannot die "by signal"' },
+  { file: 'install.test.js', marker: 'skip: SKIP_WATCHDOG_KILL_ON_WIN32', tests: 2, readme: "weekly-audit.sh" },
+  { file: 'hooks.test.js', marker: "skip: process.platform === 'win32' ? 'no mkfifo on Windows'", tests: 1, readme: 'mkfifo' },
+];
+// Not a test skip: one assertion inside a test that otherwise runs everywhere. Listed so the README
+// sentence and this guard describe the same set, and asserted by its own shape below.
+const CONDITIONAL_ASSERTIONS = [
+  { file: 'install.test.js', marker: "if (process.platform !== 'win32') assert.ok(statSync(join(dir, 'bin', 'cli-run.mjs')).mode & 0o100", readme: "statSync().mode" },
+];
+
+test('every skipped test is named in the README, and no test is skipped that is not', () => {
+  const readme = readFileSync(join(ROOT, 'README.md'), 'utf8');
+  let expected = 0;
+  for (const s of [...SKIPS, ...CONDITIONAL_ASSERTIONS]) {
+    const src = readFileSync(join(ROOT, 'test', s.file), 'utf8');
+    assert.ok(src.includes(s.marker), `${s.file} no longer contains the pinned marker ${JSON.stringify(s.marker)}; update SKIPS in test/prose.test.js and the README together`);
+    assert.ok(readme.includes(s.readme), `README.md does not explain the ${s.file} skip: it must carry ${JSON.stringify(s.readme)}`);
+    if (s.tests) expected += s.tests;
+  }
+  // The loud negative: count every `skip:` in the suite and refuse an undocumented one.
+  const found = [];
+  for (const name of readdirSync(join(ROOT, 'test'))) {
+    if (!name.endsWith('.test.js')) continue;
+    const src = readFileSync(join(ROOT, 'test', name), 'utf8');
+    // The regex matches the node:test option itself, not the pinned marker strings above, and not a
+    // comment: a line starting with // is dropped first, so describing the pattern cannot trip it.
+    src.split('\n').forEach((l, i) => { if (!/^\s*\/\//.test(l) && /\{\s*skip:/.test(l)) found.push(`${name}:${i + 1}`); });
+  }
+  assert.equal(found.length, expected, `the suite has ${found.length} skipped test(s) (${found.join(', ')}) but the README documents ${expected}; document the new one or remove the skip`);
+});
