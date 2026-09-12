@@ -6,6 +6,8 @@ Install and run: `npx model-orchestrator` (interactive), or headless: `npx model
 
 Levels: 1 beginner (one agent or chat app), 2 intermediate (several agent CLIs, each called through `cli-run`), 3 advanced (adds a virtual machine with a gateway and a scheduled audit job). On Claude Code the install also delegates execution to subagents by default and ships two hooks (UserPromptSubmit, SubagentStart) that inject the routing table every turn.
 
+Claude Code plugin: `/plugin marketplace add aunysillyme/model-orchestrator`, then `/plugin install model-orchestrator@model-orchestrator`. It installs the two hooks and eight subagents; the routing rules still come from `npx model-orchestrator`, and the routing log (`route-metrics.mjs`) is npm-only.
+
 ## Docs
 
 - [README](https://github.com/aunysillyme/model-orchestrator/blob/main/README.md): what it writes, flags, principles, what is enforced versus instructed
@@ -16,6 +18,7 @@ Levels: 1 beginner (one agent or chat app), 2 intermediate (several agent CLIs, 
 
 ## Reference
 
+- [Claude Code plugin](https://github.com/aunysillyme/model-orchestrator/blob/main/plugin/README.md): installing the hooks and subagents with `/plugin install`, what the plugin reads, and what it leaves to the installer
 - [CLI runner](https://github.com/aunysillyme/model-orchestrator/blob/main/bin/README.md): `cli-run` lanes, exit codes, the route logged per run
 - [Templates](https://github.com/aunysillyme/model-orchestrator/blob/main/templates/README.md): the routing, tiers, task bundle and protocol files the installer renders
 - [Changelog](https://github.com/aunysillyme/model-orchestrator/blob/main/CHANGELOG.md): every release and the issue behind each fix

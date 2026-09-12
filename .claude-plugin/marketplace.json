@@ -1,0 +1,15 @@
+{
+  "name": "model-orchestrator",
+  "owner": {
+    "name": "model-orchestrator maintainers",
+    "url": "https://github.com/aunysillyme/model-orchestrator"
+  },
+  "description": "The model-orchestrator plugin for Claude Code: routing hooks and tiered subagents.",
+  "plugins": [
+    {
+      "name": "model-orchestrator",
+      "source": "./plugin",
+      "category": "development"
+    }
+  ]
+}

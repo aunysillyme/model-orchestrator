@@ -3,7 +3,7 @@
 Maintainer notes. A release is one file edit and four commands until release automation is switched on.
 
 1. Every change in the release has a line under `[Unreleased]` in `CHANGELOG.md`, in one of the Keep a Changelog categories (Added, Changed, Deprecated, Removed, Fixed, Security).
-2. Move `[Unreleased]` to `[X.Y.Z] - YYYY-MM-DD`, add the compare link at the bottom of the file, and set the same version in `package.json`.
+2. Move `[Unreleased]` to `[X.Y.Z] - YYYY-MM-DD`, add the compare link at the bottom of the file, and set the same version in `package.json`. Then `npm run gen:plugin`, so `plugin/.claude-plugin/plugin.json` carries the same version (`test/plugin.test.js` fails until it does), and `claude plugin validate --strict plugin` to confirm the bundle still passes Claude Code's own check.
 3. `npm test` green locally; CI green on the last push to `main`.
 4. `git tag -a vX.Y.Z -m "X.Y.Z: <one line>"` and `git push origin main --tags`.
 5. `gh release create vX.Y.Z --notes-from-tag` or paste the changelog section as the notes.

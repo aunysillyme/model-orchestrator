@@ -532,7 +532,14 @@ function vars(opts) {
     AGENTS_LIST_LINE: claudeAgentIds().map((id) => '`' + id + '`').join(', '),
     RULES_FILE_REL: rulesFileRel,
     RULES_FILE_REL_JSON: JSON.stringify(rulesFileRel),
-    TASK_BUNDLE_REL_JSON: JSON.stringify(taskBundleRel)
+    TASK_BUNDLE_REL_JSON: JSON.stringify(taskBundleRel),
+    // route-gate.mjs takes a candidate list so the plugin bundle (src/plugin.js)
+    // can render the installer's default locations from the same template. An
+    // install knows its one rules file, and wrote it, so it needs no hint.
+    RULES_CANDIDATES_JSON: JSON.stringify([rulesFileRel]),
+    SETUP_HINT_JSON: JSON.stringify(''),
+    SETUP_NOTICE_JSON: JSON.stringify(''),
+    CONTEXT_SUFFIX_JSON: JSON.stringify('')
   };
 }
 

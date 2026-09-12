@@ -4,6 +4,21 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- **A Claude Code plugin.** `/plugin marketplace add aunysillyme/model-orchestrator`, then `/plugin install model-orchestrator@model-orchestrator`, installs `route-gate.mjs`, `subagent-context.mjs` and the eight subagents without merging a settings snippet by hand. The bundle lives in `plugin/`, listed by `.claude-plugin/marketplace.json` at the repo root. It passes `claude plugin validate --strict`, the check Anthropic's community marketplace review runs, and all eight checks of Sigistry's public plugin verification methodology (1.2), run standalone before release as a quality bar; the plugin is not listed there.
+- **The plugin is generated, never a second copy.** `npm run gen:plugin` renders `plugin/` from the same `templates/` the installer uses, and `test/plugin.test.js` fails when the committed bundle drifts from that, when `plugin.json`'s version is not `package.json`'s, when `hooks/hooks.json` references a hook that is not shipped, when a plugin hook gains a network call, a file write, credential access, dynamic evaluation or a subprocess, when an agent has no `tools:` line or a review-type agent carries Write or Edit, and when the plugin README loses its install commands. Each check was proved red against the real files before it was trusted.
+- **The plugin's route gate works without an install step.** A plugin cannot be rendered per project, so its `route-gate.mjs` reads the installer's default locations, `ai-orchestrator/ROUTING.md` then `ai-orchestrator/ORCHESTRATOR.md`, and takes the first that exists. Something at the first path that is not a readable file (a directory, a FIFO) is reported, never skipped for the second. With neither present it tells Claude on every prompt, and the user once at session start, to run `npx model-orchestrator`, so a project with no rules is never a silent no-op.
+
+### Changed
+
+- **`builder`, `deep-planner` and `live-researcher` now declare their tools, for npm installs too.** Until now they carried no `tools:` line and inherited every tool the session had, MCP tools included. `builder` gets `Read, Write, Edit, Glob, Grep, Bash`; `deep-planner` gets `Read, Glob, Grep` (its prompt already says it never edits); `live-researcher` gets `WebSearch, WebFetch`. This narrows what those three agents can do in an existing install once regenerated: if you relied on `builder` calling an MCP tool, or `deep-planner` running a command, add the tool to that agent's `tools:` line or delete the line.
+- **`route-gate.mjs` takes a list of rules paths instead of one.** An installer render is a one-element list with no setup hint, so an npm install behaves exactly as before; a test pins that render.
+
+### Not changed
+
+- `route-metrics.mjs` still installs with `npx model-orchestrator`, unchanged. It is left out of the plugin only, because it writes a log to disk and the plugin ships only hooks that read.
+
 ## [0.1.19] - 2026-09-12
 
 ### Added

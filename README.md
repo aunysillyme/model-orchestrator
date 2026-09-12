@@ -2,13 +2,14 @@
 
 [![npm](https://img.shields.io/npm/v/model-orchestrator.svg)](https://www.npmjs.com/package/model-orchestrator) [![test](https://github.com/aunysillyme/model-orchestrator/actions/workflows/test.yml/badge.svg)](https://github.com/aunysillyme/model-orchestrator/actions/workflows/test.yml) [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![node >=18](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)](package.json)
 
-**Route every task to the right model, agent or LLM, and spend fewer tokens.** A model orchestrator for AI coding agents and LLMs: Claude Code, Codex, Gemini, Grok, Qwen, Ollama. One installer asks what you have access to and writes routing rules, subagents and a CLI runner for exactly that setup, from one chat app to several agent CLIs or a virtual machine. Routing rules tell your agent which model, subagent or CLI to use for each task, so small work goes to cheap tiers and fewer tokens go to frontier models; the runner executes the lane it is given. On Claude Code it also delegates execution to subagents by default, with two hooks that inject the routing table every turn.
+**Route every task to the right model, agent or LLM, and spend fewer tokens.** A model orchestrator for AI coding agents and LLMs: Claude Code, Codex, Gemini, Grok, Qwen, Ollama. One installer asks what you have access to and writes routing rules, subagents and a CLI runner for exactly that setup, from one chat app to several agent CLIs or a virtual machine. Routing rules tell your agent which model, subagent or CLI to use for each task, so small work goes to cheap tiers and fewer tokens go to frontier models; the runner executes the lane it is given. On Claude Code it also delegates execution to subagents by default, with two hooks that inject the routing table every turn, and the hooks and subagents also install as a [Claude Code plugin](#claude-code-plugin).
 
 ## At a glance
 
 - **What it is:** routing rules, subagent definitions and a CLI lane runner (`cli-run`) for the AI tools you already pay for.
 - **What it is not:** a proxy, a gateway or an API router. It does not automatically compare prices or select models; your agent follows the rules and chooses.
 - **Install:** `npx model-orchestrator` (interactive), or headless from a script or an agent: `npx model-orchestrator --yes --level 2 --ais claude-code,codex --project . --dir ./ai-orchestrator`.
+- **Claude Code plugin:** `/plugin marketplace add aunysillyme/model-orchestrator`, then `/plugin install model-orchestrator@model-orchestrator`. The routing rules still come from the installer; see [Claude Code plugin](#claude-code-plugin).
 - **Use it when:** you run more than one model or agent and want each task sent to the smallest one that can do it well.
 - **What it saves:** frontier-model tokens. Bulk work, reading and checks go to fast tiers; the expensive tier is kept for planning and judgment.
 - **For agents:** [`llms.txt`](llms.txt) summarizes the package and links every doc; [`AGENTS.md`](AGENTS.md) has the headless commands.
@@ -90,6 +91,22 @@ npx model-orchestrator --yes --level 2 --ais claude-code,codex --project ~/my-ap
 npx model-orchestrator --yes --level 2 --ais claude-code,codex,grok --primary claude-code --dir ./ai-orchestrator --project . --update-docs   # added a lane: regenerate the docs you never edited
 ```
 
+## Claude Code plugin
+
+The Claude Code hooks and subagents also ship as a plugin, so they install and update through Claude Code itself instead of a settings snippet you merge by hand:
+
+```
+/plugin marketplace add aunysillyme/model-orchestrator
+/plugin install model-orchestrator@model-orchestrator
+```
+
+- **What it ships:** `route-gate.mjs` (UserPromptSubmit, plus a one-line notice at session start when the project has no rules), `subagent-context.mjs` (SubagentStart), and the eight subagents, each with an explicit tool list. Agents load namespaced, as `model-orchestrator:builder`.
+- **What it still needs from the installer:** the routing rules. A plugin runs no install step, so it reads the installer's default locations, `ai-orchestrator/ROUTING.md` then `ai-orchestrator/ORCHESTRATOR.md`, and names `npx model-orchestrator` when neither exists. A project installed with a different `--dir` should wire the installer's rendered hooks instead.
+- **What it leaves out:** `route-metrics.mjs`, the routing log. It writes to disk and the plugin ships only hooks that read, so `npx model-orchestrator` is how you get it.
+- **How it is kept honest:** `plugin/` is generated from `templates/` by `npm run gen:plugin`, and `test/plugin.test.js` fails when the committed bundle drifts, when a hook gains a network call, a write or a subprocess, or when an agent loses its tool list. The bundle passes `claude plugin validate --strict`, the check Anthropic's community marketplace review runs on every submission.
+
+Details, including running the plugin next to an npm install: [plugin/README.md](plugin/README.md).
+
 ## What gets written (level 3, everything)
 
 ```
@@ -117,6 +134,7 @@ ai-orchestrator/
 | [`src/`](src/README.md) | the catalog, the pure planner, detection, rendering |
 | [`templates/`](templates/README.md) | everything the installer can write, by level, plus `tools/` for companions |
 | [`docs/`](docs/README.md) | the three parts and the catalog |
+| [`plugin/`](plugin/README.md) | the Claude Code plugin, generated from `templates/` by `npm run gen:plugin`; `.claude-plugin/marketplace.json` at the root lists it |
 | [`test/`](test/README.md) | `npm test`: judges proven to go red, catalog integrity, planner, end-to-end install in a temp dir; `.github/workflows/test.yml` runs it on Ubuntu, macOS and Windows, Node 18/20/22 |
 
 ## What is enforced, what is delegated, what is an instruction

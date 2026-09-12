@@ -850,7 +850,9 @@ function bashAgentsOnDisk() {
     const raw = readFileSync(join(dir, file), 'utf8');
     const frontmatter = raw.slice(0, raw.indexOf('---', 3));
     const toolsLine = frontmatter.match(/^tools:.*$/m);
-    if (toolsLine && /\bBash\b/.test(toolsLine[0])) names.push(file.replace(/\.md$/, ''));
+    // Only agents with Bash and no file-editing tool can overclaim "read-only". builder carries
+    // Write and Edit as well (0.1.20, explicit tools for the plugin), so it makes no such claim.
+    if (toolsLine && /\bBash\b/.test(toolsLine[0]) && !/\bWrite\b|\bEdit\b/.test(toolsLine[0])) names.push(file.replace(/\.md$/, ''));
   }
   return names;
 }
