@@ -82,7 +82,7 @@ test('audit auto effort uses the larger prompt or git scope in a clean committed
       { resolved: 'high', basis: 'audit_floor', scope: 100000 }
     );
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
 });
 
@@ -103,7 +103,7 @@ test('a real auto-effort run logs a complete record with a fixed basis code', ()
     assert.ok(new Set(['explicit', 'prompt_chars', 'audit_floor', 'none']).has(record.effort_basis));
     assert.ok(Number.isInteger(record.effort_scope));
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
 });
 
@@ -123,7 +123,7 @@ test('git changed-line sizing treats binary numstat rows as zero lines', () => {
     writeFileSync(binary, Buffer.from([0, 1, 3]));
     assert.deepEqual(gitChangedLines(dir), { lines: 0, truncated: false });
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
 });
 
@@ -151,8 +151,8 @@ test('git changed-line sizing never opens untracked FIFOs or outside symlinks', 
     assert.ok(Date.now() - started < 5000, 'a FIFO open blocked the bounded probe');
     assert.deepEqual(JSON.parse(r.stdout), { lines: 0, truncated: false });
   } finally {
-    rmSync(dir, { recursive: true, force: true });
-    rmSync(outside, { recursive: true, force: true });
+    rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    rmSync(outside, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
 });
 
@@ -162,7 +162,7 @@ test('git changed-line sizing bounds a large untracked single line', () => {
     writeFileSync(join(dir, 'large-single-line'), 'x'.repeat(3 * 1024 * 1024));
     assert.deepEqual(gitChangedLines(dir), { lines: 1, truncated: true });
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
 });
 
@@ -180,7 +180,7 @@ test('unborn git uses prompt evidence, and untracked scanning is bounded', () =>
     const measured = gitChangedLines(dir);
     assert.ok(measured && measured.truncated, 'more than 200 untracked files is explicitly truncated');
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
 });
 
@@ -194,7 +194,7 @@ test('lanes.json accepts auto only on effort lanes and rejects qwen or invalid v
     writeFileSync(join(dir, 'lanes.json'), JSON.stringify({ enabled: ['qwen'], defaults: { qwen: { effort: 'auto' } } }));
     assert.equal(laneConfig(dir), null);
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
 });
 
@@ -227,6 +227,6 @@ test('plans validate before writing and effort auto affects only eligible cli-ru
     const resetManifest = JSON.parse(readFileSync(join(dir, 'MANIFEST.json'), 'utf8'));
     assert.equal(resetManifest.plans, undefined);
   } finally {
-    rmSync(root, { recursive: true, force: true });
+    rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
 });
