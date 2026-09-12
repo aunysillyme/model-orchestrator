@@ -91,10 +91,17 @@ test('a real auto-effort run logs a complete record with a fixed basis code', ()
   const bin = join(dir, 'bin');
   try {
     writeCodexStub(bin);
+    // No cwd inside the temp dir: on Windows a directory that is any live
+    // process's working directory cannot be removed (EBUSY), and the lane child
+    // can outlive spawnSync by a moment. The env override replaces every case
+    // variant of PATH, since Windows spells it Path and a duplicate key is
+    // resolved in an implementation-defined way (same rule as test/cli.test.js).
+    const env = { ...process.env };
+    for (const key of Object.keys(env)) if (['PATH', 'HOME', 'USERPROFILE'].includes(key.toUpperCase())) delete env[key];
+    Object.assign(env, { PATH: bin, HOME: dir, USERPROFILE: dir });
     const r = spawnSync(process.execPath, [CLI_RUN, 'codex', 'prompt', '--effort', 'auto', '--quiet'], {
-      cwd: dir,
       encoding: 'utf8',
-      env: { ...process.env, PATH: bin, HOME: dir, USERPROFILE: dir }
+      env
     });
     assert.equal(r.status, 0, r.stderr);
     const record = JSON.parse(readFileSync(join(dir, '.ai-orchestrator', 'cli-run.log.jsonl'), 'utf8').trim());
