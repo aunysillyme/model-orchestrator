@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.1.20] - 2026-09-12
+
 ### Added
 
 - **A Claude Code plugin.** `/plugin marketplace add aunysillyme/model-orchestrator`, then `/plugin install model-orchestrator@model-orchestrator`, installs `route-gate.mjs`, `subagent-context.mjs` and the eight subagents without merging a settings snippet by hand. The bundle lives in `plugin/`, listed by `.claude-plugin/marketplace.json` at the repo root. It passes `claude plugin validate --strict`, the check Anthropic's community marketplace review runs, and all eight checks of Sigistry's public plugin verification methodology (1.2), run standalone before release as a quality bar; the plugin is not listed there.
@@ -14,6 +16,11 @@ All notable changes to this project are documented here. The format follows [Kee
 
 - **`builder`, `deep-planner` and `live-researcher` now declare their tools, for npm installs too.** Until now they carried no `tools:` line and inherited every tool the session had, MCP tools included. `builder` gets `Read, Write, Edit, Glob, Grep, Bash`; `deep-planner` gets `Read, Glob, Grep` (its prompt already says it never edits); `live-researcher` gets `WebSearch, WebFetch`. This narrows what those three agents can do in an existing install once regenerated: if you relied on `builder` calling an MCP tool, or `deep-planner` running a command, add the tool to that agent's `tools:` line or delete the line.
 - **`route-gate.mjs` takes a list of rules paths instead of one.** An installer render is a one-element list with no setup hint, so an npm install behaves exactly as before; a test pins that render.
+
+### Fixed
+
+- **`route-gate.mjs` could emit more than Claude Code's 10,000-character hook output cap, on npm installs too.** The routing table was capped at 4,000 characters, but a fallback message embeds the resolved project path and the error text, so a 12,000-character `CLAUDE_PROJECT_DIR` produced 12,146 characters from an installer render. Every string the hook emits is now capped at 8,000 characters, with a test on both renders. Found by the pre-release audit round and reproduced before the fix.
+- **The plugin's hook-safety test could not see an async write or subprocess.** `writeFileSync?` matches `writeFileSyn` and `writeFileSync`, never `writeFile`, and every `process.env` read was exempt. The check now matches the Sync and async form of every file write and subprocess call, refuses dynamic `import(` and `require(`, allows static imports of `node:fs` and `node:path` only, requires `openSync` to open read-only, and allows no environment variable but `CLAUDE_PROJECT_DIR`, with a red case for each. Found by the same audit round.
 
 ### Not changed
 
@@ -308,7 +315,8 @@ First release.
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
-[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.19...HEAD
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.20...HEAD
+[0.1.20]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.19...v0.1.20
 [0.1.19]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.18...v0.1.19
 [0.1.18]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.17...v0.1.18
 [0.1.17]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.16...v0.1.17

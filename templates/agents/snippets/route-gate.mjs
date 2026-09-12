@@ -36,9 +36,19 @@ const SESSION_START = process.argv.includes('--session-start');
 
 const MAX_READ = 64 * 1024; // bounded read: this is a rules file, not a log
 const MAX_CONTEXT = 4000; // bounded injection: a table, not the whole file
+// Bounded output, whatever produced it. The table is capped above, but a
+// fallback or missing-rules message embeds resolved paths and error text
+// whose length the project directory controls, and Claude Code caps hook
+// output strings at 10,000 characters. Every string this hook emits passes
+// through bound().
+const MAX_OUTPUT = 8000;
 const STDIN_DRAIN_MS = 250; // hard cap: never let an open, never-closed stdin pipe hold this hook open
 const START = '<!-- route-gate:start -->';
 const END = '<!-- route-gate:end -->';
+
+function bound(text) {
+  return text.length > MAX_OUTPUT ? text.slice(0, MAX_OUTPUT - 3) + '...' : text;
+}
 
 function fallback(reason) {
   return 'route-gate: ' + reason + '. Pick the lane before acting: read ' + RULES_FILE_REL + ' yourself.';
@@ -195,7 +205,7 @@ if (SESSION_START) {
   } catch {
     notice = null; // a session-start notice is a courtesy; never fail a session over it
   }
-  if (notice) payload = JSON.stringify({ systemMessage: notice });
+  if (notice) payload = JSON.stringify({ systemMessage: bound(notice) });
 } else {
   let additionalContext;
   try {
@@ -206,7 +216,7 @@ if (SESSION_START) {
   payload = JSON.stringify({
     hookSpecificOutput: {
       hookEventName: 'UserPromptSubmit',
-      additionalContext
+      additionalContext: bound(additionalContext)
     }
   });
 }

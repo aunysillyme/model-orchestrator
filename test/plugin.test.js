@@ -85,18 +85,25 @@ test('every ${CLAUDE_PLUGIN_ROOT} reference in hooks.json resolves to a shipped 
   assert.ok(!pluginFiles().some((f) => f.includes('route-metrics')), 'route-metrics is npm-only; it writes to disk');
 });
 
-// Ported from the plugin verification methodology's hook-safety rules: an advisory hook makes no
-// network call, writes nothing, touches no credential store, evaluates no dynamic code, runs no
-// subprocess, and carries a catch plus an exit(0).
+// Stricter than the plugin verification methodology's hook-safety rules the bundle was gated on: an
+// advisory hook makes no network call, writes nothing, reads no environment variable but
+// CLAUDE_PROJECT_DIR, evaluates no dynamic code, runs no subprocess, imports only node:fs and
+// node:path, opens files read-only, and carries a catch plus an exit(0). Every fs write and every
+// subprocess call is matched in both its Sync and async form (the audit round caught `writeFileSync?`,
+// which matches `writeFileSyn` and `writeFileSync` but never `writeFile`).
 const HOOK_FORBIDDEN = [
-  [/\bfetch\s*\(|\bXMLHttpRequest\b|\bhttps?\.request\b|\bnet\.connect\b|\bWebSocket\b/, 'network call'],
-  [/\bwriteFileSync?\s*\(|\bappendFileSync?\s*\(|\bcreateWriteStream\b|\bunlinkSync?\s*\(|\brmSync\s*\(/, 'filesystem write'],
-  [/(?<!process)(?<!import\.meta)\.env\b|\bid_rsa\b|\.aws\b|credentials/i, 'credential/env access'],
-  [/\beval\s*\(|\bFunction\s*\(/, 'dynamic code evaluation'],
-  [/\bchild_process\b|\bexecSync?\s*\(|\bspawnSync?\s*\(|\bexecFile\b/, 'subprocess']
+  [/\bfetch\s*\(|\bXMLHttpRequest\b|\bhttps?\.(?:request|get)\b|\bnet\.connect\b|\bWebSocket\b/, 'network call'],
+  [/\b(?:writeFile|appendFile|writeSync|unlink|rm|rmdir|mkdir|rename|copyFile|cp|symlink|truncate|ftruncate|chmod|chown|utimes)(?:Sync)?\s*\(|\bcreateWriteStream\b|fs\/promises/, 'filesystem write'],
+  [/\.env\b(?!\.CLAUDE_PROJECT_DIR\b)|\bid_rsa\b|\.aws\b|credentials/i, 'credential/env access'],
+  [/\beval\s*\(|\bFunction\s*\(|\bvm\./, 'dynamic code evaluation'],
+  [/\bchild_process\b|\b(?:exec|execFile|spawn|fork)(?:Sync)?\s*\(/, 'subprocess'],
+  [/\brequire\s*\(|\bimport\s*\(/, 'dynamic import']
 ];
+const HOOK_IMPORTS = new Set(['node:fs', 'node:path']);
 function hookProblems(src) {
   const problems = HOOK_FORBIDDEN.filter(([re]) => re.test(src)).map(([, label]) => label);
+  for (const m of src.matchAll(/^\s*import\s[^;]*?from\s*['"]([^'"]+)['"]/gm)) if (!HOOK_IMPORTS.has(m[1])) problems.push('imports ' + m[1]);
+  for (const m of src.matchAll(/\bopenSync\s*\(([^)]*)\)/g)) if (!/,\s*['"]r['"]\s*$/.test(m[1])) problems.push('opens a file for writing');
   if (!/process\.exit\(\s*(?:0|[A-Za-z_$][\w$]*)\s*\)/.test(src)) problems.push('no exit(0)');
   if (!/catch/.test(src)) problems.push('no catch');
   return problems;
@@ -109,8 +116,20 @@ test('plugin hooks contain no forbidden token: no network, no writes, no credent
 test('the hook-safety check can go red, on the real route-metrics hook it keeps out', () => {
   const metrics = readFileSync(join(TEMPLATES, 'agents', 'snippets', 'route-metrics.mjs'), 'utf8');
   assert.ok(hookProblems(metrics).includes('filesystem write'));
-  assert.deepEqual(hookProblems('fetch("x"); try {} catch {} process.exit(0)'), ['network call']);
+  const ok = ' try {} catch {} process.exit(0)';
+  assert.deepEqual(hookProblems('fetch("x");' + ok), ['network call']);
   assert.deepEqual(hookProblems('const x = 1;'), ['no exit(0)', 'no catch']);
+  // Audit round regressions: the async forms and any other environment variable.
+  assert.deepEqual(hookProblems('writeFile("x", "y");' + ok), ['filesystem write']);
+  assert.deepEqual(hookProblems('appendFileSync("x", "y");' + ok), ['filesystem write']);
+  assert.deepEqual(hookProblems('spawn("sh");' + ok), ['subprocess']);
+  assert.deepEqual(hookProblems('execFileSync("git");' + ok), ['subprocess']);
+  assert.deepEqual(hookProblems('const v = process.env.OTHER_VAR;' + ok), ['credential/env access']);
+  assert.deepEqual(hookProblems('const v = process.env.CLAUDE_PROJECT_DIR;' + ok), []);
+  assert.deepEqual(hookProblems('import("node:fs");' + ok), ['dynamic import']);
+  assert.deepEqual(hookProblems("import { request } from 'node:http';" + ok), ['imports node:http']);
+  assert.deepEqual(hookProblems("openSync(p, 'w');" + ok), ['opens a file for writing']);
+  assert.deepEqual(hookProblems("openSync(p, 'r'); process.stdout.write(s);" + ok), []);
 });
 
 // ---- agents ----
@@ -246,6 +265,36 @@ test('plugin route-gate: CLAUDE_PROJECT_DIR unset exits 0 with a fallback', () =
   const r = runPluginHook('route-gate.mjs', null);
   assert.equal(r.status, 0);
   assert.match(JSON.parse(r.stdout).hookSpecificOutput.additionalContext, /CLAUDE_PROJECT_DIR is not set/);
+});
+
+// Audit round regression: a fallback embeds the resolved project path, so a very long
+// CLAUDE_PROJECT_DIR pushed additionalContext past Claude Code's 10,000-character hook output cap
+// (12,181 characters measured from a 12,000-character path). Checked on both renders.
+const LONG_PROJECT = join(tmpdir(), 'p'.repeat(12000));
+function contextLength(hookPath, args = []) {
+  const r = spawnSync('node', [hookPath, ...args], { input: '', encoding: 'utf8', env: { ...process.env, CLAUDE_PROJECT_DIR: LONG_PROJECT } });
+  assert.equal(r.status, 0, r.stderr);
+  // Session start prints nothing when it has nothing to say (here ENAMETOOLONG counts as "something
+  // is at that path", so there is no missing-rules notice); nothing is within the cap too.
+  if (r.stdout === '') return 0;
+  const out = JSON.parse(r.stdout);
+  return (out.hookSpecificOutput ? out.hookSpecificOutput.additionalContext : out.systemMessage).length;
+}
+
+test('route-gate: a very long project path keeps every output under the hook output cap, plugin and installer render', () => {
+  const plugin = contextLength(join(PLUGIN_DIR, 'hooks', 'route-gate.mjs'));
+  assert.ok(plugin > 0 && plugin <= 8000, 'plugin render: ' + plugin + ' characters');
+  assert.ok(contextLength(join(PLUGIN_DIR, 'hooks', 'route-gate.mjs'), ['--session-start']) <= 8000);
+  const scratch = mkdtempSync(join(tmpdir(), 'orch-npm-gate-'));
+  try {
+    const p = planFiles({ level: 2, selected: [byId['claude-code']], primary: byId['claude-code'], dir: 'ai-orchestrator', project: '.' });
+    const gate = join(scratch, 'route-gate.mjs');
+    writeFileSync(gate, p.find((f) => f.rel === join('.claude', 'hooks', 'route-gate.mjs')).content);
+    const npm = contextLength(gate);
+    assert.ok(npm > 0 && npm <= 8000, 'installer render: ' + npm + ' characters');
+  } finally {
+    rmSync(scratch, { recursive: true, force: true });
+  }
 });
 
 test('plugin subagent-context: valid SubagentStart JSON naming the default rules path', () => {
