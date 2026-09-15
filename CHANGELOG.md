@@ -4,6 +4,22 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.1.23] - 2026-09-15
+
+### Added
+
+- **`cli-run` says WHY a lane failed.** Every run lands in one class with its own exit code: `auth` 14, `quota` 15, `rejected` 16, `refused` 17, `cut_short` 18, next to the existing `empty` 10, `no_output` 11, `timeout` 12 and `unavailable` 13. A missing API key, a spent quota and an unknown model id used to share exit 10 or the vendor's own code, and each needs a different response: a missing key is not a model fault, and retrying a spent quota cannot help. Signals are read from each lane's authoritative error fields only, never the model's prose, with precedence auth, quota, rejected, refused, cut_short, empty.
+- **`refused=N` on every run.** Tool calls a hook or deny rule blocked, counted from qwen's `permission_denials`, agy's deny-rule steps, codex's router `Rejected(` lines, and grok's session transcript (its `sessionId` is charset-checked, the path is contained to the sessions root, lines must name the same session, and the read is capped at 5 MiB). `null` when a lane gives no signal. A deliverable with refused calls is still exit 0.
+- **A problem line and a fix line** on the terminal for every failure, and for an `ok` run with refused calls, so a calling agent can relay "this is what went wrong, this is the fix" and ask.
+- **Terminal output is redacted** before it prints: JSON credential keys, `Authorization:` values, bearer values, URL query credentials, and common key prefixes, redacted before any clipping.
+- **The durable log gains `class` and `refused`.** Both are fixed values; the log still never holds provider text, the problem line or stderr.
+
+### Changed
+
+- **A nonzero vendor exit is no longer passed through as cli-run's exit code.** The class owns the code, and the vendor's own code stays in the log as `cli_rc`. A nonzero exit nothing else explains is `cut_short` (18), and it is still never `ok`. If a script compared `cli-run`'s exit code with a specific vendor code, compare `cli_rc` in the log instead; `!= 0` checks are unaffected.
+- **A lane killed by a signal, or output past the 16 MiB buffer, is `cut_short` (18)**, not 10. Exit 10 now means only an empty run or an unmet `--expect-*` contract.
+- **agy's judge refuses a non-object terminal `result` as `bad_last_event`** (was `bad_status`), and **qwen's judge refuses a non-string `error.message` as `error_message_not_string`**, so both classify as `cut_short`. hermes' stderr cause (degraded free tier, bad `--toolsets`) is now named in its detail line.
+
 ## [0.1.22] - 2026-09-12
 
 ### Added
@@ -335,7 +351,8 @@ First release.
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
-[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.22...HEAD
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.23...HEAD
+[0.1.23]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.22...v0.1.23
 [0.1.22]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.21...v0.1.22
 [0.1.21]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.20...v0.1.21
 [0.1.20]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.19...v0.1.20

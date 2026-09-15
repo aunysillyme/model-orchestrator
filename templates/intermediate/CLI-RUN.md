@@ -56,16 +56,40 @@ qwen is the lane whose own success flags lie: an upstream 400 comes back as exit
 
 ## Exit codes
 
-| Code | Meaning |
-|---|---|
-| 0 | structurally accepted non-empty response, every `--expect-*` contract met |
-| 10 | ran and produced no deliverable, or a contract was unmet, or the lane was killed by a signal, or output overran the 16 MiB buffer |
-| 11 | no output at all |
-| 12 | timed out; the lane and every descendant in its process group were killed |
-| 13 | lane unavailable: binary missing, disabled in `lanes.json`, or `lanes.json` malformed |
-| 130 / 143 | cli-run itself received SIGINT / SIGTERM; the lane's process group was killed first, then the temp dir removed |
-| 2 | usage error in cli-run itself |
-| N | the lane exited N != 0: passed through unchanged, verdict `exit_nonzero`, even when parseable text came back. The bounded head of the lane's stderr is shown on your terminal so an auth failure reads as one |
+| Code | Class | Meaning | What to do |
+|---|---|---|---|
+| 0 | `ok` | structurally accepted non-empty response, every `--expect-*` contract met | use it; if `refused=N` is above 0, read the problem line |
+| 10 | `empty` | ran and delivered nothing, or a contract was unmet | rerun once, or use another lane |
+| 11 | `no_output` | no output at all | rerun once; check the lane runs on its own |
+| 12 | `timeout` | timed out; the lane and every descendant in its process group were killed | raise `--timeout` or split the brief |
+| 13 | `unavailable` | binary missing, disabled in `lanes.json`, or `lanes.json` malformed | install or enable the lane |
+| 14 | `auth` | the lane's own error says a credential is missing or it is not logged in | set the credential; retrying cannot help |
+| 15 | `quota` | the lane's own error says usage limit, credits or rate limit | switch lanes or wait for the reset |
+| 16 | `rejected` | the upstream rejected the request: an unknown model id, a malformed request | fix the id, flag or request it names |
+| 17 | `refused` | no deliverable, and the lane reports tool calls a hook or deny rule blocked | adjust the rule, or give the lane the tool |
+| 18 | `cut_short` | no trustworthy finish: a missing or non-success terminal event, a lane killed by a signal, output past the 16 MiB buffer, or a nonzero vendor exit nothing above explains (hermes' own exit 2, bad args or an empty response, stays `empty`) | rerun once, then read the lane's stderr |
+| 130 / 143 | `interrupted` | cli-run itself received SIGINT / SIGTERM; the lane's process group was killed first, then the temp dir removed | |
+| 2 | | usage error in cli-run itself | |
+
+A nonzero vendor exit is never `ok`, even when parseable text came back; the vendor's own code is kept in the log as `cli_rc`, and the bounded head of its stderr is shown on your terminal.
+
+## Why a run failed: the class
+
+Exit 10 used to cover causes that need opposite responses. A missing API key is not a model fault, and retrying a spent quota cannot help. So every run lands in exactly one class, and on the terminal every failure (and every `ok` with refused calls) gets two more lines:
+
+```
+cli-run[qwen] exit_nonzero rc=14 class=auth refused=0 0.8s raw=212B route=lane default :: lane exited 1; subtype="error_during_execution": Missing API key ...
+cli-run problem: cli-run[qwen] auth: Missing API key ...
+cli-run fix: set the credential the message above names (its environment variable, or the lane's own login command), then rerun
+```
+
+A calling agent relays both lines and asks before fixing anything.
+
+- **Signals come from each lane's authoritative error fields only.** codex: its own `error`, `turn.failed` and error-item events plus stderr. agy: the terminal result's status and error plus stderr. qwen: the terminal event's full error text (never the clipped display line) plus stderr. hermes: stderr on a nonzero exit, never its stdout. Never the model's prose, so an answer that explains what "rate limit" means is not a quota failure. grok and hermes have no native auth signal, and none is invented.
+- **Precedence** when several are present: `auth`, `quota`, `rejected`, `refused`, `cut_short`, `empty`. A missing credential explains everything downstream of it.
+- **`refused`** counts tool calls a hook or deny rule blocked: qwen's `permission_denials`, agy's deny-rule `TOOL_ERROR` steps, one per codex router `Rejected(` line on stderr, and grok's session transcript (`~/.grok/sessions/<cwd>/<sessionId>/updates.jsonl`: hook runs with `blocked`, and "Denied by permission policy"). grok's `sessionId` comes from lane output, so it must match `^[A-Za-z0-9-]{8,64}$`, the resolved path must stay inside the sessions root, every counted line must name that session, and the read stops at 5 MiB. `null` means the lane gave no readable signal (hermes always), which is an unknown, never 0.
+- **Refused with a deliverable is still exit 0.** The deliverable exists; `refused=N` and the problem and fix lines say what was blocked.
+- **Redacted.** The status, problem and stderr lines pass through one redaction pass before they are printed: JSON credential keys (escaped quotes, unterminated values and JSON escaped inside a string included), `Authorization:` values of any scheme, bearer values, URL query credentials, and the `sk-`, `xai-`, `ghp_` and `AIza` key prefixes. Redaction runs before any clipping, so a long token is never cut into an unrecognisable fragment. Denial text is searched in at most the first 256 KiB of stdout and of stderr, with bounded patterns, so hostile output cannot stall the wrapper after the lane has exited. None of these lines is ever logged.
 
 ## The route: which model, and how hard it thinks
 
@@ -97,7 +121,7 @@ A flag beats `defaults`; `defaults` beats nothing. Each vendor spells these diff
 
 Three rules that keep this honest:
 
-- **A level `cli-run` does not recognise is not rejected here.** Levels are the vendor's, they change, and guessing the valid set would date this tool. An unknown level is refused by the lane and surfaces as that lane's own exit code and stderr.
+- **A level `cli-run` does not recognise is not rejected here.** Levels are the vendor's, they change, and guessing the valid set would date this tool. An unknown level is refused by the lane and surfaces as a class (codex reports it as `rejected`, exit 16; a lane with no rejection signal as `cut_short`, exit 18), with the lane's own exit code in the log as `cli_rc` and its stderr on your terminal.
 - **`--effort` on qwen is a usage error, not a silent drop.** A flag that vanishes leaves you believing a route that never ran.
 - **`--effort auto` is bounded.** It uses prompt size, or an audit's changed-file evidence, and resolves only medium or high. An audit is always high. Auto is a heuristic, not a measurement: name `xhigh` explicitly for security-critical or irreversible work.
 - **Values are charset-bounded** (letters, digits, and `. _ : @ / + -`, no leading dash, 64 characters). A model id becomes an argv element and, on codex, part of a TOML value; bounding it is what stops either from being escaped.
@@ -108,7 +132,7 @@ Three rules that keep this honest:
 
 ## Log
 
-`~/.ai-orchestrator/cli-run.log.jsonl`, one line per run: lane, verdict, rc, the lane's own exit code, signal, seconds, raw bytes, deliverable bytes, a 12-hex sha256 prefix of the prompt and its length, the route (`model_requested`, `effort_requested`, and `model_source` / `effort_source`, each one of `flag`, `lanes.json` or `lane_default`), auto-sizing evidence (`effort_resolved`, `effort_basis`, `effort_scope`), and `reason`: one of a fixed set of codes (`ok`, `not_json`, `bad_stop_reason`, `empty_text`, `no_terminal_event`, `bad_status`, `api_error_in_result`, `total_errors`, `contract_unmet`, `exit_nonzero`, `timeout`, `killed`, `disabled`, `lanes_json_malformed`, ...). `effort_basis` is exactly one of `explicit`, `prompt_chars`, `audit_floor`, or `none`. Never the prompt text, never a provider-supplied value, never free text: a value the log does not recognise is written as `unknown`. The human-readable detail, which may quote the provider, goes to your terminal only (and nowhere with `--quiet`). "This lane is flaky" becomes a query instead of an argument, and so does "we route audits at high effort".
+`~/.ai-orchestrator/cli-run.log.jsonl`, one line per run: lane, verdict, `class` (one of the classes above), rc, the lane's own exit code (`cli_rc`), signal, `refused` (an integer, or `null` when the lane gives no signal), seconds, raw bytes, deliverable bytes, a 12-hex sha256 prefix of the prompt and its length, the route (`model_requested`, `effort_requested`, and `model_source` / `effort_source`, each one of `flag`, `lanes.json` or `lane_default`), auto-sizing evidence (`effort_resolved`, `effort_basis`, `effort_scope`), and `reason`: one of a fixed set of codes (`ok`, `not_json`, `bad_stop_reason`, `empty_text`, `no_terminal_event`, `bad_status`, `api_error_in_result`, `total_errors`, `contract_unmet`, `exit_nonzero`, `timeout`, `killed`, `disabled`, `lanes_json_malformed`, ...). `effort_basis` is exactly one of `explicit`, `prompt_chars`, `audit_floor`, or `none`. Never the prompt text, never a provider-supplied value, never free text: a value the log does not recognise is written as `unknown`. The human-readable detail, which may quote the provider, goes to your terminal only (and nowhere with `--quiet`). "This lane is flaky" becomes a query instead of an argument, and so does "we route audits at high effort".
 
 The log records what was **requested**, on every record including a run refused before the lane started. It does not record an actual. Reporting is inconsistent: grok returns a `modelUsage` block naming a model, the other four lanes return nothing of the kind, so an `actual` field would be populated for one lane and empty for four. It would also be a provider-supplied string, and this log holds fixed codes and bounded caller-supplied values only. `model_source: "lane_default"` is the honest way to say this run inherited something invisible from here.
 
@@ -122,7 +146,7 @@ Absent: every lane enabled, nothing pinned. Present but malformed or unreadable:
 
 ## A killed lane is not a deliverable
 
-A lane that dies by signal has no honest exit status. Whatever it printed first is discarded; the run reports `killed` with exit 10.
+A lane that dies by signal has no honest exit status. Whatever it printed first is discarded; the run reports `killed`, class `cut_short`, exit 18.
 
 ## Interrupting cli-run kills the lane too
 

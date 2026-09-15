@@ -27,18 +27,30 @@
 // bounded by the OS ARG_MAX, so: no secrets in a prompt, and very large briefs
 // should be referenced by path in the prompt rather than pasted into it.
 //
-// Exit codes
-//   0   structurally accepted non-empty response (and every --expect-* contract met)
-//   10  ran, produced no deliverable, or a contract was not met, or killed by signal
-//   11  produced no output at all
-//   12  timed out (the lane AND its descendants are killed as a process group)
-//   13  lane unavailable (missing binary, disabled in lanes.json, or lanes.json malformed)
+// Exit codes: one per failure CLASS, so the code says what to do next.
+//   0   ok: structurally accepted non-empty response (and every --expect-* contract met)
+//   10  empty: ran and delivered nothing, or a contract was not met
+//   11  no_output: produced no output at all
+//   12  timeout: the lane AND its descendants are killed as a process group
+//   13  unavailable: missing binary, disabled in lanes.json, or lanes.json malformed
+//   14  auth: the lane's own error says a credential is missing or not logged in
+//   15  quota: the lane's own error says usage limit, credits or rate limit
+//   16  rejected: the upstream rejected the request (bad model id, bad request)
+//   17  refused: no deliverable, and the lane reports tool calls a hook or deny rule blocked
+//   18  cut_short: no trustworthy finish: a missing or non-success terminal event, a lane
+//       killed by a signal, output past the 16 MiB buffer, or a nonzero vendor exit
 //   130 / 143  cli-run itself received SIGINT / SIGTERM: the lane's process group was killed first
 //   2   usage error in cli-run itself
-//   N   the lane exited N != 0: passed through, verdict exit_nonzero, even if text came back
+// A run that delivered AND had tool calls refused is still 0, with refused=N and a
+// problem/fix pair on the terminal. The vendor's own exit code is logged as cli_rc.
+// Precedence when several signals are present: auth, quota, rejected, refused,
+// cut_short, empty. Only the lane's authoritative error fields are searched,
+// never the model's prose, so an answer that merely mentions "rate limit" is
+// not a quota failure.
 //
-// The durable log stores a FIXED reason code per run (see REASONS), never a
-// provider-supplied string. Bounded vendor stderr goes to your terminal only.
+// The durable log stores a FIXED reason code and class per run (see REASONS,
+// CLASS_CODES), never a provider-supplied string. Bounded vendor stderr and the
+// problem/fix lines go to your terminal only, redacted.
 //
 // ROUTE: which model and reasoning effort a lane ran with.
 // A lane with no --model and no lanes.json default inherits whatever its own
@@ -55,12 +67,21 @@ import { spawn, spawnSync } from 'node:child_process';
 import { StringDecoder } from 'node:string_decoder';
 import { createHash } from 'node:crypto';
 import { readFileSync, existsSync, mkdirSync, appendFileSync, mkdtempSync, rmSync, accessSync, constants, realpathSync, statSync, lstatSync, openSync, readSync, closeSync } from 'node:fs';
-import { join, dirname, delimiter, resolve } from 'node:path';
+import { join, dirname, delimiter, resolve, relative, isAbsolute, sep } from 'node:path';
 import { tmpdir, homedir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 export const LANES = ['grok', 'codex', 'agy', 'hermes', 'qwen'];
 export const OK = 0, NO_DELIVERABLE = 10, NO_OUTPUT = 11, TIMEOUT = 12, UNAVAILABLE = 13, USAGE = 2;
+export const AUTH = 14, QUOTA = 15, REJECTED = 16, REFUSED = 17, CUT_SHORT = 18;
+
+// The closed set of failure classes. Every judged run lands in exactly one, and
+// the class owns the exit code. `interrupted` (cli-run itself was signalled)
+// is logged as a class but exits 130 or 143.
+export const CLASS_CODES = {
+  ok: OK, empty: NO_DELIVERABLE, no_output: NO_OUTPUT, timeout: TIMEOUT, unavailable: UNAVAILABLE,
+  auth: AUTH, quota: QUOTA, rejected: REJECTED, refused: REFUSED, cut_short: CUT_SHORT
+};
 
 // Every reason that may reach the durable log. A judge or the wrapper picks
 // one of these; anything else is written as 'unknown'. Provider text never
@@ -69,8 +90,8 @@ export const REASONS = new Set([
   'ok', 'not_json', 'bad_stop_reason', 'empty_text', 'no_terminal_event', 'empty_output_file',
   'bad_status', 'empty_response', 'exit_nonzero', 'empty_stdout', 'bad_event_array', 'bad_last_event',
   'not_result', 'bad_subtype', 'is_error', 'result_not_string', 'empty_result', 'api_error_in_result',
-  'telemetry_absent', 'total_errors_unreadable', 'total_errors', 'contract_unmet',
-  'timeout', 'unavailable', 'killed', 'disabled', 'lanes_json_malformed', 'no_output', 'unknown'
+  'telemetry_absent', 'total_errors_unreadable', 'total_errors', 'contract_unmet', 'error_message_not_string',
+  'judge_raised', 'timeout', 'unavailable', 'killed', 'disabled', 'lanes_json_malformed', 'no_output', 'unknown'
 ]);
 
 const LOG = join(homedir(), '.ai-orchestrator', 'cli-run.log.jsonl');
@@ -163,7 +184,8 @@ export function judgeCodex(rc, out, err, fileText) {
 export function judgeAgy(rc, out) {
   const ev = lastJsonLine(out, '"result"', (o) => o && o.event === 'result');
   if (ev === null) return fail('no_terminal_event', 'no terminal result event');
-  const term = ev.result && typeof ev.result === 'object' && !Array.isArray(ev.result) ? ev.result : {};
+  if (!ev.result || typeof ev.result !== 'object' || Array.isArray(ev.result)) return fail('bad_last_event', 'terminal result was not an object');
+  const term = ev.result;
   const status = term.status;
   const text = typeof term.response === 'string' ? term.response.trim() : '';
   if (status !== 'SUCCESS') return fail('bad_status', `status=${JSON.stringify(status)}`);
@@ -173,7 +195,12 @@ export function judgeAgy(rc, out) {
 export function judgeHermes(rc, out, err) {
   const text = String(out || '').trim();
   if (rc !== 0) {
-    const why = { 1: 'no final response (agent produced nothing)', 2: 'bad args, or completed with an empty response' }[rc] || 'unknown failure';
+    let why = { 1: 'no final response (agent produced nothing)', 2: 'bad args, or completed with an empty response' }[rc] || 'unknown failure';
+    // hermes collapses every upstream failure into one exit code; its stderr
+    // is the only place the cause is named.
+    const blob = String(err || '').toLowerCase(); // stderr only: stdout is the agent's own prose
+    if (hermesQuotaText(blob)) why += ': upstream free tier degraded or limited, a retry is reasonable';
+    else if (blob.includes('toolset')) why += ': invalid --toolsets value, a caller bug and not a lane fault';
     return fail('exit_nonzero', `hermes exit ${rc}: ${why}`);
   }
   return text ? pass(text, 'exit 0') : fail('empty_stdout', 'exit 0 but empty stdout');
@@ -192,8 +219,11 @@ export function judgeQwen(rc, out) {
   if (term.type !== 'result') return fail('not_result', `last event was ${JSON.stringify(term.type)}, not result`);
   if (term.subtype !== 'success') {
     const e = term.error;
+    if (e && typeof e === 'object' && e.message !== undefined && typeof e.message !== 'string') {
+      return fail('error_message_not_string', `subtype=${JSON.stringify(term.subtype)}, error.message was not a string`);
+    }
     const msg = e && typeof e === 'object' && typeof e.message === 'string' ? e.message : e ? String(e) : '';
-    return fail('bad_subtype', `subtype=${JSON.stringify(term.subtype)}` + (msg ? `: ${msg.slice(0, 120)}` : ''));
+    return fail('bad_subtype', `subtype=${JSON.stringify(term.subtype)}` + (msg ? `: ${redact(msg).slice(0, 120)}` : ''));
   }
   if (term.is_error) return fail('is_error', 'is_error true');
   if (term.result != null && typeof term.result !== 'string') return fail('result_not_string', `result was ${typeof term.result}, not a string`);
@@ -201,7 +231,7 @@ export function judgeQwen(rc, out) {
   if (!text) return fail('empty_result', 'success but empty result');
   // qwen reports success even when the upstream API rejected the call; the
   // error text lands in `result`. These two checks are the honest ones.
-  if (text.startsWith('[API Error:')) return fail('api_error_in_result', `success flag lied, result is an API error: ${text.slice(0, 140)}`);
+  if (text.startsWith('[API Error:')) return fail('api_error_in_result', `success flag lied, result is an API error: ${redact(text).slice(0, 140)}`);
   const stats = term.stats;
   const models = stats && typeof stats === 'object' ? stats.models : null;
   if (!models || typeof models !== 'object' || Array.isArray(models) || Object.keys(models).length === 0) {
@@ -381,6 +411,406 @@ export function judge(lane, rc, out, err, outFile) {
     default:
       throw new Error('unknown lane ' + lane);
   }
+}
+
+// A judge is type-guarded, but this is the backstop: an exception from any
+// judge would escape main() as cli-run's own crash and be misread as a
+// wrapper bug. It becomes a classifiable verdict instead (class cut_short).
+export function safeJudge(lane, rc, out, err, outFile) {
+  try {
+    return judge(lane, rc, out, err, outFile);
+  } catch (e) {
+    return fail('judge_raised', `judge raised ${(e && e.name) || 'Error'}: ${(e && e.message) || e}`);
+  }
+}
+
+// --- failure classes: WHY a run failed --------------------------------------
+// Every function here returns a safe default instead of throwing. Signals are
+// read from a lane's authoritative error fields only, never from assistant
+// prose, and each one was taken from a captured vendor shape, not guessed.
+
+// Terminal output only; nothing redacted here reaches the durable log anyway.
+// Redact BEFORE clipping: a clip first can cut a long token so its tail no
+// longer matches any pattern.
+export const SECRET_PATTERNS = [
+  // A JSON string value, escapes included; an unterminated value (a clipped line) runs to the end.
+  // The optional backslashes also catch a JSON body escaped inside another string.
+  [/(\\?"(?:api[_-]?key|token|secret|password|access[_-]?token)\\?"\s*:\s*)\\?"(?:[^"\\]|\\.)*(?:"|$)/gi, '$1"[REDACTED]"'],
+  [/(authorization\s*:\s*)(\S+)\s+\S+/gi, '$1$2 [REDACTED]'],
+  [/([?&](?:token|key|api_key|access_token|sig)=)[^&\s"'<>]+/gi, '$1[REDACTED]'],
+  [/(bearer\s+)[A-Za-z0-9._+/=-]{8,}/gi, '$1[REDACTED]'],
+  [/sk-[A-Za-z0-9_-]{8,}/g, '[REDACTED]'],
+  [/xai-[A-Za-z0-9_-]{8,}/g, '[REDACTED]'],
+  [/ghp_[A-Za-z0-9_-]{8,}/g, '[REDACTED]'],
+  [/AIza[A-Za-z0-9_-]{8,}/g, '[REDACTED]']
+];
+export function redact(text) {
+  if (typeof text !== 'string') return text;
+  let s = text;
+  for (const [pat, repl] of SECRET_PATTERNS) s = s.replace(pat, repl);
+  return s;
+}
+
+function* jsonLines(out) {
+  for (const raw of String(out || '').split('\n')) {
+    const line = raw.trim();
+    if (!line.startsWith('{') || line.length > 1_000_000) continue;
+    let o;
+    try {
+      o = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    if (o && typeof o === 'object' && !Array.isArray(o)) yield o;
+  }
+}
+
+const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+
+// codex: only its own `error`, `turn.failed` and error-item events. Never an
+// agent_message, which is the model talking.
+export function codexErrorEventsText(out) {
+  const parts = [];
+  for (const o of jsonLines(out)) {
+    if (o.type === 'error' && typeof o.message === 'string') parts.push(o.message);
+    else if (o.type === 'turn.failed') {
+      if (isObj(o.error) && typeof o.error.message === 'string') parts.push(o.error.message);
+      else if (typeof o.error === 'string') parts.push(o.error);
+    } else if (o.type === 'item.completed' && isObj(o.item) && o.item.type === 'error' && typeof o.item.message === 'string') {
+      parts.push(o.item.message);
+    }
+  }
+  return parts.join('\n');
+}
+
+// agy: only the terminal result event's own status and error fields.
+export function agyResultFieldsText(out) {
+  const parts = [];
+  for (const o of jsonLines(out)) {
+    if (o.event !== 'result' || !isObj(o.result)) continue;
+    if (typeof o.result.status === 'string') parts.push(o.result.status);
+    const e = o.result.error;
+    if (typeof e === 'string') parts.push(e);
+    else if (isObj(e) && typeof e.message === 'string') parts.push(e.message);
+  }
+  return parts.join('\n');
+}
+
+// codex often carries the upstream's JSON error body as a string inside
+// `message`; one level is unwrapped to the human-readable text underneath.
+function unwrapJsonMessage(msg) {
+  try {
+    const p = JSON.parse(msg);
+    if (isObj(p) && isObj(p.error) && typeof p.error.message === 'string') return p.error.message;
+  } catch {
+    /* not JSON */
+  }
+  return msg;
+}
+
+// The single most specific native codex error, preferring a top-level `error`
+// event over `turn.failed`, so a problem line names the real cause instead of
+// "no terminal turn.completed event".
+export function codexPrimaryError(out) {
+  const errors = [], failed = [];
+  for (const o of jsonLines(out)) {
+    if (o.type === 'error' && typeof o.message === 'string' && o.message) errors.push(unwrapJsonMessage(o.message));
+    else if (o.type === 'turn.failed') {
+      const m = isObj(o.error) ? o.error.message : o.error;
+      if (typeof m === 'string' && m) failed.push(unwrapJsonMessage(m));
+    }
+  }
+  return errors[0] || failed[0] || null;
+}
+
+function hermesQuotaText(lower) {
+  return lower.includes('no usable content') || lower.includes('limit') || lower.includes('degraded');
+}
+
+// qwen: the terminal event's full error text, and a result that is an API error.
+// Never the display detail, which is clipped and can carry a model name.
+export function qwenErrorText(out) {
+  let events;
+  try {
+    events = JSON.parse(out);
+  } catch {
+    return '';
+  }
+  const term = Array.isArray(events) && events.length ? events[events.length - 1] : null;
+  if (!isObj(term)) return '';
+  const parts = [];
+  if (typeof term.error === 'string') parts.push(term.error);
+  else if (isObj(term.error) && typeof term.error.message === 'string') parts.push(term.error.message);
+  if (typeof term.result === 'string' && term.result.trim().startsWith('[API Error:')) parts.push(term.result);
+  return parts.join('\n');
+}
+
+function authoritativeBlob(lane, out, err, detail, rc) {
+  if (lane === 'codex') return `${codexErrorEventsText(out)}\n${err || ''}`;
+  if (lane === 'agy') return `${agyResultFieldsText(out)}\n${err || ''}`;
+  if (lane === 'hermes') return rc !== 0 ? String(err || '') : '';
+  if (lane === 'qwen') return `${qwenErrorText(out)}\n${err || ''}`;
+  return `${detail || ''}\n${err || ''}`; // grok: no auth, quota or rejected signal is defined
+}
+
+export function sigAuth(lane, blob) {
+  const b = blob.toLowerCase();
+  if (lane === 'qwen') return b.includes('missing api key');
+  if (lane === 'agy') return b.includes('you are not logged into antigravity') || b.includes('not authenticated');
+  return false; // codex, grok, hermes: no documented native auth signal
+}
+
+export function sigQuota(lane, blob) {
+  const b = blob.toLowerCase();
+  if (lane === 'qwen') return b.includes('[api error: 402') || b.includes('requires more credits') || blob.includes(' 429') || b.includes('rate limit');
+  if (lane === 'codex') return blob.includes('usage_limit_exceeded') || b.includes("you've hit your usage limit");
+  if (lane === 'hermes') return hermesQuotaText(b);
+  return false;
+}
+
+export function sigRejected(lane, blob) {
+  const b = blob.toLowerCase();
+  if (lane === 'qwen') return b.includes('[api error: 400') || b.includes('no endpoints found') || b.includes('failed to parse grammar');
+  if (lane === 'codex') return blob.includes('invalid_request_error');
+  if (lane === 'hermes') return b.includes('toolset');
+  return false;
+}
+
+// Which judge reasons mean the lane never reached a trustworthy finish, as
+// opposed to finishing cleanly with nothing in it (class empty).
+const CUT_SHORT_REASONS = {
+  grok: new Set(['not_json', 'bad_stop_reason']),
+  codex: new Set(['no_terminal_event']),
+  agy: new Set(['no_terminal_event', 'bad_last_event']),
+  qwen: new Set(['not_json', 'bad_event_array', 'bad_last_event', 'not_result', 'error_message_not_string']),
+  hermes: new Set()
+};
+function isCutShort(lane, reason, rc) {
+  if (reason === 'judge_raised') return true;
+  if (reason === 'ok') return true; // text came back but the vendor exited nonzero
+  // A nonzero vendor exit no signal explains never finished on its own terms.
+  // hermes' exit 2 is the one honest vendor code for "bad args, or an empty response".
+  if (rc !== 0) return !(lane === 'hermes' && rc === 2);
+  return !!(CUT_SHORT_REASONS[lane] && CUT_SHORT_REASONS[lane].has(reason));
+}
+
+// --- refused: how many tool calls a hook or deny rule blocked ----------------
+// null means the lane gave no readable signal, which is an unknown, never 0.
+export function refusedQwen(out) {
+  let events;
+  try {
+    events = JSON.parse(out);
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(events) || !events.length || !isObj(events[events.length - 1])) return null;
+  const pd = events[events.length - 1].permission_denials;
+  return Array.isArray(pd) ? pd.length : null;
+}
+
+export function refusedAgy(out) {
+  let found = false, count = 0;
+  for (const o of jsonLines(out)) {
+    found = true;
+    const e = isObj(o.step_update) && isObj(o.step_update.tool_info) ? o.step_update.tool_info.error : null;
+    if (isObj(e) && e.type === 'TOOL_ERROR' && typeof e.message === 'string') {
+      const m = e.message.toLowerCase();
+      if (m.includes('permission check failed') || m.includes('matches user-configured deny rule')) count++;
+    }
+  }
+  return found ? count : null;
+}
+
+// codex's router writes one `Rejected(` line per blocked command on stderr.
+// Each line counts. Prose such as "operation not permitted" in an answer does
+// not: it matches a model merely explaining the phrase.
+const CODEX_ROUTER_REJECTED = /codex_core::tools::router:[^\n]*Rejected\(/gi;
+export function refusedCodex(out, err) {
+  let count = (String(err || '').match(CODEX_ROUTER_REJECTED) || []).length;
+  for (const o of jsonLines(out)) {
+    // Forward-compatible only: a structural denial item, never prose.
+    if (o.type === 'item.completed' && isObj(o.item) && (o.item.type === 'command_denied' || o.item.type === 'denied')) count++;
+  }
+  return count || null;
+}
+
+// grok never reports a refusal in stdout. It lives in the session transcript,
+// ~/.grok/sessions/<cwd, percent-encoded>/<sessionId>/updates.jsonl, one
+// {"params":{"sessionId","update"}} envelope per line. Two denial shapes are
+// counted: a PreToolUse hook run with status.blocked, and grok's own deny-rule
+// engine ("Denied by permission policy"). The sessionId comes from lane output,
+// so it is held to a narrow charset before any path is built, the resolved path
+// must stay inside the sessions root, every counted line must name the same
+// session, and the read is capped.
+export const GROK_SESSION_ID = /^[A-Za-z0-9-]{8,64}$/;
+export const GROK_TRANSCRIPT_CAP = 5 * 1024 * 1024;
+// grok encodes the cwd the way Python's urllib.parse.quote(cwd, safe="") does.
+function percentEncodePath(p) {
+  return encodeURIComponent(p).replace(/[!'()*]/g, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase());
+}
+// Path-aware containment. A string-prefix test accepts a sibling such as
+// "sessions-2", or on POSIX a directory literally named "sessions\outside".
+export function isInsideRoot(root, p, pathApi = { relative, isAbsolute, sep }) {
+  const rel = pathApi.relative(root, p);
+  return !!rel && !pathApi.isAbsolute(rel) && rel !== '..' && !rel.startsWith('..' + pathApi.sep);
+}
+export function refusedGrok(out, { root = process.env.CLI_RUN_GROK_SESSIONS_ROOT || join(homedir(), '.grok', 'sessions'), cwd = process.cwd(), cap = GROK_TRANSCRIPT_CAP } = {}) {
+  let o;
+  try {
+    o = JSON.parse(out);
+  } catch {
+    return null;
+  }
+  const sid = isObj(o) ? o.sessionId : null;
+  if (typeof sid !== 'string' || !GROK_SESSION_ID.test(sid)) return null;
+  const path = join(root, percentEncodePath(cwd), sid, 'updates.jsonl');
+  let data;
+  let fd;
+  try {
+    const rootReal = realpathSync(root);
+    const pathReal = realpathSync(path);
+    if (!isInsideRoot(rootReal, pathReal)) return null;
+    if (!statSync(pathReal).isFile()) return null;
+    fd = openSync(pathReal, 'r');
+    const buf = Buffer.alloc(Math.max(0, Math.min(cap, statSync(pathReal).size)));
+    let read = 0;
+    while (read < buf.length) {
+      const n = readSync(fd, buf, read, buf.length - read, read);
+      if (!n) break;
+      read += n;
+    }
+    data = buf.subarray(0, read).toString('utf8');
+  } catch {
+    return null;
+  } finally {
+    if (fd !== undefined) try { closeSync(fd); } catch {}
+  }
+  let count = 0, matched = false;
+  for (const rec of jsonLines(data)) {
+    if (!isObj(rec.params) || rec.params.sessionId !== sid) continue;
+    matched = true;
+    const u = rec.params.update;
+    if (!isObj(u)) continue;
+    if (u.sessionUpdate === 'hook_execution' && Array.isArray(u.runs)) {
+      for (const r of u.runs) if (isObj(r) && isObj(r.status) && r.status.blocked === true) count++;
+    } else if (u.sessionUpdate === 'tool_call_update' && u.status === 'failed') {
+      let blob = '';
+      try { blob = JSON.stringify(u.content ?? '').toLowerCase(); } catch {}
+      if (blob.includes('denied by permission policy') || blob.includes('hook denied')) count++;
+    }
+  }
+  return matched ? count : null;
+}
+
+export function countRefused(lane, out, err, opts) {
+  try {
+    if (lane === 'qwen') return refusedQwen(out);
+    if (lane === 'agy') return refusedAgy(out);
+    if (lane === 'codex') return refusedCodex(out, err);
+    if (lane === 'grok') return refusedGrok(out, opts);
+    return null; // hermes: no native refusal signal
+  } catch {
+    return null;
+  }
+}
+
+// Runs after the lane has exited, so adversarial output must not make it slow:
+// the input is bounded and every repeat is bounded. Redacted before any match
+// can clip a secret.
+const DENIAL_SCAN_BYTES = 256 * 1024;
+function firstDenialText(out, err) {
+  const blob = redact(`${String(out || '').slice(0, DENIAL_SCAN_BYTES)}\n${String(err || '').slice(0, DENIAL_SCAN_BYTES)}`);
+  for (const pat of [
+    /Permission denied for command\([^)\n]{0,200}\)\. Matches user-configured deny rule\./,
+    /Denied by permission policy:[^\n"]{0,160}/,
+    /Hook denied:[^\n"]{0,160}/,
+    /denied:[^\n"]{0,160}/,
+    /[Rr]ejected:[^\n"]{0,160}/,
+    /error=exec_command failed:[^\n]{0,160}/
+  ]) {
+    const m = pat.exec(blob);
+    if (m) return m[0].trim();
+  }
+  return null;
+}
+
+// A lane often paraphrases a refusal in its own words; a short head of its
+// answer names it when no exact denial phrase matches.
+function deliverableSnippet(out, limit = 160) {
+  let o;
+  try {
+    o = JSON.parse(out);
+  } catch {
+    return redact(String(out || '').slice(0, 4096)).trim().slice(0, limit) || null;
+  }
+  if (!isObj(o)) return null;
+  for (const k of ['text', 'response', 'result']) if (typeof o[k] === 'string' && o[k].trim()) return redact(o[k].slice(0, 4096)).trim().slice(0, limit);
+  return null;
+}
+
+const FIX = {
+  auth: 'set the credential the message above names (its environment variable, or the lane\'s own login command), then rerun',
+  quota: 'switch to another lane, or wait for the reset time if the message gave one',
+  rejected: 'correct the model id, flag or request the upstream message names',
+  refused: 'adjust the hook or deny rule named above, or give this lane the tool it needs',
+  cut_short: 'rerun once; if it recurs, run without --quiet and read the lane\'s stderr on the terminal',
+  empty: 'rerun once, or use another lane',
+  timeout: 'raise --timeout, or split the brief into smaller pieces',
+  no_output: 'rerun once; if it recurs, check that the lane runs on its own outside cli-run'
+};
+
+// A one-line problem naming the concrete cause, and a one-line fix. The caller
+// relays both. Returns { problem: null, fix: null } when there is nothing to say.
+export function problemAndFix(lane, cls, { out = '', err = '', detail = '', refused = null, authoritative = null } = {}) {
+  const cause = typeof authoritative === 'string' && authoritative.trim() ? redact(authoritative).trim() : null;
+  const d = typeof detail === 'string' && detail ? redact(detail) : null;
+  const tag = `cli-run[${lane}]`;
+  const denial = () => firstDenialText(out, err) || deliverableSnippet(out) || d;
+  switch (cls) {
+    case 'auth': return { problem: `${tag} auth: ${cause || d || 'missing or invalid credentials'}`, fix: FIX.auth };
+    case 'quota': return { problem: `${tag} quota: ${cause || d || 'rate limit or credits exhausted'}`, fix: FIX.quota };
+    case 'rejected': return { problem: `${tag} rejected: ${cause || d || 'the upstream rejected the request'}`, fix: FIX.rejected };
+    case 'refused': return { problem: `${tag} refused: ${denial() || 'a hook or deny rule blocked the call'}`, fix: FIX.refused };
+    case 'cut_short': return { problem: `${tag} cut short: ${d || 'no terminal success event, cause not identifiable'}`, fix: FIX.cut_short };
+    case 'empty': return { problem: `${tag} empty: ${d || 'completed but delivered nothing'}`, fix: FIX.empty };
+    case 'timeout': return { problem: `${tag} timeout: ${d || 'exceeded the wall clock'}`, fix: FIX.timeout };
+    case 'unavailable': return { problem: `${tag} unavailable: ${d || 'binary not found on PATH'}`, fix: `install the ${lane} CLI and put it on PATH, or enable it in lanes.json` };
+    case 'no_output': return { problem: `${tag} no output: the process wrote nothing to stdout or stderr`, fix: FIX.no_output };
+    case 'ok':
+      if (Number.isInteger(refused) && refused > 0) {
+        return { problem: `${tag} ok, but ${refused} call(s) were refused: ${denial() || 'a hook or deny rule blocked part of the call'}`, fix: FIX.refused };
+      }
+      return { problem: null, fix: null };
+    default:
+      return { problem: null, fix: null };
+  }
+}
+
+// Classify a judged run. `reason`/`detail` are the judge's own (not the
+// wrapper's decorated detail). A nonzero vendor exit is never ok, whatever
+// came back. Never throws.
+export function classifyRun(lane, { rc = 0, out = '', err = '', reason = '', detail = '', text = '', refusedOpts } = {}) {
+  out = typeof out === 'string' ? out : '';
+  err = typeof err === 'string' ? err : '';
+  detail = typeof detail === 'string' ? detail : '';
+  const refused = countRefused(lane, out, err, refusedOpts);
+  let cls;
+  try {
+    if (text && rc === 0) cls = 'ok';
+    else if (!out.trim() && !err.trim()) cls = 'no_output';
+    else {
+      const blob = authoritativeBlob(lane, out, err, detail, rc);
+      if (sigAuth(lane, blob)) cls = 'auth';
+      else if (sigQuota(lane, blob)) cls = 'quota';
+      else if (sigRejected(lane, blob)) cls = 'rejected';
+      else if (Number.isInteger(refused) && refused > 0) cls = 'refused';
+      else if (isCutShort(lane, reason, rc)) cls = 'cut_short';
+      else cls = 'empty';
+    }
+  } catch {
+    cls = 'cut_short';
+  }
+  return { cls, refused };
 }
 
 // --- the process boundary --------------------------------------------------
@@ -694,7 +1124,9 @@ function usage(msg) {
   --model / --effort pin what a lane runs with, instead of letting it inherit its
   own config. Every lane takes --model; every lane except qwen takes --effort.
   Levels are the vendor's own (agy low|medium|high, hermes none|minimal|...): an
-  unknown level is rejected by the lane, and reported as that lane's exit code.
+  unknown level is rejected by the lane, and reported by class (codex: rejected, 16).
+  Exit codes: 0 ok, 10 empty, 11 no output, 12 timeout, 13 unavailable, 14 auth,
+  15 quota, 16 rejected, 17 refused, 18 cut short. Failures print a problem and a fix line.
   auto sizes per call: below 4,000 prompt characters is medium, otherwise high; a codex audit is always high. Auto never resolves above high.
   Pin them per lane instead of per call with "defaults" in bin/lanes.json.`);
   return USAGE;
@@ -703,7 +1135,7 @@ function usage(msg) {
 // Bounded, control-character-free head of vendor stderr for the terminal.
 // Never logged: provider text can echo whatever the prompt contained.
 function stderrHead(err, n = 300) {
-  const s = String(err || '').replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '').trim();
+  const s = redact(String(err || '').replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '')).trim();
   if (!s) return '';
   return s.length > n ? s.slice(0, n) + '…' : s;
 }
@@ -877,21 +1309,21 @@ export async function main(argv) {
     effort_truncated: sizing.truncated
   });
   const enabled = cfg === null ? null : cfg.enabled;
-  if (enabled === null) {
-    console.error('cli-run: lanes.json exists but is not a valid {"enabled": [...]} file; refusing every lane until it is fixed');
-    log({ ...base, verdict: 'unavailable', rc: UNAVAILABLE, reason: 'lanes_json_malformed' });
+  const unavailable = ({ msg, reason, fix }) => {
+    console.error('cli-run: ' + msg);
+    if (!opts.quiet) console.error(`cli-run fix: ${fix}`);
+    log({ ...base, verdict: 'unavailable', class: 'unavailable', rc: UNAVAILABLE, refused: null, reason });
     return UNAVAILABLE;
+  };
+  if (enabled === null) {
+    return unavailable({ msg: 'lanes.json exists but is not a valid {"enabled": [...]} file; refusing every lane until it is fixed', reason: 'lanes_json_malformed', fix: 'fix bin/lanes.json, or delete it to enable every lane' });
   }
   if (!enabled.includes(lane)) {
-    console.error(`cli-run: ${lane} is not enabled in lanes.json`);
-    log({ ...base, verdict: 'unavailable', rc: UNAVAILABLE, reason: 'disabled' });
-    return UNAVAILABLE;
+    return unavailable({ msg: `${lane} is not enabled in lanes.json`, reason: 'disabled', fix: `add "${lane}" to "enabled" in bin/lanes.json, or use an enabled lane` });
   }
   const binary = which(lane);
   if (!binary) {
-    console.error(`cli-run: ${lane} not found on PATH`);
-    log({ ...base, verdict: 'unavailable', rc: UNAVAILABLE, reason: 'unavailable' });
-    return UNAVAILABLE;
+    return unavailable({ msg: `${lane} not found on PATH`, reason: 'unavailable', fix: `install the ${lane} CLI and put it on PATH` });
   }
 
   if (route.effort === 'auto' && !opts.quiet) console.error(`cli-run: effort auto -> ${sizing.resolved} (${sizing.basis})`);
@@ -903,52 +1335,60 @@ export async function main(argv) {
     const r = await runBounded(cmd, opts.timeout);
     const out = r.stdout || '';
     const err = r.stderr || '';
-    let verdict, reason, detail, code, text = '';
+    let verdict, reason, detail, cls, text = '', refused = null;
     if (r.interrupted) {
-      verdict = 'interrupted'; reason = 'killed'; detail = `cli-run received ${r.interrupted}; the lane's process group was killed`; code = 128 + (r.interrupted === 'SIGINT' ? 2 : 15);
+      verdict = 'interrupted'; reason = 'killed'; detail = `cli-run received ${r.interrupted}; the lane's process group was killed`; cls = 'interrupted';
     } else if (r.timedOut) {
-      verdict = 'timeout'; reason = 'timeout'; detail = `exceeded ${opts.timeout}s; process group killed`; code = TIMEOUT;
+      verdict = 'timeout'; reason = 'timeout'; detail = `exceeded ${opts.timeout}s; process group killed`; cls = 'timeout';
     } else if (r.overrun) {
-      verdict = 'no_deliverable'; reason = 'no_output'; detail = 'output exceeded the 16 MiB buffer; process group killed'; code = NO_DELIVERABLE;
+      verdict = 'no_deliverable'; reason = 'no_output'; detail = 'output exceeded the 16 MiB buffer; process group killed'; cls = 'cut_short';
     } else if (r.error) {
-      verdict = 'unavailable'; reason = 'unavailable'; detail = r.error.message; code = UNAVAILABLE;
+      verdict = 'unavailable'; reason = 'unavailable'; detail = r.error.message; cls = 'unavailable';
     } else if (r.signal || r.status === null) {
       // A lane killed by a signal has no honest exit status. Whatever it printed
       // before dying is not a deliverable; a null status must never become exit 0.
-      verdict = 'killed'; reason = 'killed'; detail = `lane killed by ${r.signal || 'unknown signal'}`; code = NO_DELIVERABLE;
+      verdict = 'killed'; reason = 'killed'; detail = `lane killed by ${r.signal || 'unknown signal'}`; cls = 'cut_short';
     } else {
-      const j = judge(lane, r.status, out, err, outFile);
-      text = j.text || '';
+      const j = safeJudge(lane, r.status, out, err, outFile);
       reason = j.reason;
       detail = j.detail;
+      ({ cls, refused } = classifyRun(lane, { rc: r.status, out, err, reason: j.reason, detail: j.detail, text: j.text || '' }));
       if (r.status !== 0) {
         // A nonzero vendor exit is a failure on the vendor's own terms, whether or
-        // not something parseable came back. Pass the code through, keep the
-        // verdict honest, and show what the vendor said on stderr.
-        verdict = 'exit_nonzero'; code = r.status;
+        // not something parseable came back. The class names why; the vendor's
+        // own code is kept as cli_rc, and its stderr head shows on the terminal.
+        verdict = 'exit_nonzero';
         if (reason === 'ok') reason = 'exit_nonzero';
         const head = stderrHead(err);
         detail = `lane exited ${r.status}` + (head ? `; stderr: ${head}` : '') + (j.reason !== 'ok' ? `; ${j.detail}` : '');
-      } else if (text) {
-        const unmet = checkContracts(opts, text, before);
+      } else if (cls === 'ok') {
+        const unmet = checkContracts(opts, j.text, before);
         if (unmet) {
-          verdict = 'no_deliverable'; reason = 'contract_unmet'; detail = unmet; code = NO_DELIVERABLE;
+          verdict = 'no_deliverable'; reason = 'contract_unmet'; detail = unmet; cls = 'empty';
         } else {
-          verdict = 'ok'; code = OK;
+          verdict = 'ok'; text = j.text;
         }
-      } else if (!out.trim() && !err.trim()) {
-        verdict = 'no_output'; reason = 'no_output'; code = NO_OUTPUT;
+      } else if (cls === 'no_output') {
+        verdict = 'no_output'; reason = 'no_output';
       } else {
-        verdict = 'no_deliverable'; code = NO_DELIVERABLE;
+        verdict = 'no_deliverable';
         const head = stderrHead(err);
         if (head) detail += `; stderr: ${head}`;
       }
     }
+    const code = cls === 'interrupted' ? 128 + (r.interrupted === 'SIGINT' ? 2 : 15) : CLASS_CODES[cls];
     if (text && code === OK) process.stdout.write(text + '\n');
     const routeNote = route.model || route.effort ? `${route.model || 'lane default'}/${route.effort || 'lane default'}` : 'lane default';
-    if (!opts.quiet) console.error(`cli-run[${lane}] ${verdict} rc=${code} ${r.seconds.toFixed(1)}s raw=${r.outBytes || 0}B route=${routeNote} :: ${detail}`);
-    // Durable log: fixed reason code and structural numbers only.
-    log({ ...base, verdict, rc: code, cli_rc: r.status, signal: r.signal || null, seconds: Math.round(r.seconds * 100) / 100, raw_bytes: r.outBytes || 0, deliverable_bytes: Buffer.byteLength(text), reason: REASONS.has(reason) ? reason : 'unknown' });
+    if (!opts.quiet) {
+      console.error(`cli-run[${lane}] ${verdict} rc=${code} class=${cls} refused=${refused === null ? 'null' : refused} ${r.seconds.toFixed(1)}s raw=${r.outBytes || 0}B route=${routeNote} :: ${redact(detail)}`);
+      let authoritative = null;
+      if (lane === 'codex' && (cls === 'quota' || cls === 'rejected')) authoritative = codexPrimaryError(out);
+      const pf = problemAndFix(lane, cls, { out, err, detail, refused, authoritative });
+      if (pf.problem) console.error('cli-run problem: ' + redact(pf.problem).slice(0, 600));
+      if (pf.fix) console.error('cli-run fix: ' + pf.fix);
+    }
+    // Durable log: fixed reason code, fixed class and structural numbers only.
+    log({ ...base, verdict, class: cls in CLASS_CODES || cls === 'interrupted' ? cls : 'unknown', rc: code, cli_rc: r.status, signal: r.signal || null, refused: Number.isInteger(refused) ? refused : null, seconds: Math.round(r.seconds * 100) / 100, raw_bytes: r.outBytes || 0, deliverable_bytes: Buffer.byteLength(text), reason: REASONS.has(reason) ? reason : 'unknown' });
     return code;
   } finally {
     rmSync(tmp, { recursive: true, force: true });

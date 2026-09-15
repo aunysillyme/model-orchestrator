@@ -7,7 +7,7 @@
 #   - the previous successful report is NEVER truncated: output goes to a temp file and is
 #     renamed into place only on a clean exit; failed output is kept beside it for diagnosis
 #   - the lane runs with the strongest boundary it offers ({{AUDIT_LANE_BOUNDARY_NOTE}})
-#   - rc 10/12/13 from cli-run means no report was produced; the timer's journal shows it
+#   - any nonzero rc from cli-run (10 to 18) means no report was produced; the timer's journal shows it
 set -uo pipefail
 INSTALL_DIR={{INSTALL_DIR_SH}}
 AUDIT_LANE="{{AUDIT_LANE}}"

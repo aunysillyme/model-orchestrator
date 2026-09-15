@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync, spawn } from 'node:child_process';
-import { mkdtempSync, existsSync, rmSync, readFileSync, symlinkSync, writeFileSync, mkdirSync, utimesSync, statSync } from 'node:fs';
+import { mkdtempSync, existsSync, rmSync, readFileSync, symlinkSync, writeFileSync, mkdirSync, utimesSync, statSync, realpathSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { dirname, delimiter, basename } from 'node:path';
 import { join } from 'node:path';
@@ -345,13 +345,14 @@ test('cli-run: a malformed lanes.json refuses every lane without spawning anythi
   rmSync(d, { recursive: true, force: true });
 });
 
-test('cli-run: a lane killed by a signal is exit 10, never 0, even if it printed a deliverable first', { skip: SKIP_LANE_SIGNAL_DEATH_ON_WIN32 }, () => {
+test('cli-run: a lane killed by a signal is cut_short (exit 18), never 0, even if it printed a deliverable first', { skip: SKIP_LANE_SIGNAL_DEATH_ON_WIN32 }, () => {
   const d = mkdtempSync(join(tmpdir(), 'orch-sig-'));
   const bin = join(d, 'bin');
   mkdirSync(bin);
   writeShellStub(join(bin, 'grok'), 'echo \'{"stopReason":"end_turn","text":"hi"}\'\nkill -TERM $$');
   const r = spawnSync(process.execPath, [CLI_RUN, 'grok', 'p'], { encoding: 'utf8', env: winEnv(withSh(bin), d) });
-  assert.equal(r.status, 10, r.stdout + r.stderr);
+  assert.equal(r.status, 18, r.stdout + r.stderr);
+  assert.match(r.stderr, /class=cut_short/);
   assert.match(r.stderr, /killed by SIGTERM/);
   assert.equal(r.stdout, '', 'a killed lane must not print the partial deliverable');
   rmSync(d, { recursive: true, force: true });
@@ -511,34 +512,96 @@ test('#4: a marker in stopReason, status, subtype or event type never reaches th
   const bin = stubLane(d, 'grok', `echo '{"stopReason":"PRIVATE_MARKER_123","text":""}'`);
   stubLane(d, 'agy', `echo '{"event":"result","result":{"status":"PRIVATE_MARKER_456","response":"x"}}'`);
   stubLane(d, 'qwen', `echo '[{"type":"result","subtype":"PRIVATE_MARKER_789","error":{"message":"PRIVATE_MARKER_000"}}]'`);
-  for (const lane of ['grok', 'agy', 'qwen']) {
+  // grok's non-end_turn stop never finished (cut_short); agy and qwen finished with a failure status (empty)
+  for (const [lane, code] of [['grok', 18], ['agy', 10], ['qwen', 10]]) {
     const r = runLane([lane, 'public test', '--quiet'], { PATH: withNode(bin), HOME: d });
-    assert.equal(r.status, 10, lane + ': ' + r.stderr);
+    assert.equal(r.status, code, lane + ': ' + r.stderr);
   }
   const log = readFileSync(join(d, '.ai-orchestrator', 'cli-run.log.jsonl'), 'utf8');
   assert.doesNotMatch(log, /PRIVATE_MARKER/);
-  const reasons = log.trim().split('\n').map((l) => JSON.parse(l).reason);
-  assert.deepEqual(reasons, ['bad_stop_reason', 'bad_status', 'bad_subtype']);
+  const recs = log.trim().split('\n').map((l) => JSON.parse(l));
+  assert.deepEqual(recs.map((r) => r.reason), ['bad_stop_reason', 'bad_status', 'bad_subtype']);
+  assert.deepEqual(recs.map((r) => r.class), ['cut_short', 'empty', 'empty']);
   rmSync(d, { recursive: true, force: true });
 });
 
-test('#9: a vendor exit 7 with an auth error keeps its code, shows the stderr head on the terminal, and is not logged ok', () => {
+test('#9: a vendor exit 7 is never ok: the class owns the exit code, cli_rc keeps the vendor code, the stderr head shows on the terminal', () => {
   const d = mkdtempSync(join(tmpdir(), 'orch-auth-'));
   const bin = stubLane(d, 'grok', 'echo "authentication failed: token expired" >&2\nexit 7');
   const r = runLane(['grok', 't'], { PATH: withNode(bin), HOME: d });
-  assert.equal(r.status, 7, 'vendor code must pass through');
-  assert.match(r.stderr, /exit_nonzero rc=7/);
+  assert.equal(r.status, 18, 'grok has no native auth signal, so an unexplained nonzero exit is cut_short');
+  assert.match(r.stderr, /exit_nonzero rc=18 class=cut_short refused=null/);
   assert.match(r.stderr, /authentication failed/);
+  assert.match(r.stderr, /cli-run problem: cli-run\[grok\] cut short: lane exited 7/);
+  assert.match(r.stderr, /cli-run fix: /);
   const quiet = runLane(['grok', 't', '--quiet'], { PATH: withNode(bin), HOME: d });
   assert.equal(quiet.stderr, '', '--quiet must print nothing');
   const log = readFileSync(join(d, '.ai-orchestrator', 'cli-run.log.jsonl'), 'utf8');
   assert.doesNotMatch(log, /authentication/);
-  assert.match(log, /"verdict":"exit_nonzero"/);
-  // nonzero exit WITH parseable text is still exit_nonzero, never ok
+  const rec = JSON.parse(log.trim().split('\n')[0]);
+  assert.deepEqual([rec.verdict, rec.class, rec.rc, rec.cli_rc, rec.refused], ['exit_nonzero', 'cut_short', 18, 7, null]);
+  // nonzero exit WITH parseable text is still a failure, never ok
   const bin2 = stubLane(d, 'grok', `echo '{"stopReason":"end_turn","text":"looks fine"}'\nexit 3`);
   const r2 = runLane(['grok', 't', '--quiet'], { PATH: withNode(bin2), HOME: d });
-  assert.equal(r2.status, 3);
+  assert.equal(r2.status, 18);
   assert.equal(r2.stdout, '', 'text from a failed run is not printed as a deliverable');
+  rmSync(d, { recursive: true, force: true });
+});
+
+test('failure classes end to end: qwen with no API key exits 14 and logs class auth, never the message', () => {
+  const d = mkdtempSync(join(tmpdir(), 'orch-class-auth-'));
+  const bin = stubLane(d, 'qwen', `echo '[{"type":"result","subtype":"error_during_execution","is_error":true,"result":null,"permission_denials":[],"error":{"message":"Missing API key for OpenAI-compatible auth. Set the OPENROUTER_API_KEY environment variable."}}]'\nexit 1`);
+  const r = runLane(['qwen', 't'], { PATH: withNode(bin), HOME: d });
+  assert.equal(r.status, 14, r.stderr);
+  assert.match(r.stderr, /class=auth refused=0/);
+  assert.match(r.stderr, /cli-run problem: cli-run\[qwen\] auth: .*Missing API key/);
+  assert.match(r.stderr, /cli-run fix: set the credential/);
+  const log = readFileSync(join(d, '.ai-orchestrator', 'cli-run.log.jsonl'), 'utf8');
+  assert.doesNotMatch(log, /Missing API key|OPENROUTER/);
+  const rec = JSON.parse(log.trim());
+  assert.deepEqual([rec.class, rec.rc, rec.cli_rc, rec.refused], ['auth', 14, 1, 0]);
+  rmSync(d, { recursive: true, force: true });
+});
+
+test('failure classes end to end: a secret on a lane\'s stderr or in its error never reaches the terminal or the log', () => {
+  const d = mkdtempSync(join(tmpdir(), 'orch-class-redact-'));
+  // Assembled at run time: no credential-shaped literal lives in this file.
+  const k1 = 'xai-' + 'A'.repeat(700);
+  const k2 = 'sk-' + 'LIVE' + 'Z'.repeat(20);
+  const k3 = 'sk-' + 'PROMPT' + 'Q'.repeat(20);
+  const codex = stubLane(d, 'codex', `echo '{"type":"thread.started"}'\necho "codex_core::tools::router: error=exec_command failed: Rejected(x) token=${k1} ${k2}" >&2\nexit 1`);
+  const r = runLane(['codex', 'prompt carries ' + k3], { PATH: withNode(codex), HOME: d });
+  assert.equal(r.status, 17, 'a router Rejected line with no deliverable is refused: ' + r.stderr);
+  assert.match(r.stderr, /class=refused refused=1/);
+  const qwen = stubLane(d, 'qwen', `echo '[{"type":"result","subtype":"error","is_error":true,"result":null,"error":{"message":"upstream echoed ${k2}"}}]'\nexit 1`);
+  const r2 = runLane(['qwen', 't'], { PATH: withNode(qwen), HOME: d });
+  const log = readFileSync(join(d, '.ai-orchestrator', 'cli-run.log.jsonl'), 'utf8');
+  for (const [where, text] of [['codex stderr', r.stderr], ['qwen stderr', r2.stderr], ['log', log]]) {
+    for (const k of [k2, k3, 'AAAA']) assert.ok(!text.includes(k), `${where} leaked a secret fragment`);
+  }
+  assert.match(r.stderr, /\[REDACTED\]/);
+  rmSync(d, { recursive: true, force: true });
+});
+
+test('failure classes end to end: grok with two refused calls still exits 0 and prints the deliverable, refused=2, and a problem and fix', () => {
+  const d = mkdtempSync(join(tmpdir(), 'orch-class-grok-'));
+  const root = join(d, 'sessions');
+  const sid = 'e2e-session-0001';
+  const enc = encodeURIComponent(realpathSync(process.cwd())).replace(/[!'()*]/g, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase());
+  mkdirSync(join(root, enc, sid), { recursive: true });
+  const line = (update) => JSON.stringify({ params: { sessionId: sid, update } });
+  writeFileSync(join(root, enc, sid, 'updates.jsonl'), [
+    line({ sessionUpdate: 'hook_execution', runs: [{ status: { blocked: true } }] }),
+    line({ sessionUpdate: 'tool_call_update', status: 'failed', content: [{ text: 'Denied by permission policy: deny rule on bash matching sudo' }] })
+  ].join('\n') + '\n');
+  const bin = stubLane(d, 'grok', `echo '{"stopReason":"end_turn","text":"done","sessionId":"${sid}"}'`);
+  const r = runLane(['grok', 't'], { PATH: withNode(bin), HOME: d, CLI_RUN_GROK_SESSIONS_ROOT: root });
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(r.stdout.trim(), 'done');
+  assert.match(r.stderr, /class=ok refused=2/);
+  assert.match(r.stderr, /cli-run problem: cli-run\[grok\] ok, but 2 call\(s\) were refused/);
+  const rec = JSON.parse(readFileSync(join(d, '.ai-orchestrator', 'cli-run.log.jsonl'), 'utf8').trim());
+  assert.deepEqual([rec.class, rec.rc, rec.refused], ['ok', 0, 2]);
   rmSync(d, { recursive: true, force: true });
 });
 

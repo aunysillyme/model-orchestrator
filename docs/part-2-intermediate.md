@@ -28,7 +28,7 @@ One driver, no second AI in the mix: the orchestrator invokes the CLIs; it never
 
 ## 3. Exit 0 is a lie on every lane
 
-Every agent CLI can report success and deliver nothing. `bin/cli-run.mjs` builds the right invocation per lane, reads that lane's **native** terminal event, and exits `10` when a run produced no deliverable, `12` on timeout, `13` when the lane is missing. Byte count is not a check either; a run can emit hundreds of kilobytes and no conclusion. One lane's own success flags lie outright (an upstream 400 reported as success), so its judge reads the two honest signals instead.
+Every agent CLI can report success and deliver nothing. `bin/cli-run.mjs` builds the right invocation per lane, reads that lane's **native** terminal event, and exits `10` when a run produced no deliverable, `12` on timeout, `13` when the lane is missing, and `14` to `18` when the lane's own error says why (auth, quota, rejected, refused, cut short), so a missing API key is never blamed on the model. Byte count is not a check either; a run can emit hundreds of kilobytes and no conclusion. One lane's own success flags lie outright (an upstream 400 reported as success), so its judge reads the two honest signals instead.
 
 Every call goes through it. "This lane is flaky" becomes a query over its log instead of an argument. `node bin/cli-run.mjs --doctor` is the first thing to run after install: enabled lanes, binaries on PATH, the route each lane is pinned to, and with `--run` a one-word canary per lane.
 

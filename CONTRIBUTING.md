@@ -5,7 +5,7 @@ Thanks for looking. Two kinds of contribution land well here: a **failure you hi
 ## Before you open anything
 
 - **Search** the issues, open and closed. Fifteen audit issues were closed in the first two days; your case may be there with its fix and its test.
-- **Reproduce** in a fresh temp directory with the exact command. Exit codes are part of the contract: the installer exits 0 on success and 2 on a refused flag or an aborted prompt; `cli-run` exits 0 only when the lane produced a deliverable (10 no deliverable, unmet contract or output overrun; 11 no output; 12 timeout; 13 unavailable; 130/143 on signal; the vendor's own code otherwise).
+- **Reproduce** in a fresh temp directory with the exact command. Exit codes are part of the contract: the installer exits 0 on success and 2 on a refused flag or an aborted prompt; `cli-run` exits 0 only when the lane produced a deliverable, and otherwise one code per failure class (10 empty or unmet contract; 11 no output; 12 timeout; 13 unavailable; 14 auth; 15 quota; 16 rejected; 17 refused; 18 cut short; 130/143 on signal). The vendor's own exit code is logged as `cli_rc`.
 
 ## Running the checks
 
