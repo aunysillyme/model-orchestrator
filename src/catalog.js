@@ -287,6 +287,18 @@ export const TOOLS = [
     autoClients: ['Cursor', 'VS Code'],
     recommended: false,
     optionalNote: 'Optional and heavier than codecalc. Skip it if you do not keep notes in Obsidian. AGPL-3.0.'
+  },
+  {
+    id: 'context7',
+    name: 'Context7 (Upstash: version-aware docs for the libraries your agent calls)',
+    repo: 'https://github.com/upstash/context7',
+    role: 'up-to-date, version-specific documentation and code examples for libraries, SDKs, APIs and CLIs, pulled into the prompt; tells the agent what the code is SUPPOSED to do. Paired with codecalc, which runs the code and proves what it actually does: docs never stand as proof, and where they disagree the run wins',
+    install: 'npx ctx7 setup',
+    pin: '4.1.1',
+    requires: 'Node.js 18+ for the local server or the ctx7 CLI; a free CONTEXT7_API_KEY is optional, for higher rate limits (it works anonymously at the base rate)',
+    autoClients: ['Claude Code', 'Cursor', 'Codex CLI', 'Qwen Code'],
+    recommended: false,
+    optionalNote: 'Optional, and from a different maintainer than codecalc and obsidian-tc (Upstash, not The-40-Thieves). Needs a network call even at the anonymous rate; skip it offline. MIT.'
   }
 ];
 export const toolById = Object.fromEntries(TOOLS.map((t) => [t.id, t]));

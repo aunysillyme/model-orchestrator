@@ -1,6 +1,6 @@
 # protocols/
 
-Six procedures. Each one is a list of questions whose answers can be wrong.
+Seven procedures. Each one is a list of questions whose answers can be wrong.
 
 | File | Fires when | The gate |
 |---|---|---|
@@ -10,5 +10,6 @@ Six procedures. Each one is a list of questions whose answers can be wrong.
 | `deep-research.md` | The source set is unknown and the answer will be cited later | Parallel engines, then triage; disagreement is the signal |
 | `numbers-and-logic.md` | You are about to state a number, a comparison, a complexity, an equivalence | Computed by a tool (codecalc) or not stated |
 | `memory-and-record.md` | You are about to write anything durable | Searched first, indexed in the same pass, one writer (obsidian-tc when selected) |
+| `docs-then-prove.md` | You are about to write code against a library, SDK, API or CLI | Current docs first (Context7 when selected), then a run proves it; the run wins on disagreement |
 
 Not for lookups, prose edits, bulk classification or one-line config. Those get none of this.

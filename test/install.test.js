@@ -5,7 +5,7 @@ import { join, delimiter, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { planFiles, writeFiles, resolveSelection, resolveApis, gatewayModels, envNames, laneVars, activationSteps, proofSteps, snippetFor } from '../src/install.js';
-import { byId } from '../src/catalog.js';
+import { byId, toolById } from '../src/catalog.js';
 import { render } from '../src/render.js';
 import { buildArgv } from '../bin/cli-run.mjs';
 
@@ -340,6 +340,118 @@ test('obsidian-tc: optional, off by default, writes its doc and snippets only wh
   assert.match(doc, /What you need first/);
 });
 
+// ---- context7 companion ----
+test('context7: optional, off by default, writes its doc and snippets only when selected; docs-then-prove is always written and names codecalc', () => {
+  const { tools } = resolveTools(['context7']);
+  assert.equal(tools[0].recommended, false, 'context7 must not be a default');
+  assert.match(tools[0].requires, /Node\.js 18/);
+  assert.match(tools[0].requires, /CONTEXT7_API_KEY/);
+  const withTool = planFiles({ level: 1, selected: sel('codex'), primary: byId.codex, tools }).map((f) => f.rel);
+  assert.ok(withTool.includes('CONTEXT7.md'));
+  assert.ok(withTool.includes(join('mcp', 'context7.codex.config.toml')));
+  assert.ok(withTool.includes(join('protocols', 'docs-then-prove.md')));
+  const without = planFiles({ level: 1, selected: sel('codex'), primary: byId.codex, tools: [] });
+  assert.ok(!without.some((f) => f.rel === 'CONTEXT7.md'));
+  const dp = without.find((f) => f.rel === join('protocols', 'docs-then-prove.md')).content;
+  assert.match(dp, /not selected/);
+  assert.match(dp, /github\.com\/upstash\/context7/);
+  // the pairing: docs-then-prove.md names codecalc's status too, selected or not
+  assert.match(dp, /codecalc/i);
+  const all = planFiles({ level: 2, selected: sel('claude-code'), primary: byId['claude-code'], tools: resolveTools(['codecalc', 'obsidian-tc', 'context7']).tools }).map((f) => f.rel);
+  assert.ok(all.includes('CODECALC.md') && all.includes('OBSIDIAN-TC.md') && all.includes('CONTEXT7.md'));
+  const doc = planFiles({ level: 1, selected: sel('codex'), primary: byId.codex, tools }).find((f) => f.rel === 'CONTEXT7.md').content;
+  assert.match(doc, /\*\*Optional\.\*\*/);
+  assert.match(doc, /What you need first/);
+  assert.match(doc, /mcp\.context7\.com\/mcp/);
+  assert.doesNotMatch(doc, /Bearer [A-Za-z0-9_-]{10,}/, 'no literal-looking API key value in the doc');
+  // context7 selected alone must not also select codecalc
+  const c7Only = planFiles({ level: 1, selected: sel('codex'), primary: byId.codex, tools }).map((f) => f.rel);
+  assert.ok(!c7Only.includes('CODECALC.md'));
+});
+
+// AUN-1230 fix: every context7 snippet sent an unexpanded or empty
+// "Authorization: Bearer ${CONTEXT7_API_KEY}" header by default. Probed live
+// against https://mcp.context7.com/mcp: no header authenticates at the
+// anonymous tier; both the literal unexpanded text and an empty bearer value
+// come back "Invalid API key", so any client that does not expand ${VAR} in
+// headers (Codex's http_headers is static; Claude Desktop does not expand)
+// silently got zero docs on every call. Ships keyless now; the optional-key
+// path lives in prose in CONTEXT7.md, never baked into a shipped snippet.
+test('every shipped context7 mcp snippet is keyless: no Authorization header, no CONTEXT7_API_KEY anywhere in it', () => {
+  const dir = new URL('../templates/tools/context7/mcp/', import.meta.url);
+  const files = readdirSync(dir);
+  // codex, agy, mcpServers (cursor), vscode, zed, claude-code, qwen: 7 files.
+  assert.ok(files.length >= 7, 'expected at least 7 context7 mcp snippets, found ' + files.length);
+  for (const f of files) {
+    const content = readFileSync(new URL(f, dir), 'utf8');
+    assert.doesNotMatch(content, /Authorization/i, `${f} must not ship an Authorization header by default`);
+    assert.doesNotMatch(content, /CONTEXT7_API_KEY/, `${f} must not ship a CONTEXT7_API_KEY reference by default`);
+  }
+  // same check on the rendered output planFiles() actually writes, not just the source files
+  const rendered = planFiles({ level: 1, selected: sel('codex'), primary: byId.codex, tools: resolveTools(['context7']).tools })
+    .filter((f) => f.rel.startsWith(join('mcp', 'context7')));
+  assert.ok(rendered.length >= 7, 'expected the rendered plan to include the context7 mcp snippets');
+  for (const f of rendered) {
+    assert.doesNotMatch(f.content, /Authorization/i, `rendered ${f.rel} must not ship an Authorization header by default`);
+    assert.doesNotMatch(f.content, /CONTEXT7_API_KEY/, `rendered ${f.rel} must not ship a CONTEXT7_API_KEY reference by default`);
+  }
+});
+
+// AUN-1230 round 1, F1: code.claude.com/docs/en/mcp: "A JSON entry that has a
+// `url` but no `type` is a configuration error ... Claude Code skips that
+// server." The shared mcpServers.json (Cursor's own documented shape, url
+// only) must never be the file the Claude Code row points at.
+test('F1: the claude-code context7 snippet carries "type": "http" next to url', () => {
+  const rendered = planFiles({ level: 1, selected: sel('claude-code'), primary: byId['claude-code'], tools: resolveTools(['context7']).tools })
+    .find((f) => f.rel === join('mcp', 'context7.claude-code.mcp.json'));
+  assert.ok(rendered, 'mcp/context7.claude-code.mcp.json was not planned');
+  const parsed = JSON.parse(rendered.content);
+  assert.equal(parsed.mcpServers.context7.type, 'http');
+  assert.equal(parsed.mcpServers.context7.url, 'https://mcp.context7.com/mcp');
+  // the plain Cursor snippet must stay type-less, per Cursor's own documented shape
+  const cursor = planFiles({ level: 1, selected: sel('claude-code'), primary: byId['claude-code'], tools: resolveTools(['context7']).tools })
+    .find((f) => f.rel === join('mcp', 'context7.mcpServers.json'));
+  assert.equal(JSON.parse(cursor.content).mcpServers.context7.type, undefined, 'the Cursor snippet must not carry a type field');
+});
+
+// F3: upstream's Qwen Code manual config uses `httpUrl`, not `url`, and ships
+// a non-credential Accept header for the SSE transport (not a key, kept).
+test('F3: the qwen context7 snippet uses httpUrl, not url, and keeps only the non-credential Accept header', () => {
+  const rendered = planFiles({ level: 1, selected: sel('codex'), primary: byId.codex, tools: resolveTools(['context7']).tools })
+    .find((f) => f.rel === join('mcp', 'context7.qwen.settings.json'));
+  assert.ok(rendered, 'mcp/context7.qwen.settings.json was not planned');
+  const parsed = JSON.parse(rendered.content);
+  assert.equal(parsed.mcpServers.context7.httpUrl, 'https://mcp.context7.com/mcp');
+  assert.equal(parsed.mcpServers.context7.url, undefined, 'qwen uses httpUrl, not url');
+  assert.equal(parsed.mcpServers.context7.headers.Accept, 'application/json, text/event-stream');
+});
+
+// F4: the Zed snippet ran unversioned npx, bypassing CONTEXT7_PIN entirely
+// (CODECALC_PIN and OBSIDIAN_TC_PIN both reach their own docs). Read the pin
+// from the catalog itself, never hardcode the version in the test.
+test('F4: the rendered zed context7 snippet pins the npx package to the catalog version', () => {
+  const rendered = planFiles({ level: 1, selected: sel('codex'), primary: byId.codex, tools: resolveTools(['context7']).tools })
+    .find((f) => f.rel === join('mcp', 'context7.zed.settings.json'));
+  assert.ok(rendered, 'mcp/context7.zed.settings.json was not planned');
+  assert.doesNotMatch(rendered.content, /\{\{/, 'an unrendered placeholder reached the written file');
+  const pin = toolById.context7.pin;
+  assert.match(pin, /^\d+\.\d+\.\d+$/, 'context7 catalog pin is not a plain version');
+  const parsed = JSON.parse(rendered.content);
+  assert.deepEqual(parsed.context_servers.Context7.args, ['-y', `@upstash/context7-mcp@${pin}`]);
+});
+
+// F5: CONTEXT7.md used to teach pasting the literal key into a config file's
+// args as the fallback for a client that does not pass its environment
+// through to a spawned child. That is exactly the plaintext-key mistake the
+// keyless-by-default fix above exists to avoid; the fallback must never
+// suggest it.
+test('F5: CONTEXT7.md never tells the reader to paste the key literally into a snippet', () => {
+  const doc = planFiles({ level: 1, selected: sel('codex'), primary: byId.codex, tools: resolveTools(['context7']).tools })
+    .find((f) => f.rel === 'CONTEXT7.md').content;
+  assert.doesNotMatch(doc, /--api-key.{0,40}(holding|itself|the value)/i, 'CONTEXT7.md must not suggest pasting the key literally');
+  assert.match(doc, /stay anonymous/i);
+});
+
 
 // ---- review round: the seven suggestions ----
 test('lane sections render from the selection: a claude-code-only install names no other lane', () => {
@@ -416,7 +528,7 @@ test('writeFiles honours two roots and rolls back across both', () => {
 });
 
 test('pins: images and npm installs are versioned, and the pin reaches the rendered box files', () => {
-  const p = planFiles({ level: 3, selected: sel('claude-code', 'codex', 'ollama'), primary: byId['claude-code'], dir: '/x', project: '/x', tools: resolveTools(['codecalc', 'obsidian-tc']).tools });
+  const p = planFiles({ level: 3, selected: sel('claude-code', 'codex', 'ollama'), primary: byId['claude-code'], dir: '/x', project: '/x', tools: resolveTools(['codecalc', 'obsidian-tc', 'context7']).tools });
   const compose = p.find((f) => f.rel === join('vm', 'docker-compose.yml')).content;
   assert.doesNotMatch(compose, /:latest|main-latest/);
   assert.match(compose, /litellm:v\d+\.\d+\.\d+/);
@@ -427,6 +539,7 @@ test('pins: images and npm installs are versioned, and the pin reaches the rende
   assert.equal(spawnSync('bash', ['-n'], { input: sh, encoding: 'utf8' }).status, 0);
   assert.match(p.find((f) => f.rel === 'CODECALC.md').content, /codecalc\[full\]==\d+\.\d+\.\d+/);
   assert.match(p.find((f) => f.rel === 'OBSIDIAN-TC.md').content, /obsidian-tc@\d+\.\d+\.\d+/);
+  assert.match(p.find((f) => f.rel === 'CONTEXT7.md').content, /@upstash\/context7-mcp@\d+\.\d+\.\d+/);
 });
 
 test('agy as primary renders concrete model tiers and a builder that may run commands', () => {

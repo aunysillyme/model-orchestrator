@@ -60,6 +60,10 @@ Runs as a stdio MCP server next to the orchestrator CLI: offline, no key, nothin
 
 Stdio next to the orchestrator, or the upstream Docker service against a bind-mounted vault. Embeddings on the box's Ollama, so nothing leaves the machine. HTTP transport stays off unless every caller is on the private mesh and auth is on.
 
+## 10. context7 on the box
+
+Unlike the other two companions, it is never fully local: the hosted endpoint is a network call over HTTPS from the box, or a local `npx` server over stdio still needs no cloud account to run anonymously. Either way, only the library name and the query text leave the box, never source code. Scheduled jobs that write code against a vendored dependency pull its current docs through Context7 first, then prove the shape with codecalc before it ships.
+
 ## What the installer gives you at this level
 
 Everything from Parts 1 and 2, plus `vm/README.md` · `vm/setup-vm.sh` · `vm/docker-compose.yml` · `vm/gateway.config.yaml` (one lane per provider you selected, keys by name only) · `vm/ENVIRONMENT.md` · `vm/box-CLAUDE.md` · `vm/PRIVACY_GATES.md` · `vm/jobs/` (a weekly audit timer + service, and an index that names what watches each job).

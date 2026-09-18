@@ -58,9 +58,13 @@ Logic flow follows the same rule. Reasoning scaffolds help models with no native
 
 Every protocol ends in a write. Search before you write (duplicates are how a store starts lying), correct the folder index in the same pass, one writer per session, mark inferred content as inferred. The optional companion for that is [obsidian-tc](https://github.com/The-40-Thieves/obsidian-tc), a governed MCP server over an Obsidian vault: hybrid search, backlinks, compare-and-swap writes, folder ACLs. It needs an Obsidian vault, Node 24+ or Bun, and Ollama or a cloud embeddings key, so it is off by default; without it the rule still binds against a notes folder and `grep`.
 
+## 9. Docs, then prove
+
+A model's recall of a library's API is training data, not a live source; it goes stale the moment the vendor ships a release it never saw. Before writing code against a library, SDK, API or CLI you have not confirmed this session, pull current, version-specific docs; then a run, not the doc, is what proves the code behaves that way. The optional companion is [Context7](https://github.com/upstash/context7) (Upstash): it hands the agent current, version-aware documentation and code examples on request, hosted or run locally with `npx`. It pairs with codecalc rather than replacing it: Context7 says what the code is supposed to do, codecalc's run says what it actually does, and the run wins where they disagree. It needs a network call (there is no offline mode), so it is off by default; without it the rule still binds, read the vendor's own docs or source by hand.
+
 ## What the installer gives you at this level
 
-`README.md` (start here) · `ORCHESTRATOR.md` · `TASK_BUNDLE.md` · `protocols/{build-protocol, propagate, gap-analysis, deep-research, numbers-and-logic, memory-and-record}.md` · `CODECALC.md` and `OBSIDIAN-TC.md` with `mcp/` snippets for the companion tools you selected · the loading surface for your primary agent (Claude Code subagents, Antigravity custom agents, a rules-file snippet, or a paste block for a chat app).
+`README.md` (start here) · `ORCHESTRATOR.md` · `TASK_BUNDLE.md` · `protocols/{build-protocol, propagate, gap-analysis, deep-research, numbers-and-logic, memory-and-record, docs-then-prove}.md` · `CODECALC.md`, `OBSIDIAN-TC.md` and `CONTEXT7.md` with `mcp/` snippets for the companion tools you selected · the loading surface for your primary agent (Claude Code subagents, Antigravity custom agents, a rules-file snippet, or a paste block for a chat app).
 
 ## When you have outgrown it
 

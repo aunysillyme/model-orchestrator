@@ -46,9 +46,13 @@ Any figure someone will act on, any comparison you state, any complexity, equiva
 
 Anything durable is searched for before it is written, its folder index is corrected in the same pass, and one writer records. `protocols/memory-and-record.md`. Companion tool (optional, needs an Obsidian vault): obsidian-tc, {{OBSIDIAN_TC_STATUS}}.
 
-## The six protocols
+## Docs, then prove
 
-`protocols/build-protocol.md` · `protocols/propagate.md` · `protocols/gap-analysis.md` · `protocols/deep-research.md` · `protocols/numbers-and-logic.md` · `protocols/memory-and-record.md`. Each is a set of questions that can be answered wrong. That is the design, not a flaw.
+Before writing code against a library, SDK, API or CLI you have not confirmed the current shape of, pull current docs; then a run, not the doc, is what proves it behaves that way. `protocols/docs-then-prove.md`. Companion tool (optional, needs a network call): Context7, {{CONTEXT7_STATUS}}. Paired with codecalc, {{CODECALC_STATUS}}: docs say what it is supposed to do, codecalc's run says what it actually does.
+
+## The seven protocols
+
+`protocols/build-protocol.md` · `protocols/propagate.md` · `protocols/gap-analysis.md` · `protocols/deep-research.md` · `protocols/numbers-and-logic.md` · `protocols/memory-and-record.md` · `protocols/docs-then-prove.md`. Each is a set of questions that can be answered wrong. That is the design, not a flaw.
 
 ## When you outgrow this
 

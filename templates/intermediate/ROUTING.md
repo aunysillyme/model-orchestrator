@@ -54,6 +54,10 @@ Every number, comparison, complexity or equivalence claim goes through a tool th
 
 One writer per run; every other lane proposes. Search before writing, index in the same pass (`protocols/memory-and-record.md`; companion, optional: obsidian-tc, {{OBSIDIAN_TC_STATUS}}).
 
+## Docs, then prove
+
+A lane's recall of a library's API is a lead, not a verdict, the same as its arithmetic. Pull current, version-specific docs before writing a call against anything you have not confirmed this session (`protocols/docs-then-prove.md`; companion, optional: Context7, {{CONTEXT7_STATUS}}). Then prove the doc was right by running it, the same tool that already owns numbers: codecalc, {{CODECALC_STATUS}}. Where the two disagree, the run wins.
+
 ## Modifier rules
 
 {{PLAN_BIG_LINE}}{{INLINE_THRESHOLD_NOTE}}

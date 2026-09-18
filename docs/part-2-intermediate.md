@@ -66,6 +66,10 @@ Measured on the cheapest metered lane: conclusions right, 0 of 11 line citations
 
 With several lanes proposing, the store is where they meet. obsidian-tc (optional) gives every CLI the same `semantic_search`, `get_backlinks` and compare-and-swap `write_note`, with folder ACLs so a research lane can read what it needs and write nothing. The orchestrator stays the one writer.
 
+## 11. Docs, then prove, across lanes
+
+Every lane's recall of a library's API is a lead, the same as its arithmetic (see item 9 above). Context7 (optional) gives every CLI the same current, version-aware docs lookup, registered for Claude Code, Cursor, Codex and Qwen Code with the snippets in `CONTEXT7.md`. It pairs with codecalc: a lane's claim about what a library does, cited from memory or from a doc, is confirmed by a run before code ships on it.
+
 ## What the installer gives you at this level
 
 Everything from Part 1, plus `ROUTING.md` · `TIERS.md` · `DELEGATION_MATRIX.md` (generated from your selection) · `RESEARCH_TRIAGE.md` · `CLI-RUN.md` · `bin/cli-run.mjs` · `bin/lanes.json`.

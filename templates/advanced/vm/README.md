@@ -18,6 +18,7 @@ Generated {{DATE}} for: `{{AI_IDS}}`. Installed at `{{INSTALL_DIR}}`; the system
 | A local model runtime (if selected) | the privacy lane | nothing leaves the box |
 | Scheduled jobs (`jobs/`) | the weekly gap-analysis audit (lane: `{{AUDIT_LANE}}`), and anything else recurring | the gateway, or `cli-run` |
 | codecalc (if selected) | the calculator, code runner and logic checker every agent here calls; stdio, offline, no key | nothing; it computes locally |
+| context7 (if selected) | version-aware docs for the libraries the box's agents build against; paired with codecalc, docs then a run | the hosted endpoint over HTTPS (or a local `npx` server over stdio, still no cloud account required) |
 
 ## Setup, in order
 

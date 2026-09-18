@@ -1,6 +1,6 @@
 # Catalog
 
-Generated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrites it. Protocols shipped at every level: 6 (counted from `templates/common/protocols/`).
+Generated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrites it. Protocols shipped at every level: 7 (counted from `templates/common/protocols/`).
 
 ## Levels
 
@@ -132,5 +132,13 @@ Generated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrite
 - **Gives:** durable memory and record for your agents: hybrid retrieval (BM25 + dense + link graph), backlinks, compare-and-swap writes with a confirmation gate, folder ACLs, a poison scan on inferred writes; 163 tools, local by default
 - **Install:** `npm install -g obsidian-tc && obsidian-tc /path/to/your/vault` (needs an Obsidian vault folder (the Obsidian app itself is only needed for live plugin bridges); Node 24+ or Bun 1.1+ (stricter than this installer); Ollama with `nomic-embed-text` for local embeddings, or a cloud embeddings key; the Local REST API plugin only for bridge tools)
 - **Registers itself with:** Cursor, VS Code; snippets for the rest are written to `mcp/`
+- **Default:** not selected
+
+### `context7` · Context7 (Upstash: version-aware docs for the libraries your agent calls)
+
+- **Repo:** https://github.com/upstash/context7
+- **Gives:** up-to-date, version-specific documentation and code examples for libraries, SDKs, APIs and CLIs, pulled into the prompt; tells the agent what the code is SUPPOSED to do. Paired with codecalc, which runs the code and proves what it actually does: docs never stand as proof, and where they disagree the run wins
+- **Install:** `npx ctx7 setup` (needs Node.js 18+ for the local server or the ctx7 CLI; a free CONTEXT7_API_KEY is optional, for higher rate limits (it works anonymously at the base rate))
+- **Registers itself with:** Claude Code, Cursor, Codex CLI, Qwen Code; snippets for the rest are written to `mcp/`
 - **Default:** not selected
 

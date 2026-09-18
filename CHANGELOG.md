@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.1.24] - 2026-09-18
+
+### Added
+
+- **Context7 as a third companion tool, paired with codecalc.** [Context7](https://github.com/upstash/context7) (Upstash) hands the agent current, version-specific documentation and code examples for any library, SDK, API or CLI, hosted or run locally with `npx`. It answers what a library is documented to do; codecalc still answers what the code actually does by running it. A new protocol, `protocols/docs-then-prove.md`, states the rule the pairing serves: pull current docs before writing against anything unconfirmed this session, then a run proves it, and where a doc and a run disagree the run wins. Optional and off by default, like obsidian-tc (`--tools context7`, or the interactive question); unlike the other two companions it always makes a network call, so it is the one to skip offline. `src/catalog.js` carries the entry (repo, role, install, requirements, the clients it self-registers with); `CONTEXT7_STATUS` renders both selected and not-selected wording the same way `CODECALC_STATUS` and `OBSIDIAN_TC_STATUS` already do, at every level and in `ROUTING.md`.
+- **`templates/tools/context7/CONTEXT7.md` plus seven per-client `mcp/` snippets**, each read from that client's own docs rather than shared across clients that do not actually share a config shape: `context7.claude-code.mcp.json` (`"type": "http"` next to `url`, required or Claude Code skips the server), `context7.mcpServers.json` (Cursor's own documented shape, `url` with no `type`), `context7.vscode.mcp.json`, `context7.qwen.settings.json` (`httpUrl`, not `url`, plus the non-credential `Accept` header upstream ships), `context7.zed.settings.json` (local `npx`, pinned to the catalog's `context7` version), `context7.codex.config.toml`, `context7.agy.mcp_config.json`. Claude Desktop has no file: its remote connection is a UI step (`Settings > Connectors > Add Custom Connector`), documented in `CONTEXT7.md` instead of a snippet nothing there reads.
+- **Every context7 snippet ships keyless by default.** The anonymous tier works with no header, while an unexpanded or empty `Bearer ${CONTEXT7_API_KEY}` makes every call return "Invalid API key" (probed live against `https://mcp.context7.com/mcp`), and clients like Codex `http_headers` never expand it. `CONTEXT7.md` has a "Higher rate limits (optional key)" section with one mechanism per client: Codex `bearer_token_env_var`, Claude Code `${VAR}` expansion in `.mcp.json` headers, Claude Desktop's own Connectors key field, an exported shell variable for local `npx`, and "check your client's docs" where expansion is not confirmed; the fallback for a client that does not pass its environment to a spawned child is to stay anonymous, never to paste the key into a snippet's args. A test fails if a shipped snippet carries `Authorization` or `CONTEXT7_API_KEY`.
+
 ## [0.1.23] - 2026-09-15
 
 ### Added
@@ -351,7 +359,8 @@ First release.
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
-[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.23...HEAD
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.24...HEAD
+[0.1.24]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.23...v0.1.24
 [0.1.23]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.22...v0.1.23
 [0.1.22]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.21...v0.1.22
 [0.1.21]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.20...v0.1.21

@@ -269,7 +269,7 @@ test('cli-run: usage errors and unavailable lanes exit with their documented cod
 
 test('interactive path accepts piped answers and aborts on EOF instead of defaulting', () => {
   const dir = join(mkdtempSync(join(tmpdir(), 'orch-int-')), 'out');
-  const ok = run(["--no-install"], { input: `2\n1,2\n1\ny\nn\n${dir}\n${dir}\n4\n4\ny\n` }); // level, AIs, primary, tools, targets, plan choices, confirm
+  const ok = run(["--no-install"], { input: `2\n1,2\n1\ny\nn\nn\n${dir}\n${dir}\n4\n4\ny\n` }); // level, AIs, primary, tools (codecalc/obsidian-tc/context7), targets, plan choices, confirm
   assert.equal(ok.status, 0, ok.stderr + ok.stdout);
   assert.ok(existsSync(join(dir, 'ROUTING.md')), 'level 2 file missing after interactive run');
   const eof = run(['--no-install'], { input: '2\n' });
@@ -431,6 +431,23 @@ test('--tools obsidian-tc is accepted, --yes alone does not select it, --list sa
   assert.equal(both.status, 0, both.stderr);
   assert.match(both.stdout, /OBSIDIAN-TC\.md/);
   assert.match(both.stdout, reOfPath('mcp', 'obsidian-tc.mcpServers.json'));
+});
+
+test('--tools context7 is accepted, --yes alone does not select it, --list says it needs a network call, and it pairs with codecalc', () => {
+  const l = run(['--list']);
+  assert.match(l.stdout, /context7/);
+  assert.match(l.stdout, /network call/);
+  const dflt = run(['--yes', '--level', '1', '--ais', 'codex', '--dry']);
+  assert.match(dflt.stdout, /tools    codecalc\n/);
+  assert.doesNotMatch(dflt.stdout, /CONTEXT7\.md/);
+  const all = run(['--yes', '--level', '1', '--ais', 'codex', '--tools', 'codecalc,obsidian-tc,context7', '--dry']);
+  assert.equal(all.status, 0, all.stderr);
+  assert.match(all.stdout, /CONTEXT7\.md/);
+  assert.match(all.stdout, reOfPath('mcp', 'context7.codex.config.toml'));
+  const c7Only = run(['--yes', '--level', '1', '--ais', 'codex', '--tools', 'context7', '--dry']);
+  assert.equal(c7Only.status, 0, c7Only.stderr);
+  assert.match(c7Only.stdout, /CONTEXT7\.md/);
+  assert.doesNotMatch(c7Only.stdout, /CODECALC\.md/, '--tools context7 alone must not also select codecalc');
 });
 
 
