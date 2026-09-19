@@ -39,20 +39,38 @@ For more than one vault, auth, ACLs or custom embeddings, write `obsidian-tc.con
 
 ## Register it with your agent (snippets in `mcp/`)
 
-Every snippet points `OBSIDIAN_TC_CONFIG` at your config file. Replace `/ABSOLUTE/PATH/TO/obsidian-tc.config.json`; the value is a path, not a secret.
+Every snippet points `OBSIDIAN_TC_CONFIG` at your config file. Replace `/ABSOLUTE/PATH/TO/obsidian-tc.config.json` (the Windows snippets carry a `C:\ABSOLUTE\PATH\TO\` placeholder instead); the value is a path, not a secret.
 
 | Agent | File to edit | Snippet |
 |---|---|---|
 | Claude Code, Claude Desktop, any client with a `mcpServers` map | its MCP config (`.mcp.json` for Claude Code) | `mcp/obsidian-tc.mcpServers.json` |
-| Cursor | one-click badge in the upstream README, or `~/.cursor/mcp.json` | `mcp/obsidian-tc.mcpServers.json` |
+| Cursor | one-click badge in the upstream README, or `~/.cursor/mcp.json` | macOS/Linux: `mcp/obsidian-tc.mcpServers.json` · **Windows: `mcp/obsidian-tc.cursor.windows.mcpServers.json`**, see "Local `npx` on Windows" below |
 | VS Code | one-click badge, or `.vscode/mcp.json` (key is `servers`) | `mcp/obsidian-tc.vscode.mcp.json` |
 | Zed | `~/.config/zed/settings.json` (key is `context_servers`) | `mcp/obsidian-tc.zed.settings.json` |
 | Codex CLI | `~/.codex/config.toml` | `mcp/obsidian-tc.codex.config.toml` |
-| Antigravity `agy` | `~/.gemini/config/mcp_config.json` | `mcp/obsidian-tc.agy.mcp_config.json` |
+| Antigravity `agy` | `~/.gemini/config/mcp_config.json` | macOS/Linux: `mcp/obsidian-tc.agy.mcp_config.json` · **Windows: `mcp/obsidian-tc.agy.windows.mcp_config.json`**, see "Local `npx` on Windows" below |
 | Qwen Code | `~/.qwen/settings.json` under `mcpServers` | `mcp/obsidian-tc.mcpServers.json` |
 | Claude Desktop, other MCPB hosts | a prebuilt `.mcpb` bundle from the upstream build | see upstream README |
 
 Merge the block; do not replace the file.
+
+### Local `npx` on Windows
+
+Every snippet here spawns `npx`, and on Windows `npx` is a batch file (`npx.cmd`) that a client cannot start as a bare command unless it resolves `PATHEXT` or hands the command to a shell. Some of these clients do, some do not, so this is a per-client answer rather than one rule. What was checked, and where:
+
+| Client | Starts `"command": "npx"` on Windows? | Checked against | Use |
+|---|---|---|---|
+| Zed | yes, it wraps the command in the system shell | `crates/context_server/src/transport/stdio_transport.rs` builds through `ShellBuilder::new(&Shell::System, ..)`, from PR #42382 "Use shell to launch MCP and ACP servers" (2025-12-10) | `mcp/obsidian-tc.zed.settings.json` on every OS |
+| VS Code | yes, it resolves the extension and re-spawns through the shell | `src/vs/workbench/api/node/extHostMcpNode.ts`, `formatSubprocessArguments` resolves the executable and sets `shell: true` when it ends in `.bat` or `.cmd` | `mcp/obsidian-tc.vscode.mcp.json` on every OS |
+| Codex CLI | yes, it resolves `PATHEXT` itself | `codex-rs/rmcp-client/src/program_resolver.rs`, whose Windows arm calls `which::which_in` so that "tools like `npx`, `pnpm`, and `yarn` work correctly on Windows" | `mcp/obsidian-tc.codex.config.toml` on every OS |
+| Cursor | no | Cursor 3.18.9's shipped `out/vs/code/electron-utility/mcpProcess/mcpProcessMain.js` passes the configured command straight to `StdioClientTransport` from `@modelcontextprotocol/sdk`, which spawns with `shell: false` and no `PATHEXT` lookup | `mcp/obsidian-tc.cursor.windows.mcpServers.json` on Windows |
+| Antigravity `agy` | probably not | its own docs describe `command` only as "Path to the executable", with no Windows note; it reads the Gemini CLI config namespace, and Gemini CLI hands `mcpServerConfig.command` to the same `shell: false` SDK transport. A Windows report of `"command": "npx"` never starting is modelcontextprotocol/servers#3278 (2026-01-31) | `mcp/obsidian-tc.agy.windows.mcp_config.json` on Windows |
+
+The Windows snippets are the same call behind `cmd /c`: `"command": "cmd"` with `"/c", "npx"` in front of the existing args. Their `OBSIDIAN_TC_CONFIG` placeholder is a Windows path, so the backslashes are doubled the way JSON requires.
+
+Claude Code, Claude Desktop and Qwen Code share `mcp/obsidian-tc.mcpServers.json` with Cursor, and none of the three was checked here, so the Cursor row is about Cursor only. If one of them fails to start the server on Windows, the same `cmd /c` change is the thing to try.
+
+Antigravity is closed source, so its row is inference from its documented config shape and its Gemini CLI lineage, not from its own code. If a bare `"command": "npx"` starts the server for you there, the plain `mcp/obsidian-tc.agy.mcp_config.json` is the one to keep. None of this was run on a Windows machine by this project.
 
 ## Security posture, read before a second agent touches it
 
