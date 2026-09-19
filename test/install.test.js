@@ -340,47 +340,6 @@ test('obsidian-tc: optional, off by default, writes its doc and snippets only wh
   assert.match(doc, /What you need first/);
 });
 
-// Windows `npx` is `npx.cmd`, which only starts if the client resolves PATHEXT
-// or hands the command to a shell. That is a per-client answer, so the two
-// clients that do NOT (Cursor, Antigravity) get a `.windows` snippet and the
-// three that DO (Zed, VS Code, Codex CLI) must keep one file for every OS.
-test('obsidian-tc on Windows: cursor and agy get a cmd /c snippet, zed/vscode/codex stay single-file, and the doc names which is which', () => {
-  const { tools } = resolveTools(['obsidian-tc']);
-  const plan = planFiles({ level: 1, selected: sel('codex'), primary: byId.codex, tools });
-  const posix = JSON.parse(plan.find((f) => f.rel === join('mcp', 'obsidian-tc.mcpServers.json')).content).mcpServers['obsidian-tc'];
-
-  for (const rel of ['obsidian-tc.cursor.windows.mcpServers.json', 'obsidian-tc.agy.windows.mcp_config.json']) {
-    const file = plan.find((f) => f.rel === join('mcp', rel));
-    assert.ok(file, `mcp/${rel} was not planned`);
-    assert.doesNotMatch(file.content, /\{\{/, `an unrendered placeholder reached ${rel}`);
-    const server = JSON.parse(file.content).mcpServers['obsidian-tc'];
-    assert.equal(server.command, 'cmd', `${rel} must spawn cmd, not npx`);
-    assert.deepEqual(server.args.slice(0, 2), ['/c', 'npx'], `${rel} must put /c npx in front`);
-    assert.deepEqual(server.args.slice(2), posix.args, `${rel} args must be the POSIX args behind /c npx, nothing else`);
-    assert.match(server.env.OBSIDIAN_TC_CONFIG, /^[A-Z]:\\/, `${rel} must carry a Windows path placeholder`);
-  }
-
-  // A client that already resolves .cmd itself must not grow a second file:
-  // shipping one would teach a Windows user to change a config that works.
-  const rels = plan.map((f) => f.rel);
-  for (const base of ['obsidian-tc.zed.settings', 'obsidian-tc.vscode.mcp']) {
-    assert.ok(rels.includes(join('mcp', `${base}.json`)), `mcp/${base}.json is missing`);
-    assert.ok(!rels.some((r) => r.includes(`${base.split('.')[1]}.windows.`)), `${base} must stay one file for every OS`);
-  }
-  assert.ok(!rels.some((r) => r.includes('obsidian-tc.codex.windows.')), 'codex resolves PATHEXT itself, it must stay one file');
-
-  const doc = plan.find((f) => f.rel === 'OBSIDIAN-TC.md').content;
-  assert.doesNotMatch(doc, /\{\{/, 'an unrendered placeholder reached OBSIDIAN-TC.md');
-  assert.match(doc, /Local `npx` on Windows/);
-  assert.match(doc, /mcp\/obsidian-tc\.cursor\.windows\.mcpServers\.json/);
-  assert.match(doc, /mcp\/obsidian-tc\.agy\.windows\.mcp_config\.json/);
-  // The evidence per client, so a future reader can re-check it rather than trust it.
-  assert.match(doc, /program_resolver\.rs/, 'the doc must name where the Codex CLI answer came from');
-  assert.match(doc, /formatSubprocessArguments/, 'the doc must name where the VS Code answer came from');
-  assert.match(doc, /ShellBuilder/, 'the doc must name where the Zed answer came from');
-  assert.match(doc, /StdioClientTransport/, 'the doc must name why Cursor and agy need the wrapper');
-});
-
 // ---- context7 companion ----
 test('context7: optional, off by default, writes its doc and snippets only when selected; docs-then-prove is always written and names codecalc', () => {
   const { tools } = resolveTools(['context7']);

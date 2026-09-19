@@ -4,16 +4,6 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
-## [0.1.26] - 2026-09-19
-
-### Added
-
-- **obsidian-tc on Windows: a `cmd /c` snippet for the two clients that need one, and per-client evidence for the three that do not.** All five obsidian-tc snippets spawn `"command": "npx"`, and on Windows `npx` is `npx.cmd`, which only starts if the client resolves `PATHEXT` itself or hands the command to a shell. That turned out to be a per-client answer, not one rule, so each client was read rather than assumed. Zed builds MCP stdio launches through `ShellBuilder::new(&Shell::System, ..)` in `crates/context_server/src/transport/stdio_transport.rs` (from its PR #42382, 2025-12-10), VS Code's `formatSubprocessArguments` in `src/vs/workbench/api/node/extHostMcpNode.ts` resolves the executable and re-spawns with `shell: true` for a `.bat` or `.cmd`, and the Codex CLI calls `which::which_in` in `codex-rs/rmcp-client/src/program_resolver.rs` so that npx and friends work without a full path: those three keep one file for every OS. Cursor 3.18.9 passes the configured command straight to `StdioClientTransport` from `@modelcontextprotocol/sdk`, which spawns with `shell: false`, and Antigravity's `agy` documents `command` only as a path to an executable while reading the Gemini CLI config namespace, whose MCP client uses that same transport. Those two gain `mcp/obsidian-tc.cursor.windows.mcpServers.json` and `mcp/obsidian-tc.agy.windows.mcp_config.json`, each the same call behind `"command": "cmd"` with `"/c", "npx"` in front of the existing args and a Windows path placeholder for `OBSIDIAN_TC_CONFIG`. `OBSIDIAN-TC.md` gains a "Local `npx` on Windows" table carrying the per-client verdict, the file each one was checked against, and the two caveats: Antigravity is closed source so its row is inference from its config shape and its Gemini CLI lineage, and the `mcpServers` snippet it shares with Claude Code, Claude Desktop and Qwen Code was checked for Cursor only. A test pins the Windows args to the POSIX args behind `/c npx`, pins the Windows placeholder shape, and fails if a `.windows` file ever appears for Zed, VS Code or the Codex CLI. Not yet run on a Windows machine.
-
-### Changed
-
-- **Context7's Zed Windows snippet (0.1.25, [#34](https://github.com/aunysillyme/model-orchestrator/issues/34)) is redundant on a current Zed, and stays anyway.** Reading Zed's own source for the obsidian-tc work above showed it has launched MCP stdio servers through the system shell since PR #42382 (2025-12-10), so `"command": "npx"` starts on Windows there without a wrapper. `mcp/context7.zed.windows.settings.json` is not wrong, it is a second `cmd /c` inside the shell Zed already opens, and it is what a user on an older Zed needs. `CONTEXT7.md` now says which builds need it.
-
 ## [0.1.25] - 2026-09-19
 
 ### Fixed
@@ -375,8 +365,7 @@ First release.
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
-[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.26...HEAD
-[0.1.26]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.25...v0.1.26
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.25...HEAD
 [0.1.25]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.24...v0.1.25
 [0.1.24]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.23...v0.1.24
 [0.1.23]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.22...v0.1.23

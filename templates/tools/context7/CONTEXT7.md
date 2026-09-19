@@ -71,8 +71,6 @@ On Windows `npx` is a batch file (`npx.cmd`), and a client that spawns `"command
 | Zed on Windows | `mcp/context7.zed.windows.settings.json` (`"command": "cmd"`, `"args": ["/c", "npx", ...]`) |
 | Any other client, local alternative, on Windows | the same change by hand: `"command": "cmd"` and put `"/c", "npx"` in front of the existing args, e.g. `"args": ["/c", "npx", "-y", "@upstash/context7-mcp@{{CONTEXT7_PIN}}"]` |
 
-Zed itself changed under this: since its PR #42382, "Use shell to launch MCP and ACP servers" (2025-12-10), `crates/context_server/src/transport/stdio_transport.rs` builds every MCP launch through `ShellBuilder::new(&Shell::System, ..)`, so on a Zed from that build onward a plain `"command": "npx"` already starts, and `mcp/context7.zed.windows.settings.json` is a second `cmd /c` inside the shell Zed opens anyway. It is kept because it still works and it is what an older Zed needs; on a current Zed either file is fine.
-
 Not yet run on a Windows machine by this project; the shape is the vendor's own.
 
 Merge the block; do not replace the file. `mcp/context7.mcpServers.json` (Cursor) and `mcp/context7.claude-code.mcp.json` look alike but are not interchangeable: Claude Code requires the `"type": "http"` field and Cursor's own docs show plain `{"url": ...}` with no `type` at all.
