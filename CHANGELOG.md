@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.1.25] - 2026-09-19
+
+### Fixed
+
+- **Context7 on Windows: a Zed snippet that can start the local server** ([#34](https://github.com/aunysillyme/model-orchestrator/issues/34)). `mcp/context7.zed.settings.json` spawns `"command": "npx"`, and on Windows `npx` is `npx.cmd`, a batch file a client cannot spawn as a bare command. New `mcp/context7.zed.windows.settings.json` runs `"command": "cmd"` with `"args": ["/c", "npx", "-y", "@upstash/context7-mcp@<pin>"]`, the shape Context7's own client guide ships for Windows. `CONTEXT7.md` gains a "Local `npx` on Windows" table saying which Zed snippet to use on which OS, and the same by-hand change for any other client taking the local alternative. The remote snippets spawn nothing and are unchanged. A test pins the Windows args to the POSIX args behind `/c npx` and the catalog pin; not yet run on a Windows machine.
+
 ## [0.1.24] - 2026-09-18
 
 ### Added
@@ -359,7 +365,8 @@ First release.
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
-[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.24...HEAD
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.25...HEAD
+[0.1.25]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.24...v0.1.25
 [0.1.24]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.23...v0.1.24
 [0.1.23]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.22...v0.1.23
 [0.1.22]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.21...v0.1.22

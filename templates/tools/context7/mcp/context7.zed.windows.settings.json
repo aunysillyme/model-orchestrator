@@ -1,0 +1,9 @@
+{
+  "context_servers": {
+    "Context7": {
+      "source": "custom",
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "@upstash/context7-mcp@{{CONTEXT7_PIN}}"]
+    }
+  }
+}

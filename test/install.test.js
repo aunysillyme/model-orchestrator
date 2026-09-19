@@ -440,6 +440,25 @@ test('F4: the rendered zed context7 snippet pins the npx package to the catalog 
   assert.deepEqual(parsed.context_servers.Context7.args, ['-y', `@upstash/context7-mcp@${pin}`]);
 });
 
+// Issue #34: on Windows `npx` is `npx.cmd`, which Zed cannot spawn as a bare
+// command. Context7's own client guide wraps it in `cmd /c`. The Windows
+// variant must keep the same pin, and CONTEXT7.md must say which to use where.
+test('#34: a Windows zed context7 snippet wraps npx in cmd /c, keeps the pin, and CONTEXT7.md names both', () => {
+  const plan = planFiles({ level: 1, selected: sel('codex'), primary: byId.codex, tools: resolveTools(['context7']).tools });
+  const win = plan.find((f) => f.rel === join('mcp', 'context7.zed.windows.settings.json'));
+  assert.ok(win, 'mcp/context7.zed.windows.settings.json was not planned');
+  assert.doesNotMatch(win.content, /\{\{/, 'an unrendered placeholder reached the written file');
+  const server = JSON.parse(win.content).context_servers.Context7;
+  assert.equal(server.command, 'cmd');
+  assert.deepEqual(server.args, ['/c', 'npx', '-y', `@upstash/context7-mcp@${toolById.context7.pin}`]);
+  const posix = JSON.parse(plan.find((f) => f.rel === join('mcp', 'context7.zed.settings.json')).content).context_servers.Context7;
+  assert.deepEqual(server.args.slice(2), posix.args, 'the Windows args must be the POSIX args behind /c npx, nothing else');
+  const doc = plan.find((f) => f.rel === 'CONTEXT7.md').content;
+  assert.match(doc, /mcp\/context7\.zed\.windows\.settings\.json/);
+  assert.match(doc, /Local `npx` on Windows/);
+  assert.doesNotMatch(doc, /\{\{/, 'an unrendered placeholder reached CONTEXT7.md');
+});
+
 // F5: CONTEXT7.md used to teach pasting the literal key into a config file's
 // args as the fallback for a client that does not pass its environment
 // through to a spawned child. That is exactly the plaintext-key mistake the
