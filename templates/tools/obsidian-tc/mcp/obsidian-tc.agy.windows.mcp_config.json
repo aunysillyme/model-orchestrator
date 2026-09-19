@@ -1,9 +1,0 @@
-{
-  "mcpServers": {
-    "obsidian-tc": {
-      "command": "cmd",
-      "args": ["/c", "npx", "-y", "obsidian-tc"],
-      "env": { "OBSIDIAN_TC_CONFIG": "C:\\ABSOLUTE\\PATH\\TO\\obsidian-tc.config.json" }
-    }
-  }
-}

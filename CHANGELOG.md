@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.1.26] - 2026-09-19
+
+### Added
+
+- **obsidian-tc on Windows: the answer is that no client needs a `cmd /c` snippet, and `OBSIDIAN-TC.md` now says so with the code it was read from.** All five obsidian-tc snippets spawn `"command": "npx"`, and on Windows `npx` is `npx.cmd`, which a bare `CreateProcess` will not start. Each client was read instead of assumed, and all five resolve it themselves: Zed hands the command to the system shell (`crates/context_server/src/transport/stdio_transport.rs`, `ShellBuilder::new(&Shell::System, ..)`, from its PR #42382, 2025-12-10), VS Code's `formatSubprocessArguments` in `src/vs/workbench/api/node/extHostMcpNode.ts` resolves the executable and re-spawns with `shell: true` for a `.bat` or `.cmd`, the Codex CLI calls `which::which_in` in `codex-rs/rmcp-client/src/program_resolver.rs`, and Cursor and Antigravity's `agy` both reach `npx` through `@modelcontextprotocol/sdk`, whose `client/stdio.js` imports `cross-spawn` and re-invokes a non-`.exe` as `%COMSPEC% /d /s /c`. That last point is wider than those two clients: every published SDK from 1.23.0 through 1.30.0 depends on `cross-spawn ^7.0.5`, so `shell: false` in that transport is not the whole story. The doc also names the one Windows case that can still fail and is not about `.cmd`: Zed prefers PowerShell, which resolves a bare `npx` to npm's `npx.ps1` shim, and a `.ps1` will not run under the `Restricted` execution policy that is Windows' client default. A test pins the snippet set, fails if any `.windows` file appears, and fails if the doc drops a citation. Not run on a Windows machine.
+
+### Fixed
+
+- **Context7's Windows guidance said something untrue about Zed, and its `cmd` wrapper was missing `/d`** ([#34](https://github.com/aunysillyme/model-orchestrator/issues/34) follow-up). 0.1.25 shipped `mcp/context7.zed.windows.settings.json` on the premise that Zed spawns `"command": "npx"` directly and so cannot start it. Reading Zed's own source for the obsidian-tc work above showed it has launched MCP stdio servers through the system shell since PR #42382 (2025-12-10), so a current Zed starts the plain snippet. The file stays, because it is still the fix for an older Zed and for the PowerShell execution-policy case, but `CONTEXT7.md` no longer sends every Windows user to it and now carries both reasons. The snippet's args change from `["/c", "npx", ...]` to `["/d", "/c", "npx", ...]`: without `/d`, `cmd` first runs whatever sits in the Command Processor `AutoRun` registry value, which can print non-JSON into the protocol stream. `cross-spawn` passes `/d /s /c` for the same reason. The `#34` test follows the new args and now also fails if the doc stops naming why a current Zed does not need the file.
+
 ## [0.1.25] - 2026-09-19
 
 ### Fixed
@@ -365,7 +375,8 @@ First release.
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
-[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.25...HEAD
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.26...HEAD
+[0.1.26]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.25...v0.1.26
 [0.1.25]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.24...v0.1.25
 [0.1.24]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.23...v0.1.24
 [0.1.23]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.22...v0.1.23

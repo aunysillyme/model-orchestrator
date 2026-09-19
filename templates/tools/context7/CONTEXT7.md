@@ -48,7 +48,7 @@ Pinned form, if you want the version this installer was released against: `npx -
 
 ## Register it with your agent (snippets in `mcp/`)
 
-Every snippet below ships **keyless**: the remote ones point at the hosted endpoint with no `Authorization` header at all (Qwen Code's snippet keeps the non-credential `Accept` header upstream itself ships), and the two Zed snippets (one per OS) run the local, version-pinned `npx` server with no key in its `env` block. That is deliberate, not an oversight: see "Higher rate limits" next for why a header is not shipped by default.
+Every snippet below ships **keyless**: the remote ones point at the hosted endpoint with no `Authorization` header at all (Qwen Code's snippet keeps the non-credential `Accept` header upstream itself ships), and both Zed snippets run the local, version-pinned `npx` server with no key in its `env` block. That is deliberate, not an oversight: see "Higher rate limits" next for why a header is not shipped by default.
 
 | Agent | File to edit | Snippet |
 |---|---|---|
@@ -56,22 +56,27 @@ Every snippet below ships **keyless**: the remote ones point at the hosted endpo
 | Claude Desktop | no config file: `Settings > Connectors > Add Custom Connector`, name `Context7`, URL `https://mcp.context7.com/mcp` | none, it is a UI step |
 | Cursor | one-click install in the upstream README, or `~/.cursor/mcp.json` | `mcp/context7.mcpServers.json` |
 | VS Code | `.vscode/mcp.json` (key is `servers`, remote type is `http`) | `mcp/context7.vscode.mcp.json` |
-| Zed | `~/.config/zed/settings.json` (key is `context_servers`); upstream ships only a local (`npx`) config for Zed, so this snippet runs the server locally rather than remote. **Windows: use the `.windows` snippet**, see "Local `npx` on Windows" below | macOS/Linux: `mcp/context7.zed.settings.json` · Windows: `mcp/context7.zed.windows.settings.json` |
+| Zed | `~/.config/zed/settings.json` (key is `context_servers`); upstream ships only a local (`npx`) config for Zed, so this snippet runs the server locally rather than remote. On Windows a current Zed starts it as written; see "Local `npx` on Windows" below for the two cases that need the `.windows` file | `mcp/context7.zed.settings.json` · fallback: `mcp/context7.zed.windows.settings.json` |
 | Codex CLI | `~/.codex/config.toml` | `mcp/context7.codex.config.toml` |
 | Antigravity `agy` | its MCP config file | `mcp/context7.agy.mcp_config.json` |
 | Qwen Code | `~/.qwen/settings.json` under `mcpServers`; note the field is `httpUrl`, not `url`, a different shape from every other client here | `mcp/context7.qwen.settings.json` |
 
 ### Local `npx` on Windows
 
-On Windows `npx` is a batch file (`npx.cmd`), and a client that spawns `"command": "npx"` directly fails to start it. Context7's own client guide says to wrap it in `cmd` on Windows ([all clients, Windows section](https://context7.com/docs/resources/all-clients)). This only affects the local form: every remote snippet above connects over HTTPS and spawns nothing.
+On Windows `npx` is a batch file (`npx.cmd`) that a bare `CreateProcess` will not start, and Context7's own client guide says to wrap it in `cmd` on Windows ([all clients, Windows section](https://context7.com/docs/resources/all-clients)). That guide is about clients in general. **Zed is not one that needs it:** since its PR #42382, "Use shell to launch MCP and ACP servers" (2025-12-10), `crates/context_server/src/transport/stdio_transport.rs` builds every MCP launch through `ShellBuilder::new(&Shell::System, ..)`, so the shell resolves `npx` and a plain `"command": "npx"` starts. The `.windows` snippet is kept for two cases it does fix: a Zed older than that build, and the PowerShell one below. This only affects the local form either way: every remote snippet above connects over HTTPS and spawns nothing.
 
 | Where | Use |
 |---|---|
 | Zed on macOS or Linux | `mcp/context7.zed.settings.json` (`"command": "npx"`) |
-| Zed on Windows | `mcp/context7.zed.windows.settings.json` (`"command": "cmd"`, `"args": ["/c", "npx", ...]`) |
-| Any other client, local alternative, on Windows | the same change by hand: `"command": "cmd"` and put `"/c", "npx"` in front of the existing args, e.g. `"args": ["/c", "npx", "-y", "@upstash/context7-mcp@{{CONTEXT7_PIN}}"]` |
+| Zed on Windows, current build | `mcp/context7.zed.settings.json` as well; the shell Zed opens resolves `npx` |
+| Zed on Windows, older build or a blocked `npx.ps1` | `mcp/context7.zed.windows.settings.json` (`"command": "cmd"`, `"args": ["/d", "/c", "npx", ...]`) |
+| Any other client, local alternative, on Windows | usually nothing: Cursor, VS Code, the Codex CLI and every client on the stock `@modelcontextprotocol/sdk` resolve `PATHEXT` themselves. If yours genuinely does not, the change is `"command": "cmd"` with `"/d", "/c", "npx"` in front of the existing args |
 
-Not yet run on a Windows machine by this project; the shape is the vendor's own.
+The one Windows failure that is not about `.cmd`: Zed prefers PowerShell for the system shell (`get_windows_system_shell` in `crates/gpui_util/src/lib.rs` falls back to `cmd.exe` only when PowerShell is missing), and PowerShell resolves a bare `npx` to npm's `npx.ps1` shim when one is installed. Under the `Restricted` execution policy that is Windows' client default, a `.ps1` will not run. Check `Get-ExecutionPolicy`, and if that is the cause the `.windows` snippet is the fix.
+
+The `/d` in those args is deliberate: without it `cmd` first runs whatever is in the Command Processor `AutoRun` registry value, which can print non-JSON into the protocol stream. `cross-spawn`, the library the MCP TypeScript SDK uses for exactly this job, passes `/d /s /c` for the same reason.
+
+Not yet run on a Windows machine by this project.
 
 Merge the block; do not replace the file. `mcp/context7.mcpServers.json` (Cursor) and `mcp/context7.claude-code.mcp.json` look alike but are not interchangeable: Claude Code requires the `"type": "http"` field and Cursor's own docs show plain `{"url": ...}` with no `type` at all.
 

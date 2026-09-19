@@ -54,6 +54,24 @@ Every snippet points `OBSIDIAN_TC_CONFIG` at your config file. Replace `/ABSOLUT
 
 Merge the block; do not replace the file.
 
+### Local `npx` on Windows
+
+Every snippet here spawns `npx`, and on Windows `npx` is a batch file (`npx.cmd`) that a bare `CreateProcess` will not start. **All five clients handle that themselves, so there is no Windows snippet here and the files above are the ones to use on every OS.** Each was read rather than assumed, because the usual advice ("on Windows, wrap it in `cmd /c`") is about clients in general and is wrong for all five of these:
+
+| Client | How it starts `"command": "npx"` on Windows | Checked against |
+|---|---|---|
+| Zed | hands the whole command to the system shell | `crates/context_server/src/transport/stdio_transport.rs` builds through `ShellBuilder::new(&Shell::System, ..)`, from PR #42382 "Use shell to launch MCP and ACP servers" (2025-12-10) |
+| VS Code | resolves the executable, then re-spawns it through a shell | `src/vs/workbench/api/node/extHostMcpNode.ts`, `formatSubprocessArguments` resolves the extension and sets `shell: true` when it ends in `.bat` or `.cmd` |
+| Codex CLI | resolves `PATHEXT` itself before spawning | `codex-rs/rmcp-client/src/program_resolver.rs`, whose Windows arm calls `which::which_in` so that "tools like `npx`, `pnpm`, and `yarn` work correctly on Windows" |
+| Cursor | the MCP SDK it bundles spawns through `cross-spawn` | Cursor 3.18.9 ships `@modelcontextprotocol/sdk` 1.25.1, whose `dist/esm/client/stdio.js` opens with `import spawn from 'cross-spawn'`; `cross-spawn/lib/parse.js` resolves the command and, when it is not an `.exe`, re-invokes it as `%COMSPEC% /d /s /c "<escaped>"` |
+| Antigravity `agy` | same SDK path, through the Gemini CLI config namespace it reads | Gemini CLI pins `@modelcontextprotocol/sdk` 1.23.0 in `packages/core/package.json` and hands `mcpServerConfig.command` to that transport; 1.23.0's `client/stdio.js` imports `cross-spawn` too |
+
+The SDK point covers more than these two clients: every published `@modelcontextprotocol/sdk` from 1.23.0 through 1.30.0 depends on `cross-spawn ^7.0.5` and uses it in the stdio client, so any client that connects through the stock TypeScript SDK inherits the same `PATHEXT` resolution. `shell: false` in that transport is not the whole story, and reading only that line is how a client gets mistaken for one that cannot start `npx`.
+
+One Windows case can still fail, and it is not about `.cmd`. Zed prefers PowerShell for the system shell (`get_windows_system_shell` in `crates/gpui_util/src/lib.rs` falls back to `cmd.exe` only when PowerShell is missing), and PowerShell resolves a bare `npx` to npm's `npx.ps1` shim when one is installed. Under the `Restricted` execution policy that is Windows' client default, running a `.ps1` is blocked. If Zed reports that the server would not start, check `Get-ExecutionPolicy` first, and if that is the cause, change the Zed entry by hand to `"command": "cmd"` with `"args": ["/d", "/c", "npx", "-y", "obsidian-tc"]`, keeping the rest of the block. `/d` is there on purpose: it skips any Command Processor `AutoRun` command, which would otherwise run first and can print non-JSON into the protocol stream.
+
+None of this was run on a Windows machine by this project. The five verdicts are from each client's own shipped code; the PowerShell case is from Zed's shell choice plus documented `Restricted` behaviour, and is the one worth reporting back if you hit it.
+
 ## Security posture, read before a second agent touches it
 
 Zero-config mode boots with **auth off and no folder ACL**: anything that can reach the server has the same authority as raw filesystem access to the vault. That is acceptable only because the surface is local-only (the config refuses by default if you enable HTTP on a non-loopback host with auth off, and a DNS-rebinding guard protects loopback). Before exposing it to partially-trusted, remote or multi-agent callers, turn on `auth.mode: "jwt"` and set `acl.readPaths` / `writePaths` / `deletePaths` in the config file. Upstream `SECURITY.md` has the security notes and a private disclosure path.
