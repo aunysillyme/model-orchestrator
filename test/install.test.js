@@ -340,6 +340,53 @@ test('obsidian-tc: optional, off by default, writes its doc and snippets only wh
   assert.match(doc, /What you need first/);
 });
 
+// On Windows `npx` is `npx.cmd`, which a bare CreateProcess will not start, so
+// the reflex is to ship a `cmd /c` snippet per client. Every one of the five
+// clients here resolves it itself, three in their own code and two through
+// cross-spawn inside the MCP TypeScript SDK, so shipping one would teach a
+// Windows user to change a config that already works. This test is the guard
+// on that: no `.windows` file, and a doc that carries the evidence.
+test('obsidian-tc on Windows: no client gets a cmd /c snippet, and the doc says which code was read for each', () => {
+  const { tools } = resolveTools(['obsidian-tc']);
+  const plan = planFiles({ level: 1, selected: sel('codex'), primary: byId.codex, tools });
+  const mcp = plan.map((f) => f.rel).filter((r) => r.startsWith(join('mcp', 'obsidian-tc')));
+
+  assert.deepEqual(
+    mcp.map((r) => r.replace(/^.*[\\/]/, '')).sort(),
+    [
+      'obsidian-tc.agy.mcp_config.json',
+      'obsidian-tc.codex.config.toml',
+      'obsidian-tc.mcpServers.json',
+      'obsidian-tc.vscode.mcp.json',
+      'obsidian-tc.zed.settings.json'
+    ],
+    'the obsidian-tc snippet set changed; if a `.windows` file was added, the doc table has to change with it'
+  );
+  assert.ok(!mcp.some((r) => r.includes('.windows.')), 'no obsidian-tc client needs a Windows snippet');
+
+  // Every JSON snippet spawns npx directly, on every OS.
+  for (const rel of mcp.filter((r) => r.endsWith('.json'))) {
+    const parsed = JSON.parse(plan.find((f) => f.rel === rel).content);
+    const server = (parsed.mcpServers || parsed.servers || parsed.context_servers)['obsidian-tc'];
+    assert.equal(server.command, 'npx', `${rel} must spawn npx directly`);
+    assert.equal(server.args[0], '-y', `${rel} args must start at -y`);
+  }
+
+  const doc = plan.find((f) => f.rel === 'OBSIDIAN-TC.md').content;
+  assert.doesNotMatch(doc, /\{\{/, 'an unrendered placeholder reached OBSIDIAN-TC.md');
+  assert.match(doc, /Local `npx` on Windows/);
+  // One citation per client, so a future reader re-checks the claim instead of
+  // trusting it. These are the files each verdict was actually read from.
+  assert.match(doc, /ShellBuilder/, 'the doc must name where the Zed verdict came from');
+  assert.match(doc, /formatSubprocessArguments/, 'the doc must name where the VS Code verdict came from');
+  assert.match(doc, /program_resolver\.rs/, 'the doc must name where the Codex CLI verdict came from');
+  assert.match(doc, /cross-spawn/, 'the doc must name why Cursor and agy resolve it despite shell: false');
+  // The trap that made the first pass of this work wrong: reading `shell: false`
+  // in the SDK transport and stopping there.
+  assert.match(doc, /1\.23\.0 through 1\.30\.0/, 'the doc must say how wide the cross-spawn fact is');
+  assert.match(doc, /Get-ExecutionPolicy/, 'the doc must name the one Windows case that can still fail');
+});
+
 // ---- context7 companion ----
 test('context7: optional, off by default, writes its doc and snippets only when selected; docs-then-prove is always written and names codecalc', () => {
   const { tools } = resolveTools(['context7']);
@@ -443,19 +490,27 @@ test('F4: the rendered zed context7 snippet pins the npx package to the catalog 
 // Issue #34: on Windows `npx` is `npx.cmd`, which Zed cannot spawn as a bare
 // command. Context7's own client guide wraps it in `cmd /c`. The Windows
 // variant must keep the same pin, and CONTEXT7.md must say which to use where.
-test('#34: a Windows zed context7 snippet wraps npx in cmd /c, keeps the pin, and CONTEXT7.md names both', () => {
+test('#34: a Windows zed context7 snippet wraps npx in cmd /d /c, keeps the pin, and CONTEXT7.md names both', () => {
   const plan = planFiles({ level: 1, selected: sel('codex'), primary: byId.codex, tools: resolveTools(['context7']).tools });
   const win = plan.find((f) => f.rel === join('mcp', 'context7.zed.windows.settings.json'));
   assert.ok(win, 'mcp/context7.zed.windows.settings.json was not planned');
   assert.doesNotMatch(win.content, /\{\{/, 'an unrendered placeholder reached the written file');
   const server = JSON.parse(win.content).context_servers.Context7;
   assert.equal(server.command, 'cmd');
-  assert.deepEqual(server.args, ['/c', 'npx', '-y', `@upstash/context7-mcp@${toolById.context7.pin}`]);
+  // `/d` skips the Command Processor AutoRun value, which would otherwise run
+  // first and can print non-JSON into the protocol stream. cross-spawn, the
+  // library the MCP TypeScript SDK uses for this job, passes `/d /s /c`.
+  assert.deepEqual(server.args, ['/d', '/c', 'npx', '-y', `@upstash/context7-mcp@${toolById.context7.pin}`]);
   const posix = JSON.parse(plan.find((f) => f.rel === join('mcp', 'context7.zed.settings.json')).content).context_servers.Context7;
-  assert.deepEqual(server.args.slice(2), posix.args, 'the Windows args must be the POSIX args behind /c npx, nothing else');
+  assert.deepEqual(server.args.slice(3), posix.args, 'the Windows args must be the POSIX args behind /d /c npx, nothing else');
   const doc = plan.find((f) => f.rel === 'CONTEXT7.md').content;
   assert.match(doc, /mcp\/context7\.zed\.windows\.settings\.json/);
   assert.match(doc, /Local `npx` on Windows/);
+  // 0.1.26: the reason this file exists was wrong. Zed shells out, so the
+  // wrapper is a fallback for an older build or a blocked npx.ps1, not the
+  // default. The doc must not send a current-Zed user to it.
+  assert.match(doc, /PR #42382/, 'CONTEXT7.md must say why a current Zed does not need the wrapper');
+  assert.match(doc, /Get-ExecutionPolicy/, 'CONTEXT7.md must name the PowerShell case the wrapper does fix');
   assert.doesNotMatch(doc, /\{\{/, 'an unrendered placeholder reached CONTEXT7.md');
 });
 

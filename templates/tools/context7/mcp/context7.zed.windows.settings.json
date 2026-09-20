@@ -3,7 +3,7 @@
     "Context7": {
       "source": "custom",
       "command": "cmd",
-      "args": ["/c", "npx", "-y", "@upstash/context7-mcp@{{CONTEXT7_PIN}}"]
+      "args": ["/d", "/c", "npx", "-y", "@upstash/context7-mcp@{{CONTEXT7_PIN}}"]
     }
   }
 }
