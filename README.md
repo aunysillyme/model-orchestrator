@@ -109,13 +109,13 @@ Selecting one writes a doc and the config snippets for your agents, so the insta
 
 ## Principles the whole thing rests on
 
-1. **Route by capability tier, not model name.** Default down, escalate on evidence.
-2. **A gate you cannot fail is not a gate.** Every checkpoint is a question that can come back wrong.
-3. **Exit 0 is not a deliverable.** Check for the artifact, not the status line. `cli-run` checks the response is structurally there; `--expect-file` checks the artifact.
-4. **Numbers are computed, never guessed.** A tool that calculates beats a model that feels finished.
-5. **A write nobody can find again did not happen.** Search first, keep the index true, one writer.
-6. **A delegate's brief carries this task's scope, whatever it already holds.** A Claude Code subagent loads the project's CLAUDE.md hierarchy at start, so it already has the standing rules; a second CLI or a fresh chat window may hold none of them. Either way, only the brief carries what this task needs. On claude-code, that changes who executes: see "Who builds" in `ROUTING.md`.
-7. **Only one process holds keys.** Names in the environment, values in a secrets manager, never in a file here.
+1. **Route by capability tier.** Start at the smallest tier that fits, and let evidence move it up.
+2. **Every gate can come back wrong.** A checkpoint earns its place by being answerable both ways.
+3. **Check for the artifact.** A deliverable is a file, a commit or a line you can point at. `cli-run` checks the response is structurally there; `--expect-file` checks the artifact.
+4. **Numbers are computed.** A tool that calculates beats a model that feels finished.
+5. **A write stays findable.** Search first, keep the index true, one writer.
+6. **A delegate's brief carries this task's scope, whatever it already holds.** A Claude Code subagent loads the project's CLAUDE.md hierarchy at start, so it already has the standing rules; a second CLI or a fresh chat window may hold none of them. Either way, the brief is what carries this task. On claude-code, that changes who executes: see "Who builds" in `ROUTING.md`.
+7. **Only one process holds keys.** Names in the environment, values in a secrets manager.
 
 ## Common questions
 

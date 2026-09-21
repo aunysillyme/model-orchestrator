@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.1.29] - 2026-09-21
+
+### Changed
+
+- **The seven principles state what to do, rather than what fails.** "A gate you cannot fail is not a gate" became "Every gate can come back wrong. A checkpoint earns its place by being answerable both ways"; "Exit 0 is not a deliverable" became "Check for the artifact. A deliverable is a file, a commit or a line you can point at"; "A write nobody can find again did not happen" became "A write stays findable". Same rules, same gates, stated forward. This finishes the copy pass 0.1.28 started, which left the principle list untouched.
+
+
 ## [0.1.28] - 2026-09-21
 
 ### Added
@@ -393,7 +400,8 @@ First release.
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
-[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.28...HEAD
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.29...HEAD
+[0.1.29]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.28...v0.1.29
 [0.1.28]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.27...v0.1.28
 [0.1.27]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.26...v0.1.27
 [0.1.26]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.25...v0.1.26
