@@ -1,6 +1,6 @@
 # model-orchestrator
 
-> Model orchestrator for AI coding agents and LLMs (Claude Code, Codex, Gemini, Grok, Qwen, Ollama). One installer writes routing rules, subagent definitions and a CLI lane runner for the AI tools you already have. The rules tell your agent which model, subagent or CLI to use for each task, so small work goes to cheap tiers and fewer tokens go to frontier models. It is not a proxy or gateway: it does not automatically compare prices or select models; your agent follows the rules and chooses.
+> Model orchestrator for AI coding agents and LLMs (Claude Code, Codex, Gemini, Grok, Qwen, Ollama). One installer writes routing rules, subagent definitions and a CLI lane runner for the AI tools you already have. The rules tell your agent which model, subagent or CLI to use for each task, so small work goes to cheap tiers and fewer tokens go to frontier models. It sits above the request layer: your agent reads the rules and picks the lane, so the decision stays readable, versioned and editable. Request-level routers and gateways compose underneath it.
 
 Install and run: `npx model-orchestrator` (interactive), or headless: `npx model-orchestrator --yes --level 2 --ais claude-code,codex --project . --dir ./ai-orchestrator`. Preview without writing: add `--dry-run`. List every supported AI: `npx model-orchestrator --list`. Node 18 or newer, zero runtime dependencies, MIT licence.
 

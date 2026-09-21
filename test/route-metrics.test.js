@@ -363,6 +363,57 @@ test('route-metrics.mjs --summary: computes turns, coverage, lanes, dispatches a
     assert.match(r.stdout, /code-reviewer: 1/);
     assert.match(r.stdout, /dispatches with no matching start: 2/, '3 dispatches minus 1 start = 2');
     assert.match(r.stdout, /builder: 3(\.00)? \/ 4(\.00)?/, 'mean of 2 and 4 is 3, max is 4');
+    assert.match(r.stdout, /work sent off the main session: 100(\.00)?% \(1\/1 covered turns\)/, 'the one covered turn named builder, which is not an inline name');
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test('route-metrics.mjs --summary: work sent off the main session counts only covered turns, and --inline renames what counts as inline', () => {
+  const home = newHome();
+  const hookPath = writeHook(home);
+  try {
+    mkdirSync(join(home, '.ai-orchestrator'), { recursive: true });
+    const ts = '2026-01-01T00:00:00.000Z';
+    const records = [
+      { ts, v: 1, event: 'turn', session_id: 's' },
+      { ts, v: 1, event: 'turn', session_id: 's' },
+      { ts, v: 1, event: 'turn', session_id: 's' },
+      { ts, v: 1, event: 'turn', session_id: 's' },
+      { ts, v: 1, event: 'route', session_id: 's', lane: ['inline'] },
+      { ts, v: 1, event: 'route', session_id: 's', lane: ['builder'] },
+      { ts, v: 1, event: 'route', session_id: 's', lane: ['deep-planner', 'codex'] },
+      { ts, v: 1, event: 'route', session_id: 's', lane: ['missing'] }
+    ];
+    writeFileSync(logPath(home), records.map((r) => JSON.stringify(r)).join('\n') + '\n');
+    const env = { ...process.env, HOME: home, USERPROFILE: home };
+
+    // 3 covered turns (the 'missing' one is not covered), 2 of them named a lane that is not inline.
+    const r = spawnSync('node', [hookPath, '--summary'], { encoding: 'utf8', env });
+    assert.equal(r.status, 0);
+    assert.match(r.stdout, /work sent off the main session: 66\.67% \(2\/3 covered turns\)/);
+    assert.match(r.stdout, /inline names for this report: inline, main, main inline/);
+
+    // Renaming the inline lane moves the number: call builder inline and only the deep-planner turn is left.
+    const r2 = spawnSync('node', [hookPath, '--summary', '--inline', 'inline,builder'], { encoding: 'utf8', env });
+    assert.equal(r2.status, 0);
+    assert.match(r2.stdout, /work sent off the main session: 33\.33% \(1\/3 covered turns\)/);
+    assert.match(r2.stdout, /inline names for this report: inline, builder/);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test('route-metrics.mjs --summary: says so plainly when no turn carried a lane yet', () => {
+  const home = newHome();
+  const hookPath = writeHook(home);
+  try {
+    mkdirSync(join(home, '.ai-orchestrator'), { recursive: true });
+    const ts = '2026-01-01T00:00:00.000Z';
+    writeFileSync(logPath(home), JSON.stringify({ ts, v: 1, event: 'turn', session_id: 's' }) + '\n');
+    const r = spawnSync('node', [hookPath, '--summary'], { encoding: 'utf8', env: { ...process.env, HOME: home, USERPROFILE: home } });
+    assert.equal(r.status, 0);
+    assert.match(r.stdout, /work sent off the main session: no covered turns yet/);
   } finally {
     rmSync(home, { recursive: true, force: true });
   }

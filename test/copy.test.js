@@ -34,10 +34,25 @@ test('the description fits the GitHub repository description limit', () => {
   assert.ok(pkg.description.length <= 350, 'GitHub caps a repository description at 350 characters, got ' + pkg.description.length);
 });
 
-test('README and llms.txt keep the statement that it does not select models itself', () => {
-  assert.match(readme, /does not automatically compare prices or select models/);
-  assert.match(llms, /does not automatically compare prices or select models/);
-  assert.doesNotMatch(llms, OVERCLAIM);
+// 0.1.28 states the same boundary the positive way: say where the package sits and who
+// makes the choice, rather than listing what it is not. The guard that matters is
+// unchanged and still the point of this test, OVERCLAIM must not match: the package may
+// never promise that it picks the model. What replaced the negative sentence is a
+// required positive one, so the boundary cannot quietly disappear from the copy either.
+const SITS_ABOVE = /above the request layer/i;
+const WHO_CHOOSES = /your agent reads the rules and picks the lane/i;
+
+test('README and llms.txt say where it sits and who picks the lane', () => {
+  for (const [name, s] of [['README', readme], ['llms.txt', llms]]) {
+    assert.match(s, SITS_ABOVE, name + ' must say where the package sits');
+    assert.match(s, WHO_CHOOSES, name + ' must say the agent picks the lane, not the package');
+    assert.doesNotMatch(s, OVERCLAIM, name + ' must not promise routing the code does not perform');
+  }
+});
+
+test('the who-picks-the-lane check can go red', () => {
+  assert.doesNotMatch('it automatically selects the cheapest model', WHO_CHOOSES);
+  assert.match('it automatically selects the cheapest model', OVERCLAIM);
 });
 
 test('llms.txt follows the llmstxt.org shape and ships in the package', () => {

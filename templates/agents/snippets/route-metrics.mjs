@@ -273,6 +273,10 @@ async function runHook() {
   process.exit(0); // fail-open, always: a miss here is a missing log line, never a blocked turn
 }
 
+// Lane names that mean "the main session did it itself". Defaults only: the lane
+// vocabulary belongs to the user's own ROUTING.md, and --inline overrides this.
+const INLINE_LANE_NAMES = ['inline', 'main', 'main inline'];
+
 // ---- --summary: a plain-text report, no stdin involved ----
 
 function parseLines(text) {
@@ -313,6 +317,22 @@ function runSummary(args) {
     for (const lane of Array.isArray(r.lane) ? r.lane : []) laneCounts.set(lane, (laneCounts.get(lane) || 0) + 1);
   }
 
+  // The one number that answers "did the routing actually move work off the main
+  // session?". Derived only from lane names the marker already carries: no price
+  // table, no token count, nothing this log does not hold. A covered turn counts as
+  // sent off when its marker names any lane that is not one of the inline names.
+  // The inline names are overridable because the lane vocabulary is the user's own
+  // ROUTING.md, not a list this package gets to fix.
+  const inlineIdx = args.indexOf('--inline');
+  const inlineNames = new Set(
+    (inlineIdx !== -1 && args[inlineIdx + 1] ? args[inlineIdx + 1].split(',') : INLINE_LANE_NAMES)
+      .map((n) => n.trim().toLowerCase())
+      .filter(Boolean)
+  );
+  const coveredRoutes = routes.filter((r) => Array.isArray(r.lane) && r.lane.some((l) => l !== 'missing'));
+  const sentOff = coveredRoutes.filter((r) => r.lane.some((l) => l !== 'missing' && !inlineNames.has(String(l).trim().toLowerCase()))).length;
+  const sentOffPct = coveredRoutes.length > 0 ? (sentOff / coveredRoutes.length) * 100 : null;
+
   const dispatches = records.filter((r) => r.event === 'dispatch');
   const dispatchCounts = new Map();
   for (const r of dispatches) dispatchCounts.set(r.subagent_type, (dispatchCounts.get(r.subagent_type) || 0) + 1);
@@ -331,6 +351,12 @@ function runSummary(args) {
   lines.push('route-metrics summary' + (Number.isNaN(since) ? '' : ' since ' + args[sinceIdx + 1]));
   lines.push('turns: ' + turns);
   lines.push('route-marker coverage: ' + (coveragePct === null ? 'no turns yet' : formatNumber(coveragePct) + '%') + ' (' + covered + '/' + turns + ')');
+  lines.push(
+    'work sent off the main session: ' +
+      (sentOffPct === null ? 'no covered turns yet' : formatNumber(sentOffPct) + '%') +
+      ' (' + sentOff + '/' + coveredRoutes.length + ' covered turns)'
+  );
+  lines.push('  inline names for this report: ' + [...inlineNames].join(', ') + ' (override with --inline a,b)');
   lines.push('lanes by count:');
   if (laneCounts.size === 0) lines.push('  (none)');
   for (const [lane, count] of [...laneCounts.entries()].sort((a, b) => b[1] - a[1])) lines.push('  ' + lane + ': ' + count);

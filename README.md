@@ -8,7 +8,9 @@
 npx model-orchestrator
 ```
 
-Three questions, then 38 files. Here is a real `--dry` run, which prints the plan and writes nothing:
+<img src="docs/demo.gif" alt="A terminal running npx model-orchestrator with --dry: it prints the level, the AIs detected, both target folders and all 38 files it would write, then says nothing was written." width="100%" />
+
+Three questions, then 38 files. The same plan as text:
 
 ```text
 Plan
@@ -31,18 +33,20 @@ Plan
 --dry: nothing written.
 ```
 
-Reproduce it:
+Run it yourself, in any folder:
 
 ```bash
 npx model-orchestrator --yes --level 2 --ais claude-code,codex,grok --primary claude-code --dir ./ai-orchestrator --project . --dry
 ```
 
+The recording above comes from the published package under `asciinema`, rendered with `agg`: `bash scripts/record-demo.sh`.
+
 - **What it is:** routing rules, subagent definitions and a CLI lane runner (`cli-run`) for the AI tools you already pay for.
-- **What it is not:** a proxy, a gateway or an API router. It does not automatically compare prices or select models; your agent follows the rules and chooses.
+- **Where it sits:** above the request layer. Your agent reads the rules and picks the lane, so the decision stays somewhere you can read, version and edit. Request-level routers and gateways sit underneath it.
 - **Use it when:** you run more than one model or agent and want the expensive tier kept for planning and judgment.
 - **For agents:** [`llms.txt`](llms.txt) summarizes the package and links every doc; [`AGENTS.md`](AGENTS.md) has the headless commands.
 
-Built from a working system, not a diagram: the routing rules, the protocols and the lane runner here run in production, generalized so they transfer to any stack.
+Built from a working system: the routing rules, the protocols and the lane runner here run in production every day, generalized so they transfer to any stack.
 
 ## The three levels
 
@@ -78,7 +82,7 @@ node .claude/hooks/route-metrics.mjs --summary                        # since th
 node .claude/hooks/route-metrics.mjs --summary --since 2026-09-01     # since a date
 ```
 
-The report prints turns, **route-marker coverage** (the share of turns that carried a real lane, which answers "is the agent actually tagging its routing decisions?"), lanes by count, dispatches by `subagent_type`, dispatches with no matching start, and mean/max duration per agent type. It never logs prompt text, tool descriptions, or the "why" half of the marker. Fail-open by design: a miss is a missing log line, never a blocked turn.
+The report prints turns, **route-marker coverage** (the share of turns that carried a real lane, which answers "is the agent actually tagging its routing decisions?"), **work sent off the main session**, lanes by count, dispatches by `subagent_type`, and mean/max duration per agent type. The log holds exactly five things: a timestamp, the event, the session id, the lane name and the agent type. Every turn keeps running whatever the hook does, so the worst case is a quieter report.
 
 ## Claude Code plugin
 
@@ -89,11 +93,11 @@ The hooks and subagents also ship as a plugin, so they install and update throug
 /plugin install model-orchestrator@model-orchestrator
 ```
 
-It ships the three hooks and the eight subagents, each with an explicit tool list, and loads them namespaced as `model-orchestrator:builder`. It does not ship the routing rules, because a plugin runs no install step: `npx model-orchestrator` still writes those. `plugin/` is generated from `templates/` and `test/plugin.test.js` fails when the committed bundle drifts, when a hook gains a network call, a write or a subprocess, or when an agent loses its tool list. Details: [plugin/README.md](plugin/README.md).
+It ships the three hooks and the eight subagents, each with an explicit tool list, and loads them namespaced as `model-orchestrator:builder`. The routing rules come from `npx model-orchestrator`, which is the step that reads your setup and writes rules to match it. `plugin/` is generated from `templates/`, and `test/plugin.test.js` holds the bundle to that shape: committed output matches the generator, hooks stay read-only, every agent keeps its tool list. Details: [plugin/README.md](plugin/README.md).
 
 ## Companion tools (all optional)
 
-An orchestrator routes work. It does not make a model stop guessing numbers, give it a memory, or make it check a library's current docs before writing against it. Three tools close those gaps:
+An orchestrator routes work. Three companion tools cover the rest of what a working agent needs, exact numbers, a memory, and current library docs:
 
 | Tool | Closes | Default |
 |---|---|---|
@@ -101,7 +105,7 @@ An orchestrator routes work. It does not make a model stop guessing numbers, giv
 | [obsidian-tc](https://github.com/The-40-Thieves/obsidian-tc) | no durable memory: hybrid search, backlinks, compare-and-swap writes; local by default | no |
 | [Context7](https://github.com/upstash/context7) | stale library recall: current, version-specific docs pulled into the prompt | no |
 
-Selecting one writes a doc and config snippets; it installs nothing. What each needs first, and why Context7 pairs with codecalc rather than duplicating it: [docs/companions.md](docs/companions.md). Whether or not you select them, every level carries the three rules they serve: `protocols/numbers-and-logic.md`, `protocols/memory-and-record.md` and `protocols/docs-then-prove.md`.
+Selecting one writes a doc and the config snippets for your agents, so the install stays yours to run. What each needs first, and how Context7 and codecalc pair up (docs say what an API should do, a run proves what it does): [docs/companions.md](docs/companions.md). Every level carries the three rules they serve either way: `protocols/numbers-and-logic.md`, `protocols/memory-and-record.md` and `protocols/docs-then-prove.md`.
 
 ## Principles the whole thing rests on
 
@@ -121,15 +125,15 @@ Install for the tools you have, then let the generated `ROUTING.md` decide the t
 
 ### How do I route tasks to cheaper models?
 
-The rules route by role, complexity and stakes (see [Routing by role, complexity and stakes](#routing-by-role-complexity-and-stakes)). Role picks the agent, complexity moves the effort, stakes move the tier. A task a cheap tier finishes correctly never gets a frontier token.
+The rules route by role, complexity and stakes (see [Routing by role, complexity and stakes](#routing-by-role-complexity-and-stakes)). Role picks the agent, complexity moves the effort, stakes move the tier. A task a cheap tier finishes correctly stays on the cheap tier, and the frontier tokens go to the work that earns them.
 
-### Is this an LLM router or an AI gateway?
+### Where does this sit next to an LLM router or an AI gateway?
 
-No. It routes at the task level, through instructions your agent follows and a runner for agent CLIs. If you want a service or proxy that picks or forwards the model on every API request, look at request-level routers and gateways such as RouteLLM, LiteLLM, OpenRouter or claude-code-router. They solve a different problem and can sit underneath this.
+One layer up, and they compose. This routes at the task level, through instructions your agent follows and a runner for agent CLIs. Request-level routers and gateways (RouteLLM, LiteLLM, OpenRouter, claude-code-router) forward the model on every API call, and they sit underneath this happily: pick the lane here, let the gateway carry the call.
 
 ### Can an agent install and run it without a person?
 
-Yes. `--yes` with `--level`, `--ais` and `--project` runs headless, `--dry-run` previews the plan, and `--list` prints every supported AI. Nothing is appended to a file you already have; activation snippets are written next to your files for you to merge.
+Yes. `--yes` with `--level`, `--ais` and `--project` runs headless, `--dry-run` previews the plan, and `--list` prints every supported AI. Your existing files stay as they are: activation snippets land beside them, ready to merge when you choose.
 
 
 ## Read next

@@ -4,6 +4,18 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.1.28] - 2026-09-21
+
+### Added
+
+- **A recording of the command doing its job, at the top of the README.** `docs/demo.gif` (60 KB) shows `npx model-orchestrator ... --dry` typed and run: the level, the AIs, both target folders, all 38 files it would write, and the closing line that nothing was written. `scripts/record-demo.sh` re-records it from the PUBLISHED package inside a temp folder, so the frames stay the program's own output rather than a staged screen, and anyone can reproduce them with `brew install asciinema agg`. The text plan stays in the README under the image, and the image carries alt text describing what it prints, so the page still reads with images off.
+- **`--summary` now answers the question the package exists for: how much work left the main session.** `work sent off the main session` counts covered turns whose route marker named any lane that is not an inline name, over covered turns. It is derived only from lane names the log already holds, with no price table and no token estimate, because the log holds neither. `--inline a,b` renames what counts as inline, since the lane vocabulary belongs to your own `ROUTING.md`. A log with no lane markers yet says so instead of printing a number.
+
+### Changed
+
+- **Every line of user-facing copy states what the package is and does.** The opening bullet was "What it is not: a proxy, a gateway or an API router", which told a new reader what to stop expecting before they knew what they were looking at. It now reads "Where it sits: above the request layer. Your agent reads the rules and picks the lane", and request-level routers are described as composing underneath rather than as the thing this is not. Same for the plugin section, the companion-tool intro and the gateway question in Common Questions. `test/copy.test.js` keeps the boundary it was written to protect: the OVERCLAIM guard is unchanged, and two positive phrases are now required in both README and `llms.txt`, so the claim cannot quietly widen and the copy cannot quietly lose it.
+
+
 ## [0.1.27] - 2026-09-21
 
 ### Changed
@@ -381,7 +393,8 @@ First release.
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
-[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.27...HEAD
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.28...HEAD
+[0.1.28]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.27...v0.1.28
 [0.1.27]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.26...v0.1.27
 [0.1.26]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.25...v0.1.26
 [0.1.25]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.24...v0.1.25
