@@ -10,7 +10,11 @@ Claude Code plugin: `/plugin marketplace add aunysillyme/model-orchestrator`, th
 
 ## Docs
 
-- [README](https://github.com/aunysillyme/model-orchestrator/blob/main/README.md): what it writes, flags, principles, what is enforced versus instructed
+- [README](https://github.com/aunysillyme/model-orchestrator/blob/main/README.md): what it is, a real dry-run plan, the levels, the AIs, the principles
+- [Installing](https://github.com/aunysillyme/model-orchestrator/blob/main/docs/install.md): every flag, the two folders a run writes to, headless examples, the full file list
+- [How it routes](https://github.com/aunysillyme/model-orchestrator/blob/main/docs/how-it-routes.md): role, complexity and stakes; the three verifier agents; pinning model and effort per lane
+- [Guarantees](https://github.com/aunysillyme/model-orchestrator/blob/main/docs/guarantees.md): what is enforced by code, what is delegated to a vendor flag, what is only an instruction
+- [Companion tools](https://github.com/aunysillyme/model-orchestrator/blob/main/docs/companions.md): codecalc, obsidian-tc and Context7, what each closes and what it needs first
 - [Part 1: beginner](https://github.com/aunysillyme/model-orchestrator/blob/main/docs/part-1-beginner.md): one agent, tiers, the task bundle every delegation carries
 - [Part 2: intermediate](https://github.com/aunysillyme/model-orchestrator/blob/main/docs/part-2-intermediate.md): several agent CLIs, the lane runner, pinning model and effort per lane
 - [Part 3: advanced](https://github.com/aunysillyme/model-orchestrator/blob/main/docs/part-3-advanced.md): the VM, the gateway, scheduled jobs, privacy gates

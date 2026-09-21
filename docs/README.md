@@ -1,6 +1,13 @@
 # docs/
 
-The three parts, as reading. The installer writes the working files; these explain the thinking behind them and how to grow from one level to the next.
+Reference, then reading. The reference pages carry the detail the README links out to; the three parts explain the thinking behind each level and how to grow from one to the next.
+
+| Reference | What is in it | File |
+|---|---|---|
+| Installing | every flag, the two folders a run writes to, headless examples, the full file list | [install.md](install.md) |
+| How it routes | role, complexity and stakes; the three verifier agents; pinning model and effort | [how-it-routes.md](how-it-routes.md) |
+| Guarantees | what is enforced by code, delegated to a vendor flag, or only an instruction | [guarantees.md](guarantees.md) |
+| Companion tools | codecalc, obsidian-tc and Context7: what each closes and what it needs first | [companions.md](companions.md) |
 
 | Part | Read if | File |
 |---|---|---|

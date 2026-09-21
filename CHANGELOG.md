@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Changed
+
+- **README restructured for a first-time reader: 32,083 bytes to 17,586, with the first screen now a claim, the install command and a real `--dry` plan.** The old opening was a 200-word paragraph followed by "What it is not", the flag-conflict rules and the uninstall procedure, all before the reader had seen the tool do anything. The detail moved rather than went away: `docs/install.md` (every flag, the two target folders, headless examples, the full file list), `docs/how-it-routes.md` (role, complexity and stakes; the three verifier agents; pinning model and effort), `docs/guarantees.md` (enforced by code, delegated to a vendor flag, or only an instruction), `docs/companions.md` (the full companion-tool table). `docs/README.md` and `llms.txt` index all four. Platform support and the vendor compatibility table stay in the README inside collapsed `<details>` blocks, because `scripts/gen-catalog.js` writes the vendor table between markers there and `test/prose.test.js` requires the skipped-test explanations to live in the README; collapsing them keeps both mechanisms pointed at the same file. The opening line still satisfies `test/copy.test.js`: it names the package, carries the shared purpose clause, and keeps the 0.1.11 correction that it does not select models itself.
+
 ## [0.1.26] - 2026-09-19
 
 ### Added
