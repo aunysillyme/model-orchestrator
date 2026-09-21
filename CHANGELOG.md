@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.1.27] - 2026-09-21
+
 ### Changed
 
 - **README restructured for a first-time reader: 32,083 bytes to 17,586, with the first screen now a claim, the install command and a real `--dry` plan.** The old opening was a 200-word paragraph followed by "What it is not", the flag-conflict rules and the uninstall procedure, all before the reader had seen the tool do anything. The detail moved rather than went away: `docs/install.md` (every flag, the two target folders, headless examples, the full file list), `docs/how-it-routes.md` (role, complexity and stakes; the three verifier agents; pinning model and effort), `docs/guarantees.md` (enforced by code, delegated to a vendor flag, or only an instruction), `docs/companions.md` (the full companion-tool table). `docs/README.md` and `llms.txt` index all four. Platform support and the vendor compatibility table stay in the README inside collapsed `<details>` blocks, because `scripts/gen-catalog.js` writes the vendor table between markers there and `test/prose.test.js` requires the skipped-test explanations to live in the README; collapsing them keeps both mechanisms pointed at the same file. The opening line still satisfies `test/copy.test.js`: it names the package, carries the shared purpose clause, and keeps the 0.1.11 correction that it does not select models itself.
@@ -379,7 +381,8 @@ First release.
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
-[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.26...HEAD
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.27...HEAD
+[0.1.27]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.26...v0.1.27
 [0.1.26]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.25...v0.1.26
 [0.1.25]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.24...v0.1.25
 [0.1.24]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.23...v0.1.24
