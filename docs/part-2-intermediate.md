@@ -50,7 +50,7 @@ Optional companions can help: codecalc for execution and calculations, obsidian-
 
 ## Measure your own routing
 
-`aunx route-metrics --summary` reads your local Claude Code routing log. It reports where work went, route-marker coverage and subagent durations. Your own measurements are the basis for changing assignments and checking whether the rules are being followed.
+`aunx route-metrics --summary` reads your local Claude Code routing log. It reports where work went, route-marker coverage, subagent durations, and whether the route each reply named matches the delegation that followed. Your own measurements are the basis for changing assignments and checking whether the rules are being followed.
 
 ## What the installer gives you at this level
 
