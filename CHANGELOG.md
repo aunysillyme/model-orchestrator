@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- **The brief template gains `Context` and `Scope of build`, the two fields whose absence costs the most.** A delegate that is not told what is being built re-derives the situation before it does any work: on one measured stack that preamble ran about 29,000 tokens per subagent boot, paid every time, for context the caller already had. A delegate handed `Purpose` and `Granted scope` but no `Scope of build` infers the deliverable, and infers a smaller one than you meant. `Purpose` is why, `Granted scope` is a permission boundary, and neither is a specification. Both are optional by shape rather than by discipline: write `none` for a lookup, and `Scope of build` applies to build tasks only. The under-specified test at the top of the template and the field list in `docs/part-1-beginner.md`, `docs/part-2-intermediate.md` and `templates/beginner/ORCHESTRATOR.md` all name them now.
+
 ## [0.1.30] - 2026-09-22
 
 ### Fixed

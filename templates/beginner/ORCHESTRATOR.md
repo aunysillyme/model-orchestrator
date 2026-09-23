@@ -36,7 +36,7 @@ Cap: two deep-tier consults per build. The full procedure is `protocols/build-pr
 
 ## Delegating inside one agent
 
-{{DELEGATE_RULES_NOTE}} Every hand-off carries a `TASK_BUNDLE.md` brief: purpose, task class, granted scope, capabilities, denied actions, conventions it does not have, report contract, exit parameters. Absence is denial.
+{{DELEGATE_RULES_NOTE}} Every hand-off carries a `TASK_BUNDLE.md` brief: context, purpose, task class, granted scope, capabilities, scope of build, denied actions, conventions it does not have, report contract, exit parameters. Absence is denial.
 
 ## Numbers and logic go through a tool, never your head
 
