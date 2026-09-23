@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Changed
+
+- **The build protocol gains an ordering function, and the eight stages become its usual output rather than the protocol itself.** A fixed stage list is one stack'''s habit written down: it produces the right order for the builds its author imagined and the wrong one for everyone else, which is an odd thing to ship in a package whose whole premise is that routing should fit your stack. Five rules now decide both the order of the work and which tools apply: dependency first, invalidators earliest, cheap-deterministic before expensive-model, independent units fan out inside one dispatch, irreversible last. A tool is selected when a rule calls for what it does and skipped when none does, and a skipped stage is recorded with its reason so the skip is auditable. The roles table gains the matching rule: assign by fit, meaning reasoning depth plus tool reach, window and headroom, with no standing holder of any row. The strongest model with the wrong reach is the most expensive failure available, measured at 254,277 tokens over 12.7 minutes re-deriving a file list it had no tools to look up.
+
 ## [0.1.30] - 2026-09-22
 
 ### Fixed

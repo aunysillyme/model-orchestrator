@@ -17,6 +17,25 @@ Three corollaries:
 | 2 Build | Is it secure, built on current code, and correct without hidden flaws? | 3 Build · 4 Scan · 5 Challenge · 5b Ship gate |
 | 3 Post-build | Did it land everywhere, is it proven against the real thing, and is it recorded? | 6 Verify · 7 Record |
 
+**Those eight stages are the usual output of the ordering function below, not the protocol itself.** A fixed list of stages is one stack's habit written down: it produces the right order for the builds its author had in mind and the wrong one for yours. The ordering function produces a correct sequence for a build nobody anticipated, including which stages to skip.
+
+## The ordering function
+
+Five rules. They decide both the order of the work and which of your tools apply to it, so "what comes first" is derived rather than felt.
+
+1. **Dependency first.** A step whose output another step needs runs before it.
+2. **Invalidators earliest.** Anything that can make later work moot runs first: is the access there, is the thing satisfiable, does it already exist. Fail fast, fail cheap.
+3. **Cheap-deterministic before expensive-model.** Scanners, type checks and test runs before any model pass. That is Stage 4 before Stage 5, generalised to the whole protocol.
+4. **Independent units fan out** inside one dispatch rather than as N separate ones. Dispatch count is the wall-clock cost, not tokens.
+5. **Irreversible last.** The ship gate stays terminal.
+
+A tool is selected when one of these rules calls for what it does, and skipped when none does. **A step you ran because it was on a list, rather than because the build needed it, is waste wearing the costume of rigor.**
+
+Two consequences worth stating, because they are the ones people get wrong:
+
+- **A skipped stage is recorded with its reason**, so the skip is auditable later. "Not applicable" without a reason is indistinguishable from "forgot".
+- **Garbage in still applies, to every tool.** A bounded choice from a badly enumerated set is still a bad choice, arrived at faster and held more confidently. That is why rule 3 puts deterministic facts ahead of any model's impression of them.
+
 The two seams are the point. Pre-build to Build: nothing is written yet, changing your mind costs a conversation. Build to Post-build: the ship, the only irreversible step, the only one that needs an explicit human yes.
 
 ## Phase 1 · Pre-build
@@ -102,6 +121,8 @@ Use a different model family from the one that produced the finding where you ha
 
 ## Roles, as capabilities
 
+**Assign by fit, not by rank.** Fit is reasoning depth **plus** tool reach, context window and headroom, and the roles below are what a build needs done rather than a standing assignment. The strongest model with the wrong reach is the most expensive failure available: on one measured run a judgment-tier consult spent 254,277 tokens over 12.7 minutes re-deriving a file list it had no tools to look up. Pick per build, and per section of a build where the sections differ; there is no standing holder of any row.
+
 | Role | Does | Does not |
 |---|---|---|
 {{ROLES_BUILDER_ROW}}
@@ -116,6 +137,10 @@ Use a different model family from the one that produced the finding where you ha
 ## Checklist
 
 ```
+ORDERING
+[ ] Sequence derived from the five rules, not taken from the stage list
+[ ] Every skipped stage recorded with its reason
+
 PRE-BUILD
 [ ] 0  Inputs and access verified by live probe, not assumed
 [ ] 0  Confirmed this is a build and not a quick fix
