@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- `aunx route-metrics --summary` compares the route your agent named in each reply with the delegation that actually followed, from data the log already records: the share of sessions that match, sessions that named a route and dispatched nothing, and sessions that dispatched without naming one.
+
 ### Fixed
 
 - The product website navigation follows the section being read, keeps the active sidebar link visible, and labels its portfolio breadcrumb Home.
