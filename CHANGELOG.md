@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.1.32] - 2026-09-23
+
+### Changed
+
+- **README shows what the install gives you, not a file dump.** The 50-line dry-run file list under the demo became a six-row table naming each part and what it does for you; the preview command stays, and the full file list is one link away in `docs/install.md`.
+
 ## [0.1.31] - 2026-09-23
 
 ### Added
@@ -428,6 +434,7 @@ First release.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
 [Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.31...HEAD
+[0.1.32]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.31...v0.1.32
 [0.1.31]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.30...v0.1.31
 [0.1.30]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.29...v0.1.30
 [0.1.29]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.28...v0.1.29
