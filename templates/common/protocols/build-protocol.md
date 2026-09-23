@@ -27,6 +27,20 @@ The two seams are the point. Pre-build to Build: nothing is written yet, changin
 
 **Gate:** classified, and every required input confirmed to exist and work. Verify access here, never at ship time. A missing credential found at Stage 0 costs a message; found at Stage 5b it costs the session.
 
+### Stage 0b · Research (when the build might not need to exist)
+1. What does the official, current documentation say about what we are building against?
+2. Has someone already solved this in the open, and what can we learn from how they did it?
+
+Stage 1 asks whether something already does this **here**. Nothing else asks whether something already does it **out there**, and both answers are invalidators: an existing solution changes the job from build to integrate, and current docs contradicting the assumed API can invalidate the approach outright. Ordering rule 2 puts invalidators early, which is why this sits above Map.
+
+**Vet before you read.** Reputation, installs, age, last update, whether issues get answered. Strong signals in a hard domain are themselves evidence the problem is deeper than it looks, so that is the case to bring to a human rather than decide. Weak signals mean do not open it: a bad reference implementation teaches bad patterns with the authority of a working one.
+
+**A find is a teacher, not automatically a dependency.** Read it, extract the technique, decide deliberately whether to adopt or reimplement, and cite the source and its licence either way. Adoption is a human call, raised with the rest of the clarifying questions before the build rather than mid-flight.
+
+**Bounded, or it eats the session.** The internet has no natural end. Name the questions, set a search ceiling, and set a stop condition. Nothing found is a result, not a failure to try.
+
+**Gate:** each find returns the technique, what it does, where the source implements it, and the **licence**. A repo named without its licence is an incomplete result. Findings enter Stage 2 as checkable assumptions, never as settled facts: docs describe intent, the runtime shows behaviour, source settles disagreements.
+
 ### Stage 1 · Map
 1. What does this touch, improve, scale, or replace? Docs, indexes, tracker issues, tool servers, devices, scheduled jobs, hooks, other repos.
 2. What already-working thing could this break, and does something already do this?
@@ -76,6 +90,8 @@ Findings do not go straight to a repair. Hand them to the **finding-verifier**, 
 
 Use a different model family from the one that produced the finding where you have one: a family asked to check its own claim tends to agree with itself.
 
+**One step, two questions, not two passes.** The reviewer above checks the build against the scope. Nobody checks the **scope against the original ask**, and whoever wrote the scope cannot: a requirement dropped while the scope was being written is invisible from inside it. Run a second participant concurrently on that different question, given the original request and the plan rather than the diff, asking what is missing that nobody asked for. Concurrent costs a dispatch and no wall-clock. A companion that re-reads the diff for defects is a second pass and adds nothing.
+
 **Gate:** every finding **verified** before it reaches a human, and only CONFIRMED findings trigger a change. Hard cap one re-audit. `CLEAN` is a valid success state; an auditor that is not allowed to say so manufactures something, and so does a verifier that is expected to confirm.
 
 ### Stage 5b · Ship gate
@@ -83,6 +99,8 @@ Use a different model family from the one that produced the finding where you ha
 2. Has the human authorised this specific change going live?
 
 **Gate:** rollback identifier written down, and an explicit yes. Authorisation is per change and does not carry over.
+
+**Authorised is not shipped.** A merge, a push and a publish are all things that happen to the artifact; shipped is a state the **system** reaches, where the change is wired into every surface that makes it actually get used. A doc nobody's tooling reads is not shipped. A rule written where no session loads it is not shipped. Name the surface that carries it and show that it reaches a run. This is the same question Stage 6 asks about the old identifier, pointed at the new one.
 
 ## Phase 3 · Post-build
 
@@ -119,6 +137,8 @@ Use a different model family from the one that produced the finding where you ha
 PRE-BUILD
 [ ] 0  Inputs and access verified by live probe, not assumed
 [ ] 0  Confirmed this is a build and not a quick fix
+[ ] 0b Current docs read for anything we build against; prior art searched, bounded
+[ ] 0b Every find carries its licence; adoption raised as a human call, not assumed
 [ ] 1  Everything it touches written: files, systems, issues
 [ ] 1  Asked what could break, and whether this already exists
 [ ] 2  Judgment tier named a weak spot AND a gap in the request
@@ -129,8 +149,10 @@ BUILD
 [ ] 3  Typecheck / tests / dry-run green
 [ ] 4  Scan clean on ADDED lines; pre-existing flags read, not inherited
 [ ] 5  One audit pass, findings reproduced, plan drift reviewed
+[ ] 5  Second participant asked what the SCOPE missed, concurrently, on the ask not the diff
 [ ] 5b Rollback target recorded
 [ ] 5b Human authorised this specific ship
+[ ] 5b Surface that carries the change named, and shown to reach a run
 
 POST-BUILD
 [ ] 6  Old identifier re-grepped everywhere, zero hits
