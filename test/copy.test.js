@@ -30,8 +30,8 @@ test('description and README opening state the same purpose', () => {
   assert.ok(lead.includes(purpose), 'README opening');
 });
 
-test('the description fits the GitHub repository description limit', () => {
-  assert.ok(pkg.description.length <= 350, 'GitHub caps a repository description at 350 characters, got ' + pkg.description.length);
+test('the description fits the search-card copy budget', () => {
+  assert.ok(pkg.description.length <= 160, 'The shared presentation spec caps descriptions at 160 characters, got ' + pkg.description.length);
 });
 
 // 0.1.28 states the same boundary the positive way: say where the package sits and who

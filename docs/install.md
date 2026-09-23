@@ -11,7 +11,7 @@ The installer asks a few things, then writes a folder:
 2. **Which AIs do you have access to?** (it marks the ones already on your PATH)
 3. **Which one is your primary agent?** (the one that runs the system)
 
-It never writes a secret, never runs a vendor shell script for you, and never overwrites a document you already have unless you pass `--force`. Two exceptions, both stated when they happen: `MANIFEST.json` and `bin/lanes.json` are machine-owned and rewritten on every run so a changed selection applies; runtime files (`cli-run`, the audit job, compose, gateway config, setup script) are upgraded when the installed copy matches the hash a previous run recorded, kept and reported as a conflict when you edited them, and kept as unverifiable when no manifest exists (`--upgrade-runtime` replaces runtime files only). The same hash rule is available for documents on request: `--update-docs` regenerates the documents a previous run wrote and nobody edited, so a changed selection reaches `ROUTING.md` and the delegation matrix without `--force`; edited documents are kept and named. Docs and protocols go to `--dir` (default `./ai-orchestrator`); subagent definitions (and, on Claude Code, three hook scripts) go to the project root your agent runs from (`--project`, default the current directory), because that is the only place Claude Code and Antigravity read them. It ends with an activation summary: what to copy where, which sign-ins, and one smoke command. Uninstall: follow the generated README. Inspect the manifest and remove only the individual managed subagent files you no longer need, preserve edited or pre-existing files, and remove your manually pasted activation block. Never delete a shared subagent folder.
+It never writes a secret, never runs a vendor shell script for you, and never overwrites a document you already have unless you pass `--force`. Two exceptions, both stated when they happen: `MANIFEST.json` and `bin/lanes.json` are machine-owned and rewritten on every run so a changed selection applies; runtime files (`cli-run`, the audit job, compose, gateway config, setup script) are upgraded when the installed copy matches the hash a previous run recorded, kept and reported as a conflict when you edited them, and kept as unverifiable when no manifest exists (`--upgrade-runtime` replaces runtime files only). The same hash rule is available for documents on request: `--update-docs` regenerates the documents a previous run wrote and nobody edited, so a changed selection reaches `ROUTING.md` and the delegation matrix without `--force`; edited documents are kept and named. Docs and protocols go to `--dir` (default `./ai-orchestrator`); subagent definitions (and, on Claude Code, three hook scripts) go to the project root your agent runs from (`--project`, default the current directory), because that is the only place Claude Code and Antigravity read them. It ends with an activation summary: what to copy where, which sign-ins, and one smoke command. Use `--uninstall` to remove unedited managed files, then remove your manually merged activation entries. See [Uninstall](#uninstall).
 
 ## Plans and automatic effort
 
@@ -25,7 +25,7 @@ An install has two targets, and a scripted run should set both.
 | `--dir` | `./ai-orchestrator` | the docs, protocols and (level 2+) `bin/cli-run.mjs`. Named after what it contains, not after this package, so a project can hold one without looking like a checkout of it. Pass `--dir ./model-orchestrator` if you prefer the package name. |
 | `--project` | the current directory | the subagent definitions, and the rules file your agent reads. Only Claude Code (`.claude/agents/`) and Antigravity (`.agents/agents/`) get files here, because that is the only place those CLIs look. Claude Code also gets three hook scripts in `.claude/hooks/`, wired by a settings snippet you merge yourself. |
 
-`--project` defaulting to the current directory is the one that surprises people: run the command from your home folder with Claude Code as the primary and five agent files land in your home folder. The installer prints the resolved project path in the plan and says when you left it at the default. Set it.
+`--project` defaulting to the current directory is the one that surprises people: run the command from your home folder with Claude Code as the primary and the subagent and hook files land in your home folder. The installer prints the resolved project path in the plan and says when you left it at the default. Set it.
 
 ## Non-interactive
 
@@ -40,6 +40,29 @@ npx model-orchestrator --yes --level 3 --ais claude-code,codex,agy,grok,hermes,q
 npx model-orchestrator --yes --level 2 --ais claude-code,codex --project ~/my-app --dir ~/my-app/ai-orchestrator --no-tools  # subagents into ~/my-app/.claude/agents
 npx model-orchestrator --yes --level 2 --ais claude-code,codex,grok --primary claude-code --dir ./ai-orchestrator --project . --update-docs   # added a lane: regenerate the docs you never edited
 ```
+
+## Uninstall
+
+Use the same `--dir` and `--project` paths you installed with. The uninstall reads `MANIFEST.json` under `--dir` and checks every recorded path before removing any file.
+
+```bash
+# Preview the exact removals and kept files.
+npx model-orchestrator --uninstall --dir ./ai-orchestrator --project ./my-app --dry
+# Remove the files whose content still matches the recorded hash.
+npx model-orchestrator --uninstall --dir ./ai-orchestrator --project ./my-app
+```
+
+- **Unedited files:** removed when their content hash matches the manifest.
+- **Edited files:** kept and listed by path, with the manifest retained so you can review them.
+- **Other files:** anything outside the manifest stays, including your own files in shared `.claude/agents/` and `.claude/hooks/` folders.
+- **Directories:** removed only when the manifest records that the installer created them and they are empty after removal. Older manifests leave directories in place because they carry no directory ownership record.
+- **Manifest:** removed last, only when every managed file has been removed.
+- **Path safety:** an absolute path, traversal entry, or symlink is refused before any removal. Entries must stay inside their declared `--dir` or `--project` root.
+- **Missing manifest:** exits 2 and names the expected `MANIFEST.json` path.
+- **Target paths:** `--dir` and `--project` must match the installation paths in the manifest. A mismatch exits 2 before removal.
+- **Preview:** `--dry` (or `--dry-run`) lists the planned removals and writes nothing.
+
+The command prints the remaining manual steps: remove the pasted model-orchestrator block from `CLAUDE.md` and its merged hook entries from `.claude/settings.json`. Keep your other rules and hooks. With another primary agent, remove its pasted activation block from the corresponding rules file.
 
 ## What gets written (level 3, everything)
 
@@ -70,4 +93,3 @@ ai-orchestrator/
 | [`docs/`](docs/README.md) | the three parts and the catalog |
 | [`plugin/`](plugin/README.md) | the Claude Code plugin, generated from `templates/` by `npm run gen:plugin`; `.claude-plugin/marketplace.json` at the root lists it |
 | [`test/`](test/README.md) | `npm test`: judges proven to go red, catalog integrity, planner, end-to-end install in a temp dir; `.github/workflows/test.yml` runs it on Ubuntu, macOS and Windows, Node 18/20/22 |
-

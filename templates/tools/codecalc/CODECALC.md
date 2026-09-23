@@ -17,7 +17,7 @@ uvx 'codecalc[full]' setup --write    # merges the codecalc entry into your clie
 
 Pinned form, if you want the version this installer was released with: `uvx 'codecalc[full]=={{CODECALC_PIN}}' setup --write`. `[full]` is the edition that actually runs everything documented (about 120 MB). Base `codecalc` is execution only; symbolic tools then return a `dependency_missing` error naming the extra, never a silent failure.
 
-## Agents `setup` does not register (snippets in `mcp/`)
+## Register more agents with `mcp/` snippets
 
 | Agent | File to edit | Snippet |
 |---|---|---|
@@ -32,11 +32,11 @@ Merge the block; do not replace the file. Every other server you have stays as i
 
 ## Install the skill too
 
-The tools cannot help a model that never reaches for them. codecalc ships `SKILL.md` inside the package and `setup --write` copies it for Claude Code. For other agents, copy it into that agent's skills folder (Antigravity and Qwen Code read the same `SKILL.md` format). `protocols/numbers-and-logic.md` in this folder is the house rule that points at it.
+The skill teaches your agent when to call the tools. codecalc ships `SKILL.md` inside the package and `setup --write` copies it for Claude Code. For other agents, copy it into that agent's skills folder (Antigravity and Qwen Code read the same `SKILL.md` format). `protocols/numbers-and-logic.md` in this folder is the house rule that points at it.
 
-## What it is not
+## Where it fits
 
-Not a cloud sandbox for multi-tenant loads, not a replacement for a vendor's built-in interpreter when zero setup matters more than measurement. It assumes a single-operator, local, stdio setup. It earns its keep when the correctness of a claim, not "it ran", is the point.
+Use codecalc for a single-operator, local stdio setup where you need to measure and verify a claim. Its calculator, sandbox and logic tools give your agent repeatable checks for arithmetic, code behavior and reasoning.
 
 ## On a box (level 3)
 

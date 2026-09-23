@@ -46,14 +46,14 @@ Until that file exists, the plugin tells you so once at session start, and tells
 
 Plugin agents are namespaced: `builder` is `model-orchestrator:builder`. The hook adds that note under the table, so the bare names in your rules still resolve.
 
-## What the hooks do and do not do
+## What the hooks do
 
 - They only read. No network, no file writes, no subprocesses, no credential or `.env` access.
 - The rules read is bounded to 64 KB, regular files only, so a FIFO or a huge file at that path cannot hang a prompt.
 - Every path exits 0. A problem becomes a line of context, never a blocked prompt.
 - The table they inject comes from your project's own rules file, so anyone who can edit that file can edit what Claude reads. Treat it like `CLAUDE.md`.
 
-## Not in the plugin
+## Installed by npx
 
 - **The routing log.** `npx model-orchestrator` also installs `route-metrics.mjs`, which appends one JSON line per routing event so you can measure whether the rules are followed. It writes to disk, and the plugin ships only hooks that read, so it is npm-only.
 - **A custom rules folder.** The plugin reads only the installer's default `ai-orchestrator/` folder. If you installed with a different `--dir`, use the hooks the installer rendered for that folder (`.claude/hooks/` plus `settings.hooks.snippet.json`) instead of the plugin's hooks.

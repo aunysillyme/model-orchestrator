@@ -4,6 +4,27 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.1.31] - 2026-09-23
+
+### Added
+
+- **Manifest-based uninstall.** `--uninstall --dir <dir> --project <project>` removes managed files whose content matches the recorded hash, keeps and names edited files, and preserves files outside the manifest. `--dry` and `--dry-run` preview the same removals. The manifest is the last file removed and stays when edits remain. New installs record the directories they create so uninstall can remove them when empty; older manifests leave directories in place. The command prints the manual steps for removing pasted rules and merged hooks. A missing manifest exits 2 and names its expected path.
+- **Activation and related tools in the README.** A captured install supplies the rules, hooks and smoke-test steps. A shared table links agent-personalizer and website-build-skill, and a short uninstall section links the full instructions.
+
+### Changed
+
+- **Presentation leads with the task and payoff.** The opening states that the rules tell your agent which model handles each task, followed by the problem, the setup and the routing log. README sections follow the install flow, with platform and vendor details kept in collapsed sections. Contributing names new catalog entries, vendor fixtures and documentation fixes as welcome contributions.
+- **Short package description and consistent names.** The description fits the search-card budget while preserving the purpose clause. The opening and agent summary name Antigravity (Google). `llms.txt` keeps reference links together and gives plans and automatic effort their own section.
+- **Positive section headings.** The plugin README names what the hooks do and what npx installs; codecalc explains where it fits; the pull request template names work kept for a later change. Safety guarantees retain their explicit wording.
+
+### Fixed
+
+- **Setup output matches the generated files.** The plan counts subagents and hooks separately from its file list, and the README contains captured dry-run output with project-relative paths. `--list` prints each AI's catalog install instructions and sign-in note. The README describes how reruns preserve documents, rewrite machine-owned configuration and upgrade untouched runtime files, and its routing link points to the detailed document.
+
+### Security
+
+- **Uninstall validates the entire manifest before removing files.** Absolute paths, traversal, symlinked entries, malformed hashes and mismatched target roots are refused. Foreign files in shared project folders stay. A rerun targeting another project carries previous ownership records only for roots that still match. Regression tests cover these refusals, edit preservation, directory ownership, changed projects, legacy manifests, previews and missing manifests.
+
 ## [0.1.30] - 2026-09-22
 
 ### Fixed
@@ -406,7 +427,8 @@ First release.
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
-[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.30...HEAD
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.31...HEAD
+[0.1.31]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.30...v0.1.31
 [0.1.30]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.29...v0.1.30
 [0.1.29]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.28...v0.1.29
 [0.1.28]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.27...v0.1.28

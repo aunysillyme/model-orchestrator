@@ -793,8 +793,17 @@ export function readManifest(dir) {
 // existing documents are kept unless --force, or --update-docs for the ones a previous run wrote and nobody edited.
 export function writeFiles(files, opts) {
   const { dir, force = false, dry = false, upgradeRuntime = false, updateDocs = false } = opts;
-  const prevHashes = (opts.prevManifest && opts.prevManifest.files) || null;
   const roots = { dir, project: opts.project || dir };
+  const previous = opts.prevManifest;
+  const sameRoot = (kind) => {
+    if (typeof previous?.[kind] !== 'string') return false;
+    try { return realRoot(previous[kind]).root === realRoot(roots[kind]).root; }
+    catch { return false; }
+  };
+  const sameRoots = { dir: sameRoot('dir'), project: sameRoot('project') };
+  const belongsHere = (key) => typeof key === 'string' && sameRoots[key.startsWith('[project] ') ? 'project' : 'dir'];
+  // A hash or directory from another project cannot establish ownership here.
+  const prevHashes = previous?.files ? Object.fromEntries(Object.entries(previous.files).filter(([key]) => belongsHere(key))) : null;
   const groups = { dir: files.filter((f) => (f.root || 'dir') === 'dir'), project: files.filter((f) => f.root === 'project') };
   const problems = [];
   for (const k of ['dir', 'project']) {
@@ -815,6 +824,9 @@ export function writeFiles(files, opts) {
   const docsConflict = [];  // --update-docs: documents kept because you edited them
   const docsUnverifiable = []; // --update-docs: documents kept because there is no manifest to compare against
   const created = [];
+  // Only directories actually created by this install are owned. Preserve the
+  // previous inventory on reruns; legacy manifests deliberately own none.
+  const createdDirectories = new Set(Array.isArray(previous?.directories) ? previous.directories.filter(belongsHere) : []);
   const originals = new Map(); // abs -> {content, mode} of files --force overwrote, restored on failure
   // Files that exist and were NOT rewritten this run. MANIFEST.json must record the hash of
   // what is on disk for them (the previous run's hash, or nothing when there was no manifest),
@@ -890,7 +902,7 @@ export function writeFiles(files, opts) {
           }
         }
         let content = f.content;
-        if (f.rel === 'MANIFEST.json' && keptKeys.size) {
+        if (f.rel === 'MANIFEST.json') {
           const m = JSON.parse(content);
           for (const kk of Object.keys(m.files || {})) {
             if (!keptKeys.has(kk)) continue;
@@ -901,7 +913,24 @@ export function writeFiles(files, opts) {
         }
         if (!dry) {
           if (exists) originals.set(abs, { content: readFileSync(abs), mode: statSync(abs).mode });
+          const missingDirectories = [];
+          let parent = dirname(abs);
+          while (parent === root || parent.startsWith(root + sep)) {
+            if (existsSync(parent)) break;
+            // Keep the project container itself; only its generated child
+            // directories belong to this package.
+            if (k !== 'project' || parent !== root) missingDirectories.push(parent);
+            const up = dirname(parent);
+            if (up === parent) break;
+            parent = up;
+          }
           mkdirSync(dirname(abs), { recursive: true });
+          for (const path of missingDirectories) createdDirectories.add((k === 'project' ? '[project] ' : '') + (toPosixRel(relative(root, path)) || '.'));
+          if (f.rel === 'MANIFEST.json') {
+            const m = JSON.parse(content);
+            m.directories = [...createdDirectories].sort();
+            content = JSON.stringify(m, null, 2) + '\n';
+          }
           writeFileSync(abs, content, { flag: exists ? 'w' : 'wx' });
           if (!exists) created.push(abs);
           chmodSync(abs, f.mode);
