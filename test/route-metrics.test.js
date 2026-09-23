@@ -418,3 +418,125 @@ test('route-metrics.mjs --summary: says so plainly when no turn carried a lane y
     rmSync(home, { recursive: true, force: true });
   }
 });
+
+// ---- --summary: declared vs dispatched reconciliation ----
+
+test('route-metrics.mjs --summary: reconciles the declared lane against what was actually dispatched', () => {
+  const home = newHome();
+  const hookPath = writeHook(home);
+  try {
+    mkdirSync(join(home, '.ai-orchestrator'), { recursive: true });
+    const ts = '2026-01-01T00:00:00.000Z';
+    const rows = [
+      // s1 agrees: declared a real lane and dispatched.
+      { ts, v: 1, event: 'route', session_id: 's1', lane: ['builder'] },
+      { ts, v: 1, event: 'dispatch', session_id: 's1', subagent_type: 'builder' },
+      // s2 agrees: declared inline and dispatched nothing.
+      { ts, v: 1, event: 'route', session_id: 's2', lane: ['inline'] },
+      // s3 claimed a lane it never dispatched.
+      { ts, v: 1, event: 'route', session_id: 's3', lane: ['deep-planner'] },
+      // s4 dispatched while every marker said inline.
+      { ts, v: 1, event: 'route', session_id: 's4', lane: ['inline'] },
+      { ts, v: 1, event: 'dispatch', session_id: 's4', subagent_type: 'reader' },
+      // s5 has no marker at all, so it is not reconcilable either way.
+      { ts, v: 1, event: 'dispatch', session_id: 's5', subagent_type: 'reader' },
+    ];
+    writeFileSync(logPath(home), rows.map((r) => JSON.stringify(r)).join('\n') + '\n');
+    const r = spawnSync('node', [hookPath, '--summary'], { encoding: 'utf8', env: { ...process.env, HOME: home, USERPROFILE: home } });
+    assert.equal(r.status, 0);
+    // 4 sessions carry a marker; s3 and s4 disagree, so 2 of 4 agree.
+    assert.match(r.stdout, /delegation claimed vs observed: 50% of sessions match \(2\/4 sessions that named a lane\)/);
+    assert.match(r.stdout, /named a lane, no dispatch in this window: 1/);
+    assert.match(r.stdout, /dispatched, but every named lane was inline: 1/);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test('route-metrics.mjs --summary: reconciliation says so plainly when no session carried a lane', () => {
+  const home = newHome();
+  const hookPath = writeHook(home);
+  try {
+    mkdirSync(join(home, '.ai-orchestrator'), { recursive: true });
+    const ts = '2026-01-01T00:00:00.000Z';
+    writeFileSync(logPath(home), JSON.stringify({ ts, v: 1, event: 'turn', session_id: 's' }) + '\n');
+    const r = spawnSync('node', [hookPath, '--summary'], { encoding: 'utf8', env: { ...process.env, HOME: home, USERPROFILE: home } });
+    assert.equal(r.status, 0);
+    assert.match(r.stdout, /delegation claimed vs observed: no session named a lane yet/);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test('route-metrics.mjs --summary: --inline renames what counts as delegation in the reconciliation too', () => {
+  const home = newHome();
+  const hookPath = writeHook(home);
+  try {
+    mkdirSync(join(home, '.ai-orchestrator'), { recursive: true });
+    const ts = '2026-01-01T00:00:00.000Z';
+    const env = { ...process.env, HOME: home, USERPROFILE: home };
+    const rows = [
+      { ts, v: 1, event: 'route', session_id: 's1', lane: ['builder'] },
+    ];
+    writeFileSync(logPath(home), rows.map((r) => JSON.stringify(r)).join('\n') + '\n');
+    // Default vocabulary: "builder" is a real lane, so s1 claimed and never dispatched.
+    const r = spawnSync('node', [hookPath, '--summary'], { encoding: 'utf8', env });
+    assert.match(r.stdout, /named a lane, no dispatch in this window: 1/);
+    // Call "builder" inline and the same row stops being a claim of delegation.
+    const r2 = spawnSync('node', [hookPath, '--summary', '--inline', 'inline,builder'], { encoding: 'utf8', env });
+    assert.match(r2.stdout, /named a lane, no dispatch in this window: 0/);
+    assert.match(r2.stdout, /delegation claimed vs observed: 100% of sessions match \(1\/1 sessions that named a lane\)/);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test('route-metrics.mjs --summary: a session whose only marker is "missing" is not counted as naming a lane', () => {
+  const home = newHome();
+  const hookPath = writeHook(home);
+  try {
+    mkdirSync(join(home, '.ai-orchestrator'), { recursive: true });
+    const ts = '2026-01-01T00:00:00.000Z';
+    const env = { ...process.env, HOME: home, USERPROFILE: home };
+    // 'missing' is what the hook writes when a turn carried NO marker. It is the
+    // absence of a claim, not a claim of inline, so it must not enter this count at
+    // all: the coverage line above already reports that gap.
+    const rows = [
+      { ts, v: 1, event: 'route', session_id: 's1', lane: ['missing'] },
+      { ts, v: 1, event: 'dispatch', session_id: 's1', subagent_type: 'reader' },
+    ];
+    writeFileSync(logPath(home), rows.map((r) => JSON.stringify(r)).join('\n') + '\n');
+    const r = spawnSync('node', [hookPath, '--summary'], { encoding: 'utf8', env });
+    assert.equal(r.status, 0);
+    assert.match(r.stdout, /delegation claimed vs observed: no session named a lane yet \(0\/0 sessions that named a lane\)/);
+    assert.match(r.stdout, /dispatched, but every named lane was inline: 0/);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test('route-metrics.mjs --summary: the reconciliation states that it measures presence, not lane identity', () => {
+  const home = newHome();
+  const hookPath = writeHook(home);
+  try {
+    mkdirSync(join(home, '.ai-orchestrator'), { recursive: true });
+    const ts = '2026-01-01T00:00:00.000Z';
+    const env = { ...process.env, HOME: home, USERPROFILE: home };
+    // Declared one lane, dispatched a different one. This counts as matching on
+    // purpose: the marker names a lane from the user's ROUTING.md and a dispatch names
+    // a subagent_type, so the two vocabularies need not line up and identity is not
+    // recoverable from this log. The output has to say so rather than imply agreement.
+    const rows = [
+      { ts, v: 1, event: 'route', session_id: 's1', lane: ['builder'] },
+      { ts, v: 1, event: 'dispatch', session_id: 's1', subagent_type: 'reader' },
+    ];
+    writeFileSync(logPath(home), rows.map((r) => JSON.stringify(r)).join('\n') + '\n');
+    const r = spawnSync('node', [hookPath, '--summary'], { encoding: 'utf8', env });
+    assert.equal(r.status, 0);
+    assert.match(r.stdout, /delegation claimed vs observed: 100% of sessions match/);
+    assert.match(r.stdout, /presence only: a session that named one lane and dispatched another counts as matching/);
+    assert.match(r.stdout, /--since or a rotated log can split a session/);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});

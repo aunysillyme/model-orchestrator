@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- **`--summary` now reports delegation claimed against delegation observed.** Both halves were already in `route-metrics.jsonl`: the Stop marker records the lane the reply claimed, and the `PreToolUse` event records the dispatch that did or did not follow. Nothing compared them, so a session could declare `deep-planner` and delegate nothing, or delegate all day while every marker said inline, and the summary reported neither. Lines added: the share of sessions where both are present, the count that named a lane with no dispatch in the window, and the count that dispatched while every named lane was inline. The output states its own two limits, because an audit found both: it measures PRESENCE, not lane identity (a session that named one lane and dispatched another counts as matching, since a marker names a lane from your ROUTING.md while a dispatch names a `subagent_type`), and `--since` or a rotated log can split a session so one half lands in the counts. A turn that carried no marker at all is excluded rather than counted, since the coverage line above already reports that gap. Grouped by session, because a marker is written once per turn while a dispatch can land on any turn of the same session. `--inline` renames what counts as delegation here too, so the reconciliation uses your own lane vocabulary rather than one this package fixes.
+
 ## [0.1.30] - 2026-09-22
 
 ### Fixed

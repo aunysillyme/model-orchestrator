@@ -340,6 +340,40 @@ function runSummary(args) {
   const starts = records.filter((r) => r.event === 'start').length;
   const noMatchingStart = Math.max(0, dispatches.length - starts);
 
+  // Reconciliation: does the marker's claim match what the session actually did?
+  // Both halves are already in this log -- the Stop marker says which lane the turn
+  // DECLARED, and the PreToolUse event says what was actually DISPATCHED -- and until
+  // now nothing compared them. A declared lane is a claim; a dispatch is the act.
+  // Grouped by session because a marker is written once per turn while a dispatch can
+  // land on any turn of the same session, so turn-level pairing would report drift
+  // that is only ordering.
+  // PRESENCE, not identity, and the name says so: this asks whether a session that
+  // NAMED a lane also dispatched, not whether it dispatched the lane it named. A
+  // session that named builder and dispatched reader matches here. Lane identity is
+  // not recoverable from this log, because the marker names a lane from the user's own
+  // ROUTING.md while a dispatch names a subagent_type, and the two vocabularies do not
+  // have to line up.
+  const sessions = new Map();
+  for (const r of records) {
+    if (!r.session_id) continue;
+    if (!sessions.has(r.session_id)) sessions.set(r.session_id, { declaredOff: false, dispatched: false, sawLane: false });
+    const acc = sessions.get(r.session_id);
+    if (r.event === 'dispatch') acc.dispatched = true;
+    if (r.event === 'route' && Array.isArray(r.lane)) {
+      // 'missing' is what the hook writes when a turn carried NO marker, so it is the
+      // absence of a claim, not a claim of inline. Counting it here would double-report
+      // the gap the coverage line above already reports.
+      const named = r.lane.filter((l) => l !== 'missing');
+      if (named.length > 0) acc.sawLane = true;
+      if (named.some((l) => !inlineNames.has(String(l).trim().toLowerCase()))) acc.declaredOff = true;
+    }
+  }
+  const reconcilable = [...sessions.values()].filter((a) => a.sawLane);
+  const claimedNotDone = reconcilable.filter((a) => a.declaredOff && !a.dispatched).length;
+  const doneNotClaimed = reconcilable.filter((a) => !a.declaredOff && a.dispatched).length;
+  const agreed = reconcilable.length - claimedNotDone - doneNotClaimed;
+  const agreedPct = reconcilable.length > 0 ? (agreed / reconcilable.length) * 100 : null;
+
   const ends = records.filter((r) => r.event === 'end' && r.agent_type && typeof r.duration_s === 'number');
   const durationsByType = new Map();
   for (const r of ends) {
@@ -364,6 +398,15 @@ function runSummary(args) {
   if (dispatchCounts.size === 0) lines.push('  (none)');
   for (const [type, count] of [...dispatchCounts.entries()].sort((a, b) => b[1] - a[1])) lines.push('  ' + type + ': ' + count);
   lines.push('dispatches with no matching start: ' + noMatchingStart + ' (a hook or guard blocked them before launch)');
+  lines.push(
+    'delegation claimed vs observed: ' +
+      (agreedPct === null ? 'no session named a lane yet' : formatNumber(agreedPct) + '% of sessions match') +
+      ' (' + agreed + '/' + reconcilable.length + ' sessions that named a lane)'
+  );
+  lines.push('  named a lane, no dispatch in this window: ' + claimedNotDone);
+  lines.push('  dispatched, but every named lane was inline: ' + doneNotClaimed);
+  lines.push('  presence only: a session that named one lane and dispatched another counts as matching,');
+  lines.push('  and --since or a rotated log can split a session so one half lands in the counts above.');
   lines.push('duration by agent_type (mean / max, seconds):');
   if (durationsByType.size === 0) lines.push('  (none)');
   for (const [type, durs] of durationsByType) {
