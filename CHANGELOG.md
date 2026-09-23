@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- **Three stages the build protocol was missing: research, a companion question in the audit, and a definition of shipped.** Stage 0b Research asks what nothing else asked: Stage 1 covers whether something already does this HERE, and no stage covered whether something already does it OUT THERE. Both answers are invalidators, so ordering rule 2 puts it early. It is bounded on purpose (named questions, a search ceiling, a stop condition), it vets before reading, it treats a find as a teacher rather than automatically a dependency, and it refuses a repo named without its licence. Stage 5 gains a second participant asking a different question, concurrently: the reviewer checks the build against the scope, and nobody checked the scope against the original ask, which whoever wrote the scope structurally cannot do. One step with two questions is not two passes. Stage 5b gains the distinction between authorised and shipped: a merge, a push and a publish happen to the artifact, while shipped is a state the system reaches, so the gate now asks you to name the surface that carries the change and show it reaches a run.
+
 ## [0.1.30] - 2026-09-22
 
 ### Fixed
