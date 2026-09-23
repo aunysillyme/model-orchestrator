@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, existsSync, rmSync, writeFileSync, statSync, readdirSync } from 'node:fs';
-import { join, delimiter, resolve } from 'node:path';
+import { join, delimiter, resolve, sep } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { planFiles, writeFiles, resolveSelection, resolveApis, gatewayModels, envNames, laneVars, activationSteps, proofSteps, snippetFor } from '../src/install.js';
@@ -1140,4 +1140,13 @@ test('toPosixRel/fileClass normalize a backslash-separated rel (win32 path.join 
   // produces must still classify correctly with no separator override at all.
   assert.equal(fileClass(join('bin', 'lanes.json')), 'owned');
   assert.equal(fileClass(join('vm', 'setup-vm.sh')), 'runtime');
+});
+
+test('CLAUDE.snippet.md names all three hooks the claude-code plan writes (issue #35)', () => {
+  const cc = planFiles({ level: 1, selected: sel('claude-code'), primary: byId['claude-code'], dir: 'x', project: 'y' });
+  const snippet = cc.find((f) => f.rel === 'CLAUDE.snippet.md').content;
+  const hooks = cc.filter((f) => f.rel.startsWith(join('.claude', 'hooks') + sep)).map((f) => f.rel.split(sep).pop());
+  assert.equal(hooks.length, 3, 'expected three hooks in the claude-code plan');
+  for (const h of hooks) assert.ok(snippet.includes('`' + h + '`'), `CLAUDE.snippet.md does not name ${h}`);
+  assert.doesNotMatch(snippet, /\bTwo hooks\b/i, 'CLAUDE.snippet.md still undercounts the hooks');
 });

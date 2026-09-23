@@ -4,9 +4,9 @@
 
 Install and run: `npx model-orchestrator` (interactive), or headless: `npx model-orchestrator --yes --level 2 --ais claude-code,codex --project . --dir ./ai-orchestrator`. Preview without writing: add `--dry-run`. List every supported AI: `npx model-orchestrator --list`. Node 18 or newer, zero runtime dependencies, MIT licence.
 
-Levels: 1 beginner (one agent or chat app), 2 intermediate (several agent CLIs, each called through `cli-run`), 3 advanced (adds a virtual machine with a gateway and a scheduled audit job). On Claude Code the install also delegates execution to subagents by default and ships two hooks (UserPromptSubmit, SubagentStart) that inject the routing table every turn.
+Levels: 1 beginner (one agent or chat app), 2 intermediate (several agent CLIs, each called through `cli-run`), 3 advanced (adds a virtual machine with a gateway and a scheduled audit job). On Claude Code the install also delegates execution to subagents by default and ships three hooks: `route-gate` (UserPromptSubmit) and `subagent-context` (SubagentStart) inject the routing table every turn, and `route-metrics` logs route markers and subagent dispatches.
 
-Claude Code plugin: `/plugin marketplace add aunysillyme/model-orchestrator`, then `/plugin install model-orchestrator@model-orchestrator`. It installs the two hooks and eight subagents; the routing rules still come from `npx model-orchestrator`, and the routing log (`route-metrics.mjs`) is npm-only.
+Claude Code plugin: `/plugin marketplace add aunysillyme/model-orchestrator`, then `/plugin install model-orchestrator@model-orchestrator`. It installs the two read-only hooks (`route-gate`, `subagent-context`) and eight subagents; the routing rules still come from `npx model-orchestrator`, and the routing log (`route-metrics.mjs`) is npm-only.
 
 ## Docs
 

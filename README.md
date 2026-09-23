@@ -93,7 +93,7 @@ The hooks and subagents also ship as a plugin, so they install and update throug
 /plugin install model-orchestrator@model-orchestrator
 ```
 
-It ships the three hooks and the eight subagents, each with an explicit tool list, and loads them namespaced as `model-orchestrator:builder`. The routing rules come from `npx model-orchestrator`, which is the step that reads your setup and writes rules to match it. `plugin/` is generated from `templates/`, and `test/plugin.test.js` holds the bundle to that shape: committed output matches the generator, hooks stay read-only, every agent keeps its tool list. Details: [plugin/README.md](plugin/README.md).
+It ships the two read-only hooks (`route-gate`, `subagent-context`) and the eight subagents, each with an explicit tool list, and loads them namespaced as `model-orchestrator:builder`. The routing rules come from `npx model-orchestrator`, which is the step that reads your setup and writes rules to match it. `plugin/` is generated from `templates/`, and `test/plugin.test.js` holds the bundle to that shape: committed output matches the generator, hooks stay read-only, every agent keeps its tool list. The third hook, `route-metrics`, writes a log, so it comes only with the npm install. Details: [plugin/README.md](plugin/README.md).
 
 ## Companion tools (all optional)
 

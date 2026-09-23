@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.1.30] - 2026-09-22
+
+### Fixed
+
+- **Every hook count now matches the files on disk ([#35](https://github.com/aunysillyme/model-orchestrator/issues/35)).** The generated `CLAUDE.snippet.md` said "Two hooks were written" and named only `route-gate.mjs` and `subagent-context.mjs`, while a claude-code install writes and wires `route-metrics.mjs` too. It now names all three and how to read the metrics log. The same pass corrects `llms.txt` and `docs/install.md` (three hooks on a full install), `templates/agents/README.md` (lists `route-metrics.mjs`), and the README plugin section, which said the plugin ships three hooks: it ships the two read-only ones, and `route-metrics` comes only with the npm install. A new test fails if the snippet names fewer hooks than the plan writes.
+
 ## [0.1.29] - 2026-09-21
 
 ### Changed
@@ -400,7 +406,8 @@ First release.
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
-[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.29...HEAD
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.30...HEAD
+[0.1.30]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.29...v0.1.30
 [0.1.29]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.28...v0.1.29
 [0.1.28]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.27...v0.1.28
 [0.1.27]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.26...v0.1.27
