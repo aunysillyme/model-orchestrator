@@ -1,6 +1,6 @@
 # model-orchestrator
 
-> Model orchestrator for AI coding agents and LLMs (Claude Code, Codex, Gemini, Grok, Qwen, Ollama). One installer writes routing rules, subagent definitions and a CLI lane runner for the AI tools you already have. The rules tell your agent which model, subagent or CLI to use for each task, so small work goes to cheap tiers and fewer tokens go to frontier models. It sits above the request layer: your agent reads the rules and picks the lane, so the decision stays readable, versioned and editable. Request-level routers and gateways compose underneath it.
+> Model orchestrator for AI coding agents and LLMs (Claude Code, Codex, Antigravity (Google), Grok, Qwen, Ollama). One installer writes routing rules, subagent definitions and a CLI lane runner for the AI tools you already have. The rules tell your agent which model, subagent or CLI to use for each task, so small work goes to cheap tiers and fewer tokens go to frontier models. It sits above the request layer: your agent reads the rules and picks the lane, so the decision stays readable, versioned and editable. Request-level routers and gateways compose underneath it.
 
 Install and run: `npx model-orchestrator` (interactive), or headless: `npx model-orchestrator --yes --level 2 --ais claude-code,codex --project . --dir ./ai-orchestrator`. Preview without writing: add `--dry-run`. List every supported AI: `npx model-orchestrator --list`. Node 18 or newer, zero runtime dependencies, MIT licence.
 
@@ -24,13 +24,13 @@ Claude Code plugin: `/plugin marketplace add aunysillyme/model-orchestrator`, th
 
 - [Claude Code plugin](https://github.com/aunysillyme/model-orchestrator/blob/main/plugin/README.md): installing the hooks and subagents with `/plugin install`, what the plugin reads, and what it leaves to the installer
 - [CLI runner](https://github.com/aunysillyme/model-orchestrator/blob/main/bin/README.md): `cli-run` lanes, exit codes, the route logged per run
-
-## Plans and automatic effort
-
-Use `--plans AI=plan` to state a subscription plan and receive volume-allocation guidance. `--effort-auto` is opt-in and writes bounded `auto` effort only for selected high or max headroom CLI lanes. Auto is medium or high, never above high; name xhigh explicitly for security-critical or irreversible work.
 - [Templates](https://github.com/aunysillyme/model-orchestrator/blob/main/templates/README.md): the routing, tiers, task bundle and protocol files the installer renders
 - [Changelog](https://github.com/aunysillyme/model-orchestrator/blob/main/CHANGELOG.md): every release and the issue behind each fix
 - [Agent instructions](https://github.com/aunysillyme/model-orchestrator/blob/main/AGENTS.md): running the installer from an agent, and contributing
+
+## Plans and automatic effort
+
+- [Plans and automatic effort](https://github.com/aunysillyme/model-orchestrator/blob/main/docs/install.md#plans-and-automatic-effort): `--plans AI=plan` states a subscription plan so the guidance allocates volume by headroom; opt-in `--effort-auto` sizes effort per call on high or max headroom CLI lanes, medium or high, with xhigh named explicitly for security-critical or irreversible work
 
 ## Optional
 

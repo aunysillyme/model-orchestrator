@@ -15,6 +15,6 @@
 - [ ] A line under `[Unreleased]` in `CHANGELOG.md`
 - [ ] Nothing that looks like a credential; no em dashes in prose
 
-## Not done, on purpose
+## Kept for a later change
 
 <!-- Anything you deferred, and why. Empty is a fine answer. -->

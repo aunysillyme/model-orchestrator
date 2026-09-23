@@ -2,7 +2,11 @@
 
 [![npm](https://img.shields.io/npm/v/model-orchestrator.svg)](https://www.npmjs.com/package/model-orchestrator) [![test](https://github.com/aunysillyme/model-orchestrator/actions/workflows/test.yml/badge.svg)](https://github.com/aunysillyme/model-orchestrator/actions/workflows/test.yml) [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![node >=18](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)](package.json)
 
-**A model orchestrator that sends every task to the smallest model that can do it,** so small work goes to cheap tiers and fewer tokens go to frontier models. One command reads which AIs you actually have, then writes the routing rules, the subagents and the lane runner for exactly that set: Claude Code, Codex, Gemini, Grok, Qwen, Ollama.
+**A model orchestrator for AI coding agents: routing rules, subagents and a lane runner that tell your agent which model handles each task,** so small work goes to cheap tiers and fewer tokens go to frontier models. Answer a few questions and it writes the setup for exactly the AIs you have: Claude Code, Codex, Antigravity (Google), Grok, Qwen, Ollama.
+
+**The problem:** one agent does every task on its biggest model, so renaming a file costs the same as designing a system.
+
+**What you get:** rules your agent follows to keep planning on the frontier model and hand routine work to cheaper tiers and the other AIs you already pay for, plus a log that shows where the work went.
 
 ```bash
 npx model-orchestrator
@@ -10,7 +14,7 @@ npx model-orchestrator
 
 <img src="docs/demo.gif" alt="A terminal running npx model-orchestrator with --dry: it prints the level, the AIs detected, both target folders and all 38 files it would write, then says nothing was written." width="100%" />
 
-Three questions, then 38 files. The same plan as text:
+A few questions, then 38 files for a three-AI setup. The same plan as text (paths shown relative to the project folder):
 
 ```text
 Plan
@@ -18,17 +22,48 @@ Plan
   access   claude-code, codex, grok
   primary  claude-code
   tools    codecalc
+  plans    none stated
   folder   ./ai-orchestrator
-  project  .                   (11 subagent files go here)
+  project  . (8 subagents + 3 hooks go here)
   files    38
-  - ROUTING.md                        multi-lane decision tree
-  - TIERS.md  DELEGATION_MATRIX.md    which lane, at what effort
-  - TASK_BUNDLE.md                    the brief every delegation carries
-  - protocols/                        build, propagate, gap-analysis, deep-research, and three more
-  - [project] .claude/agents/          builder, deep-planner, code-reviewer, bulk-worker,
-                                       live-researcher, reader, finding-verifier, done-verifier
-  - [project] .claude/hooks/           route-gate, subagent-context, route-metrics
-  - bin/cli-run.mjs  bin/lanes.json   the lane runner
+  - README.md
+  - TASK_BUNDLE.md
+  - protocols/README.md
+  - protocols/build-protocol.md
+  - protocols/deep-research.md
+  - protocols/docs-then-prove.md
+  - protocols/gap-analysis.md
+  - protocols/memory-and-record.md
+  - protocols/numbers-and-logic.md
+  - protocols/propagate.md
+  - ORCHESTRATOR.md
+  - [project] .claude/agents/builder.md
+  - [project] .claude/agents/bulk-worker.md
+  - [project] .claude/agents/code-reviewer.md
+  - [project] .claude/agents/deep-planner.md
+  - [project] .claude/agents/done-verifier.md
+  - [project] .claude/agents/finding-verifier.md
+  - [project] .claude/agents/live-researcher.md
+  - [project] .claude/agents/reader.md
+  - CLAUDE.snippet.md
+  - [project] .claude/hooks/route-gate.mjs
+  - [project] .claude/hooks/subagent-context.mjs
+  - [project] .claude/hooks/route-metrics.mjs
+  - settings.hooks.snippet.json
+  - CODECALC.md
+  - mcp/agy.mcp_config.json
+  - mcp/codex.config.toml
+  - mcp/mcpServers.json
+  - mcp/vscode.mcp.json
+  - mcp/zed.settings.json
+  - CLI-RUN.md
+  - DELEGATION_MATRIX.md
+  - RESEARCH_TRIAGE.md
+  - ROUTING.md
+  - TIERS.md
+  - bin/cli-run.mjs
+  - bin/lanes.json
+  - MANIFEST.json
 
 --dry: nothing written.
 ```
@@ -46,7 +81,34 @@ The recording above comes from the published package under `asciinema`, rendered
 - **Use it when:** you run more than one model or agent and want the expensive tier kept for planning and judgment.
 - **For agents:** [`llms.txt`](llms.txt) summarizes the package and links every doc; [`AGENTS.md`](AGENTS.md) has the headless commands.
 
-Built from a working system: the routing rules, the protocols and the lane runner here run in production every day, generalized so they transfer to any stack.
+## After you install
+
+For the Claude Code setup above, follow the activation summary from the project folder:
+
+1. **Rules:** copy the block in `ai-orchestrator/CLAUDE.snippet.md` into `CLAUDE.md` (create it if missing).
+2. **Hooks:** merge `ai-orchestrator/settings.hooks.snippet.json` into `.claude/settings.json` (create it if missing).
+3. **Smoke test:** run `node ./ai-orchestrator/bin/cli-run.mjs --doctor` to check the enabled lanes. Add `--run` to send each lane one tiny prompt.
+
+Run `claude` from the project folder to load the subagents. Follow the sign-in and companion-tool steps printed for your selection; the same steps are saved in `ai-orchestrator/README.md`.
+
+A real call through the lane runner, captured from a fresh install on 2026-09-23 (Codex CLI 0.154.0). Your agent sends a small read to Codex at low effort, and `cli-run` prints one status line with the route it used:
+
+```text
+$ node ai-orchestrator/bin/cli-run.mjs codex "In one sentence, what is ai-orchestrator/ROUTING.md for?" --effort low
+cli-run[codex] ok rc=0 class=ok refused=null 18.9s raw=20418B route=lane default/low :: turn.completed
+```
+
+Each call also appends one line to `~/.ai-orchestrator/cli-run.log.jsonl` with the lane, the model and effort requested and resolved, the verdict, the exit code, the seconds and the deliverable size, so you can see where the work went. A run that produces no deliverable exits non-zero: on the same install, `--expect-file summary.md` for a file the lane never wrote printed `no_deliverable rc=10 class=empty` and a fix line.
+
+## Part of a set
+
+Three open-source tools that work on their own and fit together:
+
+| Repo | What it gives you |
+|---|---|
+| [agent-personalizer](https://github.com/aunysillyme/agent-personalizer) | One interview writes the profile and rules every AI you use reads, kept in sync from one source. |
+| **model-orchestrator** | Routing rules that tell your agent which model handles each task, so frontier models do the hard work and cheaper tiers do the rest. |
+| [website-build-skill](https://github.com/aunysillyme/website-build-skill) | A skill pack that teaches your AI current website-building expertise: research, design, code, accessibility, performance, search and security. |
 
 ## The three levels
 
@@ -58,6 +120,7 @@ Built from a working system: the routing rules, the protocols and the lane runne
 | **3 · Advanced** | a virtual machine | everything above, plus a gateway config rendered from the API keys you hold (asked separately from your CLIs), pinned images, box rules, privacy gates, and a weekly gap-analysis job with "what watches it" written down |
 
 Levels explained: [Part 1](docs/part-1-beginner.md) · [Part 2](docs/part-2-intermediate.md) · [Part 3](docs/part-3-advanced.md).
+
 ## The AIs it knows about
 
 | Id | What | Level |
@@ -69,13 +132,13 @@ Levels explained: [Part 1](docs/part-1-beginner.md) · [Part 2](docs/part-2-inte
 | `hermes` | Hermes Agent: the free tier | 2+ |
 | `qwen` | Qwen Code CLI with a cheap metered model: structured bulk | 2+ |
 | `ollama` | local models: the privacy lane | 2+ |
-| `claude-app`, `chatgpt-app`, `gemini-app` | chat apps with no CLI: level 1 via a paste block | 1 |
+| `claude-app`, `chatgpt-app`, `gemini-app` | chat apps: level 1 via a paste block | 1 |
 
 `npx model-orchestrator --list` prints the catalog with install and sign-in notes. Details: [docs/catalog.md](docs/catalog.md).
 
 ## Measuring routing
 
-A routing rule nobody measures is a rule nobody knows is followed. On a claude-code install, `route-metrics.mjs` turns every turn, dispatch and subagent start/stop into one JSON line under `~/.ai-orchestrator/route-metrics.jsonl`, including the lane your agent named in its own `<!-- route: <lane> | <why> -->` marker.
+See where your agent sends the work. On a claude-code install, `route-metrics.mjs` turns every turn, dispatch and subagent start/stop into one JSON line under `~/.ai-orchestrator/route-metrics.jsonl`, including the lane your agent named in its own `<!-- route: <lane> | <why> -->` marker.
 
 ```bash
 node .claude/hooks/route-metrics.mjs --summary                        # since the log began
@@ -99,11 +162,11 @@ It ships the two read-only hooks (`route-gate`, `subagent-context`) and the eigh
 
 An orchestrator routes work. Three companion tools cover the rest of what a working agent needs, exact numbers, a memory, and current library docs:
 
-| Tool | Closes | Default |
+| Tool | What it gives you | Set up |
 |---|---|---|
-| [codecalc](https://github.com/The-40-Thieves/codecalc) | guessed numbers: exact arithmetic, code execution in 31 languages, logic checks; offline, no key | yes |
-| [obsidian-tc](https://github.com/The-40-Thieves/obsidian-tc) | no durable memory: hybrid search, backlinks, compare-and-swap writes; local by default | no |
-| [Context7](https://github.com/upstash/context7) | stale library recall: current, version-specific docs pulled into the prompt | no |
+| [codecalc](https://github.com/The-40-Thieves/codecalc) | exact arithmetic, code execution in 31 languages and logic checks, running offline | by default |
+| [obsidian-tc](https://github.com/The-40-Thieves/obsidian-tc) | durable memory with hybrid search, backlinks and compare-and-swap writes; local by default | when you pick it |
+| [Context7](https://github.com/upstash/context7) | current, version-specific library docs pulled into the prompt | when you pick it |
 
 Selecting one writes a doc and the config snippets for your agents, so the install stays yours to run. What each needs first, and how Context7 and codecalc pair up (docs say what an API should do, a run proves what it does): [docs/companions.md](docs/companions.md). Every level carries the three rules they serve either way: `protocols/numbers-and-logic.md`, `protocols/memory-and-record.md` and `protocols/docs-then-prove.md`.
 
@@ -119,22 +182,28 @@ Selecting one writes a doc and the config snippets for your agents, so the insta
 
 ## Common questions
 
-### How do I cut token usage across Claude Code, Codex and Gemini?
+### How do I cut token usage across Claude Code, Codex and Antigravity (Google)?
 
 Install for the tools you have, then let the generated `ROUTING.md` decide the tier per task: bulk, reading and verification go to the fast tier or a cheaper CLI lane, and the deep tier only plans and judges. On Claude Code, execution goes to the `builder` subagent by default and the main session plans and verifies. Every lane call through `cli-run` logs the model and effort it ran with, so you can check where the tokens went.
 
 ### How do I route tasks to cheaper models?
 
-The rules route by role, complexity and stakes (see [Routing by role, complexity and stakes](#routing-by-role-complexity-and-stakes)). Role picks the agent, complexity moves the effort, stakes move the tier. A task a cheap tier finishes correctly stays on the cheap tier, and the frontier tokens go to the work that earns them.
+The rules route by role, complexity and stakes (see [Routing by role, complexity and stakes](docs/how-it-routes.md#routing-by-role-complexity-and-stakes)). Role picks the agent, complexity moves the effort, stakes move the tier. A task a cheap tier finishes correctly stays on the cheap tier, and the frontier tokens go to the work that earns them.
 
 ### Where does this sit next to an LLM router or an AI gateway?
 
 One layer up, and they compose. This routes at the task level, through instructions your agent follows and a runner for agent CLIs. Request-level routers and gateways (RouteLLM, LiteLLM, OpenRouter, claude-code-router) forward the model on every API call, and they sit underneath this happily: pick the lane here, let the gateway carry the call.
 
-### Can an agent install and run it without a person?
+### How does an agent install and run it headlessly?
 
-Yes. `--yes` with `--level`, `--ais` and `--project` runs headless, `--dry-run` previews the plan, and `--list` prints every supported AI. Your existing files stay as they are: activation snippets land beside them, ready to merge when you choose.
+Use the CLI flags. `--yes` with `--level`, `--ais` and `--project` runs headless, `--dry-run` previews the plan, and `--list` prints every supported AI. Your own documents are kept unless you pass `--force`; activation snippets are ready to merge. `MANIFEST.json` and `bin/lanes.json` are rewritten each run. Runtime files upgrade when they match the recorded hash; edited copies are kept and named. See [re-running an install](docs/install.md#what-a-run-does) for `--update-docs` and `--upgrade-runtime`.
 
+
+## Uninstall
+
+Remove unedited files recorded by the installer; edited files stay and are listed.
+Run `npx model-orchestrator --uninstall --dir ./ai-orchestrator --project .` (add `--dry` to preview).
+Remove the pasted rules block and merged hooks entry by hand. [Removal details](docs/install.md#uninstall).
 
 ## Read next
 
@@ -150,14 +219,14 @@ Yes. `--yes` with `--level`, `--ais` and `--project` runs headless, `--dry-run` 
 <summary><strong>Platform support, and every test this suite skips</strong></summary>
 
 
-Node 18 or newer. No dependencies. Works on macOS and Linux; the level 3 box templates assume Ubuntu. Windows: CI runs the suite on `windows-latest` (Node 18, 20, 22), including lane execution end to end through `cli-run` against a fake CLI installed the same way npm installs a real one (a `.cmd` shim). `cli-run` never runs a lane through `cmd.exe` when it can avoid it: it resolves the shim to the Node script underneath and spawns Node directly, so a prompt reaching a real lane never passes through a Windows shell. A `.cmd` or `.bat` lane that cannot be resolved that way (an old or hand-edited shim) is refused with exit 13 and a message saying how to fix it, rather than run through `cmd.exe`: a batch file re-reads its arguments after `cmd.exe` has parsed them once, and no escaping fully contains a prompt through both passes. Install, detection, the hooks and `cli-run`'s `taskkill` tree kill are tested on Windows too, including SIGTERM/SIGINT to the wrapper (Windows has no OS-level signals: both terminate it unconditionally, verified there rather than treated the same as POSIX). Five narrow skips remain on Windows, each for a POSIX behavior the OS or the CI shell genuinely does not have, and each named here because a test that is quietly skipped reads as a test that passed: `statSync().mode`'s executable bit (NTFS has none, so that one assertion is conditional inside a test that otherwise runs everywhere); a lane dying mid-run from a real POSIX signal (a real Windows lane cannot die "by signal"); running `weekly-audit.sh`'s watchdog functions for real under Git Bash's job control, both the end-to-end run and the `bounded()` timeout check (the script itself only ever runs on the Ubuntu box it targets); and a `mkfifo` FIFO at the rules path, the one case that proves `route-gate.mjs` cannot HANG on a non-regular file, since Windows has no `mkfifo` to build one (the guard behind it is covered on every OS by a directory at the same path); and an untracked `mkfifo` FIFO in the repository `cli-run --audit` sizes, the case that proves `--effort auto` never opens a non-regular file (the symlink half of that test runs on every OS). The list is not prose on trust: `test/prose.test.js` counts every `skip:` in the suite and fails if one of them is not documented here.
+Node 18 or newer, with zero runtime dependencies. Works on macOS and Linux; the level 3 box templates assume Ubuntu. Windows: CI runs the suite on `windows-latest` (Node 18, 20, 22), including lane execution end to end through `cli-run` against a fake CLI installed the same way npm installs a real one (a `.cmd` shim). `cli-run` never runs a lane through `cmd.exe` when it can avoid it: it resolves the shim to the Node script underneath and spawns Node directly, so a prompt reaching a real lane never passes through a Windows shell. A `.cmd` or `.bat` lane that cannot be resolved that way (an old or hand-edited shim) is refused with exit 13 and a message saying how to fix it, rather than run through `cmd.exe`: a batch file re-reads its arguments after `cmd.exe` has parsed them once, and no escaping fully contains a prompt through both passes. Install, detection, the hooks and `cli-run`'s `taskkill` tree kill are tested on Windows too, including SIGTERM/SIGINT to the wrapper (Windows has no OS-level signals: both terminate it unconditionally, verified there rather than treated the same as POSIX). The Windows skip list covers POSIX behavior, with each skip pinned by `test/prose.test.js`: `statSync().mode`'s executable bit (NTFS has none, so that one assertion is conditional inside a test that otherwise runs everywhere); a lane dying mid-run from a real POSIX signal (a real Windows lane cannot die "by signal"); running `weekly-audit.sh`'s watchdog functions for real under Git Bash's job control, both the end-to-end run and the `bounded()` timeout check (the script itself only ever runs on the Ubuntu box it targets); and a `mkfifo` FIFO at the rules path, the one case that proves `route-gate.mjs` cannot HANG on a non-regular file, since Windows has no `mkfifo` to build one (the guard behind it is covered on every OS by a directory at the same path); and an untracked `mkfifo` FIFO in the repository `cli-run --audit` sizes, the case that proves `--effort auto` never opens a non-regular file (the symlink half of that test runs on every OS). `test/prose.test.js` counts every `skip:` in the suite and requires this list to document each one.
 
 **Privacy.** The installer sends no telemetry and makes no network call of its own once it is running. Two things around that are worth being exact about:
 
 - `npx model-orchestrator` is itself a download: npm fetches this package from the registry before any of it runs. `npm install -g model-orchestrator` once, then run `model-orchestrator`, if you would rather that happen exactly one time.
-- A missing vendor CLI is *printed*, not installed. In an interactive run the installer offers to run one pinned `npm install -g` per package and only runs the ones you answer yes to; with `--yes` or `--no-install` it answers no for you and prints the command instead. Vendor shell installers (Antigravity, Grok) are only ever printed, alongside the `curl … | less` you would use to read one before running it.
+- For a missing vendor CLI, the installer prints the install command. An interactive run offers to run one pinned `npm install -g` per package with your confirmation; `--yes` and `--no-install` keep installation in your hands. Vendor shell installers (Antigravity, Grok) are only ever printed, alongside the `curl … | less` you would use to read one before running it.
 
-`cli-run` talks to nothing but the vendor CLI you name.
+`cli-run` calls the vendor CLI you name.
 
 
 </details>
@@ -166,7 +235,7 @@ Node 18 or newer. No dependencies. Works on macOS and Linux; the level 3 box tem
 <summary><strong>Vendor version compatibility</strong></summary>
 
 
-**This package detects that a binary exists. It does not check its version, and a present binary is not a working lane.** `--doctor` reports presence, and with `--run` sends one lane a one-word canary; neither validates that the vendor's flags, output shape or auth still match what the generated files assume.
+**Detection checks whether a binary is present.** Use the compatibility table below to compare vendor versions. `--doctor` reports presence; add `--run` to send every enabled lane a small canary and check its sign-in and output against the runner's success criteria.
 
 The lane wiring and the output judges were written against these versions, which are the ones this release was exercised on:
 
@@ -186,18 +255,24 @@ Generated from `src/catalog.js` by `npm run gen:catalog`; `npm test` fails if th
 
 <!-- vendor-table:end -->
 
-One number per lane, and it is the same number the installer pins: where a lane installs from npm, `builtAgainst` in the catalog *is* the pin, so "built against" and "pinned to" can never be two answers. That pin is a floor, not a ceiling: these CLIs ship breaking flag changes on their own schedules, so a newer version may work perfectly, or may change a flag the generated wiring passes. When a lane starts failing after a vendor upgrade, compare against this table first.
+For npm-installed lanes, `builtAgainst` in the catalog supplies both the compatibility table and the install pin. Newer vendor versions may work or may change a flag the generated wiring uses. When a lane starts failing after a vendor upgrade, compare against this table first.
 
 **The live canary runs on your machine, with your credentials.** That is what `node bin/cli-run.mjs --doctor --run` is: it sends every enabled lane one tiny prompt through your own sign-ins and reports `canary ok` or `canary FAILED rc=` per lane. Run it after install, and again after any vendor upgrade.
 
-It deliberately does not run in this repository's CI. A canary is only meaningful against real credentials, and there are no credentials a maintainer could supply that would tell **you** anything about **your** lanes: your sign-ins, your quota, your vendor versions. A maintainer-credential canary in CI would prove one machine works and bill someone per run to do it. So CI runs the full suite against stub lanes on Ubuntu, macOS and Windows, Node 18/20/22, plus a packaged install into a clean consumer, and the live check ships to you instead.
+CI runs the full suite against stub lanes on Ubuntu, macOS and Windows, Node 18/20/22, plus a packaged install into a clean consumer. Run the live check locally to verify your own sign-ins, quota and vendor versions.
 
 
 </details>
 
 ## Contributing
 
-Add an AI to `src/catalog.js` and every prompt, table, config and doc picks it up. Run `npm test`. Keep templates free of logic and free of anything that looks like a credential. The rest is in [CONTRIBUTING.md](CONTRIBUTING.md); releases in [RELEASING.md](RELEASING.md); security reports in [SECURITY.md](SECURITY.md).
+Contributions are welcome:
+
+- **New AIs:** add an entry to `src/catalog.js`; prompts, tables, configs and docs use the catalog.
+- **Vendor updates:** contribute a lane fixture captured from a newer vendor version and the test that checks it.
+- **Docs:** fix an unclear instruction or add a reproducible example.
+
+Run `npm test` with your change. Keep templates free of logic and credential values. See [CONTRIBUTING.md](CONTRIBUTING.md), [RELEASING.md](RELEASING.md) and [SECURITY.md](SECURITY.md).
 
 ## Credits
 

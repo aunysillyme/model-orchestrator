@@ -17,13 +17,14 @@ import { planFiles, writeFiles, resolveSelection, resolveTools, resolveApis, dir
 // duplicated: resolve npm's own cmd-shim and run node on it directly, no
 // shell, or fall back to the escaped cmd.exe path it also provides.
 import { windowsSpawnPlan } from './cli-run.mjs';
+import { uninstallFiles } from '../src/uninstall.js';
 
 // One strict parse. Unknown flags, missing values and duplicates are usage
 // errors (exit 2) before anything is planned, so a typo like --dryy can never
 // turn a dry run into a real one.
 const SPEC = {
   level: 'value', ais: 'value', primary: 'value', dir: 'value', project: 'value', tools: 'value', apis: 'value', plans: 'value',
-  yes: 'bool', force: 'bool', dry: 'bool', 'dry-run': 'bool', 'no-install': 'bool', 'no-tools': 'bool', 'no-apis': 'bool', 'effort-auto': 'bool', 'upgrade-runtime': 'bool', 'update-docs': 'bool', list: 'bool', help: 'bool', h: 'bool', version: 'bool', v: 'bool'
+  yes: 'bool', force: 'bool', dry: 'bool', 'dry-run': 'bool', uninstall: 'bool', 'no-install': 'bool', 'no-tools': 'bool', 'no-apis': 'bool', 'effort-auto': 'bool', 'upgrade-runtime': 'bool', 'update-docs': 'bool', list: 'bool', help: 'bool', h: 'bool', version: 'bool', v: 'bool'
 };
 export function parseArgs(argv) {
   const out = {};
@@ -94,6 +95,7 @@ if (flag('help') || flag('h')) {
 Usage
   npx model-orchestrator                      interactive
   npx model-orchestrator --list               show the AI catalog and exit
+  npx model-orchestrator --uninstall --dir <dir> --project <project>
   npx model-orchestrator --yes --level 2 --ais claude-code,codex,grok [--primary claude-code] [--dir ./ai-orchestrator] [--project .]
 
 Flags
@@ -116,6 +118,7 @@ Flags
   --update-docs      regenerate the documents a previous run wrote and nobody edited since (hash-checked against
                      MANIFEST.json), so a changed selection reaches ROUTING.md and friends; edited documents are kept
                      and reported, and nothing happens without a manifest
+  --uninstall        remove unedited managed files recorded in MANIFEST.json; keep and list edited files
   --dry, --dry-run   print the plan, write nothing
   --no-install       never offer to run npm installs
   --list             print the catalog
@@ -131,6 +134,12 @@ if (flag('list')) {
   for (const a of AIS) {
     const here = a.bin ? (which(a.bin) ? 'installed' : 'not on PATH') : 'app';
     console.log(`${a.id.padEnd(13)} ${a.name}\n${''.padEnd(13)} level ${a.minLevel}+ · ${a.access} · ${here}\n${''.padEnd(13)} ${a.role}`);
+    const install = a.install.npm
+      ? `npm install -g ${npmSpec(a)}`
+      : a.install.script
+        ? `curl -fsSL ${a.install.script} -o /tmp/${a.id}-install.sh && less /tmp/${a.id}-install.sh && bash /tmp/${a.id}-install.sh`
+        : a.install.url + (a.install.brew ? ` (or: brew install ${a.install.brew})` : '');
+    console.log(`${''.padEnd(13)} install: ${install}\n${''.padEnd(13)} sign in: ${a.auth}`);
     if (a.plans) for (const p of a.plans) console.log(`${''.padEnd(13)} plan ${p.id}: ${p.name} (${p.headroom} headroom, checked ${p.checked}, ${p.source})`);
   }
   console.log('\nmetered API providers (--apis a,b, level 3 gateway only):');
@@ -141,7 +150,7 @@ if (flag('list')) {
 }
 
 const yes = flag('yes');
-const rl = yes ? null : makeAsker({ input: stdin, output: stdout });
+const rl = yes || flag('uninstall') ? null : makeAsker({ input: stdin, output: stdout });
 const ask = (q, fallback) => (rl ? rl.ask(q, fallback) : Promise.resolve(fallback));
 
 function bad(msg) {
@@ -173,6 +182,20 @@ function plansFromManifest(manifest, selected) {
 }
 
 async function main() {
+  if (flag('uninstall')) {
+    const allowed = new Set(['uninstall', 'dir', 'project', 'dry', 'dry-run', 'yes']);
+    const incompatible = Object.keys(parsed.out).filter((name) => !allowed.has(name));
+    if (incompatible.length) bad(`--uninstall cannot be combined with ${incompatible.map((name) => '--' + name).join(', ')}`);
+    const dir = resolve(opt('dir') || './ai-orchestrator');
+    const project = resolve(opt('project') || '.');
+    const dry = flag('dry') || flag('dry-run');
+    const actions = uninstallFiles({ dir, project, dry });
+    console.log(dry ? 'Uninstall preview (--dry): nothing changed.' : 'Uninstall complete.');
+    for (const action of actions) console.log(action);
+    console.log('\nManual steps: remove the pasted model-orchestrator block from CLAUDE.md and its merged hook entries from .claude/settings.json. Keep your other rules and hooks.');
+    console.log('For another primary agent, remove its pasted activation block from its rules file.');
+    return;
+  }
   // Says what this generates, not what it guarantees. The old line promised
   // routing this package does not perform: lane choice is an instruction an
   // agent follows, never something enforced here (#11).
@@ -346,11 +369,15 @@ async function main() {
   const files = planFiles({ level, selected, primary, dir, project, tools, apis, plans, effortAuto });
   const lvl = LEVELS.find((l) => l.id === level);
   const agentFiles = files.filter((f) => f.root === 'project');
+  const projectKinds = [
+    [agentFiles.filter((f) => primary?.agentsDir && toPosixRel(f.rel).startsWith(primary.agentsDir + '/')).length, 'subagents'],
+    [agentFiles.filter((f) => toPosixRel(f.rel).startsWith('.claude/hooks/')).length, 'hooks']
+  ].filter(([count]) => count).map(([count, kind]) => `${count} ${kind}`).join(' + ');
   const statedPlans = Object.entries(plans).map(([id, p]) => `${id}=${p.id}`).join(', ');
-  console.log(`\nPlan\n  level    ${lvl.id} ${lvl.name}\n  access   ${selected.map((a) => a.id).join(', ')}\n  primary  ${primary ? primary.id : 'none'}${primaryAutoPicked ? ` (chosen for you from ${candidates.map((a) => a.id).join(', ')}; pass --primary to decide it yourself)` : ''}\n  tools    ${tools.map((t) => t.id).join(', ') || 'none'}\n  plans    ${statedPlans || 'none stated'}` + (level >= 3 ? `\n  api keys ${apis.map((p) => p.id).join(', ') || 'none'}` : '') + `\n  folder   ${dir}\n  project  ${project}${agentFiles.length ? ' (' + agentFiles.length + ' subagent files go here)' : ''}\n  files    ${files.length}`);
+  console.log(`\nPlan\n  level    ${lvl.id} ${lvl.name}\n  access   ${selected.map((a) => a.id).join(', ')}\n  primary  ${primary ? primary.id : 'none'}${primaryAutoPicked ? ` (chosen for you from ${candidates.map((a) => a.id).join(', ')}; pass --primary to decide it yourself)` : ''}\n  tools    ${tools.map((t) => t.id).join(', ') || 'none'}\n  plans    ${statedPlans || 'none stated'}` + (level >= 3 ? `\n  api keys ${apis.map((p) => p.id).join(', ') || 'none'}` : '') + `\n  folder   ${dir}\n  project  ${project}${projectKinds ? ' (' + projectKinds + ' go here)' : ''}\n  files    ${files.length}`);
   if (plansKept) console.log('  plans kept from the previous run');
   if (agentFiles.length && !opt('project')) {
-    console.log(`\nNote: --project was not given, so the ${agentFiles.length} subagent file(s) go to the current directory (${project}). Pass --project to put them somewhere else.`);
+    console.log(`\nNote: --project defaults to the current directory, so the ${projectKinds} go to the current directory (${project}). Pass --project to put them somewhere else.`);
   }
   if (level >= 2 && !selected.some((a) => a.cliRun)) {
     console.log('\nWarning: no executable lanes selected; delegation is inactive. Use level 1 for a single-agent setup, or add a supported CLI. Doctor will exit 13 until a lane is enabled.');
@@ -471,5 +498,5 @@ function isEntryPoint() {
 }
 if (isEntryPoint()) main().catch((e) => {
   console.error('model-orchestrator: ' + (e && e.message ? e.message : e));
-  process.exit(e && e.code === 'EOF' ? 2 : 1);
+  process.exit(e && ['EOF', 'UNINSTALL'].includes(e.code) ? 2 : 1);
 });
