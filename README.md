@@ -14,65 +14,24 @@ npx model-orchestrator
 
 <img src="docs/demo.gif" alt="A terminal running npx model-orchestrator with --dry: it prints the level, the AIs detected, both target folders and all 38 files it would write, then says nothing was written." width="100%" />
 
-A few questions, then 38 files for a three-AI setup. The same plan as text (paths shown relative to the project folder):
+A few questions, then it writes the setup for the AIs you picked. For Claude Code, Codex and Grok that is 38 files:
 
-```text
-Plan
-  level    2 Intermediate
-  access   claude-code, codex, grok
-  primary  claude-code
-  tools    codecalc
-  plans    none stated
-  folder   ./ai-orchestrator
-  project  . (8 subagents + 3 hooks go here)
-  files    38
-  - README.md
-  - TASK_BUNDLE.md
-  - protocols/README.md
-  - protocols/build-protocol.md
-  - protocols/deep-research.md
-  - protocols/docs-then-prove.md
-  - protocols/gap-analysis.md
-  - protocols/memory-and-record.md
-  - protocols/numbers-and-logic.md
-  - protocols/propagate.md
-  - ORCHESTRATOR.md
-  - [project] .claude/agents/builder.md
-  - [project] .claude/agents/bulk-worker.md
-  - [project] .claude/agents/code-reviewer.md
-  - [project] .claude/agents/deep-planner.md
-  - [project] .claude/agents/done-verifier.md
-  - [project] .claude/agents/finding-verifier.md
-  - [project] .claude/agents/live-researcher.md
-  - [project] .claude/agents/reader.md
-  - CLAUDE.snippet.md
-  - [project] .claude/hooks/route-gate.mjs
-  - [project] .claude/hooks/subagent-context.mjs
-  - [project] .claude/hooks/route-metrics.mjs
-  - settings.hooks.snippet.json
-  - CODECALC.md
-  - mcp/agy.mcp_config.json
-  - mcp/codex.config.toml
-  - mcp/mcpServers.json
-  - mcp/vscode.mcp.json
-  - mcp/zed.settings.json
-  - CLI-RUN.md
-  - DELEGATION_MATRIX.md
-  - RESEARCH_TRIAGE.md
-  - ROUTING.md
-  - TIERS.md
-  - bin/cli-run.mjs
-  - bin/lanes.json
-  - MANIFEST.json
+| Part | What it does for you |
+|---|---|
+| `ROUTING.md`, `TIERS.md`, `DELEGATION_MATRIX.md` | tell your agent which model or CLI handles each kind of task, and at what effort |
+| `TASK_BUNDLE.md` and `protocols/` | the brief every hand-off carries, plus build, research, audit and record-keeping steps |
+| 8 subagents in `.claude/agents/` | builder, planner, reviewer, researcher, bulk worker, reader and two verifiers, each with its own tools |
+| 3 hooks in `.claude/hooks/` | put the routing table in front of your agent on every prompt and every subagent start, and log where work went |
+| `bin/cli-run.mjs` | calls Codex, Grok and the other CLIs, and counts a run as done only when it returns a result |
+| `mcp/` and `CODECALC.md` | ready-to-paste configs for the companion tools you chose |
 
---dry: nothing written.
-```
-
-Run it yourself, in any folder:
+Preview it in any folder, nothing is written:
 
 ```bash
 npx model-orchestrator --yes --level 2 --ais claude-code,codex,grok --primary claude-code --dir ./ai-orchestrator --project . --dry
 ```
+
+Every file, folder by folder: [docs/install.md](docs/install.md#what-gets-written-level-3-everything).
 
 The recording above comes from the published package under `asciinema`, rendered with `agg`: `bash scripts/record-demo.sh`.
 
