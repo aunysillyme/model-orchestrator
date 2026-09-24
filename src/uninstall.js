@@ -1,6 +1,6 @@
 import { closeSync, constants, fstatSync, lstatSync, openSync, readFileSync, readdirSync, rmdirSync, unlinkSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { isAbsolute, join, relative, resolve, sep, win32 } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve, sep, win32 } from 'node:path';
 import { dirProblems, realRoot } from './install.js';
 
 const hash = (bytes) => createHash('sha256').update(bytes).digest('hex');
@@ -112,6 +112,18 @@ export function uninstallFiles({ dir, project, dry = false }) {
   }
 
   const actions = [];
+  const backupTargets = [...files, manifest];
+  if (data.primary === 'claude-code') backupTargets.push(entry('[project] CLAUDE.md', roots), entry('[project] .claude/settings.json', roots));
+  for (const item of backupTargets) {
+    const parent = dirname(item.abs);
+    if (!inspect({ root: item.root, abs: parent, directory: true })) continue;
+    const prefix = basename(item.abs) + '.bak-';
+    for (const name of readdirSync(parent).sort()) {
+      if (name.startsWith(prefix) && /^\d{8}T\d{6}$/.test(name.slice(prefix.length))) {
+        actions.push('  keep backup ' + join(parent, name));
+      }
+    }
+  }
   const pending = [];
   let edited = false;
   for (const item of files) {

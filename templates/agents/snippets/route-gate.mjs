@@ -12,7 +12,7 @@
 // a full read of an arbitrarily large or non-regular file), and never
 // executes anything it reads. See docs/audit-brief.md for the security notes.
 import { statSync, openSync, readSync, closeSync, realpathSync } from 'node:fs';
-import { join, isAbsolute } from 'node:path';
+import { join, isAbsolute, basename } from 'node:path';
 
 // One template, two renders. The installer renders a one-element list from
 // the level and directory the user chose: a level 1 install points it at
@@ -22,6 +22,7 @@ import { join, isAbsolute } from 'node:path';
 // render from, so it lists the installer's default locations and reads the
 // first one that exists.
 const RULES_CANDIDATES = {{RULES_CANDIDATES_JSON}};
+{{RULES_PATH_NOTE_COMMENT}}
 const RULES_FILE_REL = RULES_CANDIDATES.join(' or ');
 // Empty in an installer render, whose rules file was written by the same run.
 // The plugin renders a next step for a project that has no rules yet, so a
@@ -68,6 +69,8 @@ function projectRoot() {
 }
 
 function resolveRulesPath(rel, root) {
+  const override = {{RULES_DIR_OVERRIDE_JS}};
+  if (override) return isAbsolute(override) ? join(override, basename(rel)) : root ? join(root, override, basename(rel)) : null;
   if (isAbsolute(rel)) return rel;
   return root ? join(root, rel) : null;
 }

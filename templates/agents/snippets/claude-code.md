@@ -1,11 +1,10 @@
-# Add this to your project's CLAUDE.md
-
-Copy the block below into `CLAUDE.md` at your project root (create the file if it does not exist). The installer did not modify any file you already had.
+{{CLAUDE_SNIPPET_INTRO}}
 
 ```markdown
 ## Model orchestrator
 
 Routing rules live in `{{RULES_PATH}}/{{ROUTING_FILE}}`. Read them before any build task. Quick version, first match wins:
+{{RULES_PATH_NOTE}}
 
 1. Bulk, mechanical, many similar items -> bulk-worker (fast tier).
 2. Needs live data -> live-researcher (standard tier + tools).
@@ -28,6 +27,6 @@ Numbers, comparisons, complexity and equivalence claims go through codecalc (or 
 Anything durable is searched for before it is written and its folder index is corrected in the same pass; one writer per run: `{{RULES_PATH}}/protocols/memory-and-record.md`.
 ```
 
-Subagents were written to `{{AGENTS_DIR}}` (the project root, which is where Claude Code reads project-level agents; `--project` changes it). Run `claude` from `{{PROJECT_DIR}}` and they are available as {{AGENTS_LIST_LINE}}.
+Subagents were written to `.claude/agents/` under the project root, which is where Claude Code reads project-level agents (`--project` selects that root). Run `claude` from your project root and they are available as {{AGENTS_LIST_LINE}}.
 
-Three hooks were written to `{{AGENTS_DIR}}/../hooks/` (`.claude/hooks/`): `route-gate.mjs` injects the routing table on every prompt, `subagent-context.mjs` reminds a spawned subagent where the rules and the task-bundle format live, and `route-metrics.mjs` appends each turn's route marker and subagent dispatch to a local `route-metrics.jsonl` log (read it with `node .claude/hooks/route-metrics.mjs --summary`). Merge `settings.hooks.snippet.json`, written next to this file, into `.claude/settings.json` to wire all three in.
+Three hooks were written to `.claude/hooks/` under the project root: `route-gate.mjs` injects the routing table on every prompt, `subagent-context.mjs` reminds a spawned subagent where the rules and the task-bundle format live, and `route-metrics.mjs` appends each turn's route marker and subagent dispatch to a local `route-metrics.jsonl` log (read it with `node .claude/hooks/route-metrics.mjs --summary`). {{CLAUDE_HOOKS_ACTIVATION}}

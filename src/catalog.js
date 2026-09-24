@@ -8,6 +8,7 @@
 //   bin        binary to look for on PATH, or null
 //   access     'subscription' ($0 per call on a plan you already pay for), 'metered' (per token), 'free', 'local'
 //   lane       'A' = subscription CLI, 'B' = metered API, 'local' = stays on the machine
+//   laneCategories  routing capabilities used to filter generated lane advice
 //   role       the one job it wins at in a multi-AI stack
 //   minLevel   1 beginner, 2 intermediate, 3 advanced
 //   install    { npm: pkg } for a global npm install the installer may run after you say yes,
@@ -88,6 +89,7 @@ export const AIS = [
   },
   {
     id: 'codex',
+    laneCategories: ['second-coder'],
     name: 'Codex CLI (OpenAI, ChatGPT plan)',
     vendor: 'OpenAI',
     kind: 'agent-cli',
@@ -110,6 +112,7 @@ export const AIS = [
   },
   {
     id: 'agy',
+    laneCategories: ['fan-out', 'largest-context'],
     name: 'Antigravity CLI `agy` (Google AI plan)',
     vendor: 'Google',
     kind: 'agent-cli',
@@ -134,6 +137,7 @@ export const AIS = [
   },
   {
     id: 'grok',
+    laneCategories: ['live-data'],
     name: 'Grok CLI (xAI, X Premium)',
     vendor: 'xAI',
     kind: 'agent-cli',
@@ -156,6 +160,7 @@ export const AIS = [
   },
   {
     id: 'hermes',
+    laneCategories: ['free'],
     name: 'Hermes Agent (Nous Research)',
     vendor: 'Nous Research',
     kind: 'agent-cli',
@@ -173,6 +178,7 @@ export const AIS = [
   },
   {
     id: 'qwen',
+    laneCategories: ['cheapest-metered'],
     name: 'Qwen Code CLI (Alibaba, provider-agnostic)',
     vendor: 'Alibaba',
     kind: 'agent-cli',
@@ -191,6 +197,7 @@ export const AIS = [
   },
   {
     id: 'ollama',
+    laneCategories: ['local'],
     name: 'Ollama (local models)',
     vendor: 'Ollama',
     kind: 'local',

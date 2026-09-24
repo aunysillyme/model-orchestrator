@@ -559,11 +559,11 @@ test('snippet paths and the agents note are computed from --dir and --project', 
   // cancels out of a *relative* path between them).
   assert.match(snip, /`tools\/orch\/ORCHESTRATOR\.md`/);
   assert.doesNotMatch(snip, /ai-orchestrator\//);
-  // AGENTS_DIR names where THIS run wrote subagent files on THIS host: a
-  // local path, rendered with this host's own separators. Build the
-  // expectation with resolve()/join(), the same functions install.js uses,
-  // instead of a hardcoded POSIX literal.
-  assert.match(snip, reOfPath(resolve('/proj'), '.claude', 'agents'));
+  // The snippet names the agents folder relative to the project root, so it
+  // stays true after the project moves (#43); the absolute path this run
+  // used lives in the install README, asserted below.
+  assert.match(snip, /`\.claude\/agents\/` under the project root/);
+  assert.doesNotMatch(snip, reOfPath(resolve('/proj'), '.claude', 'agents'));
   const same = planFiles({ level: 1, selected: sel('claude-code'), primary: byId['claude-code'], dir: '/proj', project: '/proj' }).find((f) => f.rel === 'CLAUDE.snippet.md').content;
   assert.match(same, /`\.\/ORCHESTRATOR\.md`/);
   // --dir outside --project at level 3: RULES_PATH also reaches vm/box-CLAUDE.md,

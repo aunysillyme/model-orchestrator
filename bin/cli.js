@@ -2,7 +2,7 @@
 // model-orchestrator installer.
 // Asks which level you want and which AIs you have access to, then writes the
 // matching files into a folder. It never writes a secret, never runs a vendor
-// shell script, and never overwrites a file you already have unless --force.
+// shell script. Existing documents are preserved unless an update is requested.
 
 import { stdin, stdout } from 'node:process';
 import { makeAsker } from '../src/prompt.js';
@@ -18,13 +18,14 @@ import { planFiles, writeFiles, resolveSelection, resolveTools, resolveApis, dir
 // shell, or fall back to the escaped cmd.exe path it also provides.
 import { windowsSpawnPlan } from './cli-run.mjs';
 import { uninstallFiles } from '../src/uninstall.js';
+import { assertSnippetPrimary, planSnippetApplication } from '../src/apply-snippets.js';
 
 // One strict parse. Unknown flags, missing values and duplicates are usage
 // errors (exit 2) before anything is planned, so a typo like --dryy can never
 // turn a dry run into a real one.
 const SPEC = {
   level: 'value', ais: 'value', primary: 'value', dir: 'value', project: 'value', tools: 'value', apis: 'value', plans: 'value',
-  yes: 'bool', force: 'bool', dry: 'bool', 'dry-run': 'bool', uninstall: 'bool', 'no-install': 'bool', 'no-tools': 'bool', 'no-apis': 'bool', 'effort-auto': 'bool', 'upgrade-runtime': 'bool', 'update-docs': 'bool', list: 'bool', help: 'bool', h: 'bool', version: 'bool', v: 'bool'
+  'apply-snippets': 'bool', yes: 'bool', force: 'bool', dry: 'bool', 'dry-run': 'bool', uninstall: 'bool', 'no-install': 'bool', 'no-tools': 'bool', 'no-apis': 'bool', 'effort-auto': 'bool', 'upgrade-runtime': 'bool', 'update-docs': 'bool', list: 'bool', help: 'bool', h: 'bool', version: 'bool', v: 'bool'
 };
 export function parseArgs(argv) {
   const out = {};
@@ -112,6 +113,7 @@ Flags
   --project path     the project root your agent runs from; subagent definitions go here (default: current directory,
                      so set it: a run from your home folder otherwise drops the subagent files there)
   --yes              skip confirmations
+  --apply-snippets   apply Claude Code rules and hooks with timestamped backups (opt-in)
   --force            overwrite every file that already exists, documents included
   --upgrade-runtime  replace the runtime files (cli-run, the audit job, compose, gateway config, setup script) even
                      when they cannot be verified as untouched; documents are still kept
@@ -193,6 +195,7 @@ async function main() {
     console.log(dry ? 'Uninstall preview (--dry): nothing changed.' : 'Uninstall complete.');
     for (const action of actions) console.log(action);
     console.log('\nManual steps: remove the pasted model-orchestrator block from CLAUDE.md and its merged hook entries from .claude/settings.json. Keep your other rules and hooks.');
+    console.log(`Applied rules use <!-- model-orchestrator:start --> and <!-- model-orchestrator:end -->. Backups stay beside the originals: ${join(project, 'CLAUDE.md.bak-YYYYMMDDTHHMMSS')} and ${join(project, '.claude', 'settings.json.bak-YYYYMMDDTHHMMSS')}. Review backups before restoring them; later edits may need to be kept.`);
     console.log('For another primary agent, remove its pasted activation block from its rules file.');
     return;
   }
@@ -366,7 +369,10 @@ async function main() {
   }
 
   // 5. Plan
-  const files = planFiles({ level, selected, primary, dir, project, tools, apis, plans, effortAuto });
+  const applySnippets = flag('apply-snippets');
+  if (applySnippets) assertSnippetPrimary(primary);
+  const files = planFiles({ level, selected, primary, dir, project, tools, apis, plans, effortAuto, applySnippets });
+  if (applySnippets) files.push(...planSnippetApplication({ primary, project, files }));
   const lvl = LEVELS.find((l) => l.id === level);
   const agentFiles = files.filter((f) => f.root === 'project');
   const projectKinds = [
@@ -384,6 +390,12 @@ async function main() {
   }
   if (flag('dry') || flag('dry-run')) {
     for (const f of files) console.log('  - ' + (f.root === 'project' ? '[project] ' : '') + f.rel);
+    if (applySnippets) {
+      const preview = writeFiles(files, { dir, project, dry: true, force: flag('force'), upgradeRuntime: flag('upgrade-runtime'), updateDocs: flag('update-docs'), prevManifest: prev, backupExisting: true });
+      for (const path of preview.written) console.log('  would write ' + path);
+      for (const path of [...preview.skipped, ...preview.conflicts, ...preview.unverifiable, ...preview.docsConflict, ...preview.docsUnverifiable]) console.log('  would keep ' + path);
+      for (const path of preview.backups) console.log('  would back up ' + path);
+    }
     console.log('\n--dry: nothing written.');
     rl && rl.close();
     return;
@@ -405,7 +417,7 @@ async function main() {
 
   let written, skipped, upgraded, conflicts, unverifiable, docsUpdated, docsConflict, docsUnverifiable;
   try {
-    ({ written, skipped, upgraded, conflicts, unverifiable, docsUpdated, docsConflict, docsUnverifiable } = writeFiles(files, { dir, project, force: flag('force'), upgradeRuntime: flag('upgrade-runtime'), updateDocs: flag('update-docs'), prevManifest: prev }));
+    ({ written, skipped, upgraded, conflicts, unverifiable, docsUpdated, docsConflict, docsUnverifiable } = writeFiles(files, { dir, project, force: flag('force'), upgradeRuntime: flag('upgrade-runtime'), updateDocs: flag('update-docs'), prevManifest: prev, backupExisting: applySnippets, onBackup: (path) => console.log('  backup ' + path) }));
   } catch (e) {
     if (e && e.code === 'PREFLIGHT') bad(e.message);
     throw e;
@@ -479,7 +491,7 @@ async function main() {
   // 7. Activation summary: writing the folder is half the job. Say exactly what
   // turns it on, in order, with one command that proves it. The generated
   // README renders this same array, so the two surfaces cannot disagree (#20).
-  const steps = activationSteps({ level, selected, primary, tools, dir, project });
+  const steps = activationSteps({ level, selected, primary, tools, dir, project, applySnippets });
   console.log('\nTo activate, in order:');
   steps.forEach((st, i) => console.log(`  ${i + 1}. ${st}`));
   console.log(`\nStart here: ${join(dir, 'README.md')} (written for level ${level} and the AIs you picked).`);
@@ -498,5 +510,5 @@ function isEntryPoint() {
 }
 if (isEntryPoint()) main().catch((e) => {
   console.error('model-orchestrator: ' + (e && e.message ? e.message : e));
-  process.exit(e && ['EOF', 'UNINSTALL'].includes(e.code) ? 2 : 1);
+  process.exit(e && ['EOF', 'UNINSTALL', 'PREFLIGHT'].includes(e.code) ? 2 : 1);
 });

@@ -8,6 +8,8 @@ Levels: 1 beginner (one agent or chat app), 2 intermediate (several agent CLIs, 
 
 Claude Code plugin: `/plugin marketplace add aunysillyme/model-orchestrator`, then `/plugin install model-orchestrator@model-orchestrator`. It installs the two read-only hooks (`route-gate`, `subagent-context`) and eight subagents; the routing rules still come from `npx model-orchestrator`, and the routing log (`route-metrics.mjs`) is npm-only.
 
+Pick a model proxy (LiteLLM, Portkey, OpenRouter, claude-code-router) for per-request model routing underneath an agent; pick model-orchestrator for installed routing rules, subagents, hooks and a lane runner for coding agents and subscription CLIs. They compose.
+
 ## Docs
 
 - [README](https://github.com/aunysillyme/model-orchestrator/blob/main/README.md): what it is, a real dry-run plan, the levels, the AIs, the principles

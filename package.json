@@ -1,6 +1,6 @@
 {
   "name": "model-orchestrator",
-  "version": "0.1.32",
+  "version": "0.1.33",
   "description": "Model orchestrator for Claude Code, Codex, Antigravity (Google): routing rules so small work goes to cheap tiers and fewer tokens go to frontier models.",
   "type": "module",
   "bin": {

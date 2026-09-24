@@ -34,6 +34,8 @@ import {
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 
+// Telemetry has no rules lookup: MODEL_ORCHESTRATOR_RULES_DIR changes the
+// two context hooks, while metrics keep their existing home-directory log.
 const HOME_DIR = join(homedir(), '.ai-orchestrator');
 const LOG_FILE = join(HOME_DIR, 'route-metrics.jsonl');
 const STATE_DIR = join(HOME_DIR, 'route-metrics.state');

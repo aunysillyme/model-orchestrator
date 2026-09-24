@@ -11,13 +11,21 @@
 // Fail-open by design: a miss here is a stray context string, not a gate.
 // This script always exits 0, never executes anything it reads, and never
 // blocks on stdin past a short bound (see drainStdin below).
-import { isAbsolute } from 'node:path';
+import { isAbsolute, join, basename } from 'node:path';
 
 // Rendered at install time so a --dir outside the project still names an
 // honest path rather than a hardcoded one.
-const RULES_FILE_REL = "ai-orchestrator/ROUTING.md (ai-orchestrator/ORCHESTRATOR.md on a level 1 install)";
-const TASK_BUNDLE_REL = "ai-orchestrator/TASK_BUNDLE.md";
+
+const RULES_FILE_REL = ''
+  ? ["ai-orchestrator/ROUTING.md","ai-orchestrator/ORCHESTRATOR.md"].map(rulesPath).join(' or ')
+  : "ai-orchestrator/ROUTING.md (ai-orchestrator/ORCHESTRATOR.md on a level 1 install)";
+const TASK_BUNDLE_REL = rulesPath("ai-orchestrator/TASK_BUNDLE.md");
 const STDIN_DRAIN_MS = 250; // hard cap: never let an open, never-closed stdin pipe hold this hook open
+
+function rulesPath(baked) {
+  const override = '';
+  return override ? join(override, basename(baked)) : baked;
+}
 
 const additionalContext = [
   'SUBAGENT CONTEXT (model-orchestrator).',

@@ -1,6 +1,6 @@
 {
   "name": "model-orchestrator",
-  "version": "0.1.32",
+  "version": "0.1.33",
   "description": "Routing for Claude Code: a hook injects your project's routing table on every prompt, so each task goes to the right subagent tier and fewer tokens go to the most expensive model. Ships 8 subagents across three model tiers.",
   "author": {
     "name": "model-orchestrator maintainers",
