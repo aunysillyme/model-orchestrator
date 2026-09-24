@@ -564,6 +564,9 @@ test('snippet paths and the agents note are computed from --dir and --project', 
   // used lives in the install README, asserted below.
   assert.match(snip, /`\.claude\/agents\/` under the project root/);
   assert.doesNotMatch(snip, reOfPath(resolve('/proj'), '.claude', 'agents'));
+  // Hooks are named by their real folder, never climbed to through agents (#40).
+  assert.match(snip, /hooks were written to `\.claude\/hooks\/` under the project root/);
+  assert.doesNotMatch(snip, /agents[\\/]\.\.[\\/]hooks/);
   const same = planFiles({ level: 1, selected: sel('claude-code'), primary: byId['claude-code'], dir: '/proj', project: '/proj' }).find((f) => f.rel === 'CLAUDE.snippet.md').content;
   assert.match(same, /`\.\/ORCHESTRATOR\.md`/);
   // --dir outside --project at level 3: RULES_PATH also reaches vm/box-CLAUDE.md,
