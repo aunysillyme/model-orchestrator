@@ -40,6 +40,16 @@ The recording above comes from the published package under `asciinema`, rendered
 - **Use it when:** you run more than one model or agent and want the expensive tier kept for planning and judgment.
 - **For agents:** [`llms.txt`](llms.txt) summarizes the package and links every doc; [`AGENTS.md`](AGENTS.md) has the headless commands.
 
+## Model orchestrator or a model proxy
+
+An HTTP proxy or gateway such as LiteLLM, Portkey, OpenRouter or claude-code-router
+swaps the model per request underneath the agent.
+model-orchestrator is an installer that writes routing rules, subagents, hooks
+and a lane runner above the request layer for the coding agents and subscription CLIs you already pay for.
+Pick a proxy for request-level model routing and a shared API entry point.
+Pick model-orchestrator for task delegation across your agents, tiers and CLIs.
+They compose: your agent follows the installed rules, and a proxy can route its API requests underneath.
+
 ## After you install
 
 For the Claude Code setup above, follow the activation summary from the project folder:
@@ -47,6 +57,8 @@ For the Claude Code setup above, follow the activation summary from the project 
 1. **Rules:** copy the block in `ai-orchestrator/CLAUDE.snippet.md` into `CLAUDE.md` (create it if missing).
 2. **Hooks:** merge `ai-orchestrator/settings.hooks.snippet.json` into `.claude/settings.json` (create it if missing).
 3. **Smoke test:** run `node ./ai-orchestrator/bin/cli-run.mjs --doctor` to check the enabled lanes. Add `--run` to send each lane one tiny prompt.
+
+Add `--apply-snippets` to apply the rules and hooks steps for a Claude Code primary. It is off by default. The installer replaces one marked block in `CLAUDE.md`, preserves the surrounding bytes, and merges hooks while keeping existing settings and avoiding duplicate commands with the same arguments. Existing files changed by the run get timestamped backups beside them (`<name>.bak-YYYYMMDDTHHMMSS`); every backup path is printed. Preview with `--apply-snippets --dry-run`. Invalid settings JSON stops the run before any writes. Other primaries get the snippet name to paste by hand.
 
 Run `claude` from the project folder to load the subagents. Follow the sign-in and companion-tool steps printed for your selection; the same steps are saved in `ai-orchestrator/README.md`.
 

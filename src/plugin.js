@@ -32,6 +32,9 @@ export const HAND_OWNED = ['README.md', 'hooks/hooks.json'];
 export function pluginVars() {
   return {
     PRIMARY_NAME: 'Claude Code',
+    RULES_PATH_NOTE_COMMENT: '',
+    // Plugin hooks retain their existing project-root-only environment access.
+    RULES_DIR_OVERRIDE_JS: "''",
     RULES_FILE_REL: DEFAULT_RULES.join(' or '),
     RULES_FILE_REL_JSON: JSON.stringify(DEFAULT_RULES[0] + ' (' + DEFAULT_RULES[1] + ' on a level 1 install)'),
     TASK_BUNDLE_REL_JSON: JSON.stringify(DEFAULT_TASK_BUNDLE),

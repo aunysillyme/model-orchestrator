@@ -18,7 +18,7 @@ Rule of thumb: never spend a frontier token on a task a cheap tier finishes corr
 
 0. **Is there a cheaper or better external lane for this?** Check `DELEGATION_MATRIX.md`. Your enabled lanes, every one called through `bin/cli-run.mjs`:
 {{LANE_STEP0}}
-1. **Bulk and mechanical?** → fast tier{{BULK_LANE}}. Many independent items each needing its own agent turn → a concurrent fan-out lane if you have one.
+1. **Bulk and mechanical?** → fast tier{{BULK_LANE}}.{{FAN_OUT_ADVICE}}
 1a. **Reading or digesting many files or notes, not writing?** → reader. Different from a bulk pass: reader reports, it does not classify, tag or transform.
 2. **Needs live data?** → {{LIVE_LANE}} standard tier with web tools.
 3. **Reviewing without changing?** → standard tier read-only. Security-critical → {{ATTACK_LANE}}.
@@ -48,7 +48,7 @@ Caps: two deep-tier checkpoints per build. CLI lanes are $0 and do not count.
 
 ## Numbers and logic
 
-Every number, comparison, complexity or equivalence claim goes through a tool that computes (`protocols/numbers-and-logic.md`; companion: codecalc, {{CODECALC_STATUS}}). A lane's figure is re-derived before it is repeated: the cheapest metered lane measured 0 of 11 line citations correct while its conclusions were right.
+Every number, comparison, complexity or equivalence claim goes through a tool that computes (`protocols/numbers-and-logic.md`; companion: codecalc, {{CODECALC_STATUS}}).{{METERED_CITATION_NOTE}}
 
 ## Memory and record
 

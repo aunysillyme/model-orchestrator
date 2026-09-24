@@ -1,6 +1,6 @@
 # RESEARCH_TRIAGE.md: engines in parallel, one triager
 
-The deep-research lane at level 2: fan the same plan out to different model families through their CLIs, then triage against primary sources you open yourself.
+{{RESEARCH_SELECTION_ADVICE}} Then triage against primary sources you open yourself.
 
 Your `cli-run` lanes: {{CLI_RUN_LANES}} ({{RESEARCH_ENGINES}} research engine(s) below). Everything in this file was rendered from that selection; a lane that is not listed is not one you have.
 
@@ -19,7 +19,7 @@ BRIEF=research/brief.md      # purpose, sub-questions, source standard, report c
 {{RESEARCH_RUN}}
 ```
 
-Then the orchestrator reads the three outputs, opens every primary source that carries a decision, and writes one dated brief with marks: **CONFIRMED** (two engines + primary source) · **DISAGREEMENT** (both readings kept) · **REPORTED** (someone's own post, quoted not trusted) · **UNVERIFIED**.
+Then the orchestrator reads the available outputs, opens every primary source that carries a decision, and writes one dated brief with marks: **CONFIRMED** (two engines + primary source) · **DISAGREEMENT** (both readings kept) · **REPORTED** (someone's own post, quoted not trusted) · **UNVERIFIED**.
 
 ## Triage discipline
 

@@ -4,6 +4,18 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.1.33] - 2026-09-24
+
+### Added
+
+- **Opt-in snippet application.** `--apply-snippets` applies a replaceable Claude Code rules block and merges hooks with timestamped backups, validation before writes, dry-run previews and manual uninstall guidance. ([#41](https://github.com/aunysillyme/model-orchestrator/issues/41))
+- **Model orchestrator or a model proxy.** README and `llms.txt` explain the request layer, when to pick each approach and how they compose. ([#44](https://github.com/aunysillyme/model-orchestrator/issues/44))
+
+### Fixed
+
+- **Selected lane guidance.** Delegation rows and related cost and research advice render from selected catalog lane categories, keeping absent categories out of active picks. ([#42](https://github.com/aunysillyme/model-orchestrator/issues/42))
+- **Rules folder relocation.** Project-contained snippets use relative paths; external rules paths carry relocation guidance. Installer hooks that read rules honour `MODEL_ORCHESTRATOR_RULES_DIR`, and the generated README names the path case. ([#43](https://github.com/aunysillyme/model-orchestrator/issues/43))
+
 ## [0.1.32] - 2026-09-23
 
 ### Changed
@@ -433,7 +445,8 @@ First release.
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
-[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.31...HEAD
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.33...HEAD
+[0.1.33]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.32...v0.1.33
 [0.1.32]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.31...v0.1.32
 [0.1.31]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.30...v0.1.31
 [0.1.30]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.29...v0.1.30

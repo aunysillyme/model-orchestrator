@@ -161,6 +161,30 @@ export function auditLane(selected) {
 // recommend a command its own lanes.json disables.
 export function laneVars(selected) {
   const has = (id) => selected.some((a) => a.id === id);
+  const categories = new Set(selected.flatMap((a) => a.laneCategories || []));
+  const supplies = (category) => categories.has(category);
+  const picks = [
+    ['cheapest-metered', 'Bulk classify / extract / summarize, data may leave the machine', 'the cheapest metered lane, then the fast tier', 'use the selected bulk lane and verify its output'],
+    ['local', 'Bulk work on data that must stay local', 'the local lane', 'a privacy lane; route here for confinement'],
+    ['fan-out', 'Many independent items each needing its own agent turn', 'a concurrent fan-out lane', 'one call, N children, on a subscription'],
+    ['live-data', 'Live web or social reads', 'the live-data CLI', 'subscription-covered; the same search on the API bills per call'],
+    ['second-coder', 'Code review, no changes', 'standard tier, or the second-coder CLI', 'a different model family catches what one misses'],
+    ['second-coder', 'Second-opinion audit of a security-shaped diff', 'the second-coder CLI in read-only audit mode', 'a second family challenges, the orchestrator reproduces'],
+    [null, 'Deep architecture / planning', 'deep tier', 'expensive to get wrong'],
+    [null, 'Well-specified execution', 'the orchestrator', 'execution does not need the top tier'],
+    ['largest-context', 'Long-document analysis', 'the largest-context lane, or caching on the primary', 'window size vs re-query cost'],
+    [null, 'Routing decisions themselves', 'the cheapest lane you have, or none', 'spend only the tokens the routing decision needs'],
+    ['free', 'Rough drafts, divergent reads, first-pass summaries', 'the free tier', '$0, and disagreement with the primary is information'],
+    ['cheapest-metered', 'Anything citing a line, a number, or a source', 'the cheapest metered lane with a full verification pass', 'verify every supporting number and citation']
+  ].filter(([category]) => !category || supplies(category)).map(([, ...row]) => row);
+  const cost = [
+    'Prompt caching everywhere it fits: frozen prefix first, volatile text last.',
+    'Cascade: cheapest capable tier first, escalate on signal.',
+    ...(supplies('cheapest-metered') ? ['Batch APIs where the selected provider supports them, for work that can wait.'] : []),
+    ...(supplies('free') ? ['A free model for routing decisions.'] : []),
+    'Effort and reasoning knobs before model swaps; often the bigger lever.',
+    'Alias-based config so a vendor rename is a one-line repoint.'
+  ];
   const enabled = selected.filter((a) => a.cliRun).map((a) => a.id);
   const cr = (id) => '`cli-run ' + id + '`';
   const step0 = [];
@@ -193,6 +217,16 @@ export function laneVars(selected) {
   if (has('hermes')) run.push('node bin/cli-run.mjs hermes --brief "$BRIEF" --timeout 900 > research/out-hermes.md');
   if (has('qwen')) run.push('node bin/cli-run.mjs qwen  --brief "$BRIEF" --timeout 900 > research/out-qwen.md');
   return {
+    TASK_LANES_TABLE: table(picks, ['Task type', 'Pick', 'Why']),
+    COST_PLAYBOOK: cost.map((line, i) => `${i + 1}. ${line}`).join('\n'),
+    FAN_OUT_ADVICE: supplies('fan-out') ? ' Many independent items each needing its own agent turn → the selected concurrent fan-out lane.' : '',
+    METERED_CITATION_NOTE: supplies('cheapest-metered') ? " A lane's figure is re-derived before it is repeated: verify every supporting number and citation from the cheapest metered lane." : '',
+    RESEARCH_SELECTION_ADVICE: enabled.length >= 2
+      ? 'Send the same PLAN to your selected CLI lanes, preferring different model families. Run each through `cli-run` so a run that produced nothing exits 10 and is treated as a missing engine.'
+      : 'Use the primary agent for the sweep, then a fresh-context second-opinion turn. Add CLI lanes from different model families for independent research passes.',
+    GAP_ANALYSIS_LANE: supplies('second-coder')
+      ? 'a **different model family** reading the same artifact. Use the selected second-opinion coder lane in read-only mode; verify each finding before acting.'
+      : 'a fresh-context second pass reading the same artifact. Use a different model family when one is available; verify each finding before acting.',
     LANE_STEP0: step0.length ? step0.map((l) => '   - ' + l).join('\n') : '   - none selected yet: every task stays on your primary agent\'s tiers until you add a lane (re-run the installer with more AIs)',
     STAGE1_LANES: stage1.length ? '; ' + stage1.join(', ') : '',
     ATTACK_LANE: has('codex') ? '`cli-run codex --audit` (a second model family in a read-only sandbox)' : 'code-reviewer at deep tier, in a fresh context told to challenge and allowed to answer CLEAN',
@@ -366,15 +400,17 @@ export function activationSteps(opts) {
   const projectAbs = resolve(opts.project || process.cwd());
   const snippet = snippetFor(primary);
   const steps = [];
-  if (snippet && primary.rulesFile) steps.push(`copy the block in ${join(dirAbs, snippet)} into ${join(projectAbs, primary.rulesFile)} (create it if missing)`);
+  if (opts.applySnippets) steps.push(`applied ${join(dirAbs, snippet)} to the model-orchestrator marked block in ${join(projectAbs, 'CLAUDE.md')}`);
+  else if (snippet && primary.rulesFile) steps.push(`copy the block in ${join(dirAbs, snippet)} into ${join(projectAbs, primary.rulesFile)} (create it if missing)`);
   // A chat app has no possessive that survives its catalog note: "Claude app or
   // claude.ai (chat only, no CLI)'s custom instructions" was the sentence this
   // replaces (#22).
   else if (snippet) steps.push(`open ${primary.chatName || primary.name} and paste the block in ${join(dirAbs, snippet)} into its ${primary.chatSurface || 'custom instructions'}`);
   if (primary && primary.agentsDir) steps.push(`subagents are in ${join(projectAbs, primary.agentsDir)}; run ${primary.bin} from ${projectAbs} to pick them up`);
   // Only claude-code ships hooks (route-gate, subagent-context): the wiring
-  // lives in a snippet, never written into a settings.json the user already has.
-  if (subagentsLoadRules(primary)) steps.push(`merge the hooks in ${join(dirAbs, 'settings.hooks.snippet.json')} into ${join(projectAbs, '.claude', 'settings.json')} (create it if missing) to wire the route-gate, subagent-context and route-metrics hooks`);
+  // lives in a snippet, applied only when the user opts in.
+  if (opts.applySnippets) steps.push(`applied hooks to ${join(projectAbs, '.claude', 'settings.json')}, preserving existing settings and hooks`);
+  else if (subagentsLoadRules(primary)) steps.push(`merge the hooks in ${join(dirAbs, 'settings.hooks.snippet.json')} into ${join(projectAbs, '.claude', 'settings.json')} (create it if missing) to wire the route-gate, subagent-context and route-metrics hooks`);
   for (const a of selected.filter((a) => a.bin && a.kind === 'agent-cli')) steps.push(`sign in to ${a.name}: ${a.auth}`);
   // A local runtime has a bin but no sign-in, so the agent-cli loop above skips it
   // and before this it appeared in no ordered list at any level (#26).
@@ -442,9 +478,12 @@ function vars(opts) {
   let rulesPath = relative(projectAbs, dirAbs).split(sep).join(posix.sep);
   if (rulesPath === '') rulesPath = '.';
   else if (rulesPath.startsWith('..')) rulesPath = dirPosix; // outside the project: absolute is the only honest path
+  const rulesPathNote = rulesPath === dirPosix
+    ? 'Moved the folder? Re-run the installer or set MODEL_ORCHESTRATOR_RULES_DIR to the rules folder for the hooks, and update the paths in your agent instructions.'
+    : '';
   const pinOf = (id) => (toolById[id] && toolById[id].pin) || 'latest';
   const snippet = snippetFor(primary);
-  const steps = activationSteps({ level, selected, primary, tools, dir: opts.dir, project: opts.project });
+  const steps = activationSteps({ level, selected, primary, tools, dir: opts.dir, project: opts.project, applySnippets: opts.applySnippets });
   const proofs = proofSteps({ level, primary });
   const routingFile = level >= 2 ? 'ROUTING.md' : 'ORCHESTRATOR.md';
   // The path route-gate.mjs and subagent-context.mjs resolve at runtime,
@@ -463,18 +502,32 @@ function vars(opts) {
   else if (readsProjectRules) whereThingsWent.push(`- Project root (where ${primary.name} reads \`${primary.rulesFile}\`): \`${projectAbs}\`` + (existsSync(projectAbs) ? '' : ' (this run wrote nothing there; create the folder before you copy the snippet in)'), '- Subagent definitions: none, this agent has no subagent folder');
   else whereThingsWent.push('- Project root: none. A chat app reads pasted instructions, not files, so this install wrote nothing to a project folder.', '- Subagent definitions: none');
   whereThingsWent.push(`- The rules path your snippets use: \`${rulesPath}\``);
+  whereThingsWent.push(rulesPathNote
+    ? '- Rules location: absolute, because this folder is outside the project. ' + rulesPathNote
+    : '- Rules location: project-relative, so moving the project and its rules folder together preserves the paths.');
   return {
     ...laneVars(selected),
     ACTIVATION_STEPS: steps.map((st, i) => `${i + 1}. ${st}`).join('\n'),
     PROOF_STEPS: proofs.map((st, i) => `${i + 1}. ${st}`).join('\n'),
-    LOAD_IT: readsProjectRules
+    LOAD_IT: opts.applySnippets
+      ? 'The installer applied the generated rules to the model-orchestrator marked block in `CLAUDE.md` and merged the hooks into `.claude/settings.json`. Existing files changed by this run have timestamped backups beside them; their paths were printed in the terminal.'
+      : readsProjectRules
       ? `${primary.name} reads its rules from \`${primary.rulesFile}\` in the project root. The installer wrote \`${snippet}\` next to this README; copy its contents into \`${join(projectAbs, primary.rulesFile)}\`, creating that file if it does not exist. Nothing was appended to a file you already had.`
       : snippet
         ? `${primary.name} has no project rules file, so the rules travel by paste. The installer wrote \`${snippet}\` next to this README; open ${primary.chatName || primary.name} and paste its contents into ${primary.chatSurface || 'custom instructions'}. Nothing was appended to a file you already had.`
         : 'No primary agent was selected, so no activation file was written. Re-run the installer and pick one.',
+    CLAUDE_SNIPPET_INTRO: opts.applySnippets
+      ? '# Model orchestrator activation\n\nThe installer applied these rules to the marked block in `CLAUDE.md` at your project root.'
+      : "# Add this to your project's CLAUDE.md\n\nCopy the block below into `CLAUDE.md` at your project root (create the file if it does not exist). The installer did not modify any file you already had.",
+    CLAUDE_HOOKS_ACTIVATION: opts.applySnippets
+      ? 'The installer merged the hook entries into `.claude/settings.json` to wire all three in.'
+      : 'Merge `settings.hooks.snippet.json`, written next to this file, into `.claude/settings.json` to wire all three in.',
     CHAT_UPLOAD_NOTE: primary && primary.kind === 'chat' ? ' A chat app cannot open a local path: upload or paste any protocol file you want it to read.' : '',
     WHERE_THINGS_WENT: whereThingsWent.join('\n'),
     RULES_PATH: rulesPath,
+    RULES_PATH_NOTE: rulesPathNote,
+    RULES_PATH_NOTE_COMMENT: rulesPathNote ? '// ' + rulesPathNote : '',
+    RULES_DIR_OVERRIDE_JS: 'process.env.MODEL_ORCHESTRATOR_RULES_DIR',
     ROUTING_FILE: level >= 2 ? 'ROUTING.md' : 'ORCHESTRATOR.md',
     PROJECT_DIR: projectAbs,
     AGENTS_DIR: primary && primary.agentsDir ? join(projectAbs, primary.agentsDir) : 'none (your primary agent has no subagent folder)',
@@ -587,8 +640,7 @@ export function planFiles(opts) {
     add('CLAUDE.snippet.md', render(readFileSync(join(TEMPLATES, 'agents', 'snippets', 'claude-code.md'), 'utf8'), v));
     // Delegate-by-default hooks (0.1.15), claude-code only: route-gate.mjs (UserPromptSubmit)
     // and subagent-context.mjs (SubagentStart) live where Claude Code looks for
-    // project hooks; the wiring snippet is a document the user merges in, never
-    // written into a settings.json they already have.
+    // project hooks; the wiring snippet is merged by hand or with --apply-snippets.
     add(join('.claude', 'hooks', 'route-gate.mjs'), render(readFileSync(join(TEMPLATES, 'agents', 'snippets', 'route-gate.mjs'), 'utf8'), v), 0o755, 'project');
     add(join('.claude', 'hooks', 'subagent-context.mjs'), render(readFileSync(join(TEMPLATES, 'agents', 'snippets', 'subagent-context.mjs'), 'utf8'), v), 0o755, 'project');
     // route-metrics.mjs (0.1.16), claude-code only: five events (UserPromptSubmit,
@@ -810,6 +862,15 @@ export function writeFiles(files, opts) {
     if (!groups[k].length) continue;
     problems.push(...preflight(groups[k], roots[k]).map((p) => (k === 'project' ? `[project] ${p}` : p)));
   }
+  if (!problems.length) {
+    for (const f of files.filter((file) => file.applySnippet)) {
+      const abs = resolve(roots[f.root], f.rel);
+      const current = existsSync(abs) ? readFileSync(abs) : null;
+      if (current === null ? f.original !== null : !Buffer.isBuffer(f.original) || !current.equals(f.original)) {
+        problems.push(`${abs}: changed since snippet planning; re-run the installer`);
+      }
+    }
+  }
   if (problems.length) {
     const e = new Error('refusing to write:\n  ' + problems.join('\n  '));
     e.code = 'PREFLIGHT';
@@ -823,6 +884,7 @@ export function writeFiles(files, opts) {
   const docsUpdated = [];   // --update-docs: documents regenerated because the installed copy was an untouched generated one
   const docsConflict = [];  // --update-docs: documents kept because you edited them
   const docsUnverifiable = []; // --update-docs: documents kept because there is no manifest to compare against
+  const backups = [];
   const created = [];
   // Only directories actually created by this install are owned. Preserve the
   // previous inventory on reruns; legacy manifests deliberately own none.
@@ -851,7 +913,11 @@ export function writeFiles(files, opts) {
         const label = (k === 'project' ? '[project] ' : '') + f.rel.split(sep).join('/');
         const key = label;
         const cls = k === 'dir' ? fileClass(f.rel) : 'document';
-        if (exists && !force) {
+        if (exists && f.applySnippet && Buffer.from(f.content).equals(readFileSync(abs))) {
+          skipped.push(label);
+          continue;
+        }
+        if (exists && !force && !f.applySnippet) {
           if (cls === 'document') {
             // Documents are the user's. Without --update-docs they are never touched.
             // With it, the same hash rule the runtime class uses applies: regenerate
@@ -911,6 +977,17 @@ export function writeFiles(files, opts) {
           }
           content = JSON.stringify(m, null, 2) + '\n';
         }
+        if (exists && opts.backupExisting) {
+          let stamp = Date.now();
+          let backup;
+          do {
+            backup = abs + '.bak-' + new Date(stamp).toISOString().replace(/[-:]/g, '').slice(0, 15);
+            stamp += 1000;
+          } while (existsSync(backup));
+          if (!dry) writeFileSync(backup, readFileSync(abs), { flag: 'wx', mode: statSync(abs).mode & 0o777 });
+          backups.push(backup);
+          if (!dry) opts.onBackup?.(backup);
+        }
         if (!dry) {
           if (exists) originals.set(abs, { content: readFileSync(abs), mode: statSync(abs).mode });
           const missingDirectories = [];
@@ -933,7 +1010,7 @@ export function writeFiles(files, opts) {
           }
           writeFileSync(abs, content, { flag: exists ? 'w' : 'wx' });
           if (!exists) created.push(abs);
-          chmodSync(abs, f.mode);
+          if (!exists || !f.applySnippet) chmodSync(abs, f.mode);
         }
         written.push(label);
       }
@@ -956,7 +1033,7 @@ export function writeFiles(files, opts) {
     }
     throw e;
   }
-  return { written, skipped, upgraded, conflicts, unverifiable, docsUpdated, docsConflict, docsUnverifiable };
+  return { written, skipped, upgraded, conflicts, unverifiable, docsUpdated, docsConflict, docsUnverifiable, backups };
 }
 
 export function resolveSelection(ids) {
