@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, posix } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { planFiles } from '../src/install.js';
@@ -31,7 +31,8 @@ test('#43 outside-project snippets and hooks carry an absolute-path relocation n
   for (const id of ['claude-code', 'codex']) {
     const files = plan(project, dir, 2, id);
     const snippet = content(files, id === 'claude-code' ? 'CLAUDE.snippet.md' : 'AGENTS.snippet.md');
-    assert.ok(snippet.includes(dir.replaceAll('\\', '/') + '/ROUTING.md'));
+    // Same construction as install.js relJoin: the host's absolute path, posix-joined.
+    assert.ok(snippet.includes(posix.join(dir, 'ROUTING.md')));
     assert.match(snippet, /Moved the folder\? Re-run the installer or set MODEL_ORCHESTRATOR_RULES_DIR/);
     assert.match(content(files, 'README.md'), /Rules location: absolute, because this folder is outside the project/);
     if (id === 'claude-code') {
