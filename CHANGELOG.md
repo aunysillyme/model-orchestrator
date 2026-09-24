@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.1.34] - 2026-09-24
+
+### Changed
+
+- **The package description says what it installs and who picks the model.** npm and the GitHub About box now read: rules and subagents tell your agent which model does each task, matching the README opening; the old line read as if the package itself sent work to a tier.
+
 ## [0.1.33] - 2026-09-24
 
 ### Added
@@ -445,7 +451,8 @@ First release.
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
-[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.33...HEAD
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.34...HEAD
+[0.1.34]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.33...v0.1.34
 [0.1.33]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.32...v0.1.33
 [0.1.32]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.31...v0.1.32
 [0.1.31]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.30...v0.1.31
