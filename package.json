@@ -1,7 +1,7 @@
 {
   "name": "model-orchestrator",
-  "version": "0.1.34",
-  "description": "Model orchestrator: rules and subagents tell your agent which model does each task, so small work goes to cheap tiers and fewer tokens go to frontier models.",
+  "version": "0.1.35",
+  "description": "Model orchestrator: rules, subagents and a lane runner tell agents which model to use, so small work goes to cheap tiers and fewer tokens go to frontier models.",
   "type": "module",
   "bin": {
     "model-orchestrator": "bin/cli.js"
@@ -80,7 +80,8 @@
     "agent-routing",
     "prompt-routing",
     "coding-agent",
-    "ai-coding"
+    "ai-coding",
+    "coding-agents"
   ],
   "author": "aunysillyme (https://github.com/aunysillyme)",
   "license": "MIT"
