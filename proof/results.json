@@ -169,6 +169,30 @@
           "exitCode": 1
         }
       ]
+    },
+    {
+      "id": "author-main-browser-tokens",
+      "label": "Main conversation browser tokens",
+      "kind": "author-setup",
+      "value": 408147,
+      "unit": "tokens per browser step (median)",
+      "measuredAt": "2026-09-26",
+      "method": "Measured on the author's Claude Code sessions: every browser tool call in the transcripts, counting tokens re-read by the main conversation per step. Median: 408,147 tokens per browser step across 145 sessions and 9,775 browser steps. Sample size counts browser steps.",
+      "sampleSize": 9775,
+      "script": "author setup, re-measured locally",
+      "expiresAt": "2026-10-27"
+    },
+    {
+      "id": "author-subagent-browser-tokens",
+      "label": "Small browser subagent tokens",
+      "kind": "author-setup",
+      "value": 17197,
+      "unit": "tokens per step (highest of 5 runs)",
+      "measuredAt": "2026-09-27",
+      "method": "At least 23x fewer tokens per step in this sample: the main conversation median of 408,147 divided by the highest subagent run of 17,197 is 23.73x. Measured on the author's Claude Code sessions, with the same kind of work handed to a small browser subagent. Five runs, tokens divided by steps or tool calls per run: 17,197 (206,369 tokens / 12 steps, 2026-09-26); 4,077 (93,773 / 23), 4,201 (105,034 / 25), 4,585 (91,709 / 20), and 4,489 (94,263 / 21), all four on 2026-09-27. Range: 4,077 to 17,197; median of 5 runs: 4,489. Typical context, using the median of 5 runs: 90.93x fewer tokens per step. These are measurements from the author's own sessions, not a controlled comparison or a guarantee for other setups. The four 2026-09-27 runs shared one browser pane, so some steps were spent recovering a drifting tab, which raises the step count and lowers per-step tokens. The first run counted steps; the later runs counted tool calls. Sample size counts runs.",
+      "sampleSize": 5,
+      "script": "author setup, re-measured locally",
+      "expiresAt": "2026-10-27"
     }
   ]
 }

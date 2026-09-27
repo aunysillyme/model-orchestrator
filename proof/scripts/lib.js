@@ -66,7 +66,8 @@ export function validateResults(data, now = new Date()) {
       if (item.expiresAt < item.measuredAt) errors.push(`${item.id}: expiry precedes measurement`);
       if (item.expiresAt < today) errors.push(`${item.id}: expired ${item.expiresAt}`);
     }
-    if (typeof item.script !== 'string' || !/^proof\/scripts\/[A-Za-z0-9_-]+\.js$/.test(item.script)) errors.push(`${item.id}: script must name a proof script`);
+    const localAuthorSource = item.kind === 'author-setup' && item.script === 'author setup, re-measured locally';
+    if (!localAuthorSource && (typeof item.script !== 'string' || !/^proof\/scripts\/[A-Za-z0-9_-]+\.js$/.test(item.script))) errors.push(`${item.id}: script must name a proof script`);
   }
   return errors;
 }

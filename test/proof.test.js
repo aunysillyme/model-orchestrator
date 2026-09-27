@@ -9,7 +9,28 @@ import { proofMarkdown } from '../proof/scripts/render.js';
 test('proof/results.json has complete current measurements and runnable source paths', () => {
   const data = readResults();
   assert.deepEqual(validateResults(data), []);
-  for (const item of data.entries) assert.ok(existsSync(join(ROOT, item.script)), item.script);
+  for (const item of data.entries) {
+    if (item.kind === 'author-setup' && item.script === 'author setup, re-measured locally') continue;
+    assert.ok(existsSync(join(ROOT, item.script)), item.script);
+  }
+});
+
+test('author-setup measurements accept a local source label without weakening reproducible script checks', () => {
+  const data = readResults();
+  const item = data.entries[0];
+  item.kind = 'author-setup';
+  item.script = 'author setup, re-measured locally';
+  assert.deepEqual(validateResults(data), []);
+  const page = proofMarkdown(data);
+  assert.ok(page.includes("measured on the author's setup"));
+  assert.ok(page.includes('| author setup, re-measured locally |'));
+  assert.ok(page.includes('Source: author setup, re-measured locally.'));
+  assert.ok(!page.includes('../author setup, re-measured locally'));
+  item.kind = 'reproducible';
+  assert.ok(validateResults(data).some(e => e.includes('script must name a proof script')));
+  item.kind = 'author-setup';
+  item.script = 'unverified source';
+  assert.ok(validateResults(data).some(e => e.includes('script must name a proof script')));
 });
 
 test('proof expiry check can go red without relying on the wall clock', () => {
