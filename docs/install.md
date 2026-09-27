@@ -111,10 +111,13 @@ ai-orchestrator/
   README.md                 start here, written for your level and your AIs
   ORCHESTRATOR.md           single-agent routing rules (level 1)
   TASK_BRIEF.md            the brief every delegation carries
-  protocols/                build-protocol · propagate · gap-analysis · deep-research · numbers-and-logic · memory-and-record · docs-then-prove
+  CONTEXT.md               shared facts every delegation reads
+  ACCEPTANCE_CHECKS.json   executable acceptance checks
+  DECISIONS.md             the decision log: Did / Why / Serves / Rejected
+  protocols/                acceptance-checks · build-protocol · context-file · decision-log · deep-research · docs-then-prove · gap-analysis · memory-and-record · numbers-and-logic · propagate
   CODECALC.md  OBSIDIAN-TC.md  CONTEXT7.md  mcp/   companion-tool install docs + per-agent registration snippets (if selected)
   <project>/.claude/agents/ one per tier plus finding-verifier, done-verifier, reader, at the PROJECT root (if Claude Code is main agent)
-  <project>/.claude/hooks/  route-gate.mjs (UserPromptSubmit) + subagent-context.mjs (SubagentStart) + route-metrics.mjs (all five: see "Measuring routing" below), Claude Code only
+  <project>/.claude/hooks/  route-gate.mjs (UserPromptSubmit) + subagent-context.mjs (SubagentStart) + route-metrics.mjs (all five: see [Route metrics](../README.md#see-where-your-agent-sends-work-aunx-route-metrics)), Claude Code only
   CLAUDE.snippet.md         the block to paste into your CLAUDE.md
   settings.hooks.snippet.json  the hooks block to merge into .claude/settings.json (Claude Code only)
   ROUTING.md                multi-lane decision tree (level 2+)
@@ -138,15 +141,16 @@ Install the command with `npm install -g model-orchestrator`, then run these fro
 | `aunx checks run ACCEPTANCE_CHECKS.json` | Execute trusted check commands; exit 1 on any failure |
 | `aunx route "rename this file"` | Print an explained routing suggestion |
 
-`aunx cli-run` prefers the runner installed under `./ai-orchestrator`; pass `--dir` for a custom folder. When no project runner exists, it uses the package copy. Review check commands before running them: they execute with your shell permissions.
+`aunx cli-run` uses the packaged runner by default; pass `--dir PATH` to use that project's own installed runner under `PATH/bin/` instead, and `aunx` prints the runner path it is using. Review check commands before running them: they execute with your shell permissions.
 
 ## Repo layout
 
 | Folder | What |
 |---|---|
-| [`bin/`](../bin/README.md) | `cli.js` (the installer) and `cli-run.mjs` (the lane runner) |
+| [`bin/`](../bin/README.md) | `cli.js` (the installer), `aunx.js` (the CLI entry point) and `cli-run.mjs` (the lane runner) |
 | [`src/`](../src/README.md) | the catalog, the pure planner, detection, rendering |
 | [`templates/`](../templates/README.md) | everything the installer can write, by level, plus `tools/` for companions |
 | [`docs/`](../docs/README.md) | the three parts and the catalog |
 | [`plugin/`](../plugin/README.md) | the Claude Code plugin, generated from `templates/` by `npm run gen:plugin`; `.claude-plugin/marketplace.json` at the root lists it |
+| [`proof/`](../proof/README.md) | the measured numbers behind the README's claims: method, sample size, date and expiry |
 | [`test/`](../test/README.md) | `npm test`: judges proven to go red, catalog integrity, planner, end-to-end install in a temp dir; `.github/workflows/test.yml` runs it on Ubuntu, macOS and Windows, Node 18/20/22 |

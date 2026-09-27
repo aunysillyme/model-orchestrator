@@ -46,7 +46,7 @@ export const LEVELS = [
     key: 'intermediate',
     name: 'Intermediate',
     tagline: 'several LLMs and agents, called through their CLIs',
-    gives: 'everything in Beginner plus cli-run, a delegation matrix, task briefs and three-engine research triage'
+    gives: 'everything in Beginner plus cli-run, a delegation matrix, task briefs and multi-engine research triage'
   },
   {
     id: 3,

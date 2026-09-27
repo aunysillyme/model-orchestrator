@@ -8,7 +8,7 @@ Use the selected `cli-run` lanes: {{CLI_RUN_LANES}} ({{RESEARCH_ENGINES}} resear
 
 | Role | Typical lane | Job |
 |---|---|---|
-{{RESEARCH_ROLES}} opens primary sources, marks claims and writes the final report |
+{{RESEARCH_ROLES}}
 
 Give each engine a task brief through `--brief`, with the same context file, bounded questions, source standard and stopping condition. When a run returns no usable result, record that engine as unavailable and continue independent source checks.
 

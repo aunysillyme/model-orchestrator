@@ -196,7 +196,8 @@ async function main() {
   // Says what this generates, not what it guarantees. The old line promised
   // routing this package does not perform: lane choice is an instruction an
   // agent follows, never something enforced here (#11).
-  console.log('\nmodel-orchestrator\nA model router: routing rules and a CLI runner for the AIs you actually have.\n');
+  console.log('\nmodel-orchestrator\nModel router for AI coding agents: installs routing rules, 8 subagents, hooks and a CLI runner so your AI picks model and effort per task and saves tokens\n');
+  if (flag('no-install')) console.log('--no-install is no longer needed: the installer never runs a third-party install.');
 
   // 1. Level
   let level = Number(opt('level'));

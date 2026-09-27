@@ -6,7 +6,7 @@ Everything the installer can write, organized by the level that adds it. Files a
 |---|---|---|
 | `common/` | every level | the start-here README, `TASK_BRIEF.md`, `CONTEXT.md`, `ACCEPTANCE_CHECKS.json`, `DECISIONS.md` and indexed workflow protocols |
 | `beginner/` | every level | `ORCHESTRATOR.md`, the single-agent routing rules |
-| `agents/` | every level, one variant | the main agent's loading surface: Claude Code subagents (plus `.claude/hooks/route-gate.mjs` and `subagent-context.mjs`, and `settings.hooks.snippet.json` to wire them in), Antigravity custom agents, or a paste snippet |
+| `agents/` | every level, one variant | the main agent's loading surface: Claude Code subagents (plus `.claude/hooks/route-gate.mjs`, `subagent-context.mjs` and `route-metrics.mjs`, and `settings.hooks.snippet.json` to wire them in), Antigravity custom agents, or a paste snippet |
 | `intermediate/` | level 2+ | `ROUTING.md`, `TIERS.md`, `DELEGATION_MATRIX.md`, `RESEARCH_TRIAGE.md`, `CLI-RUN.md` |
 | `advanced/` | level 3 | `vm/`: gateway config, compose file, box rules, privacy gates, scheduled jobs |
 | `tools/` | when selected | companion tools the AIs call: `codecalc/`, `obsidian-tc/` and `context7/` (install doc + MCP snippets each). See `tools/README.md` |

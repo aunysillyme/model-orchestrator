@@ -9,13 +9,14 @@ const COMMON = join(ROOT, 'templates', 'common');
 const HELP = `aunx: model router tools for AI coding agents
 
   aunx [installer flags]              Run the model-orchestrator installer
-  aunx cli-run [--dir PATH] <args>     Run a lane, preferring the project runner
+  aunx cli-run [--dir PATH] <args>     Run a lane; --dir names a project's own runner
   aunx route-metrics [--summary]      Read the local routing summary
-  aunx brief                         Print the task brief template
+  aunx brief [PATH]                   Print the task brief template, or scaffold it at PATH
   aunx brief new [PATH]               Create TASK_BRIEF.md
   aunx context [new] [PATH]           Create CONTEXT.md
   aunx checks [new] [PATH]            Create ACCEPTANCE_CHECKS.json
-  aunx checks run [PATH]              Run local checks; exit 1 on any FAIL
+  aunx checks run [PATH]              Run local checks; exit 1 on any FAIL. checks run executes
+                                       the commands in your checks file, so run it only on files you trust.
   aunx route "<task>"                 Suggest an agent, tier and effort
 
 Scaffolds preserve existing files. Check commands run only with checks run.
@@ -43,6 +44,8 @@ export function runNode(path, args) {
   });
 }
 
+// dir stays undefined unless --dir is given explicitly: the project runner is
+// opt-in, never a default guessed from the current directory (R1).
 function runnerArgs(args) {
   const rest = [];
   let dir;
@@ -54,7 +57,7 @@ function runnerArgs(args) {
       if (!dir || dir.startsWith('--')) throw new Error('--dir needs a path');
     } else rest.push(args[i]);
   }
-  return { dir: resolve(dir || 'ai-orchestrator'), rest };
+  return { dir: dir === undefined ? undefined : resolve(dir), rest };
 }
 
 export function scaffold(template, target) {
@@ -156,8 +159,17 @@ export async function main(args) {
   if (command === 'install') return runNode(join(ROOT, 'bin', 'cli.js'), rest);
   if (command === 'cli-run') {
     const parsed = runnerArgs(rest);
-    const local = join(parsed.dir, 'bin', 'cli-run.mjs');
-    return runNode(regular(local) ? local : join(ROOT, 'bin', 'cli-run.mjs'), parsed.rest);
+    // The packaged runner is the default. A project's own runner only runs
+    // when --dir names it explicitly (R1); this is the one place cli-run
+    // dispatch can execute code from outside the package.
+    if (parsed.dir !== undefined) {
+      const local = join(parsed.dir, 'bin', 'cli-run.mjs');
+      if (regular(local)) {
+        console.error(`aunx: using project runner ${local}`);
+        return runNode(local, parsed.rest);
+      }
+    }
+    return runNode(join(ROOT, 'bin', 'cli-run.mjs'), parsed.rest);
   }
   if (command === 'route-metrics') {
     const local = join(process.cwd(), '.claude', 'hooks', 'route-metrics.mjs');
@@ -171,7 +183,7 @@ export async function main(args) {
       return runChecks(rest[1] || 'ACCEPTANCE_CHECKS.json');
     }
     const tail = rest[0] === 'new' ? rest.slice(1) : rest;
-    if ((command === 'brief' && rest[0] !== 'new') || tail.length > 1 || tail[0]?.startsWith('-')) throw new Error(`usage: aunx ${command} new [PATH]`);
+    if (tail.length > 1 || tail[0]?.startsWith('-')) throw new Error(`usage: aunx ${command} [new] [PATH]`);
     const template = { brief: 'TASK_BRIEF.md', context: 'CONTEXT.md', checks: 'ACCEPTANCE_CHECKS.json' }[command];
     return scaffold(template, tail[0] || template);
   }
