@@ -93,11 +93,11 @@ STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 } > "reports/live-state-$STAMP.md"
 ln -sfn "live-state-$STAMP.md" reports/live-state.md
 
-# The brief the lane actually reads: the protocol, the intended configuration,
+# The brief the worker actually reads: the protocol, the intended configuration,
 # and the live state it is meant to diff against.
 BRIEF="reports/audit-brief-$STAMP.md"
 {
-  echo "## Task bundle"
+  echo "## Task brief"
   echo "**Purpose.** Weekly gap analysis: compare the live state below with the intended configuration and name what is missing, dead, or drifted."
   echo "**Task class.** read_only"
   echo "**Denied actions.** Do not run commands, do not modify files, do not call any network service. Enforcement: {{AUDIT_LANE_BOUNDARY_NOTE}}."

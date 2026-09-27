@@ -1,0 +1,9 @@
+{"version":2,"width":86,"height":15,"title":"Acceptance checks: red, then green","env":{"TERM":"xterm-256color"}}
+[0,"o","\u001b[1;32m$\u001b[0m aunx checks run checks.json\r\n"]
+[0.6,"o","\u001b[31mFAIL output-exists: exit 1\r\n\u001b[0m"]
+[1.2,"o","$ echo $?\r\n1\r\n"]
+[3,"o","\r\n$ node -e 'require(\"node:fs\").writeFileSync(\"output.txt\",\"verified output\")'\r\n"]
+[4.5,"o","\r\n\u001b[1;32m$\u001b[0m aunx checks run checks.json\r\n"]
+[5,"o","\u001b[32mPASS output-exists: exit 0\r\n\u001b[0m"]
+[5.5,"o","$ echo $?\r\n0\r\n"]
+[7,"o","\r\nThe exit code gates the next command in your release sequence.\r\n"]

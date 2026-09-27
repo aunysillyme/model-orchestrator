@@ -19,7 +19,7 @@ import { isAbsolute, join, basename } from 'node:path';
 const RULES_FILE_REL = ''
   ? ["ai-orchestrator/ROUTING.md","ai-orchestrator/ORCHESTRATOR.md"].map(rulesPath).join(' or ')
   : "ai-orchestrator/ROUTING.md (ai-orchestrator/ORCHESTRATOR.md on a level 1 install)";
-const TASK_BUNDLE_REL = rulesPath("ai-orchestrator/TASK_BUNDLE.md");
+const TASK_BRIEF_REL = rulesPath("ai-orchestrator/TASK_BRIEF.md");
 const STDIN_DRAIN_MS = 250; // hard cap: never let an open, never-closed stdin pipe hold this hook open
 
 function rulesPath(baked) {
@@ -30,9 +30,9 @@ function rulesPath(baked) {
 const additionalContext = [
   'SUBAGENT CONTEXT (model-orchestrator).',
   'Routing rules: ' + RULES_FILE_REL + (isAbsolute(RULES_FILE_REL) ? '.' : ' (relative to the project root).'),
-  'Task bundle format: ' + TASK_BUNDLE_REL + '.',
-  'Report contract: say what you did, what you did NOT do, and what you could not verify. "Unverified" is acceptable; a confident guess is not. Stop at the bound your brief set, and never claim work you cannot show.',
-  'You are a delegate: do not route further work to another subagent yourself, and do not mark your own output as the final verification of it.'
+  'Task brief format: ' + TASK_BRIEF_REL + '.',
+  'Report contract: return coverage and evidence, including partial work and unverified checks. Stop at the bound set by your brief.',
+  'When further delegation is authorized by your brief, keep the whole scope and section ownership in each handoff. Return your result to the assigning agent for independent verification.'
 ].join(' ');
 
 // Drain stdin without ever blocking on it. A bare `readFileSync(0)` waits

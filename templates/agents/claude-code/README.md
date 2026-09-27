@@ -1,18 +1,22 @@
-# .claude/agents/
+# Claude Code project agents
 
-One per tier, plus two checks and two agents with no file-editing tools: `finding-verifier` sits between a review and a repair, `done-verifier` sits between a claim of "done" and a tracker close, and `reader` digests many files or notes without writing anything. Claude Code loads project-level agents from this folder automatically; the count is whatever this folder holds; `test/install.test.js` ties the claude-code snippet's agent list to the files actually shipped here, so this table cannot drift silently.
+When using Claude Code, these project agents load from `.claude/agents/`. Choose the agent whose job and tool reach fit the task; verify the current vendor model roster before a build dispatch.
 
 | Agent | Tier | Model alias | Effort | Job |
 |---|---|---|---|---|
-| deep-planner | deep | opus | xhigh | judges every build twice; never retrieves |
-| builder | standard | sonnet | high | executes; the default for everything that changes files |
-| code-reviewer | standard | sonnet | high | findings only; no file-editing tools, Bash for checks only |
-| finding-verifier | standard | sonnet | high | tries to disprove a finding before it causes a repair |
-| live-researcher | standard | sonnet | medium | fresh data through tools |
-| bulk-worker | fast | haiku | low | mechanical volume, writes output |
-| done-verifier | fast | haiku | low | probes a tracker item's stated done-signal; no file-editing tools, Bash for probes only |
-| reader | fast | haiku | low | reads and digests many files or notes; read-only |
+| deep-planner | planning model | opus | xhigh | Resolve architecture, ambiguity and unknown causes |
+| builder | working model | sonnet | high | Implement the assigned section and verify it |
+| code-reviewer | working model | sonnet | high | Review findings; Bash checks are bound by its prompt |
+| finding-verifier | working model | sonnet | high | Try to disprove findings; Bash checks are bound by its prompt |
+| live-researcher | working model | sonnet | medium | Retrieve and verify current primary sources |
+| bulk-worker | cheap model | haiku | low | Classify and transform bounded volume |
+| done-verifier | cheap model | haiku | low | Probe a definition of done; Bash checks are bound by its prompt |
+| reader | cheap model | haiku | low | Read and digest scoped files with read-only tools |
 
-Aliases resolve to the newest model in each family, so a version bump needs no edit here. Each agent carries its own token-discipline rule; the `effort` field is the third cost lever. None of `done-verifier`, `finding-verifier`, `code-reviewer` or `reader` carries `Write` or `Edit` in its `tools:` line. `reader` is read-only by tool grant as well: it carries no `Bash`. `done-verifier`, `finding-verifier` and `code-reviewer` do carry `Bash`, for their probes and checks (`git log`, `grep`, `wc -l`, `test -f`); nothing in that grant stops any of them from running a command that changes state, so staying read-only there is a rule in each one's prompt, not a restriction on the tool, and each file says so.
+Family aliases follow the vendor's alias mapping. Treat the table as a starting assignment and choose model and effort together for the actual job.
 
-Every agent names its tools explicitly, so none inherits every tool the session has: `builder` carries `Read, Write, Edit, Glob, Grep, Bash` (it changes files and runs checks), `deep-planner` carries `Read, Glob, Grep` (it plans and never edits), and `live-researcher` carries `WebSearch, WebFetch` (it answers from the web, not local files). The same files ship in the Claude Code plugin under `plugin/agents/`, generated from this folder.
+`reader` has no Bash, Write or Edit tool. `code-reviewer`, `finding-verifier` and `done-verifier` have no Write or Edit tool, but their Bash read-only boundary is bound by the prompt, not by the tool grant. Never use those review sessions to change state.
+
+`builder` carries Read, Write, Edit, Glob, Grep and Bash. `deep-planner` carries Read, Glob and Grep. `live-researcher` carries WebSearch and WebFetch. When a task needs a capability absent from its agent, hand that probe to an authorized worker and return the evidence.
+
+When updating these definitions, regenerate the Claude Code plugin so `plugin/agents/` matches this source.

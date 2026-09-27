@@ -1,4 +1,4 @@
-# DELEGATION_MATRIX.md: task → lane → pick
+# DELEGATION_MATRIX.md: choose a lane for the task
 
 Generated {{DATE}} from the AIs you said you have: `{{AI_IDS}}`.
 
@@ -10,7 +10,7 @@ Generated {{DATE}} from the AIs you said you have: `{{AI_IDS}}`.
 
 {{PLAN_GUIDANCE}}
 
-## Task → lane
+## Match the task to an available lane
 
 {{TASK_LANES_TABLE}}
 
@@ -24,4 +24,4 @@ Generated {{DATE}} from the AIs you said you have: `{{AI_IDS}}`.
 
 ## Privacy gate
 
-No private notes, client data, or personal records go to a metered third-party bulk lane or a fan-out lane. Name the barred lanes explicitly in your own rules; an unnamed bar is not enforced.
+Before dispatching protected data, check the project's named allowed and barred lanes. Never send private notes, client data or personal records to an unapproved third-party bulk or fan-out lane. When the required permission or tool is absent, keep the data local and return the needed decision.

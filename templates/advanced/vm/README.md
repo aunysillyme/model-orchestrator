@@ -4,16 +4,16 @@ Level 3 = levels 1 and 2 plus a machine that is always on. A small Linux VM (any
 
 Generated {{DATE}} for: `{{AI_IDS}}`. Installed at `{{INSTALL_DIR}}`; the systemd unit and the audit script carry that path.
 
-## The one architectural property
+## Keep provider credentials in the gateway
 
-**Only the gateway holds provider credentials.** Nothing else on the box does: not the orchestrator, not the scheduler, not a job. Every surface reaches models through the gateway, so rotating a key is a change in exactly one place. The gateway is bound to loopback (or a private mesh network), never to `0.0.0.0`.
+For metered API calls, inject provider credentials into the gateway and have jobs use its authenticated endpoint. Subscription CLIs keep their own vendor login state. Bind the gateway to loopback or the configured private network; never expose it publicly without explicit authorization and access controls.
 
 ## What runs where
 
 | Surface | Role | Reaches models via |
 |---|---|---|
 | The orchestrator CLI ({{PRIMARY_NAME}}) | interactive driver when you SSH in; dispatch brain for jobs | its own subscription, off the gateway |
-| `cli-run` lanes ({{CLI_RUN_LANES}}) | the other agent CLIs, headless | their own subscriptions (Lane A) |
+| `cli-run` lanes ({{CLI_RUN_LANES}}) | the other agent CLIs, headless | their own subscriptions (subscription lanes) |
 | The gateway (`docker-compose.yml`) | one OpenAI-compatible endpoint fronting every metered provider | provider keys from the environment |
 | A local model runtime (if selected) | the privacy lane | nothing leaves the box |
 | Scheduled jobs (`jobs/`) | the weekly gap-analysis audit (lane: `{{AUDIT_LANE}}`), and anything else recurring | the gateway, or `cli-run` |
@@ -22,7 +22,9 @@ Generated {{DATE}} for: `{{AI_IDS}}`. Installed at `{{INSTALL_DIR}}`; the system
 
 ## Setup, in order
 
-1. Provision a box. Ubuntu, 2+ vCPU, 8 GB is comfortable. Put it on a private mesh network if you can; do not open ports to the internet.
+The model-orchestrator installer writes these files only. When you separately invoke the generated `setup-vm.sh`, that manual deployment script installs the configured system dependencies and npm vendor CLIs. Review it before running it.
+
+1. Provision a machine sized for your workload and put it on the configured private network.
 2. `bash setup-vm.sh`. It installs system deps and the npm-installable CLIs, then **prints** the vendor shell installers for the rest. Read those scripts before running them.
 3. Sign each CLI in, using the flow its vendor gives you. Run these inside `tmux` so a dropped SSH session does not kill the prompt. Headless Linux has no keyring by default; `setup-vm.sh` installs one so the CLIs stop re-prompting.
 {{VM_SIGNIN}}
@@ -36,11 +38,11 @@ Generated {{DATE}} for: `{{AI_IDS}}`. Installed at `{{INSTALL_DIR}}`; the system
 
 ## The dispatch shape
 
-1. **Deterministic pre-triage, zero tokens:** a keyword table sends the obvious cases (bulk patterns → the cheap lane, URLs and current events → the live lane, "review this" → the reviewer, "write this up" → the orchestrator).
-2. **Judgment dispatch:** everything else is routed by the orchestrator against `ROUTING.md` and `DELEGATION_MATRIX.md`, with a logged reason.
-3. **Free lane first, escalate on signal.** Every job starts on its $0 lane and climbs only on failure, low confidence, or an explicit "expensive to get wrong".
-4. **Unattended means no escalation to a human-gated tier.** An unresolved irreversible call is surfaced (a message, a ticket comment), never executed.
-5. **Writes stay locked to one writer.** Every other engine proposes; one writer records.
+1. When the task is obvious, use the routing table or `aunx route` suggestion to identify the candidate tier, then verify tools and scope.
+2. When judgment is needed, apply `ROUTING.md` and `DELEGATION_MATRIX.md` and record the selected route with a reason.
+3. When a cheaper eligible route can satisfy the checks, select it; when checks fail or required capability is absent, diagnose and choose an authorized fallback.
+4. When an unattended action exceeds the existing mandate, preserve the result and return the needed approval through the configured channel.
+5. When recording shared state, keep one writer and have other workers return proposed updates.
 
 ## The closed loop (name what watches it)
 
@@ -52,11 +54,12 @@ Generated {{DATE}} for: `{{AI_IDS}}`. Installed at `{{INSTALL_DIR}}`; the system
 
 "Nothing watches it" is a valid answer and usually the valuable one. Writing it down turns an invisible gap into a tracked one.
 
-## Never on this box
+## Keep the server within its scope
 
-- Vendor scripts run blind. Read first.
-- An unpinned image or package. `docker-compose.yml` and `setup-vm.sh` pin versions; bump them on purpose, never by restarting.
-- A provider key in a file in this folder, in shell history, in argv, or in a container image.
-- A service bound to `0.0.0.0`.
-- Private notes, client data, or personal records sent to a metered bulk lane. See `PRIVACY_GATES.md`.
-- A payment card attached to a compute lane "to unlock a tier". Free credit only unless a human says otherwise.
+- Read vendor scripts before executing them.
+- Update pinned packages and images deliberately, with a verification plan.
+- Keep provider secrets in the manager and out of argv, logs and generated files.
+- Bind services to loopback or the approved private network.
+- Apply the named data-processing permissions in `PRIVACY_GATES.md` before dispatch.
+- Obtain authorization before adding a paid resource or a payment method.
+- When optional companion tools are absent, use the local runtime, official documentation and project files specified by the protocols.

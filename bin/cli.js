@@ -6,17 +6,10 @@
 
 import { stdin, stdout } from 'node:process';
 import { makeAsker } from '../src/prompt.js';
-import { spawnSync } from 'node:child_process';
 import { resolve, join } from 'node:path';
 import { which } from '../src/detect.js';
 import { AIS, LEVELS, TOOLS, PROVIDERS, aisForLevel, agentCandidates, byId, npmSpec } from '../src/catalog.js';
 import { planFiles, writeFiles, resolveSelection, resolveTools, resolveApis, dirProblems, readManifest, activationSteps, MACHINE_OWNED, RUNTIME, toPosixRel, GENERATOR_VERSION } from '../src/install.js';
-// npm resolves to npm.cmd on Windows; spawning that bare name with no shell
-// hits the same EINVAL bin/cli-run.mjs's lanes did (Node's fix for
-// CVE-2024-27980). windowsSpawnPlan is the same fix reused here rather than
-// duplicated: resolve npm's own cmd-shim and run node on it directly, no
-// shell, or fall back to the escaped cmd.exe path it also provides.
-import { windowsSpawnPlan } from './cli-run.mjs';
 import { uninstallFiles } from '../src/uninstall.js';
 import { assertSnippetPrimary, planSnippetApplication } from '../src/apply-snippets.js';
 
@@ -91,7 +84,7 @@ if (flag('version') || flag('v')) {
 }
 
 if (flag('help') || flag('h')) {
-  console.log(`model-orchestrator: set up a model orchestrator for the AIs you actually have.
+  console.log(`model-orchestrator: set up a model router for the AIs you actually have.
 
 Usage
   npx model-orchestrator                      interactive
@@ -102,9 +95,9 @@ Usage
 Flags
   --level 1|2|3      1 beginner (one agent), 2 intermediate (many CLIs), 3 advanced (plus a VM)
   --ais a,b,c        catalog ids you have access to (see --list)
-  --primary id       the agent that runs the system and receives the subagents (any level). When several qualify
+  --primary id       the main agent that runs the system and receives the subagents (any level). When several qualify
                      and --yes is set, the run picks one and says so in the plan; pass this to decide it yourself.
-  --tools a,b        companion tools to set up, all optional (default with --yes: codecalc only); --no-tools for none
+  --tools a,b        companion docs and snippets to set up, all optional (default: none)
   --apis a,b         level 3 only: metered API keys you HOLD (anthropic,openai,google,xai,openrouter); --no-apis for none.
                      Asked separately from the CLIs because a subscription is not an API key.
   --plans a=plan,b=plan  stated subscription plans for guidance; --plans none clears prior stated plans
@@ -122,7 +115,8 @@ Flags
                      and reported, and nothing happens without a manifest
   --uninstall        remove unedited managed files recorded in MANIFEST.json; keep and list edited files
   --dry, --dry-run   print the plan, write nothing
-  --no-install       never offer to run npm installs
+  --no-install       accepted for compatibility; installs always write only this package's files
+  --no-tools         accepted for compatibility; companions default to none
   --list             print the catalog
   --version, -v      print the version and exit
   --help, -h         print this and exit
@@ -137,7 +131,7 @@ if (flag('list')) {
     const here = a.bin ? (which(a.bin) ? 'installed' : 'not on PATH') : 'app';
     console.log(`${a.id.padEnd(13)} ${a.name}\n${''.padEnd(13)} level ${a.minLevel}+ · ${a.access} · ${here}\n${''.padEnd(13)} ${a.role}`);
     const install = a.install.npm
-      ? `npm install -g ${npmSpec(a)}`
+      ? 'npm install -g ' + npmSpec(a)
       : a.install.script
         ? `curl -fsSL ${a.install.script} -o /tmp/${a.id}-install.sh && less /tmp/${a.id}-install.sh && bash /tmp/${a.id}-install.sh`
         : a.install.url + (a.install.brew ? ` (or: brew install ${a.install.brew})` : '');
@@ -196,13 +190,13 @@ async function main() {
     for (const action of actions) console.log(action);
     console.log('\nManual steps: remove the pasted model-orchestrator block from CLAUDE.md and its merged hook entries from .claude/settings.json. Keep your other rules and hooks.');
     console.log(`Applied rules use <!-- model-orchestrator:start --> and <!-- model-orchestrator:end -->. Backups stay beside the originals: ${join(project, 'CLAUDE.md.bak-YYYYMMDDTHHMMSS')} and ${join(project, '.claude', 'settings.json.bak-YYYYMMDDTHHMMSS')}. Review backups before restoring them; later edits may need to be kept.`);
-    console.log('For another primary agent, remove its pasted activation block from its rules file.');
+    console.log('For another main agent, remove its pasted activation block from its rules file.');
     return;
   }
   // Says what this generates, not what it guarantees. The old line promised
   // routing this package does not perform: lane choice is an instruction an
   // agent follows, never something enforced here (#11).
-  console.log('\nmodel-orchestrator\nA model orchestrator: routing rules and a CLI runner for the AIs you actually have.\n');
+  console.log('\nmodel-orchestrator\nA model router: routing rules and a CLI runner for the AIs you actually have.\n');
 
   // 1. Level
   let level = Number(opt('level'));
@@ -245,7 +239,7 @@ async function main() {
   const tooHigh = selected.filter((a) => a.minLevel > level);
   if (tooHigh.length) bad(`${tooHigh.map((a) => a.id).join(', ')} need level ${Math.max(...tooHigh.map((a) => a.minLevel))} or higher`);
 
-  // 3. Primary agent (the one that runs the system)
+  // 3. Main agent (the one that runs the system)
   const candidates = agentCandidates(selected);
   let primary = null;
   let primaryAutoPicked = false;
@@ -265,9 +259,9 @@ async function main() {
       primaryAutoPicked = true;
     }
     else {
-      console.log('\nWhich one is your primary agent (the one that runs the system)?');
+      console.log('\nWhich one is your main agent (the one that runs the system)?');
       candidates.forEach((a, i) => console.log(`  ${i + 1}  ${a.name}`));
-      const n = Number(await ask('\nPrimary [1]: ', '1'));
+      const n = Number(await ask('\nMain agent [1]: ', '1'));
       primary = candidates[n - 1];
       if (!primary) bad('pick a listed number');
     }
@@ -275,22 +269,16 @@ async function main() {
 
   // 3b. Companion tools (not AIs: things the AIs call)
   let tools = [];
-  if (flag('no-tools') && opt('tools')) bad('--no-tools and --tools contradict each other');
-  if (!flag('no-tools')) {
-    if (opt('tools')) {
-      const r = resolveTools(opt('tools').split(',').map((s) => s.trim()).filter(Boolean));
-      if (r.unknown.length) bad('unknown tool id(s): ' + r.unknown.join(', ') + ' (see --list)');
-      tools = r.tools;
-    } else if (yes) {
-      tools = TOOLS.filter((t) => t.recommended);
-    } else {
-      console.log('\nCompanion tools (all optional): things your agents call. Selecting one writes docs and config snippets; it installs nothing.');
-      for (const t of TOOLS) {
-        console.log(`\n  ${t.id}: ${t.role}\n    ${t.repo}\n    needs: ${t.requires}\n    ${t.optionalNote}`);
-        const def = t.recommended ? 'y' : 'n';
-        const a = await ask(`  Set up ${t.id}? [${t.recommended ? 'Y/n' : 'y/N'}]: `, def);
-        if (/^y/i.test(a)) tools.push(t);
-      }
+  if (opt('tools')) {
+    const r = resolveTools(opt('tools').split(',').map((s) => s.trim()).filter(Boolean));
+    if (r.unknown.length) bad('unknown tool id(s): ' + r.unknown.join(', ') + ' (see --list)');
+    tools = r.tools;
+  } else if (!yes && !flag('no-tools')) {
+    console.log('\nCompanion tools (all optional): selecting one writes docs and config snippets. Install each project yourself.');
+    for (const t of TOOLS) {
+      console.log(`\n  [ ] ${t.id}: ${t.role}\n    ${t.repo}\n    needs: ${t.requires}\n    ${t.optionalNote}`);
+      const a = await ask(`  Set up ${t.id}? [y/N]: `, 'n');
+      if (/^y/i.test(a)) tools.push(t);
     }
   }
 
@@ -415,9 +403,9 @@ async function main() {
         .concat(JSON.stringify((prev.effortAuto || []).slice().sort()) !== JSON.stringify(effortAuto.slice().sort()) ? ['effortAuto'] : [])
     : [];
 
-  let written, skipped, upgraded, conflicts, unverifiable, docsUpdated, docsConflict, docsUnverifiable;
+  let written, skipped, upgraded, conflicts, unverifiable, docsUpdated, docsConflict, docsUnverifiable, docsRenamed;
   try {
-    ({ written, skipped, upgraded, conflicts, unverifiable, docsUpdated, docsConflict, docsUnverifiable } = writeFiles(files, { dir, project, force: flag('force'), upgradeRuntime: flag('upgrade-runtime'), updateDocs: flag('update-docs'), prevManifest: prev, backupExisting: applySnippets, onBackup: (path) => console.log('  backup ' + path) }));
+    ({ written, skipped, upgraded, conflicts, unverifiable, docsUpdated, docsConflict, docsUnverifiable, docsRenamed } = writeFiles(files, { dir, project, force: flag('force'), upgradeRuntime: flag('upgrade-runtime'), updateDocs: flag('update-docs'), prevManifest: prev, backupExisting: applySnippets, onBackup: (path) => console.log('  backup ' + path) }));
   } catch (e) {
     if (e && e.code === 'PREFLIGHT') bad(e.message);
     throw e;
@@ -438,7 +426,7 @@ async function main() {
     if (conflicts.length) {
       console.log(`  runtime CONFLICT, kept: ${conflicts.join(', ')}`);
       console.log('    these differ from what a previous run generated, so you edited them. The fixes in this release were NOT applied to them.');
-      console.log('    Options: move your copy aside and re-run; or --upgrade-runtime to replace runtime files only; or --force to replace everything.');
+      console.log('    Options: move your copy aside and re-run; or --upgrade-runtime to replace runtime files only; or --force to replace current generated files.');
     }
     if (unverifiable.length) {
       console.log(`  runtime kept, UNVERIFIABLE: ${unverifiable.join(', ')}`);
@@ -446,46 +434,34 @@ async function main() {
       console.log('    Re-run with --upgrade-runtime to replace runtime files only (documents stay), or --force to replace everything.');
     }
     if (docsUpdated.length) console.log(`  documents updated: ${docsUpdated.join(', ')} (each matched the hash of a previous run, so nobody had edited them)`);
+    if (docsRenamed.length) console.log(`  documents renamed: ${docsRenamed.join(', ')} (the old copy matched its installed hash)`);
     if (docsConflict.length) {
       console.log(`  document CONFLICT, kept: ${docsConflict.join(', ')}`);
-      console.log('    these differ from what a previous run generated, so you edited them. Edit them by hand, or --force to replace everything.');
+      console.log('    these differ from what a previous run generated, so you edited them. Edit them by hand; --force replaces current generated paths. Edited legacy briefs stay.');
     }
     if (docsUnverifiable.length) {
       console.log(`  documents kept, UNVERIFIABLE: ${docsUnverifiable.join(', ')}`);
-      console.log('    the previous install left no manifest, so --update-docs cannot tell your edits from generated text. --force replaces everything.');
+      console.log('    the previous install left no manifest, so --update-docs cannot tell your edits from generated text. --force replaces current generated paths. Unverifiable legacy briefs stay.');
     }
     if (skipped.length && prev && changed.length && !flag('update-docs')) console.log('  documents kept: they may describe the old selection. --update-docs regenerates the ones you have not edited; --force regenerates all of them (this overwrites your edits).');
   }
 
-  // 6. Installs, opt-in per CLI, npm only. Vendor scripts are printed, never run.
+  // 6. Print manual setup commands for missing CLIs and selected companions.
   const missing = selected.filter((a) => a.bin && !which(a.bin));
-  if (missing.length) {
-    console.log('\nNot found on this machine (presence is checked; installed versions are not validated):');
+  if (missing.length || tools.length) {
+    console.log('\nInstall these yourself (binary presence checked; versions and companion setup need your verification):');
     for (const a of missing) {
-      if (a.install.npm) {
-        const spec = npmSpec(a); // the same pinned spec the table and the box script use
-        const run = flag('no-install') || yes ? 'n' : await ask(`  ${a.name}: run \`npm install -g ${spec}\` now? [y/N]: `, 'n');
-        if (/^y/i.test(run)) {
-          // Opt-in cmd.exe fallback: npm.cmd is not a cmd-shim, and every argument here
-          // is the catalog's pinned spec, never user text (lanes refuse this path).
-          const plan = windowsSpawnPlan([which('npm') || 'npm', 'install', '-g', spec], process.platform, { allowCmdFallback: true });
-          const r = spawnSync(plan.command, plan.args, { stdio: 'inherit', ...plan.options });
-          console.log(r.status === 0 ? `  installed ${spec}` : `  npm exited ${r.status}; install it by hand`);
-        } else {
-          console.log(`  ${a.name}: npm install -g ${spec}   (pinned to the version this installer was released with)`);
-        }
-      } else if (a.install.script) {
-        console.log(`  ${a.name}: the vendor installer is a shell script. Download it, read it, then run it:\n      curl -fsSL ${a.install.script} -o /tmp/${a.id}-install.sh && less /tmp/${a.id}-install.sh && bash /tmp/${a.id}-install.sh`);
-      } else {
-        console.log(`  ${a.name}: ${a.install.url}` + (a.install.brew ? `  (or: brew install ${a.install.brew})` : ''));
-      }
-      console.log(`      sign in: ${a.auth}`);
+      const command = a.install.npm
+        ? 'npm install -g ' + npmSpec(a)
+        : a.install.script
+          ? `curl -fsSL ${a.install.script} -o /tmp/${a.id}-install.sh && less /tmp/${a.id}-install.sh && bash /tmp/${a.id}-install.sh`
+          : a.install.brew ? `brew install ${a.install.brew}` : 'Follow the vendor setup guide';
+      console.log(`  ${a.name}: ${command}\n    official guide: ${a.install.url || a.install.script}\n    sign in: ${a.auth}`);
     }
-  }
-
-  for (const t of tools) {
-    const doc = t.id.toUpperCase() + '.md';
-    console.log(`\n${t.name}\n  note:     ${t.optionalNote}\n  needs:    ${t.requires}\n  run:      ${t.install}\n  one-click or self-registering for: ${t.autoClients.join(', ')}. Other agents and the details: ${dir}/${doc}`);
+    for (const t of tools) {
+      const doc = t.id.toUpperCase() + '.md';
+      console.log(`  ${t.name}: ${t.install}\n    official guide: ${t.repo}\n    needs: ${t.requires}\n    ${t.optionalNote}\n    setup verification and other agents: ${join(dir, doc)}`);
+    }
   }
 
   // 7. Activation summary: writing the folder is half the job. Say exactly what

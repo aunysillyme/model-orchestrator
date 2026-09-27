@@ -2,5 +2,6 @@ node_modules/
 tmp-dry-run/
 *.log
 .DS_Store
-# A maintainer's per-round audit brief; the durable record is docs/audit-brief.md.
+# Local build evidence and review notes.
+.release-work/
 AUDIT_BRIEF.md

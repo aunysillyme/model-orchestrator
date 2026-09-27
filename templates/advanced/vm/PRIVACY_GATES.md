@@ -1,33 +1,31 @@
-# PRIVACY_GATES.md: what never leaves the machine
+# PRIVACY_GATES.md: match data to authorized lanes
 
-A bar that is not named is not enforced. Fill in the names.
+Before sending data to a lane, classify it under the project's policy and verify the lane is authorized for that class. Fill in the allowed and barred lane names before using this template with protected information.
 
 ## Data classes
 
-| Class | Examples | May go to |
+| Class | Examples | Choose |
 |---|---|---|
-| Public | published posts, open docs, public repos | any lane |
-| Working | your own notes, drafts, code you will publish | your primary vendor's lanes, subscription CLIs you trust with it |
-| Confidential | client data, other people's records, contracts | your primary vendor only, or the local lane |
-| Personal | health, identity, private journals | the local lane only, or nowhere |
+| Public | Published posts, open docs, public repositories | Any lane permitted by project policy |
+| Working | Internal drafts and unpublished code | Lanes approved for this project |
+| Confidential | Client records, contracts and restricted business data | Explicitly approved processors or a local runtime |
+| Personal | Health, identity and private journals | Explicitly authorized processing with the required privacy boundary |
 
-## Lanes barred by name for Confidential and Personal
+## Name the boundaries
 
-- metered third-party bulk lanes (the cheapest-tier API you use for volume)
-- concurrent fan-out lanes on a consumer subscription
-- any shared compute lane (free GPU tiers, notebook services)
-- any tool that stores conversation history on its own servers without a retention control you have read
-
-Write your own lane names here, in this file, so the bar is checkable:
+Record the actual tool names and the reason for each rule:
 
 ```
-BARRED: <lane>, <lane>, <lane>
+ALLOWED FOR <class>: <lane>, <lane>
+BARRED FOR <class>: <lane>, <lane>
 ```
 
-## The local lane is a privacy lane, not a cost lane
+Review a provider's retention, training and access policy before approving a new lane for protected data. Never send protected information to an unapproved bulk, fan-out or shared-compute lane.
 
-Route to a local model when confinement is the requirement. Never to save money: the accuracy gap is real, and pennies saved are not worth a wrong answer that looks right.
+## Use the local lane for confinement
 
-## The check
+When data must remain on the machine, use a local runtime and verify that its tools and logging preserve that boundary. Check its task quality with the same acceptance checks used for any other lane.
 
-Before any bulk call: which class is this data, and is the lane in the barred list? If you cannot answer both, it is Confidential.
+## Check before dispatch
+
+When a bulk call is ready, verify the data class, the selected tool and the permission that allows it. When classification or permission is unresolved, keep the data local and obtain the missing decision before dispatch.

@@ -31,12 +31,12 @@
 //   0   ok: structurally accepted non-empty response (and every --expect-* contract met)
 //   10  empty: ran and delivered nothing, or a contract was not met
 //   11  no_output: produced no output at all
-//   12  timeout: the lane AND its descendants are killed as a process group
+//   12  timeout: the worker AND its descendants are killed as a process group
 //   13  unavailable: missing binary, disabled in lanes.json, or lanes.json malformed
 //   14  auth: the lane's own error says a credential is missing or not logged in
 //   15  quota: the lane's own error says usage limit, credits or rate limit
 //   16  rejected: the upstream rejected the request (bad model id, bad request)
-//   17  refused: no deliverable, and the lane reports tool calls a hook or deny rule blocked
+//   17  refused: no result, and the lane reports tool calls a hook or deny rule blocked
 //   18  cut_short: no trustworthy finish: a missing or non-success terminal event, a lane
 //       killed by a signal, output past the 16 MiB buffer, or a nonzero vendor exit
 //   130 / 143  cli-run itself received SIGINT / SIGTERM: the lane's process group was killed first
@@ -60,7 +60,7 @@
 // was REQUESTED plus where the request came from (flag, lanes.json, or nothing
 // at all). It does not log an "actual". One lane of five (grok) does report a
 // model id in its own output; the other four report none, and a field present
-// for one lane and absent for four is worse than no field. It would also be a
+// for one worker and absent for four is worse than no field. It would also be a
 // provider-supplied string, which this log deliberately never holds.
 
 import { spawn, spawnSync } from 'node:child_process';
@@ -821,7 +821,7 @@ export function classifyRun(lane, { rc = 0, out = '', err = '', reason = '', det
 // boundary; that is documented, not hidden.
 // Models often wrap JSON in one markdown fence. --expect-json accepts exactly that shape:
 // the whole trimmed response is one fenced block, optionally tagged json. Prose before or
-// after the fence still fails, because then the deliverable is not the JSON (#17).
+// after the fence still fails, because then the result is not the JSON (#17).
 export function unfence(text) {
   const t = String(text).trim();
   const m = /^```(?:json|JSON)?[ \t]*\r?\n([\s\S]*?)\r?\n?```$/.exec(t);
@@ -920,7 +920,7 @@ export function windowsSpawnPlan(argv, platform = process.platform, { allowCmdFa
   return { command: comspec, args: ['/d', '/s', '/c', buildCmdExeCommand(bin, args)], options: { windowsVerbatimArguments: true } };
 }
 
-// Kill a lane and everything it spawned. POSIX: the detached process group.
+// Kill a worker and everything it spawned. POSIX: the detached process group.
 // Windows has no process groups a signal can reach, so taskkill walks the
 // tree (#18): whether the direct child is node (the resolved-shim path) or
 // cmd.exe (the fallback), taskkill /T reaches every descendant either way.
@@ -1164,7 +1164,7 @@ export async function doctor(run) {
   let bad = 0;
   console.log(`doctor: ${enabled.length} enabled lane(s): ${enabled.join(', ') || 'none'}`);
   const primary = installedPrimary();
-  if (primary && !enabled.includes(primary)) console.log(`  note: ${primary} is the primary agent and is not an executable lane`);
+  if (primary && !enabled.includes(primary)) console.log(`  note: ${primary} is the main agent and is not an executable lane`);
   if (!enabled.length) {
     console.error('doctor: inactive: no executable lanes enabled. Use level 1 for a single-agent setup, or re-run the installer with a supported CLI selected.');
     return UNAVAILABLE;
@@ -1216,7 +1216,7 @@ export function checkContracts(opts, text, before) {
     if (!after.file || after.size === 0) return `--expect-file: ${p} is empty or not a regular file`;
     if (before && before.exists) {
       const changed = !before.file || after.sha !== before.sha || after.mtimeMs > before.mtimeMs;
-      if (!changed) return `--expect-file: ${p} existed before the run and was not changed by it (same content, same mtime); a pre-existing artifact is not this run's deliverable`;
+      if (!changed) return `--expect-file: ${p} existed before the run and was not changed by it (same content, same mtime); a pre-existing artifact is not this run's result`;
     }
   }
   if (opts.expectJson) {
@@ -1346,7 +1346,7 @@ export async function main(argv) {
       verdict = 'unavailable'; reason = 'unavailable'; detail = r.error.message; cls = 'unavailable';
     } else if (r.signal || r.status === null) {
       // A lane killed by a signal has no honest exit status. Whatever it printed
-      // before dying is not a deliverable; a null status must never become exit 0.
+      // before dying is not a result; a null status must never become exit 0.
       verdict = 'killed'; reason = 'killed'; detail = `lane killed by ${r.signal || 'unknown signal'}`; cls = 'cut_short';
     } else {
       const j = safeJudge(lane, r.status, out, err, outFile);

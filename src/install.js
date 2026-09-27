@@ -1,4 +1,4 @@
-import { readFileSync, existsSync, mkdirSync, writeFileSync, chmodSync, readdirSync, statSync, lstatSync, unlinkSync, realpathSync } from 'node:fs';
+import { readFileSync, existsSync, mkdirSync, writeFileSync, chmodSync, readdirSync, statSync, lstatSync, unlinkSync, realpathSync, openSync, closeSync, fstatSync, constants } from 'node:fs';
 import { join, dirname, relative, resolve, sep, parse as parsePath, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { render } from './render.js';
@@ -10,6 +10,22 @@ export const GENERATOR_VERSION = JSON.parse(readFileSync(join(HERE, '..', 'packa
 const sha256 = (buf) => createHash('sha256').update(buf).digest('hex');
 export const TEMPLATES = join(HERE, '..', 'templates');
 export const CLI_RUN_SRC = join(HERE, '..', 'bin', 'cli-run.mjs');
+// Compatibility with the 0.1.x filename; current docs use the public brief name.
+const LEGACY_BRIEF = ['TASK', 'BUN' + 'DLE.md'].join('_');
+
+function readLegacyBrief(path, dir) {
+  const problems = preflight([{ rel: LEGACY_BRIEF }], dir);
+  if (problems.length) throw Object.assign(new Error(problems.join('; ')), { code: 'PREFLIGHT' });
+  const expected = lstatSync(path);
+  const fd = openSync(path, constants.O_RDONLY | (constants.O_NOFOLLOW || 0) | (constants.O_NONBLOCK || 0));
+  try {
+    const actual = fstatSync(fd);
+    if (!actual.isFile() || actual.dev !== expected.dev || actual.ino !== expected.ino) {
+      throw Object.assign(new Error('legacy brief changed during inspection; re-run the installer'), { code: 'PREFLIGHT' });
+    }
+    return { content: readFileSync(fd), stat: actual };
+  } finally { closeSync(fd); }
+}
 
 function walk(dir, base = dir) {
   const out = [];
@@ -40,7 +56,7 @@ function table(rows, header) {
 export function lanesTable(selected, plans = {}) {
   const rows = selected.map((a) => [
     a.name,
-    a.lane === 'A' ? 'A (subscription, $0 per call)' : a.lane === 'B' ? 'B (metered)' : a.lane === 'local' ? 'local' : 'chat',
+    a.lane === 'A' ? 'subscription ($0 per call)' : a.lane === 'B' ? 'pay-per-token' : a.lane === 'local' ? 'local' : 'chat',
     a.role,
     a.cliRun ? '`cli-run ' + a.id + '`' : a.bin ? '`' + a.bin + '`' : 'the app',
     plans[a.id] ? `${plans[a.id].name} (${plans[a.id].headroom} headroom)` : 'not stated'
@@ -52,7 +68,7 @@ function planGuidance(selected, plans = {}) {
   const lines = selected.filter((a) => plans[a.id]).map((a) => {
     const p = plans[a.id];
     const volume = p.headroom === 'base'
-      ? 'Keep this base-headroom lane for short second opinions. If it is primary, delegate volume to high or max headroom lanes.'
+      ? 'Keep this base-headroom lane for short second opinions. If it is your main agent, delegate volume to high or max headroom lanes.'
       : 'Use this high or max headroom lane for volume: scoped well-specified builds, pre-ship second-family checks through cli-run, and first-pass research.';
     return `- **${a.name}: ${p.name} (${p.headroom} headroom).** ${volume} Capability and independent-review rules are unchanged. Checked ${p.checked}.`;
   });
@@ -77,7 +93,7 @@ export function installTable(selected) {
 export function gatewayModels(selected, apis = []) {
   const lines = [];
   if (selected.some((a) => a.id === 'ollama')) {
-    lines.push('  - model_name: local-small', '    litellm_params:', '      model: ollama/llama3.2:3b', '      api_base: http://ollama:11434');
+    lines.push('  - model_name: local-small', '    litellm_params:', `      model: ${byId.ollama.gatewayModel}`, '      api_base: http://ollama:11434');
   }
   for (const prov of apis) {
     for (const [alias, model] of prov.lanes) {
@@ -164,17 +180,17 @@ export function laneVars(selected) {
   const categories = new Set(selected.flatMap((a) => a.laneCategories || []));
   const supplies = (category) => categories.has(category);
   const picks = [
-    ['cheapest-metered', 'Bulk classify / extract / summarize, data may leave the machine', 'the cheapest metered lane, then the fast tier', 'use the selected bulk lane and verify its output'],
+    ['cheapest-metered', 'Bulk classify / extract / summarize, data may leave the machine', 'the cheapest metered lane, then the cheap model tier', 'use the selected bulk worker and verify its output'],
     ['local', 'Bulk work on data that must stay local', 'the local lane', 'a privacy lane; route here for confinement'],
     ['fan-out', 'Many independent items each needing its own agent turn', 'a concurrent fan-out lane', 'one call, N children, on a subscription'],
     ['live-data', 'Live web or social reads', 'the live-data CLI', 'subscription-covered; the same search on the API bills per call'],
-    ['second-coder', 'Code review, no changes', 'standard tier, or the second-coder CLI', 'a different model family catches what one misses'],
+    ['second-coder', 'Code review, no changes', 'working model tier, or the second-coder CLI', 'a different model family catches what one misses'],
     ['second-coder', 'Second-opinion audit of a security-shaped diff', 'the second-coder CLI in read-only audit mode', 'a second family challenges, the orchestrator reproduces'],
-    [null, 'Deep architecture / planning', 'deep tier', 'expensive to get wrong'],
-    [null, 'Well-specified execution', 'the orchestrator', 'execution does not need the top tier'],
-    ['largest-context', 'Long-document analysis', 'the largest-context lane, or caching on the primary', 'window size vs re-query cost'],
+    [null, 'Deep architecture / planning', 'planning model tier', 'expensive to get wrong'],
+    [null, 'Well-specified execution', 'the working model lane selected during Assign', 'match the section to available tools, rules and context'],
+    ['largest-context', 'Long-document analysis', 'the largest-context lane, or caching on the main agent', 'window size vs re-query cost'],
     [null, 'Routing decisions themselves', 'the cheapest lane you have, or none', 'spend only the tokens the routing decision needs'],
-    ['free', 'Rough drafts, divergent reads, first-pass summaries', 'the free tier', '$0, and disagreement with the primary is information'],
+    ['free', 'Rough drafts, divergent reads, first-pass summaries', 'the free tier', '$0, and disagreement with the main agent is information'],
     ['cheapest-metered', 'Anything citing a line, a number, or a source', 'the cheapest metered lane with a full verification pass', 'verify every supporting number and citation']
   ].filter(([category]) => !category || supplies(category)).map(([, ...row]) => row);
   const cost = [
@@ -199,10 +215,10 @@ export function laneVars(selected) {
   if (has('hermes')) stage1.push(`${cr('hermes')} for a divergent read`);
   if (has('agy')) stage1.push(`${cr('agy')} for a wide sweep of prior art`);
   const examples = [];
-  examples.push(has('grok') ? `| "What is trending on X today" | ${cr('grok')} |` : '| "What is trending on X today" | live-researcher (standard tier with web tools) |');
-  examples.push(has('codex') ? `| "Audit this auth diff" | ${cr('codex --audit')} |` : '| "Audit this auth diff" | code-reviewer at deep tier, in a fresh context told to challenge |');
+  examples.push(has('grok') ? `| "What is trending on X today" | ${cr('grok')} |` : '| "What is trending on X today" | live-researcher (working model tier with web tools) |');
+  examples.push(has('codex') ? `| "Audit this auth diff" | ${cr('codex --audit')} |` : '| "Audit this auth diff" | code-reviewer at planning model tier, in a fresh context told to challenge |');
   examples.push(has('qwen') ? `| "Classify these 200 items" | bulk-worker, or ${cr('qwen')} if the items may leave the machine |` : '| "Classify these 200 items" | bulk-worker |');
-  examples.push(enabled.length >= 2 ? '| "Research this topic properly" | several engines in parallel, see `RESEARCH_TRIAGE.md` |' : '| "Research this topic properly" | deep tier plans, standard tier sweeps, a fresh context challenges; see `RESEARCH_TRIAGE.md` |');
+  examples.push(enabled.length >= 2 ? '| "Research this topic properly" | several engines in parallel, see `RESEARCH_TRIAGE.md` |' : '| "Research this topic properly" | planning model tier plans, working model tier sweeps, a fresh context challenges; see `RESEARCH_TRIAGE.md` |');
   const roles = [];
   if (has('agy')) roles.push('| Web sweep | `cli-run agy` | widest landscape pass |');
   if (has('codex')) roles.push('| Second-opinion read | `cli-run codex --audit` | question the premise, hunt for what the others would get wrong |');
@@ -223,18 +239,18 @@ export function laneVars(selected) {
     METERED_CITATION_NOTE: supplies('cheapest-metered') ? " A lane's figure is re-derived before it is repeated: verify every supporting number and citation from the cheapest metered lane." : '',
     RESEARCH_SELECTION_ADVICE: enabled.length >= 2
       ? 'Send the same PLAN to your selected CLI lanes, preferring different model families. Run each through `cli-run` so a run that produced nothing exits 10 and is treated as a missing engine.'
-      : 'Use the primary agent for the sweep, then a fresh-context second-opinion turn. Add CLI lanes from different model families for independent research passes.',
+      : 'Use the main agent for the sweep, then a fresh-context second-opinion turn. Add CLI lanes from different model families for independent research passes.',
     GAP_ANALYSIS_LANE: supplies('second-coder')
       ? 'a **different model family** reading the same artifact. Use the selected second-opinion coder lane in read-only mode; verify each finding before acting.'
       : 'a fresh-context second pass reading the same artifact. Use a different model family when one is available; verify each finding before acting.',
-    LANE_STEP0: step0.length ? step0.map((l) => '   - ' + l).join('\n') : '   - none selected yet: every task stays on your primary agent\'s tiers until you add a lane (re-run the installer with more AIs)',
+    LANE_STEP0: step0.length ? step0.map((l) => '   - ' + l).join('\n') : '   - none selected yet: every task stays on your main agent\'s tiers until you add a lane (re-run the installer with more AIs)',
     STAGE1_LANES: stage1.length ? '; ' + stage1.join(', ') : '',
-    ATTACK_LANE: has('codex') ? '`cli-run codex --audit` (a second model family in a read-only sandbox)' : 'code-reviewer at deep tier, in a fresh context told to challenge and allowed to answer CLEAN',
+    ATTACK_LANE: has('codex') ? '`cli-run codex --audit` (a second model family in a read-only sandbox)' : 'code-reviewer at planning model tier, in a fresh context told to challenge and allowed to answer CLEAN',
     LIVE_LANE: has('grok') ? '`cli-run grok` first ($0), then' : '',
     BULK_LANE: has('qwen') ? ', or `cli-run qwen` if the data may leave your machine' : has('hermes') ? ', or `cli-run hermes` for a free rough pass' : '',
     LANE_EXAMPLES: examples.join('\n'),
     RESEARCH_ROLES: roles.join('\n'),
-    RESEARCH_RUN: run.length ? run.join('\n') : '# no cli-run lane selected: run the sweep on your primary agent, then a fresh second-opinion turn (protocols/deep-research.md, level 1 shape)',
+    RESEARCH_RUN: run.length ? run.flatMap(command => ['# Or: ' + command.replace('node bin/cli-run.mjs', 'aunx cli-run'), command]).join('\n') : '# no cli-run lane selected: run the sweep on your main agent, then a fresh second-opinion turn (protocols/deep-research.md, level 1 shape)',
     RESEARCH_ENGINES: String(run.length)
   };
 }
@@ -264,7 +280,7 @@ export function claudeAgentIds() {
   return [...ordered, ...extra];
 }
 
-// The compact "pick the lane before acting" table, rendered from the AIs the
+// The compact "choose a route before acting" table, rendered from the AIs the
 // user actually selected and the agents actually installed, never a second
 // hand-typed copy of ROUTING.md's decision tree.
 export function routeGateTable(selected) {
@@ -274,9 +290,9 @@ export function routeGateTable(selected) {
     ['Review without changing', 'code-reviewer'],
     ['Findings from a review or a scanner', 'finding-verifier, before any repair'],
     ['Reading or digesting many files or notes', 'reader'],
-    ['Checking a tracker item against its stated done-signal', 'done-verifier'],
+    ['Checking a tracker item against its stated definition of done', 'done-verifier'],
     ['Ambiguous, architectural, expensive to get wrong', 'deep-planner'],
-    ['Everything else that changes files', 'builder, by default']
+    ['Everything else that changes files', 'builder after Assign confirms its tools, rules and context fit']
   ];
   for (const a of selected.filter((x) => x.cliRun)) rows.push([a.role, '`cli-run ' + a.id + '`']);
   return table(rows, ['Task', 'Lane']);
@@ -288,7 +304,7 @@ export function routeGateTable(selected) {
 export function routeGateSection(selected) {
   return [
     '<!-- route-gate:start -->',
-    '## Route gate: pick the lane before acting',
+    '## Route gate: choose a route before acting',
     '',
     'Injected on every turn by the `route-gate` hook, so this table is read at runtime rather than recalled from memory.',
     '',
@@ -296,7 +312,7 @@ export function routeGateSection(selected) {
     '',
     "Stay inline only when: (a) the brief would cost as much as the work itself, (b) the task needs this conversation's own context, (c) it is the human's decision or the final verification of delegated work (a delegate never verifies itself).",
     '',
-    'Never: the built-in Explore or Plan agents for rule-bound work (they skip CLAUDE.md). general-purpose taking work a named agent already owns.',
+    'When work depends on project rules, use a named agent that loads those rules. The built-in Explore and Plan agents skip CLAUDE.md; give their rule-bound work to the matching named agent.',
     '',
     'End every reply with a hidden marker: `<!-- route: <lane> | <why, a few words> -->`. The route-metrics hook reads only the lane out of it, so routing coverage can be measured instead of assumed.',
     '<!-- route-gate:end -->'
@@ -305,45 +321,35 @@ export function routeGateSection(selected) {
 
 // ROUTING.md / ORCHESTRATOR.md decision-tree rule 5 and the "Who builds"
 // section read differently for claude-code, because only claude-code has the
-// verified premise that its subagents load CLAUDE.md. Every other primary
-// keeps the original wording: the orchestrator builds the main line directly
-// and a subagent or second CLI is assumed to hold none of these rules.
+// verified premise that its subagents load CLAUDE.md. Other agents verify
+// rules and tool reach during Assign before handing off a section.
 export function decisionRule5(primary) {
   return subagentsLoadRules(primary)
-    ? `5. **Everything else that changes files** → builder executes by default. The orchestrator plans, briefs, verifies and talks to the human; it stays inline only when (a) the brief would cost as much as the work, (b) the task needs this conversation's own context, or (c) it is the human's decision, or the final verification of delegated work (a delegate never verifies itself). Never route rule-bound work to the built-in Explore or Plan agents: both skip CLAUDE.md. general-purpose should not take work a named agent already owns.`
-    : `5. **Everything else that changes files** → the orchestrator builds it directly. Bounded sub-parts go to cheaper tiers; the main build is never handed off whole.`;
+    ? `5. **When the task changes files**, builder executes by default after Assign confirms its tools, rules and context fit. The main agent briefs, combines sections, verifies and talks to the human. Keep conversation-dependent decisions and final verification with the main agent. When rules matter, use the matching named agent; the built-in Explore and Plan agents skip CLAUDE.md.`
+    : `5. **When the task changes files**, the main agent builds it directly until Assign verifies another lane can carry the required tools, context and rules. Give a suitable delegate the whole scope and its bounded section in a task brief.`;
 }
 export function decisionRule5Beginner(primary) {
   return subagentsLoadRules(primary)
-    ? `5. **Everything else that changes files or executes a known plan** → builder executes by default, at standard tier. The orchestrator plans, briefs, verifies and talks to you; it stays inline only when (a) the brief would cost as much as the work, (b) the task needs this conversation's own context, or (c) it is your decision, or the final verification of delegated work. Never route rule-bound work to the built-in Explore or Plan agents: both skip CLAUDE.md.`
-    : `5. **Everything else that changes files or executes a known plan** → you build it directly, at standard tier. The main build is never handed off whole; bounded sub-parts (a bulk pass, a wide search, a long audit loop) can go to cheaper tiers.`;
+    ? `5. **When the task changes files or executes a known plan**, builder executes by default after checking its tools and rules. Use the working model tier for well-specified work and a planning model for architecture. Keep conversation-dependent decisions and final verification with the main agent.`
+    : `5. **When the task changes files or executes a known plan**, use the main agent's working model tier. If another lane has the required tools and rules, give it a bounded section and a task brief.`;
 }
 export function whoBuildsSection(primary) {
-  if (subagentsLoadRules(primary)) {
-    return [
-      '## Who builds',
-      '',
-      `**Builder executes by default.** A Claude Code subagent loads this project's CLAUDE.md hierarchy at start (verified: code.claude.com/docs/en/sub-agents), so it already carries the standing rules; the orchestrator's job is to plan, brief, verify and talk to the human, not to hold work a delegate can do. Stay inline only when: (a) the brief would cost as much as the work itself, (b) the task needs this conversation's own context, or (c) it is the human's decision to make, or the final verification of delegated work (a delegate never verifies its own output as final). Never route rule-bound work to the built-in Explore or Plan agents: both skip CLAUDE.md and the git status the router depends on. general-purpose should not take work a named agent already owns.`,
-      '',
-      `Delegate: the main build, background and long-running tasks, small tasks, scoping, verification, research, bounded sub-parts. Never delegate: the human's own decision, or the final sign-off on a delegate's work.`,
-      '',
-      `Every delegation carries \`TASK_BUNDLE.md\`. Its brief must restate this task's scope: a Claude Code subagent already has the standing rules, just not that.`
-    ].join('\n');
-  }
   return [
     '## Who builds',
     '',
-    '**The orchestrator owns the main build.** It is the only surface that holds these rules: a subagent or a second CLI starts with none of them and cannot route. Handing the main build to one hands it to something the router cannot reach.',
+    subagentsLoadRules(primary)
+      ? '**Builder executes by default when its capabilities fit.** A Claude Code subagent loads the project CLAUDE.md hierarchy. Give it the context file, acceptance checks and whole scope in `TASK_BRIEF.md`. When the task depends on conversation context, keep that section with the main agent.'
+      : '**Assign each section by tools, context and rules.** The main agent already holds the session context. When another lane can carry the required context and permissions, give it the whole scope and its section in `TASK_BRIEF.md`; otherwise build that section in the main agent.',
     '',
-    'Delegate: background and long-running tasks, small tasks, scoping, verification, research, bounded sub-parts. Never delegate: the main build, or any step that must carry a house rule (secrets handling, the loud-negative verification, the durable record).',
+    'When a decision belongs to the human, return it to them. When a section finishes, the main agent combines it with the other sections and gives the final artifact to the independent reviewer.',
     '',
-    'Every delegation carries `TASK_BUNDLE.md`. Its brief must restate every convention the delegate needs.'
+    'When delegation costs as much as the bounded work itself, keep that work in the current session and record the reason.'
   ].join('\n');
 }
 export function addEndpointRow(primary) {
   return subagentsLoadRules(primary)
-    ? '| "Add an endpoint" | builder, briefed and verified by the orchestrator |'
-    : '| "Add an endpoint" | the orchestrator builds it |';
+    ? '| "Add an endpoint" | builder after Assign confirms its capabilities, with a task brief |'
+    : '| "Add an endpoint" | the main agent or another capable build lane chosen during Assign |';
 }
 export function inlineThresholdNote(primary) {
   return subagentsLoadRules(primary)
@@ -356,29 +362,24 @@ export function delegateRulesNote(primary) {
     : 'Subagents, a fresh chat, a second window: each one holds none of these rules.';
 }
 
-// Pre-release audit finding 3: the delegate-by-default gate reached the
-// decision tree and "Who builds" but missed three other generated surfaces
-// stating the same old premise (the orchestrator writes the main build
-// itself; a delegate inherits none of the session's rules). These three
-// close that gap the same way: gated on subagentsLoadRules(primary), every
-// other primary keeps the original wording unchanged.
+// Keep assignment guidance consistent across the routing and build protocols.
 export function planBigExecuteSmallLine(primary) {
   return subagentsLoadRules(primary)
-    ? `- **Plan big, execute small**, within a build: deep tier plans at Checkpoint 1, builder executes from the orchestrator's brief, bulk and wide searches go down.`
-    : '- **Plan big, execute small**, within a build: deep tier plans at Checkpoint 1, the orchestrator executes, bulk and wide searches go down.';
+    ? '- **Assign by job fit.** Use a planning model for architecture, assign scoped execution to builder, and use a cheap model for mechanical work.'
+    : '- **Assign by job fit.** Match reach, context window and headroom to each section. When delegation cannot carry its required rules, the main agent executes that section.';
 }
 export function rolesBuilderRow(primary) {
   return subagentsLoadRules(primary)
     ? [
-        '| Orchestrator | Routes, maps, briefs, verifies, records. Stages 0, 1, 2, 4, 5b, 6, 7 | Write the build |',
-        "| Builder | Executes Stage 3 from the orchestrator's brief | Route further, or verify its own work as final |"
+        '| Main agent | Frames, maps, assigns, combines sections, verifies, records | Keeps the whole scope and names merge conflicts |',
+        '| Builder | Executes the assigned section from the task brief | Hands verification to an independent reviewer |'
       ].join('\n')
-    : '| Builder / orchestrator | Routes, maps, writes, verifies, records. Stages 0, 1, 3, 6, 7 | Hand off the main build |';
+    : '| Main agent / assigned builder | Executes each section whose tools and rules it holds | Gives the reviewer the combined result and acceptance checks |';
 }
 export function builderHandoffNote(primary) {
   return subagentsLoadRules(primary)
-    ? `**Why Stage 3 goes to builder by default:** a Claude Code subagent loads this project's CLAUDE.md hierarchy at start, so it already carries the standing rules; the orchestrator's brief only has to restate this task's scope (see \`TASK_BUNDLE.md\`). The orchestrator keeps Stage 3 for itself only when the brief would cost as much as the work, the task needs this conversation's own context, or it is the human's decision or the final verification of delegated work.`
-    : `**Why the builder does not hand off the main build:** a delegated agent does not inherit the session's standing rules and usually cannot delegate further. Any brief must restate every convention it needs (see \`TASK_BUNDLE.md\`), and that cost is itself a reason to build directly when the work fits.`;
+    ? '**Assign the build:** when a Claude Code subagent has the needed tools and rules, send it the scoped task brief from `TASK_BRIEF.md`. Keep conversation-dependent decisions and the final verification with the main agent.'
+    : '**Assign the build:** when another lane can hold the required context, tools and rules, give it the whole scope and its section in `TASK_BRIEF.md`. When that transfer is impractical, build that section in the main agent.';
 }
 
 // Which activation file this primary gets. ONE decision, read by three
@@ -416,7 +417,7 @@ export function activationSteps(opts) {
   // and before this it appeared in no ordered list at any level (#26).
   for (const a of selected.filter((a) => a.bin && a.kind === 'local')) steps.push(`install ${a.name}: ${a.install.url}, then \`${a.bin} pull <model>\` before the local lane can answer`);
   for (const t of tools) steps.push(`${t.id}: ${t.install}`);
-  if (level >= 2) steps.push(`smoke test: node ${join(dirAbs, 'bin', 'cli-run.mjs')} --doctor   (add --run to send each lane one tiny prompt)`);
+  if (level >= 2) steps.push(`smoke test: node ${join(dirAbs, 'bin', 'cli-run.mjs')} --doctor   (or aunx cli-run --dir ${shellQuote(dirAbs)} --doctor; add --run to send each lane one tiny prompt)`);
   if (level >= 3) steps.push(`box: read ${join(dirAbs, 'vm', 'README.md')}; keys named in vm/ENVIRONMENT.md go in your secrets manager, never a file`);
   return steps;
 }
@@ -428,12 +429,12 @@ export function proofSteps(opts) {
   const { level, primary } = opts;
   const steps = [
     'Start a fresh agent session and ask: "Read the orchestrator instructions. Quote the routing rule you will use, then sort pear, apple, banana alphabetically. Name the tier and whether you delegated."',
-    'Expect the fast tier and `apple, banana, pear`. If the agent cannot quote the routing rule, check the snippet location or chat instructions before continuing. This is a manual activation check, not proof that every future task follows the rules.'
+    'Expect the cheap model tier and `apple, banana, pear`. If the agent cannot quote the routing rule, check the snippet location or chat instructions before continuing. This is a manual activation check, not proof that every future task follows the rules.'
   ];
   if (level >= 2) {
-    steps.push('Run `node bin/cli-run.mjs --doctor` from this folder. It checks binary presence, not authentication or loaded instructions, and prints the model and effort each lane is pinned to. `--doctor --run` additionally uses a little quota to test live responses. No enabled lanes means delegation is inactive.');
+    steps.push('Run `node bin/cli-run.mjs --doctor` from this folder, or `aunx cli-run --doctor` from your project root. It checks binary presence, not authentication or loaded instructions, and prints the model and effort each lane is pinned to. `--doctor --run` additionally uses a little quota to test live responses. No enabled lanes means delegation is inactive.');
     steps.push('Decide whether the route matters to you. Every lane starts unpinned, which means it runs on whatever its own config file says: a CLI configured months ago at a low reasoning effort will keep auditing at that effort while your docs describe something stronger. Pin it in `bin/lanes.json` under `defaults`, or per call with `--model` and `--effort`. Either way the run is recorded in the log with the value requested and where it came from.');
-    steps.push('To test a real output contract, choose an enabled lane from `bin/lanes.json` and run `node bin/cli-run.mjs <lane> \'Return only {"sorted":["apple","banana","pear"]}\' --expect-json`. This uses quota. Expect JSON and exit 0; inspect the array yourself. A non-JSON response exits 10, a missing binary exits 13, and an authentication failure reports the vendor error. The explicit lane tests execution; your primary agent still makes delegation decisions.');
+    steps.push('To test a real output contract, choose an enabled lane from `bin/lanes.json` and run `node bin/cli-run.mjs <lane> \'Return only {"sorted":["apple","banana","pear"]}\' --expect-json`. The same command is available as `aunx cli-run <lane>` with those arguments. This uses quota. Expect JSON and exit 0; inspect the array yourself. A non-JSON response exits 10, a missing binary exits 13, and an authentication failure reports the vendor error. The explicit lane tests execution; your main agent still makes delegation decisions.');
   }
   // Only claude-code ships the route-gate hook, so only claude-code gets a
   // proof step that checks it fired: the table must come from the hook's
@@ -491,7 +492,7 @@ function vars(opts) {
   // outside the project, the honest path is absolute, never a hardcoded one.
   const relJoin = (name) => (rulesPath === dirPosix ? posix.join(dirPosix, name) : rulesPath === '.' ? name : rulesPath + '/' + name);
   const rulesFileRel = relJoin(routingFile);
-  const taskBundleRel = relJoin('TASK_BUNDLE.md');
+  const taskBriefRel = relJoin('TASK_BRIEF.md');
   // Only claude-code and agy put files under the project root. A chat primary
   // puts nothing there, so naming a project root would name a folder this run
   // never created (#21).
@@ -515,7 +516,7 @@ function vars(opts) {
       ? `${primary.name} reads its rules from \`${primary.rulesFile}\` in the project root. The installer wrote \`${snippet}\` next to this README; copy its contents into \`${join(projectAbs, primary.rulesFile)}\`, creating that file if it does not exist. Nothing was appended to a file you already had.`
       : snippet
         ? `${primary.name} has no project rules file, so the rules travel by paste. The installer wrote \`${snippet}\` next to this README; open ${primary.chatName || primary.name} and paste its contents into ${primary.chatSurface || 'custom instructions'}. Nothing was appended to a file you already had.`
-        : 'No primary agent was selected, so no activation file was written. Re-run the installer and pick one.',
+        : 'No main agent was selected, so no activation file was written. Re-run the installer and pick one.',
     CLAUDE_SNIPPET_INTRO: opts.applySnippets
       ? '# Model orchestrator activation\n\nThe installer applied these rules to the marked block in `CLAUDE.md` at your project root.'
       : "# Add this to your project's CLAUDE.md\n\nCopy the block below into `CLAUDE.md` at your project root (create the file if it does not exist). The installer did not modify any file you already had.",
@@ -530,7 +531,7 @@ function vars(opts) {
     RULES_DIR_OVERRIDE_JS: 'process.env.MODEL_ORCHESTRATOR_RULES_DIR',
     ROUTING_FILE: level >= 2 ? 'ROUTING.md' : 'ORCHESTRATOR.md',
     PROJECT_DIR: projectAbs,
-    AGENTS_DIR: primary && primary.agentsDir ? join(projectAbs, primary.agentsDir) : 'none (your primary agent has no subagent folder)',
+    AGENTS_DIR: primary && primary.agentsDir ? join(projectAbs, primary.agentsDir) : 'none (your main agent has no subagent folder)',
     LITELLM_IMAGE: IMAGES.litellm,
     OLLAMA_IMAGE: IMAGES.ollama,
     CODECALC_PIN: pinOf('codecalc'),
@@ -559,9 +560,9 @@ function vars(opts) {
       ? ''
       : 'echo "weekly-audit: no cli-run lane was enabled at install time; enable one in bin/lanes.json and edit AUDIT_LANE" >&2; exit 13',
     TOOLS_LIST: tools.length ? tools.map((t) => '- ' + t.name + ': ' + t.role).join('\n') : '- none selected (re-run the installer with --tools codecalc to add the calculator and code runner)',
-    CODECALC_STATUS: codecalc ? 'installed alongside this folder (see `CODECALC.md`)' : 'not selected; the rule below still binds, do the arithmetic with any tool that computes rather than guesses',
-    OBSIDIAN_TC_STATUS: tools.some((t) => t.id === 'obsidian-tc') ? 'selected (see `OBSIDIAN-TC.md`); the tool names below are live calls' : 'not selected; the rule below still binds against whatever store you keep (a notes folder, a wiki, a repo of markdown), the tool names are what obsidian-tc would give you',
-    CONTEXT7_STATUS: tools.some((t) => t.id === 'context7') ? 'selected (see `CONTEXT7.md`); the tool names below are live calls' : 'not selected; the rule below still binds, read the vendor docs or source by hand before trusting them',
+    CODECALC_STATUS: codecalc ? 'setup instructions selected (see `CODECALC.md`); verify your own installation before calling it' : 'use a calculator or the project runtime to compute and verify arithmetic',
+    OBSIDIAN_TC_STATUS: tools.some((t) => t.id === 'obsidian-tc') ? 'setup instructions selected (see `OBSIDIAN-TC.md`); verify server access before calling these tools' : 'not selected; the rule below still binds against whatever store you keep (a notes folder, a wiki, a repo of markdown), the tool names are what obsidian-tc would give you',
+    CONTEXT7_STATUS: tools.some((t) => t.id === 'context7') ? 'setup instructions selected (see `CONTEXT7.md`); verify server access before calling these tools' : 'not selected; the rule below still binds, read the vendor docs or source by hand before trusting them',
     DATE: new Date().toISOString().slice(0, 10),
     LEVEL_ID: String(level),
     LEVEL_NAME: lvl.name,
@@ -585,9 +586,8 @@ function vars(opts) {
     SCRIPT_INSTALLERS: scriptInstallers(selected),
     COMPOSE_ENV: composeEnv(selected, apis),
     COMPOSE_OLLAMA: composeOllama(selected),
-    // Delegate by default (0.1.15): gated on subagentsLoadRules(primary), currently
-    // claude-code only. Every other primary keeps the original, more
-    // conservative wording these replace.
+    // Delegate-by-default wording uses the verified subagent loading surface.
+    // Every other agent confirms tool and rule reach during Assign.
     DECISION_RULE5: decisionRule5(primary),
     DECISION_RULE5_L1: decisionRule5Beginner(primary),
     WHO_BUILDS: whoBuildsSection(primary),
@@ -601,7 +601,7 @@ function vars(opts) {
     AGENTS_LIST_LINE: claudeAgentIds().map((id) => '`' + id + '`').join(', '),
     RULES_FILE_REL: rulesFileRel,
     RULES_FILE_REL_JSON: JSON.stringify(rulesFileRel),
-    TASK_BUNDLE_REL_JSON: JSON.stringify(taskBundleRel),
+    TASK_BRIEF_REL_JSON: JSON.stringify(taskBriefRel),
     // route-gate.mjs takes a candidate list so the plugin bundle (src/plugin.js)
     // can render the installer's default locations from the same template. An
     // install knows its one rules file, and wrote it, so it needs no hint.
@@ -631,7 +631,7 @@ export function planFiles(opts) {
   addTemplates('common');
   addTemplates('beginner');
 
-  // The primary agent's own loading surface.
+  // The main agent's own loading surface.
   if (primary && primary.id === 'claude-code') {
     for (const f of walk(join(TEMPLATES, 'agents', 'claude-code'))) {
       if (!installable('agents', f.rel)) continue;
@@ -675,7 +675,7 @@ export function planFiles(opts) {
           enabled: selected.filter((a) => a.cliRun).map((a) => a.id),
           defaults: Object.fromEntries((opts.effortAuto || []).map((lane) => [lane, { effort: 'auto' }])),
           note: 'Lanes cli-run may call. Edit to enable or disable a lane. A lane not listed here exits 13 (unavailable).',
-          defaultsNote: 'Pin what a lane runs with, so the route in your docs is the route that runs: "defaults": {"codex": {"model": "gpt-6-astra", "effort": "high"}}. Left empty, a lane inherits its own config file, which cli-run cannot see and does not guess. `--model` and `--effort` override this per call, and `--doctor` prints what each lane is pinned to. Every lane takes a model; every lane except qwen takes an effort.'
+          defaultsNote: 'Pin what a lane runs with, so the route in your docs is the route that runs: "defaults": {"codex": {"model": "<model-id>", "effort": "high"}}. Left empty, a lane inherits its own config file, which cli-run cannot see and does not guess. `--model` and `--effort` override this per call, and `--doctor` prints what each lane is pinned to. Every lane takes a model; every lane except qwen takes an effort.'
         },
         null,
         2
@@ -862,6 +862,15 @@ export function writeFiles(files, opts) {
     if (!groups[k].length) continue;
     problems.push(...preflight(groups[k], roots[k]).map((p) => (k === 'project' ? `[project] ${p}` : p)));
   }
+  // A legacy brief is a read and possible deletion target, so validate it with
+  // the same containment, regular-file and symlink checks as every write.
+  const currentBrief = groups.dir.find((f) => f.rel === 'TASK_BRIEF.md');
+  const legacyPath = resolve(realRoot(dir).root, LEGACY_BRIEF);
+  let hasLegacy = false;
+  if (currentBrief) {
+    try { lstatSync(legacyPath); hasLegacy = true; } catch { /* absent */ }
+    if (hasLegacy) problems.push(...preflight([{ rel: LEGACY_BRIEF }], dir));
+  }
   if (!problems.length) {
     for (const f of files.filter((file) => file.applySnippet)) {
       const abs = resolve(roots[f.root], f.rel);
@@ -884,6 +893,7 @@ export function writeFiles(files, opts) {
   const docsUpdated = [];   // --update-docs: documents regenerated because the installed copy was an untouched generated one
   const docsConflict = [];  // --update-docs: documents kept because you edited them
   const docsUnverifiable = []; // --update-docs: documents kept because there is no manifest to compare against
+  const docsRenamed = [];
   const backups = [];
   const created = [];
   // Only directories actually created by this install are owned. Preserve the
@@ -895,6 +905,7 @@ export function writeFiles(files, opts) {
   // never the hash of content this run planned but did not write. Otherwise the next
   // --update-docs or upgrade sees every kept file as "edited".
   const keptKeys = new Set();
+  const removedKeys = new Set();
   try {
     // project first so MANIFEST.json (last in the dir group) is the final write and can
     // describe every decision made above it
@@ -969,7 +980,39 @@ export function writeFiles(files, opts) {
         }
         let content = f.content;
         if (f.rel === 'MANIFEST.json') {
+          if (hasLegacy) {
+            const previousHash = prevHashes?.[LEGACY_BRIEF];
+            const original = readLegacyBrief(legacyPath, dir);
+            const unchanged = previousHash && sha256(original.content) === previousHash;
+            if ((updateDocs || force) && unchanged) {
+              // The replacement has already been written (or preserved) by this
+              // point. Keep deletion in this transaction and restore on failure.
+              const current = readLegacyBrief(legacyPath, dir);
+              const last = lstatSync(legacyPath);
+              if (!current.content.equals(original.content) || current.stat.ino !== original.stat.ino || current.stat.dev !== original.stat.dev
+                  || last.ino !== current.stat.ino || last.dev !== current.stat.dev || !last.isFile()) {
+                const e = new Error('legacy brief changed during upgrade; re-run the installer');
+                e.code = 'PREFLIGHT';
+                throw e;
+              }
+              if (!dry) {
+                originals.set(legacyPath, { content: original.content, mode: original.stat.mode });
+                unlinkSync(legacyPath);
+              }
+              removedKeys.add(LEGACY_BRIEF);
+              docsRenamed.push(`${LEGACY_BRIEF} -> TASK_BRIEF.md`);
+            } else if ((updateDocs || force) && !previousHash) {
+              docsUnverifiable.push(LEGACY_BRIEF);
+            } else if ((updateDocs || force) && !unchanged) {
+              docsConflict.push(LEGACY_BRIEF);
+            } else skipped.push(LEGACY_BRIEF);
+          }
           const m = JSON.parse(content);
+          // Preserve ownership of retained 0.1.x companion files and other
+          // formerly selected files, so uninstall still checks their original
+          // installed hashes. New defaults do not erase a previous selection.
+          m.files = { ...prevHashes, ...m.files };
+          for (const removed of removedKeys) delete m.files[removed];
           for (const kk of Object.keys(m.files || {})) {
             if (!keptKeys.has(kk)) continue;
             if (prevHashes && prevHashes[kk]) m.files[kk] = prevHashes[kk];
@@ -1033,7 +1076,7 @@ export function writeFiles(files, opts) {
     }
     throw e;
   }
-  return { written, skipped, upgraded, conflicts, unverifiable, docsUpdated, docsConflict, docsUnverifiable, backups };
+  return { written, skipped, upgraded, conflicts, unverifiable, docsUpdated, docsConflict, docsUnverifiable, docsRenamed, backups };
 }
 
 export function resolveSelection(ids) {

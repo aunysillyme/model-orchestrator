@@ -8,10 +8,10 @@
 //   bin        binary to look for on PATH, or null
 //   access     'subscription' ($0 per call on a plan you already pay for), 'metered' (per token), 'free', 'local'
 //   lane       'A' = subscription CLI, 'B' = metered API, 'local' = stays on the machine
-//   laneCategories  routing capabilities used to filter generated lane advice
+//   laneCategories  routing capabilities used to filter generated routing advice
 //   role       the one job it wins at in a multi-AI stack
 //   minLevel   1 beginner, 2 intermediate, 3 advanced
-//   install    { npm: pkg } for a global npm install the installer may run after you say yes,
+//   install    { npm: pkg } for a global npm install command printed for you to run,
 //              { script: url } for a vendor shell installer the installer only PRINTS, never runs,
 //              { url } for a download page
 //   auth       how you sign in, always the vendor's own flow, never a key typed into this tool
@@ -31,6 +31,8 @@
 //   plans      optional known subscription plans: { id, name, headroom,
 //              source, checked }. Guidance uses headroom only, never prices.
 
+export const CATALOG_MODELS = { measuredAt: '2026-09-23', expiresAt: '2026-10-23', source: 'catalog compatibility snapshot; verify with the provider before use' };
+
 export const LEVELS = [
   {
     id: 1,
@@ -44,7 +46,7 @@ export const LEVELS = [
     key: 'intermediate',
     name: 'Intermediate',
     tagline: 'several LLMs and agents, called through their CLIs',
-    gives: 'everything in Beginner plus cli-run, a delegation matrix, task bundles and three-engine research triage'
+    gives: 'everything in Beginner plus cli-run, a delegation matrix, task briefs and three-engine research triage'
   },
   {
     id: 3,
@@ -66,7 +68,7 @@ export const AIS = [
     lane: 'A',
     role: 'orchestrator: routes, maps, builds, verifies, records',
     minLevel: 1,
-    install: { npm: '@anthropic-ai/claude-code', pin: '2.1.226' },
+    install: { npm: '@anthropic-ai/claude-code', url: 'https://code.claude.com/docs/en/setup', pin: '2.1.226' },
     builtAgainst: '2.1.226',
     auth: 'run `claude` once and sign in with your Anthropic account',
     rulesFile: 'CLAUDE.md',
@@ -98,7 +100,7 @@ export const AIS = [
     lane: 'A',
     role: 'second coder and second-opinion reviewer (a different model family reading your diff)',
     minLevel: 1,
-    install: { npm: '@openai/codex', pin: '0.153.4' },
+    install: { npm: '@openai/codex', url: 'https://developers.openai.com/codex/cli', pin: '0.153.4' },
     builtAgainst: '0.153.4',
     auth: '`codex login` (add `--device-auth` on a machine with no browser)',
     rulesFile: 'AGENTS.md',
@@ -187,7 +189,7 @@ export const AIS = [
     lane: 'B',
     role: 'cheapest metered bulk lane for structured output; never for anything that cites a line, a number or a source',
     minLevel: 2,
-    install: { npm: '@qwen-code/qwen-code', pin: '0.22.3' },
+    install: { npm: '@qwen-code/qwen-code', url: 'https://qwenlm.github.io/qwen-code-docs/en/users/overview/', pin: '0.22.3' },
     builtAgainst: '0.22.3',
     auth: 'a provider key in an environment variable, named (not stored) in ~/.qwen/settings.json. There is no free Qwen cloud tier any more.',
     rulesFile: 'QWEN.md',
@@ -197,6 +199,9 @@ export const AIS = [
   },
   {
     id: 'ollama',
+    gatewayModel: 'ollama/llama3.2:3b',
+    modelsChecked: CATALOG_MODELS.measuredAt,
+    modelsExpires: CATALOG_MODELS.expiresAt,
     laneCategories: ['local'],
     name: 'Ollama (local models)',
     vendor: 'Ollama',
@@ -280,7 +285,7 @@ export const TOOLS = [
     pin: '0.5.0',
     requires: 'uv (https://docs.astral.sh/uv/) and Python 3.10+',
     autoClients: ['Claude Code', 'Claude Desktop', 'Cursor', 'VS Code', 'Zed'],
-    recommended: true,
+    recommended: false,
     optionalNote: 'Optional. Needs Python 3.10+ and uv. Everything else runs offline.'
   },
   {
@@ -313,12 +318,14 @@ export const toolById = Object.fromEntries(TOOLS.map((t) => [t.id, t]));
 // Metered API providers for the level 3 gateway. Separate from the AI list on
 // purpose: a Claude Code subscription is not an Anthropic API key, and a user
 // can truthfully have one without the other. Only NAMES of variables live here.
+// Model names are a dated compatibility snapshot, refreshed against vendor catalogs.
+
 export const PROVIDERS = [
-  { id: 'anthropic', name: 'Anthropic API', envName: 'ANTHROPIC_API_KEY', lanes: [['standard', 'anthropic/claude-sonnet-5'], ['deep', 'anthropic/claude-opus-5']] },
-  { id: 'openai', name: 'OpenAI API', envName: 'OPENAI_API_KEY', lanes: [['second-opinion', 'openai/gpt-5.6-terra']] },
-  { id: 'google', name: 'Google Gemini API', envName: 'GEMINI_API_KEY', lanes: [['long-context', 'gemini/gemini-3.1-pro']] },
-  { id: 'xai', name: 'xAI API', envName: 'XAI_API_KEY', lanes: [['live-fast', 'xai/grok-4.1-fast']] },
-  { id: 'openrouter', name: 'OpenRouter (many cheap models, one key)', envName: 'OPENROUTER_API_KEY', lanes: [['bulk-cheap', 'openrouter/qwen/qwen3.7-flash']] }
+  { id: 'anthropic', name: 'Anthropic API', envName: 'ANTHROPIC_API_KEY', modelsChecked: CATALOG_MODELS.measuredAt, modelsExpires: CATALOG_MODELS.expiresAt, lanes: [['standard', 'anthropic/claude-sonnet-5'], ['deep', 'anthropic/claude-opus-5']] },
+  { id: 'openai', name: 'OpenAI API', envName: 'OPENAI_API_KEY', modelsChecked: CATALOG_MODELS.measuredAt, modelsExpires: CATALOG_MODELS.expiresAt, lanes: [['second-opinion', 'openai/gpt-5.6-terra']] },
+  { id: 'google', name: 'Google Gemini API', envName: 'GEMINI_API_KEY', modelsChecked: CATALOG_MODELS.measuredAt, modelsExpires: CATALOG_MODELS.expiresAt, lanes: [['long-context', 'gemini/gemini-3.1-pro']] },
+  { id: 'xai', name: 'xAI API', envName: 'XAI_API_KEY', modelsChecked: CATALOG_MODELS.measuredAt, modelsExpires: CATALOG_MODELS.expiresAt, lanes: [['live-fast', 'xai/grok-4.1-fast']] },
+  { id: 'openrouter', name: 'OpenRouter (many cheap models, one key)', envName: 'OPENROUTER_API_KEY', modelsChecked: CATALOG_MODELS.measuredAt, modelsExpires: CATALOG_MODELS.expiresAt, lanes: [['bulk-cheap', 'openrouter/qwen/qwen3.7-flash']] }
 ];
 export const providerById = Object.fromEntries(PROVIDERS.map((p) => [p.id, p]));
 
@@ -331,7 +338,7 @@ export const IMAGES = {
 
 export const byId = Object.fromEntries(AIS.map((a) => [a.id, a]));
 
-// The ONE place an npm install spec is built. Interactive install, the printed
+// The ONE place an npm install spec is built. The printed
 // fallback command, the install table and the box script all call this, so
 // two users on two paths get the same version.
 export function npmSpec(a) {
@@ -344,6 +351,6 @@ export function aisForLevel(level) {
 }
 
 export function agentCandidates(selected) {
-  // Which of the selected AIs can be the single primary agent at level 1.
+  // Which of the selected AIs can be the single main agent at level 1.
   return selected.filter((a) => a.kind === 'agent-cli' || a.kind === 'chat');
 }

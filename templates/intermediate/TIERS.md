@@ -1,93 +1,52 @@
-# TIERS.md: capability tiers and the three cost levers
+# TIERS.md: choose capability, effort and tool reach
 
-The router routes by capability tier, not model name. Each tier maps to a family alias where the vendor offers one, so a routine version bump needs no file change.
+When choosing a model, use the job's required capability and the lane's live roster. A tier names a job; a current family alias or explicit model choice implements it.
 
-| Tier | Purpose | On {{PRIMARY_NAME}} |
+| Tier | Use for | On {{PRIMARY_NAME}} |
 |---|---|---|
-| deep | ambiguous planning, architecture, strategy, hard debugging | {{PRIMARY_DEEP}} |
-| standard | code writing, code review, execution, live research synthesis | {{PRIMARY_STANDARD}} |
-| fast | classification, extraction, formatting, bulk summarization | {{PRIMARY_FAST}} |
-| escalation | above deep: only when the human asks, or when deep has already run, the call is still unresolved, and the change is irreversible | your vendor's strongest model, if you have one |
+| planning model | ambiguous planning, architecture, strategy, unknown causes | {{PRIMARY_DEEP}} |
+| working model | code writing, review, execution and research synthesis | {{PRIMARY_STANDARD}} |
+| cheap model | classification, extraction, formatting and bulk summaries | {{PRIMARY_FAST}} |
 
-Non-primary lanes are owned by `DELEGATION_MATRIX.md`.
+When selecting another AI tool, use `DELEGATION_MATRIX.md` and verify its current availability. When data must remain local, choose a local runtime with the required privacy boundary.
 
-## Effort per agent (the third lever)
+## Model and effort per job
 
-Tier sets the price per token. Token discipline sets how many tokens. **Effort sets how hard each call thinks.**
+When routing, consider three levers together: tier sets capability and price; scoped context limits token use; effort sets how much reasoning the call applies.
 
-`cli-run --effort auto` is a heuristic, not a measurement: prompts below 4,000 characters resolve to medium and longer prompts resolve to high. A codex `--audit` always resolves to high because stakes set the floor. Auto never resolves above high. Name `xhigh` explicitly for a security-critical or irreversible audit.
-
-| Agent | Tier | Effort | Why |
+| Agent | Starting tier | Starting effort | Reassess when |
 |---|---|---|---|
-| deep-planner | deep | xhigh | judges every build twice; expensive to get wrong |
-| code-reviewer | standard | high | every endpoint is internet-facing |
-| finding-verifier | standard | high | judging a claim is harder than producing it |
-| builder | standard | high | a botched deploy is the costly failure |
-| live-researcher | standard | medium | tools do the retrieval |
-| bulk-worker | fast | low | the biggest cost win |
-| done-verifier | fast | low | a done-signal check is a lookup, not a judgment call |
-| reader | fast | low | digestion, not judgment |
+| deep-planner | planning model | xhigh where supported | The decision can be resolved from a known plan or needs a new capability |
+| code-reviewer | working model | high | Security, privacy or irreversible effects raise the review scope |
+| finding-verifier | working model | high | Reproduction needs another runtime or access path |
+| builder | working model | high | Architecture, security or irreversible work needs xhigh and suitable model capability |
+| live-researcher | working model | medium | Synthesis becomes complex or sources disagree |
+| bulk-worker | cheap model | low | The input stops fitting the given categories |
+| done-verifier | cheap model | low | The definition of done requires interpretation or unavailable tools |
+| reader | cheap model | low | The requested result needs judgment across sources |
 
-## Three inputs, not one
+When the vendor uses different effort names, choose its equivalent after reading its current capabilities. Before each build, probe the live model roster, compare the configured pin with the lane's default, and record the selected model and effort with a reason. A pin below the current default calls for review; a newer model still needs to fit the job.
 
-Role alone does not decide a route. Two more inputs move it, and they move it in
-opposite directions, so state them separately instead of folding them into the
-role.
+## Role, complexity and stakes
 
-**Complexity moves the effort.** The same role does not need the same reasoning
-on every task.
+- **Role:** choose the agent whose tools and task match the work.
+- **Complexity:** increase reasoning for ambiguity, interacting systems or an unknown cause; lower it for bounded retrieval and mechanical work.
+- **Stakes:** choose the reviewer and verification needed for the consequence of a mistake.
+- **Reach:** choose a lane that can read the required sources, run the relevant checks and hold enough context.
+- **Capacity:** account for context headroom, concurrency and the lane's current usage limits.
 
-| Complexity | What it looks like | What moves |
-|---|---|---|
-| simple | one file, one obvious edit, no unknowns | drop one effort level |
-| standard | the default | the table above |
-| complex | several surfaces, or an unknown cause | keep effort, add the deep-tier checkpoint |
-| critical | irreversible, or it rewrites a standing rule | the escalation rule below applies |
+When security, personal data, deletion, bulk mutation or irreversible actions are involved, name the boundary and test it. Use a different model family for the build's single audit pass, with a companion reviewer asking scope versus ask in the same step. Reserve authorization for actions outside the user's existing mandate.
 
-The dial that pays for itself: **a worker executing a finished plan needs less
-reasoning than the reviewer judging its output.** When the plan is airtight the
-spec is carrying the thinking, so builder drops to medium. When the plan is
-vague, fix the plan; do not buy reasoning to paper over it.
+## Effort through the lane runner
 
-**Stakes move the tier and the reader, never just the effort.** These four are
-the ones worth naming, because their failures are not recoverable by editing the
-code afterwards.
+When using `aunx cli-run --effort auto`, treat its result as a prompt-size or audit-scope heuristic. It resolves to medium or high, and a Codex audit has a high floor. For a build, select high explicitly; for security-critical or irreversible work, select xhigh explicitly where the lane supports it.
 
-Stakes means what a mistake would cost: a security hole, leaked personal data,
-lost data, or something you can't undo. Most tasks are low-stakes and route
-normally.
+When a lane lacks an effort flag, choose its model and task scope directly. The runner reports an unsupported effort request as a usage error.
 
-| Stakes | Present when the change touches | What it buys |
-|---|---|---|
-| security | auth, tokens, sessions, routes, untrusted input | the challenge pass, ideally a different model family |
-| privacy | personal data, anything leaving the machine | the local lane, and a named check on what is sent |
-| data loss | deletion, bulk mutation, migrations, overwrites | a reviewed rollback path before the change is written |
-| irreversible | publishing, sending, rotating, anything with an audience | a human yes at Stage 5b, never an agent's |
+## Reassess a route
 
-High stakes raise code-reviewer to xhigh, and a security-shaped diff goes to
-the challenge lane rather than to a second read by the same family. Stakes are
-not a synonym for difficulty: a one-line change to an auth check is simple and
-high-stakes at the same time, and it is the stakes that decide the route.
-
-**Reserve the top of the ladder for evidence.** xhigh and the escalation tier are
-bought with a named reason: a reproduced failure, a checkpoint that came back
-unresolved, an irreversible change. A task that merely feels hard is a deep-tier
-task, not an escalation.
-
-## Why split tiers: robustness first, cost second
-
-The split produces better work. The deep tier steers every build twice, and what it steers is **judgment, never retrieval**: the orchestrator sweeps everything it touches itself and hands the deep tier a finished map. Paying deep-tier rates for a file list is the most expensive routing mistake available.
-
-Against a baseline of "standard tier with no consults", default checkpoints are a spend increase. That is the accepted trade, not a saving to claim.
-
-## Escalation above deep
-
-Fires on exactly two conditions: (a) the human asks for it directly; or (b) all three of: deep has already run on this task, the decision is still unresolved, and the change is irreversible or rewrites a standing rule. (b) is a conjunction, not a mood. A failed attempt is an escalation-ladder event; a hard problem is a deep-tier event; neither reaches the top model alone. It replaces the second deep consult, never adds a third. Say so whenever it fires.
-
-## Slotting a new model
-
-1. Newer version of an existing family: same tier; aliases pick it up.
-2. New family above your deep model: candidate for deep. Confirm with the human before touching agent files.
-3. New family between tiers: slot by the vendor's own positioning; confirm if it would change who handles a task type.
-4. New cheap family below fast: candidate for fast if quality holds.
-5. Deprecation notice on a slotted model: move the tier immediately and note it here.
+- When a check fails, diagnose its failure before another attempt and state any route change.
+- When the lane lacks required access, hand that part to a lane with authorized reach and continue independent work.
+- When a vendor deprecates a model, verify the replacement from the current roster and update the affected configuration.
+- When changing a model would change cost, privacy or authority beyond the approved scope, present the choice to the user.
+- When the strongest eligible route still cannot resolve the task, return the evidence, partial result and needed decision.

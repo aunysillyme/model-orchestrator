@@ -1,30 +1,38 @@
-# RESEARCH_TRIAGE.md: engines in parallel, one triager
+# RESEARCH_TRIAGE.md: parallel research with source verification
 
-{{RESEARCH_SELECTION_ADVICE}} Then triage against primary sources you open yourself.
+When a question needs outside evidence, {{RESEARCH_SELECTION_ADVICE}} Then open the primary sources that support decisions.
 
-Your `cli-run` lanes: {{CLI_RUN_LANES}} ({{RESEARCH_ENGINES}} research engine(s) below). Everything in this file was rendered from that selection; a lane that is not listed is not one you have.
+Use the selected `cli-run` lanes: {{CLI_RUN_LANES}} ({{RESEARCH_ENGINES}} research engine(s) below). When a needed lane is absent, use an available authorized research tool and name the resulting coverage limit.
 
-## Roles
+## Assign the research roles
 
 | Role | Typical lane | Job |
 |---|---|---|
-{{RESEARCH_ROLES}} opens primary sources, marks every claim, writes the artifact |
+{{RESEARCH_ROLES}} opens primary sources, marks claims and writes the final report |
 
-Run each engine as one `cli-run` call with a task bundle in `--brief`. A run that produced nothing exits 10 and is a missing engine, not an empty finding.
+Give each engine a task brief through `--brief`, with the same context file, bounded questions, source standard and stopping condition. When a run returns no usable result, record that engine as unavailable and continue independent source checks.
 
-## One run
+## Run the selected engines
 
 ```bash
-BRIEF=research/brief.md      # purpose, sub-questions, source standard, report contract, exit parameters
+BRIEF=research/brief.md
 {{RESEARCH_RUN}}
 ```
 
-Then the orchestrator reads the available outputs, opens every primary source that carries a decision, and writes one dated brief with marks: **CONFIRMED** (two engines + primary source) · **DISAGREEMENT** (both readings kept) · **REPORTED** (someone's own post, quoted not trusted) · **UNVERIFIED**.
+When using the installed script directly, `aunx cli-run` accepts the same runner arguments as `node bin/cli-run.mjs`.
 
-## Triage discipline
+When outputs arrive, have one writer inspect the primary sources carrying each decision and produce a dated synthesis:
 
-- Plant one deliberately wrong figure in one brief. An engine that does not correct it has confirmations worth less than they look.
-- Expect one engine to return confident unsourced numerics and claim full coverage. Downgrade to hypothesis. Weight the engines that report their own gaps.
-- Agreement is weak evidence. Disagreement is the signal.
-- Only the orchestrator writes the durable record. Every other engine proposes.
-- Count dispositions, not briefs.
+- **CONFIRMED:** verified against the primary source, with independent corroboration where the question needs it.
+- **DISAGREEMENT:** preserve conflicting readings and identify the evidence that would resolve them.
+- **REPORTED:** attribute a source's statement to that source.
+- **UNVERIFIED:** name the missing evidence or access.
+
+## Verify claims and coverage
+
+- When engines agree, verify the shared premise against source.
+- When engines disagree, preserve both claims until evidence resolves them.
+- When a report gives a number, open its source or recompute it with an available tool.
+- When testing a research method, use a labelled false-premise fixture and confirm the method rejects it before relying on it.
+- When recording results, use one writer and return claim dispositions with citations.
+- When Context7 or another companion is absent, use official documentation, source and the project's own runtime checks.

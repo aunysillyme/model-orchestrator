@@ -1,6 +1,6 @@
 # model-orchestrator plugin for Claude Code
 
-Routing rules for Claude Code, as a plugin. A hook reads your project's routing table and injects it on every prompt, so Claude picks the right subagent tier for each task and fewer tokens go to the most expensive model. Eight subagents ship with it, one per job, each with its own model alias, effort level and an explicit tool list.
+Model router for Claude Code: routing hooks and subagents as a plugin. A hook reads your project's routing table and injects it on every prompt, so Claude picks a planning, working or cheap model tier for each task and fewer tokens go to the most expensive model. Eight subagents ship with it, one per job, each with its own model alias, effort level and an explicit tool list.
 
 This folder is generated from the same templates `npx model-orchestrator` installs (`npm run gen:plugin`), so the plugin and the npm install carry the same agents and hooks.
 
@@ -15,13 +15,13 @@ From a terminal instead of a session: `claude plugin marketplace add aunysillyme
 
 ## First run: write the routing rules
 
-A plugin cannot run an installer, so it cannot write your routing rules. Generate them once per project, from the project root:
+Generate your project-specific routing rules once, from the project root:
 
 ```
 npx model-orchestrator --yes --level 2 --ais claude-code --project . --dir ./ai-orchestrator
 ```
 
-Run `npx model-orchestrator` with no flags to choose interactively instead. Pick Claude Code as the primary agent: only a Claude Code install writes the route-gate table the hook reads.
+Run `npx model-orchestrator` with no flags to choose interactively instead. Pick Claude Code as the main agent: only a Claude Code install writes the route-gate table the hook reads.
 
 Until that file exists, the plugin tells you so once at session start, and tells Claude on every prompt, naming the command above. It never fails silently and never blocks a prompt.
 
@@ -41,7 +41,7 @@ Until that file exists, the plugin tells you so once at session start, and tells
 | `finding-verifier` | sonnet | Read, Glob, Grep, Bash | tries to disprove a finding before it causes a repair |
 | `live-researcher` | sonnet | WebSearch, WebFetch | fresh data from the web |
 | `bulk-worker` | haiku | Read, Glob, Grep, Write | mechanical volume |
-| `done-verifier` | haiku | Read, Glob, Grep, Bash | probes a stated done-signal before a close |
+| `done-verifier` | haiku | Read, Glob, Grep, Bash | probes a stated definition of done before completion |
 | `reader` | haiku | Read, Glob, Grep | reads and digests many files; read-only |
 
 Plugin agents are namespaced: `builder` is `model-orchestrator:builder`. The hook adds that note under the table, so the bare names in your rules still resolve.
@@ -71,6 +71,10 @@ The installer also writes the same eight agents to `.claude/agents/`. Both sets 
 ```
 
 Your `ai-orchestrator/` folder is yours and stays.
+
+## Commands and proof
+
+Use `aunx cli-run --doctor` to inspect installed CLI workers and `aunx route-metrics --summary` for the npm installer's local metrics log. `aunx brief`, `aunx context` and `aunx checks` scaffold task context and verification. [Proof and reproduction scripts](../proof/README.md) carry dated package measurements.
 
 ## More
 

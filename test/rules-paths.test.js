@@ -19,7 +19,7 @@ test('#43 inside-project rules paths stay relative in CLAUDE.snippet.md and the 
   const project = join(tmpdir(), 'rules-path-project');
   const files = plan(project, join(project, 'rules'));
   const snippet = content(files, 'CLAUDE.snippet.md');
-  assert.match(snippet, /Routing rules live in `rules\/ROUTING.md`/);
+  assert.match(snippet, /read `rules\/ROUTING.md`/);
   assert.ok(!snippet.includes(project));
   assert.match(content(files, 'README.md'), /Rules location: project-relative/);
   assert.ok(!snippet.includes('Moved the folder?'));
@@ -70,7 +70,7 @@ test('#43 moved hooks use the rules env override while telemetry keeps its home 
           else if (hook === 'subagent-context.mjs') {
             const context = JSON.parse(result.stdout).hookSpecificOutput.additionalContext;
             assert.ok(context.includes(join(override, routingFile)));
-            assert.ok(context.includes(join(override, 'TASK_BUNDLE.md')));
+            assert.ok(context.includes(join(override, 'TASK_BRIEF.md')));
             assert.ok(!context.includes('old-rules'));
           } else {
             assert.equal(result.stdout, '');

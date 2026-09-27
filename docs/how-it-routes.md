@@ -1,60 +1,42 @@
-# How it routes
+# How the model router chooses work
 
-The reasoning behind the lane choice, and the three verifier agents that keep a routed answer honest. Install mechanics are in [install.md](install.md).
+Your agent reads the installed routing rules and chooses a model and tools for each task. A **lane** is a tool or model that can receive work. A **tier** describes model strength and cost: planning model, working model or cheap model. [Installation](install.md) writes the rules for your selection.
 
 ## Routing by role, complexity and stakes
 
-Role picks the agent. Two more inputs move the choice, and they move it in
-different directions, so `TIERS.md` states them separately rather than folding
-them into the role:
+- **Role selects the job:** bulk work, reading, live data, review, finding verification, definition-of-done verification, planning or building.
+- **Complexity sets effort:** a clear transformation and an unresolved architectural choice require different reasoning.
+- **Stakes select the model and reviewer:** security, privacy, data loss and irreversible changes need checks suited to the consequences of a mistake.
+- **Availability limits the choice:** check tools, model names, permissions and remaining headroom before assigning work.
 
-- **Complexity moves the effort.** A worker executing a finished plan needs less
-  reasoning than the reviewer judging its output. When the plan is airtight the
-  spec is carrying the thinking.
-- **Stakes move the tier and the reader.** Security, privacy, data loss and
-  irreversible changes buy the challenge lane, a named check, a rollback path or
-  a human yes. A one-line change to an auth check is simple and high-stakes at
-  the same time, and it is the stakes that decide.
+`aunx route "rename this file"` prints a cheap bulk-work suggestion. `aunx route "design the auth system"` prints a deep-planning suggestion. These are keyword classifications, labelled as suggestions. An unmatched request points to `ROUTING.md` for a decision with the full context.
 
-Stakes means what a mistake would cost: a security hole, leaked personal data,
-lost data, or something you can't undo. Most tasks are low-stakes and route
-normally.
+## Verify a review finding
 
-The top of the ladder is bought with evidence: a reproduced failure, an
-unresolved checkpoint, an irreversible change. A task that merely feels hard is
-a deep-tier task, not an escalation.
+When a review returns a finding, `finding-verifier` reads the cited line, states the trigger and looks for a caller, guard or test that disproves it. It returns **CONFIRMED**, **NOT_REPRODUCED** or **INCONCLUSIVE**. A confirmed finding gets a repair and a regression check capable of failing before the fix.
 
-## A finding is a claim, not a fact
+Use a different model family for the review when one is available. The build protocol has one audit step: the reviewer checks the build against its scope, while a companion reviewer checks the scope against the user's ask. Fix verification follows the reproduced regression; a second full audit pass is outside that sequence.
 
-Review findings do not go straight to a repair. `finding-verifier` reads the
-cited line, states what would trigger the problem, then hunts for the guard,
-caller or test that makes it impossible, and returns **CONFIRMED**,
-**NOT_REPRODUCED** or **INCONCLUSIVE** per finding. Only CONFIRMED earns a
-change. Use a different model family from the one that produced the finding
-where you have one: a family asked to check its own claim tends to agree with
-itself.
+## Check completion and digest many files
 
-## Two more fast-tier checks
+`done-verifier` probes the artifact named in a definition of done and returns MET, NOT_MET or UNVERIFIABLE. On Claude Code it has Bash for read-only probes, so that behavior is instructed by its prompt rather than restricted by the tool grant. It has no file-editing tools. Antigravity's command-execution policy blocks commands for that agent.
 
-`done-verifier` probes the artifact a tracker item's done-signal names (a file, a commit, a URL, a log line, a count) and returns MET, NOT_MET or UNVERIFIABLE; it never closes or edits anything itself. It carries no file-editing tools, but on claude-code it does carry `Bash` for those probes (`git log`, `grep`, `wc -l`, `test -f`); staying to read-only commands there is a rule in its prompt, not a restriction on the tool grant, and its own description says so. On agy, `commandExecutionPolicy: off` blocks command execution mechanically instead. `reader` is the one that is read-only by tool grant on both: no `Write`, `Edit`, or `Bash`. It reads and digests many files or notes and hands back exactly what the brief asked for, cited by `path:line`; it never classifies, tags or writes, which is what separates it from `bulk-worker`. Both ship in the claude-code and agy agent sets, at the fast tier.
+`reader` digests many files into a cited answer. Its tool grants contain neither Bash nor file-editing tools. Use `bulk-worker` when the job includes classification or writing.
 
-## Pin the route, or know that you did not
+## Choose and record model and effort
 
-A lane with no `--model`, no `--effort` and no `defaults` entry in
-`bin/lanes.json` runs on **its own config file**, which `cli-run` cannot see. A
-CLI configured months ago at a low reasoning effort keeps auditing at that
-effort while your routing docs describe a second-opinion pass.
+Probe your vendor's current roster, then request the model and effort the task needs:
 
 ```bash
-node bin/cli-run.mjs codex "<prompt>" --model gpt-6-astra --effort high
-node bin/cli-run.mjs --doctor     # prints what each lane is pinned to, and what is not pinned
+aunx cli-run codex --brief TASK_BRIEF.md --model '<model-id>' --effort high
+# Direct form from the installed rules folder:
+node bin/cli-run.mjs codex --brief TASK_BRIEF.md --model '<model-id>' --effort high
+aunx cli-run --doctor
+# Direct form: node bin/cli-run.mjs --doctor
 ```
 
-Every run logs the model and effort **requested** and where the request came
-from: `flag`, `lanes.json`, or `lane_default`, on every record including the
-runs that never reached a lane. It does not log an actual. One lane of five
-(grok) reports a model id in its own output and the other four report none, so
-an actual field would be present for one lane and missing for four, and it
-would be a provider-supplied string, which the durable log deliberately never
-holds.
+Explicit flags override defaults in `bin/lanes.json`. Without either, the vendor CLI uses its own configuration. The runner records what was requested and the source of each request: `flag`, `lanes.json` or `lane_default`. These fields describe requested settings; the vendor's own reporting is the place to verify the actual model used.
 
+## Share facts once, then scope each worker
+
+Use `aunx context CONTEXT.md` to scaffold one context file for the run. Use `aunx brief new TASK_BRIEF.md` to quote the ask, name the output, bound edits, list checks and record what the worker has and lacks. Every worker reads the same context file; each brief defines its own section and reports coverage against it.

@@ -1,79 +1,59 @@
-# Part 2 · Intermediate: many AIs, called through their CLIs
+# Part 2: delegate across your AI CLIs
 
-Everything in Part 1, plus lanes. One agent stays the orchestrator; every other AI becomes a lane it calls from the terminal.
+Keep one main agent coordinating the work. Each other AI is a **lane**: a CLI or model the main agent can call with a scoped task brief.
+
+## Subscription lanes, pay-per-token lanes and local models
+
+- **Subscription lanes:** use the tools and quota included in your vendor plan. Check that plan's current limits before assigning volume.
+- **Pay-per-token lanes:** use metered APIs for programmatic work, with an explicit budget and model choice.
+- **Local models:** keep private input on your machine when the task requires that boundary.
+
+The generated delegation matrix describes the tools you selected. Check current model names, permissions and tool reach before assigning a section. Another tool earns a handoff when its capabilities serve the job.
+
+## Lane runner (`aunx cli-run`)
+
+```bash
+aunx cli-run --doctor
+# Direct form from the installed rules folder:
+node bin/cli-run.mjs --doctor
+aunx cli-run codex --brief TASK_BRIEF.md --effort high
+# Direct form: node bin/cli-run.mjs codex --brief TASK_BRIEF.md --effort high
+```
+
+`cli-run` reads each vendor's terminal result and returns nonzero when the response is missing, interrupted, timed out or rejected by an output contract. It distinguishes authentication, quota and unavailable-tool failures so the next action can address the cause. Use `--expect-file` or `--expect-json` when your task needs a specific output shape.
+
+`--model` and `--effort` set a request for one call. `defaults` in `bin/lanes.json` supplies per-tool defaults. The local log records requested values and their source; the vendor's own output is the place to confirm actual model execution.
 
 ## Plans and automatic effort
 
-The installer can record plans with `--plans codex=pro-20x,agy=ultra-5x`. Plan headroom changes volume allocation only, never capability or the independent-review rule. `--effort-auto` is explicit consent to write `auto` for eligible high or max headroom CLI lanes. Auto resolves to medium or high from prompt size, and a codex audit is always high. It is a heuristic, not a measurement: name xhigh explicitly for security-critical or irreversible work.
+`--plans codex=pro-20x,agy=ultra-5x` records plan headroom for volume allocation. Capability and independent review still follow the task and available tools. `--effort-auto` opts eligible high-headroom tools into the runner's prompt-size heuristic. Explicitly choose higher effort for security or irreversible work when the heuristic is insufficient. [Runner reference](../bin/README.md).
 
-## 1. Two kinds of lane
+## Task brief (`aunx brief`)
 
-**Lane A, subscription CLIs.** Claude Code, Codex, Antigravity, Grok, Hermes. Already paid for, $0 per call, used for interactive and agentic work. **Lane B, metered APIs.** Per token, used for programmatic bulk where a subscription CLI cannot serve. **Local.** A privacy lane, never a cost lane.
+Each worker reads the shared context file and a brief naming the whole build, its own section, permissions, non-goals, interfaces to preserve and acceptance commands. On a split build, identify who merges and require conflicts to be named before the audit of the final combined result.
 
-Rule: never spend a frontier token on a task a cheap tier finishes correctly. Escalate on signal, not by default. And an external lane must earn the hop with a real strength; when in doubt, stay in-house.
+When a requested write is refused by the worker's sandbox, hand that exact file change to an authorized writer and continue independent work. For a background call, arrange a heartbeat; the protocol defines when unchanged output requires investigation.
 
-## 2. One job per lane
+## Review and verify
 
-| Lane | Wins at |
-|---|---|
-| the orchestrator (Claude Code, or whichever you chose) | routes, maps, builds, verifies, records; drives the others as CLIs |
-| Codex | second coder and second-opinion reviewer: a different model family reading your diff |
-| Antigravity `agy` | deep research sweeps; concurrent fan-out (its subagent call takes an array) |
-| Grok CLI | X and live web reads at $0 (the same search on the API bills per call) |
-| Hermes | the free tier: rough drafts, first-pass summaries, divergent reads, cron jobs |
-| Qwen Code + a cheap metered model | structured bulk output; never anything that cites a line, number or source |
-| Ollama | anything that must not leave the machine |
+Use one audit step. One reviewer checks build against scope; a companion reviewer checks scope against the user's request at the same time. Prefer different model families from the author. If an independent reviewer is unavailable, record that limitation and arrange the required review before release.
 
-One driver, no second AI in the mix: the orchestrator invokes the CLIs; it never hands control to another agent.
+`finding-verifier` tries to reproduce each claim. `done-verifier` probes the named definition of done. Repairs follow confirmed findings and each fix gets a regression that is demonstrated to fail before the fix.
 
-## 3. Exit 0 is a lie on every lane
+## Research and shared notes
 
-Every agent CLI can report success and deliver nothing. `bin/cli-run.mjs` builds the right invocation per lane, reads that lane's **native** terminal event, and exits `10` when a run produced no deliverable, `12` on timeout, `13` when the lane is missing, and `14` to `18` when the lane's own error says why (auth, quota, rejected, refused, cut short), so a missing API key is never blamed on the model. Byte count is not a check either; a run can emit hundreds of kilobytes and no conclusion. One lane's own success flags lie outright (an upstream 400 reported as success), so its judge reads the two honest signals instead.
+Give independent research questions to tools that can answer them, then inspect primary sources before accepting the claims. Compute consequential figures independently. Use one writer for the final shared record.
 
-Every call goes through it. "This lane is flaky" becomes a query over its log instead of an argument. `node bin/cli-run.mjs --doctor` is the first thing to run after install: enabled lanes, binaries on PATH, the route each lane is pinned to, and with `--run` a one-word canary per lane.
+Optional companions can help: codecalc for execution and calculations, obsidian-tc for searchable notes, Context7 for current library docs. Without them, use the runtime, notes and official documentation already available to your agent.
 
-There is a second thing a lane can be quietly wrong about. Left unpinned, it runs on **its own config file**, which the runner cannot see: a CLI set up months ago at a low reasoning effort keeps auditing at that effort while your routing docs describe a second-opinion pass, and no error is ever raised. `--model` and `--effort` pin it per call, `defaults` in `bin/lanes.json` pins it per lane, and every run records the value requested and where it came from (`flag`, `lanes.json`, `lane_default`). The log claims no actual: grok reports a model id in its output, the other four lanes report none, so the field would be populated for one lane and empty for four, and it would be a provider-supplied string the durable log never holds.
+## Measure your own routing
 
-## 4. Every delegation carries a task bundle, on both surfaces
-
-Subagents and CLI lanes are close to the same problem: something that may hold none of your rules, and broad tool access. A Claude Code subagent is the one documented exception, loading the project's CLAUDE.md hierarchy at start, so it keeps the standing rules but not this task's scope; a CLI lane and a fresh chat window get no such credit. The brief (purpose, task class, scope, capabilities, denied actions, conventions, report contract, exit parameters) goes in the prompt or in the file passed to `--brief` either way. If you can, gate it mechanically: a pre-dispatch hook that refuses a brief missing purpose, denied actions or a report contract. On claude-code, a `SubagentStart` hook can inject the essentials (where the rules and the brief format live) automatically; `.claude/hooks/subagent-context.mjs` is the generated example. A third hook, `.claude/hooks/route-metrics.mjs`, turns that same delegation into a measurement instead of an assumption: it logs every turn, dispatch, subagent start/stop and the lane named in the reply's hidden route marker, and `--summary` reports route-marker coverage, dispatches with no matching start, and duration per agent type.
-
-## 5. Research: three engines, one triager
-
-Fan the same plan to three model families (web sweep, second-opinion read, live data), each as one `cli-run` call. The orchestrator opens the primary sources itself, marks every claim, and writes the only durable record. Expect one engine to return confident unsourced numerics; downgrade it. Weight the engines that report their own gaps. Count dispositions, not briefs.
-
-## 5a. A finding is a claim, not a fact
-
-An audit that returns six findings has returned six claims. Hand them to `finding-verifier` before any of them causes a repair: it reads the cited line, states what would trigger the problem, then hunts for the guard, caller or test that makes it impossible, and answers CONFIRMED, NOT_REPRODUCED or INCONCLUSIVE. Only CONFIRMED earns a change. Use a different family from the one that produced the finding, and let INCONCLUSIVE stand: rounding it up to be safe buys unnecessary repairs, rounding it down to be tidy hides real ones.
-
-## 6. Gap analysis gets a second family
-
-The second pass is now a different model reading the same artifact, in read-only audit mode. Disagreement between families is the cheapest signal that something is soft.
-
-## 7. The build protocol, bound to lanes
-
-Stage 1 Map: the orchestrator sweeps; CLI lanes critique the map at $0. Stage 2: deep tier, one named weak spot and one gap in the request. Stage 4: scanners on the added lines, refuses by default. Stage 5: security-shaped diff → the second coder in read-only audit mode; architecture-shaped → deep tier reviewing build against plan; never both. Two deep checkpoints per build; CLI lanes are uncapped.
-
-## 8. Privacy gate
-
-Name the lanes that never see private notes, client data or personal records. An unnamed bar is not enforced.
-
-## 9. Re-derive every figure a cheap lane returns
-
-Measured on the cheapest metered lane: conclusions right, 0 of 11 line citations correct, fabricated arithmetic attached to true observations. That survives a skim. So a number from a lane is a lead until a tool computes it: [codecalc](https://github.com/The-40-Thieves/codecalc) on the orchestrator's side, registered for Codex, Antigravity and Qwen Code with the snippets in `CODECALC.md`.
-
-## 10. One writer, and a store the lanes can all read
-
-With several lanes proposing, the store is where they meet. obsidian-tc (optional) gives every CLI the same `semantic_search`, `get_backlinks` and compare-and-swap `write_note`, with folder ACLs so a research lane can read what it needs and write nothing. The orchestrator stays the one writer.
-
-## 11. Docs, then prove, across lanes
-
-Every lane's recall of a library's API is a lead, the same as its arithmetic (see item 9 above). Context7 (optional) gives every CLI the same current, version-aware docs lookup, registered for Claude Code, Cursor, Codex and Qwen Code with the snippets in `CONTEXT7.md`. It pairs with codecalc: a lane's claim about what a library does, cited from memory or from a doc, is confirmed by a run before code ships on it.
+`aunx route-metrics --summary` reads your local Claude Code routing log. It reports where work went, route-marker coverage and subagent durations. Your own measurements are the basis for changing assignments and checking whether the rules are being followed.
 
 ## What the installer gives you at this level
 
-Everything from Part 1, plus `ROUTING.md` · `TIERS.md` · `DELEGATION_MATRIX.md` (generated from your selection) · `RESEARCH_TRIAGE.md` · `CLI-RUN.md` · `bin/cli-run.mjs` · `bin/lanes.json`.
+Everything from [Part 1](part-1-beginner.md), plus `ROUTING.md`, `TIERS.md`, `DELEGATION_MATRIX.md`, `RESEARCH_TRIAGE.md`, `CLI-RUN.md`, `bin/cli-run.mjs` and `bin/lanes.json`.
 
-## When you have outgrown it
+## Run scheduled work
 
-You want the audit to run on a Monday without you, a gateway so nothing but one process holds a key, and a machine that is always on. That is [Part 3](part-3-advanced.md).
+When the setup needs an always-on host or scheduled review, move to [Part 3](part-3-advanced.md).

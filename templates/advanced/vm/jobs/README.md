@@ -4,7 +4,7 @@ Scheduled work on the box, as user-level systemd timers. Each job is a timer + s
 
 | Job | Schedule | Does | Lane | Watched by |
 |---|---|---|---|---|
-| `weekly-audit` | Monday 09:00 | collects live state (gateway lanes, timers, CLI versions), composes a brief with the protocol and `DELEGATION_MATRIX.md`, and asks a cli-run lane for the gap report | `{{AUDIT_LANE}}` (first enabled lane at install time; edit `AUDIT_LANE` in the script to change it) | nothing yet: wire a notifier and update this line |
+| `weekly-audit` | Monday 09:00 | collects live state (gateway lanes, timers, CLI versions), composes a brief with the protocol and `DELEGATION_MATRIX.md`, and asks a cli-run lane for the gap report | `{{AUDIT_LANE}}` (first enabled route at install time; edit `AUDIT_LANE` in the script to change it) | nothing yet: wire a notifier and update this line |
 
 Paths in the service and the script were rendered for this install: `{{INSTALL_DIR}}`. If you move the folder, re-run the installer or edit both files.
 

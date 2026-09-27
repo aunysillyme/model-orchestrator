@@ -1,8 +1,10 @@
-# ROUTING.md: the multi-lane decision tree
+# ROUTING.md: model router for your available tools
 
-Primary agent (the orchestrator): **{{PRIMARY_NAME}}**. It routes, maps, builds, verifies and records. Every other AI is a lane it calls.
+Main agent: **{{PRIMARY_NAME}}**. A **lane** is an AI tool or model the main agent can hand work to. A **tier** describes a model's capability and cost: planning model, working model or cheap model.
 
-Your lanes:
+When a task arrives, choose its route from the live tools and these rules. `aunx route "<task>"` prints a deterministic keyword suggestion; verify that suggestion against the task's scope, required tools and stakes before dispatching.
+
+## Your lanes
 
 {{LANES_TABLE}}
 
@@ -10,76 +12,71 @@ Your lanes:
 
 {{PLAN_GUIDANCE}}
 
-Two kinds of lane. **Lane A** = subscription CLIs: $0 marginal, already paid for, used for interactive and agentic work. **Lane B** = metered APIs: per token, used for programmatic bulk where a subscription CLI cannot serve. **Local** = stays on the machine; a privacy lane, never a cost lane.
+When choosing a billing route, distinguish **subscription lanes** (usage covered by a subscription, subject to its limits) from **pay-per-token lanes** (metered API usage). When data must stay on the machine, choose a verified **local lane** and check its network behavior.
 
-Rule of thumb: never spend a frontier token on a task a cheap tier finishes correctly. Escalate on signal (low confidence, explicit complexity, a failed verification), not by default. And an external lane must earn the hop with a real strength; when in doubt, stay in-house.
+When a cheaper eligible route can complete and verify the task, select it. When verification fails, complexity emerges or tool reach is insufficient, escalate with a named reason.
 
 ## Decision tree (first match wins)
 
-0. **Is there a cheaper or better external lane for this?** Check `DELEGATION_MATRIX.md`. Your enabled lanes, every one called through `bin/cli-run.mjs`:
+0. **An external lane offers useful reach or capacity:** check `DELEGATION_MATRIX.md` and call the selected CLI through `aunx cli-run` or the installed `bin/cli-run.mjs`.
 {{LANE_STEP0}}
-1. **Bulk and mechanical?** → fast tier{{BULK_LANE}}.{{FAN_OUT_ADVICE}}
-1a. **Reading or digesting many files or notes, not writing?** → reader. Different from a bulk pass: reader reports, it does not classify, tag or transform.
-2. **Needs live data?** → {{LIVE_LANE}} standard tier with web tools.
-3. **Reviewing without changing?** → standard tier read-only. Security-critical → {{ATTACK_LANE}}.
-3a. **Holding findings from a review or a scanner?** → finding-verifier before any of them cause a repair. A finding is a claim, not a fact.
-3b. **Checking a tracker item or task against its stated done-signal?** → done-verifier. It probes the named artifact and returns MET, NOT_MET or UNVERIFIABLE; it never closes anything itself.
-4. **Ambiguous, strategic, expensive to get wrong?** → deep tier (deep-planner). Then hand the plan down.
+1. **Bulk or mechanical work:** classify, tag, extract, rename or reformat -> cheap model tier / bulk-worker{{BULK_LANE}}.{{FAN_OUT_ADVICE}}
+1a. **Read or digest many files:** -> reader; return facts, quotes or an index within the brief's scope.
+2. **Current data is required:** -> {{LIVE_LANE}} working model tier with live tools.
+3. **Review code without changing it:** -> code-reviewer, working model tier. For security-critical scope -> {{ATTACK_LANE}} with appropriate effort.
+3a. **A reviewer or scanner has returned findings:** -> finding-verifier; reproduce each claim before repair.
+3b. **Check a task's definition of done:** -> done-verifier; probe the named artifact and return MET, NOT_MET or UNVERIFIABLE.
+4. **Ambiguity, architecture or an unknown cause:** -> planning model tier / deep-planner. Return a concrete plan for execution.
 {{DECISION_RULE5}}
 
 {{WHO_BUILDS}}
 
-## The Build Protocol, with lanes bound
+## Build process and ownership
 
-| Stage | Binding |
+When a task builds or changes a system, run `protocols/build-protocol.md`.
+
+| Step | Action |
 |---|---|
-| 0 Route | live probe for access; `cli-run` lanes are $0 and uncapped |
-| 1 Map | the orchestrator sweeps{{STAGE1_LANES}} |
-| 2 Judge | deep tier, on the finished map: one named weak spot and one gap in the request |
-| 3 Build | the orchestrator, against the installed dependency's source |
-| 4 Scan | secret + static + dependency scanners, diff-scoped, refuses by default |
-| 5 Challenge | security-shaped diff → {{ATTACK_LANE}}. Architecture-shaped → deep tier, build against plan. Never both |
-| 5a Verify findings | finding-verifier, a different model family where you have one: CONFIRMED, NOT_REPRODUCED or INCONCLUSIVE per finding. Only CONFIRMED earns a repair |
-| 5b Ship | rollback id recorded, explicit human yes |
-| 6 Verify | real test, negative test seen red, old identifier re-grepped to zero |
-| 7 Record | one end-to-end doc, tracker Done with evidence, plan doc deleted |
+| Frame and probe | Quote the ask, freeze acceptance checks and verify required availability |
+| Ordering | Dependencies first, invalidators early, deterministic checks before judgment, irreversible actions last |
+| Research | Vet sources, inspect current interfaces and spike risky assumptions |
+| Context file | Map affected surfaces once; every brief reads the same context file |
+| Assign | Choose each section's lane, model and effort by live capability and job fit |
+| Build | Execute the approved scope; hand refused writes to an authorized writer |
+| Split and merge | Keep the whole scope in each brief; merge sections and name conflicts |
+| Audit | One pass on the merged artifact plus a companion consult asking scope versus ask |
+| Ship | Record rollback, confirm authorization, replay checks and verify the change in use |
+| Record | Return coverage and evidence, update documentation and name what watches it |
 
-Caps: two deep-tier checkpoints per build. CLI lanes are $0 and do not count.
+When work runs in the background, check liveness and output growth every five minutes. Two checks without growth call for diagnosis and a report. When an audit finding is confirmed, assign its fix to a non-author and show the regression failing before the fix. Verify the fix; no second audit pass.
 
-## Numbers and logic
+## Tools and fallbacks
 
-Every number, comparison, complexity or equivalence claim goes through a tool that computes (`protocols/numbers-and-logic.md`; companion: codecalc, {{CODECALC_STATUS}}).{{METERED_CITATION_NOTE}}
+- When reporting consequential arithmetic or code equivalence, use a computing tool (`protocols/numbers-and-logic.md`). codecalc: {{CODECALC_STATUS}}. When absent, use the local runtime, test suite or spreadsheet.{{METERED_CITATION_NOTE}}
+- When writing durable records, search first, update the index and keep one writer (`protocols/memory-and-record.md`). obsidian-tc: {{OBSIDIAN_TC_STATUS}}. When absent, use project files, search and version control.
+- When using a changing library or API, read current documentation and verify behavior (`protocols/docs-then-prove.md`). Context7: {{CONTEXT7_STATUS}}. When absent, read official docs or installed source; use the local runtime when codecalc is absent.
 
-## Memory and record
-
-One writer per run; every other lane proposes. Search before writing, index in the same pass (`protocols/memory-and-record.md`; companion, optional: obsidian-tc, {{OBSIDIAN_TC_STATUS}}).
-
-## Docs, then prove
-
-A lane's recall of a library's API is a lead, not a verdict, the same as its arithmetic. Pull current, version-specific docs before writing a call against anything you have not confirmed this session (`protocols/docs-then-prove.md`; companion, optional: Context7, {{CONTEXT7_STATUS}}). Then prove the doc was right by running it, the same tool that already owns numbers: codecalc, {{CODECALC_STATUS}}. Where the two disagree, the run wins.
-
-## Modifier rules
+## Choose effort and verify the route
 
 {{PLAN_BIG_LINE}}{{INLINE_THRESHOLD_NOTE}}
-- **Escalation:** never silently retry at the same tier. Escalate one tier or consult deep once, and say which. Two consults that do not unstick it → stop and tell the human.
-- **De-escalation:** a request that sounds deep but is a lookup routes down.
-- **Long context:** mechanical digestion → fast tier in chunks; judgment over a long input → standard tier.
-- **Token discipline on every delegation:** pass only the context the delegate needs, never the conversation.
-- **Effort per agent:** deep xhigh, review, verification and build high, live research medium, bulk low.
-- **Three inputs, not one:** role picks the agent, complexity moves the effort, stakes move the tier and who reads it. A one-line auth change is simple and high-stakes at once, and the stakes decide. See `TIERS.md`.
-- **Pin the route when it matters:** a lane with no `--model`/`--effort` and no `defaults` entry in `bin/lanes.json` runs on its own config, which may be nothing like what this file describes. `cli-run --doctor` prints what each lane is pinned to, and every run logs the value requested and where it came from.
+- When a lookup is sufficient, use the cheap model tier; when the task needs judgment, choose the working or planning model tier by evidence.
+- When an attempt fails, identify the failure class before retrying; change the route or resolve the cause explicitly.
+- When delegating, pass the context file and task brief with scoped source references and acceptance checks.
+- When role, complexity or stakes change, reassess model, effort and reviewer together. See `TIERS.md`.
+- Before each build, inspect the lane's live roster and any configured pin. Flag stale pins and record the model and effort selected for this task.
+- When the route matters, set `--model` and `--effort` or verify `bin/lanes.json` defaults. Run `aunx cli-run --doctor` to inspect requested defaults; an unpinned lane uses its own configuration.
 
 ## Example routings
 
 | Task | Route |
 |---|---|
-| "Design the architecture for X" | deep-planner |
-| "Review this service for bugs" | code-reviewer |
+| Design the architecture for a service | deep-planner, planning model tier |
+| Review this service for bugs | code-reviewer, working model tier |
 {{ADD_ENDPOINT_ROW}}
-| "Why does this silently drop rows sometimes" | deep-planner (unknown cause), then build the fix directly |
-| "Summarize these 30 notes into one index" | bulk-worker |
-| "Read every note in this folder and pull out every mention of X" | reader |
-| "The audit returned 6 findings" | finding-verifier first; repair only what comes back CONFIRMED |
-| "Is issue #123 actually done" | done-verifier |
+| Find why this silently drops rows | deep-planner, then a scoped build |
+| Summarize similar notes into one index | bulk-worker, cheap model tier |
+| Read every file and extract mentions of a topic | reader, cheap model tier |
+| Verify the audit's findings | finding-verifier before repairs |
+| Check whether the stated definition of done holds | done-verifier |
 {{LANE_EXAMPLES}}
 {{ROUTE_GATE_SECTION}}

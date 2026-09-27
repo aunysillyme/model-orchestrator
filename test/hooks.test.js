@@ -137,8 +137,8 @@ test('subagent-context.mjs: valid JSON, SubagentStart, exit 0 on empty stdin', (
     assert.equal(r.status, 0);
     const out = JSON.parse(r.stdout);
     assert.equal(out.hookSpecificOutput.hookEventName, 'SubagentStart');
-    assert.match(out.hookSpecificOutput.additionalContext, /delegate/i);
-    assert.match(out.hookSpecificOutput.additionalContext, /TASK_BUNDLE\.md/);
+    assert.match(out.hookSpecificOutput.additionalContext, /delegat(?:e|ion)/i);
+    assert.match(out.hookSpecificOutput.additionalContext, /TASK_BRIEF\.md/);
   } finally {
     rmSync(scratch, { recursive: true, force: true });
   }

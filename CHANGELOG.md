@@ -4,6 +4,33 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-09-27
+
+### Added
+
+- **The `aunx` command.** The existing package now ships a short command alongside `model-orchestrator`. Run the installer with `aunx`, call an AI through `aunx cli-run`, scaffold a task brief and context file, execute acceptance checks, get a routing suggestion or summarize your local routing activity.
+- **A build process from requirements to verified use.** Shared context, executable acceptance checks, live capability probes, scoped assignments, background heartbeat guidance, split-build ownership and one independent audit step with a companion reviewer.
+- **Reproducible proof.** Measurement scripts, dated results with method and sample size, a generated proof page and a weekly refresh workflow. The test suite rejects expired figures.
+
+### Changed
+
+- **Companions are opt-in.** Default and `--yes` installs select none. Missing tools appear together under "Install these yourself", with their official commands and links.
+- **Public terms match the work.** Task brief, context file, acceptance checks, subscription lanes, pay-per-token lanes, planning model, working model and cheap model.
+- **Documentation starts with the model router.** New command examples, search-phrased questions, a trailer hero, an install walkthrough and a concise security-review history with regression evidence.
+- **A smaller publication surface.** Development-only `scripts/` and the old raw audit brief are excluded; reproducible proof scripts remain available.
+
+### Removed
+
+- **Automatic vendor installation.** The installer never runs third-party installs. `--no-install` remains accepted for existing scripts.
+
+### Upgrading from 0.1.x
+
+- Keep your existing `--dir` and `--project`. Run with `--update-docs --dry` first, then remove `--dry` to apply.
+- Unedited `TASK_BUNDLE.md` migrates to `TASK_BRIEF.md`; an edited legacy brief is kept and named for manual migration.
+- Unchanged runtime files upgrade automatically. `--upgrade-runtime` replaces runtime files only and preserves document edits.
+- Existing codecalc guides and snippets stay managed; uninstall removes them only when unedited. New installs select companions explicitly with `--tools`.
+- Every previous installer flag remains accepted. Runner exit codes, logs, hook contracts and safe uninstall behavior remain compatible.
+
 ## [0.1.35] - 2026-09-25
 
 ### Changed
@@ -458,7 +485,8 @@ First release.
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
-[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.35...HEAD
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.35...v1.0.0
 [0.1.35]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.34...v0.1.35
 [0.1.34]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.33...v0.1.34
 [0.1.33]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.32...v0.1.33
