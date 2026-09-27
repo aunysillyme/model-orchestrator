@@ -31,7 +31,7 @@
 //   0   ok: structurally accepted non-empty response (and every --expect-* contract met)
 //   10  empty: ran and delivered nothing, or a contract was not met
 //   11  no_output: produced no output at all
-//   12  timeout: the worker AND its descendants are killed as a process group
+//   12  timeout: the lane, and its descendants, are killed as a process group
 //   13  unavailable: missing binary, disabled in lanes.json, or lanes.json malformed
 //   14  auth: the lane's own error says a credential is missing or not logged in
 //   15  quota: the lane's own error says usage limit, credits or rate limit
@@ -60,7 +60,7 @@
 // was REQUESTED plus where the request came from (flag, lanes.json, or nothing
 // at all). It does not log an "actual". One lane of five (grok) does report a
 // model id in its own output; the other four report none, and a field present
-// for one worker and absent for four is worse than no field. It would also be a
+// for one lane, and absent for four, is worse than no field. It would also be a
 // provider-supplied string, which this log deliberately never holds.
 
 import { spawn, spawnSync } from 'node:child_process';
@@ -920,7 +920,7 @@ export function windowsSpawnPlan(argv, platform = process.platform, { allowCmdFa
   return { command: comspec, args: ['/d', '/s', '/c', buildCmdExeCommand(bin, args)], options: { windowsVerbatimArguments: true } };
 }
 
-// Kill a worker and everything it spawned. POSIX: the detached process group.
+// Kill a lane, and everything it spawned. POSIX: the detached process group.
 // Windows has no process groups a signal can reach, so taskkill walks the
 // tree (#18): whether the direct child is node (the resolved-shim path) or
 // cmd.exe (the fallback), taskkill /T reaches every descendant either way.

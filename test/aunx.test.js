@@ -31,13 +31,13 @@ test('aunx passes installer flags and error codes through unchanged', t => {
   assert.equal(run(['--bad-option'], cwd).status, 2);
 });
 
-test('aunx cli-run prefers project runner and preserves args and exit status', t => {
+test('aunx cli-run uses the packaged runner by default, never a project-local one (R1)', t => {
   const cwd = temp(t);
   mkdirSync(join(cwd, 'ai-orchestrator', 'bin'), { recursive: true });
-  writeFileSync(join(cwd, 'ai-orchestrator', 'bin', 'cli-run.mjs'), 'console.log(JSON.stringify(process.argv.slice(2))); process.exit(17);');
+  writeFileSync(join(cwd, 'ai-orchestrator', 'bin', 'cli-run.mjs'), 'console.log("LOCAL-RUNNER-RAN"); process.exit(66);');
   const result = run(['cli-run', 'codex', 'quotes " spaces & $(literal)'], cwd);
-  assert.equal(result.status, 17);
-  assert.deepEqual(JSON.parse(result.stdout), ['codex', 'quotes " spaces & $(literal)']);
+  assert.notEqual(result.status, 66, 'a planted project runner must not run without --dir');
+  assert.doesNotMatch(result.stdout, /LOCAL-RUNNER-RAN/);
 });
 
 test('aunx cli-run honors custom --dir and uses package fallback', t => {

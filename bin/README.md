@@ -18,7 +18,7 @@ node bin/cli-run.mjs --doctor
 node bin/cli-run.mjs codex --brief TASK_BRIEF.md --effort high
 ```
 
-`aunx` prefers the project's installed runner under `ai-orchestrator/bin/`; `--dir` selects another folder. The package runner is the fallback. Arguments and exit status pass through. `--doctor --run` performs live checks using your own vendor sign-ins and quota.
+`aunx` uses the packaged runner by default. Pass `--dir PATH` to use that project's own installed runner under `PATH/bin/`; `aunx` then prints the runner path it is using on stderr. When `--dir` names a folder with no runner, the packaged copy runs instead. Arguments and exit status pass through. `--doctor --run` performs live checks using your own vendor sign-ins and quota.
 
 | Exit | Meaning |
 |---|---|
@@ -56,6 +56,6 @@ Scaffold with `aunx checks ACCEPTANCE_CHECKS.json`, then fill each command and i
 - **Reads:** package templates, an explicitly selected check file, the project's installed runner, and the existing metrics log for summaries.
 - **Writes:** scaffold files use exclusive creation. Check commands can write whatever their reviewed code requests. The delegated runner and metrics hook retain their documented local logs.
 - **Closed loop:** callers inspect the exit code and the check report. Nothing watches the wrapper as a service; the repository test workflow watches committed changes. Gate a later action on exit 0 when using acceptance checks.
-- **Failure modes:** invalid arguments or check format return 2, failed checks return 1, and dispatched Node commands retain their exit codes. An existing scaffold path is preserved. A missing project runner selects the package copy.
+- **Failure modes:** invalid arguments or check format return 2, failed checks return 1, and dispatched Node commands retain their exit codes. An existing scaffold path is preserved. Without `--dir` the packaged runner always runs; with `--dir`, a missing project runner falls back to the packaged copy.
 - **Run and verify:** `node bin/aunx.js --help`, `node bin/aunx.js route "rename this file"`, and `node --test test/aunx.test.js`. For a real vendor, use the doctor command above with your own authorization and quota.
 - **Source of truth:** `src/aunx.js`, the templates it loads, and the dispatch and exit-code tests in `test/aunx.test.js`.

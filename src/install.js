@@ -238,8 +238,8 @@ export function laneVars(selected) {
     FAN_OUT_ADVICE: supplies('fan-out') ? ' Many independent items each needing its own agent turn → the selected concurrent fan-out lane.' : '',
     METERED_CITATION_NOTE: supplies('cheapest-metered') ? " A lane's figure is re-derived before it is repeated: verify every supporting number and citation from the cheapest metered lane." : '',
     RESEARCH_SELECTION_ADVICE: enabled.length >= 2
-      ? 'Send the same PLAN to your selected CLI lanes, preferring different model families. Run each through `cli-run` so a run that produced nothing exits 10 and is treated as a missing engine.'
-      : 'Use the main agent for the sweep, then a fresh-context second-opinion turn. Add CLI lanes from different model families for independent research passes.',
+      ? 'send the same task brief to your selected CLI lanes, preferring different model families. Run each through `cli-run` so a run that produced nothing exits 10 and is treated as a missing engine.'
+      : 'use the main agent for the sweep, then a fresh-context second-opinion turn. Add CLI lanes from different model families for independent research passes.',
     GAP_ANALYSIS_LANE: supplies('second-coder')
       ? 'a **different model family** reading the same artifact. Use the selected second-opinion coder lane in read-only mode; verify each finding before acting.'
       : 'a fresh-context second pass reading the same artifact. Use a different model family when one is available; verify each finding before acting.',
