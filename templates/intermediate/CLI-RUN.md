@@ -22,7 +22,7 @@ node bin/cli-run.mjs {{EXAMPLE_LANE}} "<prompt>" --model '<model-id>'{{EXAMPLE_E
 
 {{EXAMPLE_AUDIT_BLOCK}}
 
-When Qwen's safe mode is required, pass `--safe-mode` to that lane. `--quiet` suppresses human-readable status lines. `--timeout SECS` bounds each call.
+{{QWEN_SAFE_MODE_NOTE}}`--quiet` suppresses human-readable status lines. `--timeout SECS` bounds each call.
 
 ## Check availability before work depends on it
 

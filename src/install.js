@@ -216,10 +216,35 @@ export function laneVars(selected, primary = selected[0]) {
     BULK_ROLE: assignedLabel('bulk', rolesForPrimary.BULK_ROLE),
     READER_ROLE: assignedLabel('read', rolesForPrimary.READER_ROLE)
   };
+  // TIERS.md's "Role" column is the one place several rows can carry the
+  // SAME bare command (two different rows can both land on `cli-run grok`,
+  // and FINDING_ROLE/DONE_ROLE are literally the same 'verify' assignment
+  // shown twice): a bare command alone does not say which row it is (C2).
+  // ROUTING.md and ORCHESTRATOR.md keep the assignedRoles values above
+  // (their decision-tree and activation text are pinned to that bare
+  // shape), so this labels a separate set of vars for TIERS.md only.
+  const externalWinner = (id) => Boolean(roles[id]?.ai && roles[id].ai !== primary?.id);
+  const tierRole = (value, id, label) => externalWinner(id) ? `${label} (${value})` : value;
+  const tierRoles = {
+    TIER_PLANNER_ROLE: tierRole(assignedRoles.PLANNER_ROLE, 'plan', 'planning'),
+    TIER_REVIEW_ROLE: tierRole(assignedRoles.REVIEW_ROLE, 'review', 'code review'),
+    TIER_FINDING_ROLE: tierRole(assignedRoles.FINDING_ROLE, 'verify', 'reproduce a finding'),
+    TIER_BUILDER_ROLE: tierRole(assignedRoles.BUILDER_ROLE, 'build', 'build'),
+    TIER_LIVE_ROLE: tierRole(assignedRoles.LIVE_ROLE, 'research', 'live research'),
+    TIER_BULK_ROLE: tierRole(assignedRoles.BULK_ROLE, 'bulk', 'bulk work'),
+    TIER_DONE_ROLE: tierRole(assignedRoles.DONE_ROLE, 'verify', 'check definition of done'),
+    TIER_READER_ROLE: tierRole(assignedRoles.READER_ROLE, 'read', 'read many files')
+  };
   const reviewer = selected.find(a => a.id === roles.review.ai);
+  // No reviewer: state the self-check once (dropping roles.review.why here,
+  // which restates the same point) and end without a period, so
+  // ROUTING.md's fixed "... with appropriate effort." tail reads as one
+  // sentence instead of a second, dangling one glued after a full stop
+  // (C3). "review" still ends every "Why" column via roles.review.why
+  // directly, so that reasoning is not lost, only not duplicated here.
   const review = reviewer
     ? `${pick('review')} (different model family from the main agent by default; verify the current models before dispatch${reviewer.facts.readOnlyMode ? '; read-only filesystem sandbox' : '; request review only and check the CLI permissions'})`
-    : `${rolesForPrimary.REVIEW_ROLE} in a fresh context. No different-family reviewer is selected; treat this as a self-check, not an independent review. ${roles.review.why}`;
+    : `${rolesForPrimary.REVIEW_ROLE} in a fresh context. No different-family reviewer is selected: treat this as a self-check`;
   const picks = ROLE_SPECS.filter(spec => roles[spec.id]).map(spec => [spec.job, spec.id === 'review' ? review : pick(spec.id), roles[spec.id].why]);
   const metered = selected.some(a => a.facts.billing === 'pay-per-token');
   const free = selected.some(a => a.facts.billing === 'free');
@@ -253,6 +278,7 @@ export function laneVars(selected, primary = selected[0]) {
   const run = [...runLanes].map(([id, command]) => `node bin/cli-run.mjs ${command.replace(/^cli-run /, '')} --brief "$BRIEF" --timeout 900 > research/out-${id}.md`);
   return {
     ...assignedRoles,
+    ...tierRoles,
     TASK_LANES_TABLE: table(picks, ['Task type', 'Pick', 'Why']),
     COST_PLAYBOOK: cost.map((line, i) => `${i + 1}. ${line}`).join('\n'),
     FAN_OUT_ADVICE: roles['fan-out'] ? ` Many independent items each needing their own agent turn → ${pick('fan-out')}.` : '',
@@ -358,10 +384,14 @@ export function decisionRule5(primary) {
     ? `5. **When the task changes files**, builder executes by default after Assign confirms its tools, rules and context fit. The main agent briefs, combines sections, verifies and talks to the human. Keep conversation-dependent decisions and final verification with the main agent. When rules matter, use the matching named agent; the built-in Explore and Plan agents skip CLAUDE.md.`
     : `5. **When the task changes files**, the main agent builds it directly until Assign verifies another lane can carry the required tools, context and rules. Give a suitable delegate the whole scope and its bounded section in a task brief.`;
 }
+// ORCHESTRATOR.md's own decision tree already lists items 1-7 (see the
+// template); this rule lands after all of them, so it continues that
+// sequence as 8, not the "5" that fits ROUTING.md's shorter, differently
+// ordered tree above (C4).
 export function decisionRule5Beginner(primary) {
   return subagentsLoadRules(primary)
-    ? `5. **When the task changes files or executes a known plan**, builder executes by default after checking its tools and rules. Use the working model tier for well-specified work and a planning model for architecture. Keep conversation-dependent decisions and final verification with the main agent.`
-    : `5. **When the task changes files or executes a known plan**, use the main agent's working model tier. If another lane has the required tools and rules, give it a bounded section and a task brief.`;
+    ? `8. **When the task changes files or executes a known plan**, builder executes by default after checking its tools and rules. Use the working model tier for well-specified work and a planning model for architecture. Keep conversation-dependent decisions and final verification with the main agent.`
+    : `8. **When the task changes files or executes a known plan**, use the main agent's working model tier. If another lane has the required tools and rules, give it a bounded section and a task brief.`;
 }
 export function whoBuildsSection(primary) {
   return [
@@ -557,12 +587,20 @@ function vars(opts) {
     STACK_TABLE: roleTable(assignment, stack),
     STACK_FALLBACK_NOTE: fallbackNote,
     STACK_GAPS: gaps,
-    STACK_SUMMARY: ['## Your stack: who does what', fallbackNote, gaps + ' Full assignments: [README.md](README.md#your-stack-who-does-what).'].join('\n'),
+    // The "Full assignments" pointer is its own paragraph, not a clause
+    // glued onto the end of the gaps sentence (C5): when gaps is non-empty
+    // it already ends its own sentence ("...off every lane here."), and
+    // running the pointer straight on read as a continuation of it.
+    STACK_SUMMARY: ['## Your stack: who does what', fallbackNote, gaps].filter(Boolean).join('\n')
+      + '\n\nFull assignments: [README.md](README.md#your-stack-who-does-what).',
     EXAMPLE_LANE: exampleLane,
     EXAMPLE_EFFORT_FLAGS: LANE_FLAGS[exampleLane]?.effort ? ' --effort high' : '',
     EXAMPLE_AUDIT_LANE: auditExample?.id || '',
     EXAMPLE_AUDIT_BLOCK: auditExample ? `When reviewing with an available read-only mode, select its audit shape:\n\n\x60\x60\x60bash\naunx cli-run ${auditExample.id} --audit --brief REVIEW.md\nnode bin/cli-run.mjs ${auditExample.id} --audit --brief REVIEW.md\n\x60\x60\x60` : 'When reviewing, verify the chosen lane permissions and request review-only work.',
     EXAMPLE_LANES_JSON: JSON.stringify({ enabled: enabled.map(a => a.id), defaults: { [exampleLane]: exampleDefaults } }, null, 2),
+    // Renders only when Qwen is actually selected: the sentence names a flag
+    // that is a usage error on every other lane (C1).
+    QWEN_SAFE_MODE_NOTE: selected.some(a => a.id === 'qwen') ? "When Qwen's safe mode is required, pass `--safe-mode` to that lane. " : '',
     ACTIVATION_STEPS: steps.map((st, i) => `${i + 1}. ${st}`).join('\n'),
     PROOF_STEPS: proofs.map((st, i) => `${i + 1}. ${st}`).join('\n'),
     LOAD_IT: opts.applySnippets

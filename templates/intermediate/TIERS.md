@@ -18,14 +18,14 @@ When routing, consider three levers together: tier sets capability and price; sc
 
 | Role | Starting tier | Starting effort | Reassess when |
 |---|---|---|---|
-| {{PLANNER_ROLE}} | planning model | xhigh where supported | The decision can be resolved from a known plan or needs a new capability |
-| {{REVIEW_ROLE}} | working model | high | Security, privacy or irreversible effects raise the review scope |
-| {{FINDING_ROLE}} | working model | high | Reproduction needs another runtime or access path |
-| {{BUILDER_ROLE}} | working model | high | Architecture, security or irreversible work needs xhigh and suitable model capability |
-| {{LIVE_ROLE}} | working model | medium | Synthesis becomes complex or sources disagree |
-| {{BULK_ROLE}} | cheap model | low | The input stops fitting the given categories |
-| {{DONE_ROLE}} | cheap model | low | The definition of done requires interpretation or unavailable tools |
-| {{READER_ROLE}} | cheap model | low | The requested result needs judgment across sources |
+| {{TIER_PLANNER_ROLE}} | planning model | xhigh where supported | The decision can be resolved from a known plan or needs a new capability |
+| {{TIER_REVIEW_ROLE}} | working model | high | Security, privacy or irreversible effects raise the review scope |
+| {{TIER_FINDING_ROLE}} | working model | high | Reproduction needs another runtime or access path |
+| {{TIER_BUILDER_ROLE}} | working model | high | Architecture, security or irreversible work needs xhigh and suitable model capability |
+| {{TIER_LIVE_ROLE}} | working model | medium | Synthesis becomes complex or sources disagree |
+| {{TIER_BULK_ROLE}} | cheap model | low | The input stops fitting the given categories |
+| {{TIER_DONE_ROLE}} | cheap model | low | The definition of done requires interpretation or unavailable tools |
+| {{TIER_READER_ROLE}} | cheap model | low | The requested result needs judgment across sources |
 
 When the vendor uses different effort names, choose its equivalent after reading its current capabilities. Before each build, probe the live model roster, compare the configured pin with the lane's default, and record the selected model and effort with a reason. A pin below the current default calls for review; a newer model still needs to fit the job.
 

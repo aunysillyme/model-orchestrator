@@ -151,9 +151,16 @@ const yes = flag('yes');
 let rl = null;
 const ask = (q, fallback) => (rl ? rl.ask(q, fallback) : Promise.resolve(fallback));
 
+// Throws instead of exiting directly. Every call site outside the interactive
+// edit screen has no handler in between, so the error rides the promise chain
+// up to main().catch() below, which prints the same message and exits 2: flag
+// validation and --yes keep their hard exit. Inside editSetup() a catch block
+// takes the USAGE code as a signal to re-ask the same field instead of
+// letting the process die on a typo (H1).
 function bad(msg) {
-  console.error('model-orchestrator: ' + msg);
-  process.exit(2);
+  const err = new Error(msg);
+  err.code = 'USAGE';
+  throw err;
 }
 
 function plansFromIds(raw, selected) {
@@ -182,6 +189,17 @@ function plansFromManifest(manifest, selected) {
 
 function inferLevel(selected) {
   return Math.min(2, Math.max(1, selected.length >= 2 && selected.some((ai) => ai.facts.cliRun) ? 2 : 1, ...selected.map((ai) => ai.minLevel)));
+}
+
+// 0.1.35's --primary auto-pick (git show 20408a8:bin/cli.js), kept verbatim
+// for --yes so a reproducible flag-only run never changes its main agent
+// across a version bump (K1): claude-code first, else the first candidate
+// that can load project agent definitions, else the first candidate in
+// selection order. `inferPrimary`'s capability ranking is for the
+// interactive default only.
+export function legacyPrimary(candidates) {
+  if (!candidates.length) return null;
+  return candidates.find((ai) => ai.id === 'claude-code') || candidates.find((ai) => ai.facts.agentDefinitions) || candidates[0];
 }
 
 // Detection reads filesystem metadata only. A caller can supply the detector
@@ -236,74 +254,119 @@ function validateSetup(state) {
   if (projectBad.length) bad('--project: ' + projectBad.join('; '));
 }
 
+// A typo here must never cost the user the whole session (H1): every field
+// below re-asks itself on a bad answer instead of exiting, and every earlier
+// answer stays put. `bad()`'s hard exit still applies to flags and --yes;
+// only a USAGE error raised while THIS function is running is caught locally.
 async function editSetup(state, sources) {
-  console.log('\nChange what?\n  1 level (1, 2 or 3; 3 needs an always-on Linux machine)\n  2 which AIs\n  3 main agent\n  4 companion tools\n  5 where the files go (folder and project root)\n  6 subscription plans' + (state.level === 3 ? '\n  7 level 3 API keys' : '') + '\n  0 nothing, back to the summary');
-  const choice = await ask('\nNumber [0]: ', '0');
-  if (choice === '0') return;
-  if (choice === '1') {
-    LEVELS.forEach((l) => console.log(`  ${l.id} ${l.name}: ${l.tagline}`));
-    state.level = Number(await ask(`Level [${state.level}]: `, String(state.level)));
-    state.levelChosen = true;
-    sources.delete('level');
-  } else if (choice === '2') {
-    state.selected = await askAis(AIS, state.detected, state.selected);
-    sources.delete('ais');
-    if (!state.levelChosen) state.level = inferLevel(state.selected);
-    if (!state.primaryChosen || !agentCandidates(state.selected).includes(state.primary)) {
-      state.primary = inferPrimary(agentCandidates(state.selected)) || null;
-      state.primaryChosen = false;
+  while (true) {
+    console.log('\nChange what?\n  1 level (1, 2 or 3; 3 needs an always-on Linux machine)\n  2 which AIs\n  3 main agent\n  4 companion tools\n  5 where the files go (folder and project root)\n  6 subscription plans' + (state.level === 3 ? '\n  7 level 3 API keys' : '') + '\n  0 nothing, back to the summary');
+    const choice = await ask('\nNumber [0]: ', '0');
+    if (choice === '0') return;
+    if (choice === '1') {
+      LEVELS.forEach((l) => console.log(`  ${l.id} ${l.name}: ${l.tagline}`));
+      while (true) {
+        const answer = Number(await ask(`Level [${state.level}]: `, String(state.level)));
+        if ([1, 2, 3].includes(answer)) { state.level = answer; break; }
+        console.log('Pick 1, 2 or 3.');
+      }
+      state.levelChosen = true;
+      sources.delete('level');
+    } else if (choice === '2') {
+      while (true) {
+        try { state.selected = await askAis(AIS, state.detected, state.selected); break; }
+        catch (e) { if (!e || e.code !== 'USAGE') throw e; console.log(e.message); }
+      }
+      sources.delete('ais');
+      if (!state.levelChosen) state.level = inferLevel(state.selected);
+      if (!state.primaryChosen || !agentCandidates(state.selected).includes(state.primary)) {
+        state.primary = inferPrimary(agentCandidates(state.selected)) || null;
+        state.primaryChosen = false;
+        sources.delete('primary');
+      }
+      state.plans = Object.fromEntries(Object.entries(state.plans).filter(([id]) => state.selected.some((ai) => ai.id === id)));
+      state.effortAuto = state.effortAuto.filter((id) => state.selected.some((ai) => ai.id === id && ai.facts.cliRun));
+    } else if (choice === '3') {
+      const candidates = agentCandidates(state.selected);
+      candidates.forEach((ai, i) => console.log(`  ${i + 1} ${ai.name}`));
+      const fallback = String(candidates.indexOf(state.primary) + 1);
+      while (true) {
+        const answer = Number(await ask(`Main agent [${fallback}]: `, fallback));
+        if (Number.isInteger(answer) && answer >= 1 && answer <= candidates.length) { state.primary = candidates[answer - 1]; break; }
+        console.log(`Pick 1-${candidates.length}.`);
+      }
+      state.primaryChosen = true;
       sources.delete('primary');
+    } else if (choice === '4') {
+      console.log('Companion tools (optional): selecting one writes docs and config snippets. Install each project yourself.');
+      TOOLS.forEach((tool, i) => console.log(`  ${i + 1} ${tool.name}: ${tool.role}\n    ${tool.requires}\n    ${tool.optionalNote}`));
+      const fallback = TOOLS.map((tool, i) => state.tools.includes(tool) ? i + 1 : null).filter(Boolean).join(',') || 'none';
+      while (true) {
+        try { state.tools = numberedPicks(await ask(`Companions [${fallback}]: `, fallback), TOOLS, 'tool'); break; }
+        catch (e) { if (!e || e.code !== 'USAGE') throw e; console.log(e.message); }
+      }
+      sources.delete('tools');
+      sources.delete('no-tools');
+    } else if (choice === '5') {
+      while (true) {
+        const dir = resolve(await ask(`Docs folder [${state.dir}]: `, state.dir));
+        const problems = dirProblems(dir);
+        if (!problems.length) { state.dir = dir; break; }
+        console.log(problems.join('; '));
+      }
+      while (true) {
+        const project = resolve(await ask(`Project root [${state.project}]: `, state.project));
+        const problems = dirProblems(project);
+        if (!problems.length) { state.project = project; break; }
+        console.log(problems.join('; '));
+      }
+      sources.delete('dir');
+      sources.delete('project');
+    } else if (choice === '6') {
+      const plans = {};
+      for (const ai of state.selected.filter((candidate) => candidate.plans)) {
+        const first = ai.plans[0];
+        console.log(`\nWhich ${ai.vendor} plan? (checked ${first.checked}, source ${first.source})`);
+        ai.plans.forEach((plan, i) => console.log(`  ${i + 1} ${plan.name} (${plan.headroom} headroom)`));
+        console.log(`  ${ai.plans.length + 1} not sure`);
+        const fallback = String(state.plans[ai.id] ? ai.plans.indexOf(state.plans[ai.id]) + 1 : ai.plans.length + 1);
+        while (true) {
+          const answer = Number(await ask(`Plan [${fallback}]: `, fallback));
+          if (Number.isInteger(answer) && answer >= 1 && answer <= ai.plans.length + 1) {
+            if (answer <= ai.plans.length) plans[ai.id] = ai.plans[answer - 1];
+            break;
+          }
+          console.log(`Pick 1-${ai.plans.length + 1}.`);
+        }
+      }
+      state.plans = plans;
+      state.plansChosen = true;
+      state.effortChosen = true;
+      const eligible = eligibleEffort(state.selected, plans);
+      state.effortAuto = eligible.length && /^y/i.test(await ask(`Size reasoning effort per task automatically on ${eligible.join(', ')}? [y/N] `, 'n')) ? eligible : [];
+      sources.delete('plans');
+      sources.delete('effort-auto');
+    } else if (choice === '7' && state.level === 3) {
+      console.log('Which metered API keys do you HOLD? A subscription is not an API key. Only variable names are written.');
+      PROVIDERS.forEach((provider, i) => console.log(`  ${i + 1} ${provider.name} (${provider.envName})`));
+      const fallback = PROVIDERS.map((provider, i) => state.apis.includes(provider) ? i + 1 : null).filter(Boolean).join(',') || 'none';
+      while (true) {
+        try { state.apis = numberedPicks(await ask(`Your keys [${fallback}]: `, fallback), PROVIDERS, 'provider'); break; }
+        catch (e) { if (!e || e.code !== 'USAGE') throw e; console.log(e.message); }
+      }
+      sources.delete('apis');
+      sources.delete('no-apis');
+    } else {
+      console.log('Pick a listed edit number.');
+      continue;
     }
-    state.plans = Object.fromEntries(Object.entries(state.plans).filter(([id]) => state.selected.some((ai) => ai.id === id)));
-    state.effortAuto = state.effortAuto.filter((id) => state.selected.some((ai) => ai.id === id && ai.facts.cliRun));
-  } else if (choice === '3') {
-    const candidates = agentCandidates(state.selected);
-    candidates.forEach((ai, i) => console.log(`  ${i + 1} ${ai.name}`));
-    const fallback = String(candidates.indexOf(state.primary) + 1);
-    const answer = Number(await ask(`Main agent [${fallback}]: `, fallback));
-    state.primary = Number.isInteger(answer) ? candidates[answer - 1] : null;
-    state.primaryChosen = true;
-    sources.delete('primary');
-  } else if (choice === '4') {
-    console.log('Companion tools (optional): selecting one writes docs and config snippets. Install each project yourself.');
-    TOOLS.forEach((tool, i) => console.log(`  ${i + 1} ${tool.name}: ${tool.role}\n    ${tool.requires}\n    ${tool.optionalNote}`));
-    const fallback = TOOLS.map((tool, i) => state.tools.includes(tool) ? i + 1 : null).filter(Boolean).join(',') || 'none';
-    state.tools = numberedPicks(await ask(`Companions [${fallback}]: `, fallback), TOOLS, 'tool');
-    sources.delete('tools');
-    sources.delete('no-tools');
-  } else if (choice === '5') {
-    state.dir = resolve(await ask(`Docs folder [${state.dir}]: `, state.dir));
-    state.project = resolve(await ask(`Project root [${state.project}]: `, state.project));
-    sources.delete('dir');
-    sources.delete('project');
-  } else if (choice === '6') {
-    const plans = {};
-    for (const ai of state.selected.filter((candidate) => candidate.plans)) {
-      const first = ai.plans[0];
-      console.log(`\nWhich ${ai.vendor} plan? (checked ${first.checked}, source ${first.source})`);
-      ai.plans.forEach((plan, i) => console.log(`  ${i + 1} ${plan.name} (${plan.headroom} headroom)`));
-      console.log(`  ${ai.plans.length + 1} not sure`);
-      const fallback = String(state.plans[ai.id] ? ai.plans.indexOf(state.plans[ai.id]) + 1 : ai.plans.length + 1);
-      const answer = Number(await ask(`Plan [${fallback}]: `, fallback));
-      if (!Number.isInteger(answer) || answer < 1 || answer > ai.plans.length + 1) bad('pick a listed plan number');
-      if (answer <= ai.plans.length) plans[ai.id] = ai.plans[answer - 1];
-    }
-    state.plans = plans;
-    state.plansChosen = true;
-    state.effortChosen = true;
-    const eligible = eligibleEffort(state.selected, plans);
-    state.effortAuto = eligible.length && /^y/i.test(await ask(`Size reasoning effort per task automatically on ${eligible.join(', ')}? [y/N] `, 'n')) ? eligible : [];
-    sources.delete('plans');
-    sources.delete('effort-auto');
-  } else if (choice === '7' && state.level === 3) {
-    console.log('Which metered API keys do you HOLD? A subscription is not an API key. Only variable names are written.');
-    PROVIDERS.forEach((provider, i) => console.log(`  ${i + 1} ${provider.name} (${provider.envName})`));
-    const fallback = PROVIDERS.map((provider, i) => state.apis.includes(provider) ? i + 1 : null).filter(Boolean).join(',') || 'none';
-    state.apis = numberedPicks(await ask(`Your keys [${fallback}]: `, fallback), PROVIDERS, 'provider');
-    sources.delete('apis');
-    sources.delete('no-apis');
-  } else bad('pick a listed edit number');
-  validateSetup(state);
+    // A single field can pass its own check and still leave the whole setup
+    // inconsistent (e.g. a level dropped below what a still-selected AI
+    // needs). Catch that here too: report it and go back to the menu instead
+    // of exiting, so the user can fix whichever field caused it.
+    try { validateSetup(state); return; }
+    catch (e) { if (!e || e.code !== 'USAGE') throw e; console.log(e.message); }
+  }
 }
 
 async function main() {
@@ -341,7 +404,8 @@ async function main() {
     setup.selected = await askAis(available, setup.detected);
   }
   setup.level = opt('level') ? Number(opt('level')) : inferLevel(setup.selected);
-  setup.primary = opt('primary') ? byId[opt('primary')] : inferPrimary(agentCandidates(setup.selected)) || null;
+  setup.primary = opt('primary') ? byId[opt('primary')]
+    : (yes ? legacyPrimary(agentCandidates(setup.selected)) : inferPrimary(agentCandidates(setup.selected))) || null;
   setup.levelChosen = opt('level') !== null;
   setup.primaryChosen = opt('primary') !== null;
   setup.plansChosen = opt('plans') !== null;
@@ -529,5 +593,5 @@ function isEntryPoint() {
 }
 if (isEntryPoint()) main().catch((e) => {
   console.error('model-orchestrator: ' + (e && e.message ? e.message : e));
-  process.exit(e && ['EOF', 'UNINSTALL', 'PREFLIGHT'].includes(e.code) ? 2 : 1);
+  process.exit(e && ['EOF', 'UNINSTALL', 'PREFLIGHT', 'USAGE'].includes(e.code) ? 2 : 1);
 });
