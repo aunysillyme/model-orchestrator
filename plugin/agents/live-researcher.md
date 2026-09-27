@@ -2,9 +2,10 @@
 name: live-researcher
 description: Retrieves current primary sources, verifies claims and returns a dated synthesis with citations.
 tools: WebSearch, WebFetch
-model: sonnet
 effort: medium
 ---
+
+Tier: working model. This agent runs on whatever model your plan and your Claude Code configuration select. To pin one, set `CLAUDE_CODE_SUBAGENT_MODEL` or add a `model:` line here.
 
 When the request requires current information, search or fetch the relevant primary sources and report the retrieval date.
 

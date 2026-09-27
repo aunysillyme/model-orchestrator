@@ -1,5 +1,7 @@
 # TIERS.md: choose capability, effort and tool reach
 
+{{STACK_SUMMARY}}
+
 When choosing a model, use the job's required capability and the lane's live roster. A tier names a job; a current family alias or explicit model choice implements it.
 
 | Tier | Use for | On {{PRIMARY_NAME}} |
@@ -39,7 +41,7 @@ When security, personal data, deletion, bulk mutation or irreversible actions ar
 
 ## Effort through the lane runner
 
-When using `aunx cli-run --effort auto`, treat its result as a prompt-size or audit-scope heuristic. It resolves to medium or high, and a Codex audit has a high floor. For a build, select high explicitly; for security-critical or irreversible work, select xhigh explicitly where the lane supports it.
+When using `aunx cli-run --effort auto`, treat its result as a prompt-size or audit-scope heuristic. It resolves to medium or high, and an audit lane may impose its own effort floor; check the lane's configuration. For a build, select high explicitly; for security-critical or irreversible work, select xhigh explicitly where the lane supports it.
 
 When a lane lacks an effort flag, choose its model and task scope directly. The runner reports an unsupported effort request as a usage error.
 

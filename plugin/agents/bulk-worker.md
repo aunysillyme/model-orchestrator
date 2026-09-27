@@ -2,9 +2,10 @@
 name: bulk-worker
 description: Classifies, tags, extracts, reformats or summarizes many similar items with a cheap model and bounded scope.
 tools: Read, Glob, Grep, Write
-model: haiku
 effort: low
 ---
+
+Tier: cheap model. This agent runs on whatever model your plan and your Claude Code configuration select. To pin one, set `CLAUDE_CODE_SUBAGENT_MODEL` or add a `model:` line here.
 
 When a brief assigns many similar items, use its categories or output schema consistently across the full authorized set.
 

@@ -2,9 +2,10 @@
 name: builder
 description: Implements the section assigned by the task brief; writes code, edits files and runs the required checks.
 tools: Read, Write, Edit, Glob, Grep, Bash
-model: sonnet
 effort: high
 ---
+
+Tier: working model. This agent runs on whatever model your plan and your Claude Code configuration select. To pin one, set `CLAUDE_CODE_SUBAGENT_MODEL` or add a `model:` line here.
 
 When a task brief assigns implementation, read its context file and acceptance checks first. Confirm the assigned paths, interfaces, capabilities and current runtime access.
 

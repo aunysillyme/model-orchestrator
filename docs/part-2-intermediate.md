@@ -8,16 +8,18 @@ Keep one main agent coordinating the work. Each other AI is a **lane**: a CLI or
 - **Pay-per-token lanes:** use metered APIs for programmatic work, with an explicit budget and model choice.
 - **Local models:** keep private input on your machine when the task requires that boundary.
 
-The generated delegation matrix describes the tools you selected. Check current model names, permissions and tool reach before assigning a section. Another tool earns a handoff when its capabilities serve the job.
+The generated **Your stack: who does what** table assigns roles using capability facts, billing and selection order. The delegation matrix states each assignment and its reason. An independent reviewer needs a known different model family from the main agent; an unknown family cannot establish independence. Check current model names, permissions and tool reach before assigning a section. [Assignment rules](how-it-routes.md#your-stack-who-does-what).
 
 ## Lane runner (`aunx cli-run`)
+
+Replace `<lane>` with a supported CLI named in your installed stack table.
 
 ```bash
 aunx cli-run --doctor
 # Direct form from the installed rules folder:
 node bin/cli-run.mjs --doctor
-aunx cli-run codex --brief TASK_BRIEF.md --effort high
-# Direct form: node bin/cli-run.mjs codex --brief TASK_BRIEF.md --effort high
+aunx cli-run '<lane>' --brief TASK_BRIEF.md --effort high
+# Direct form: node bin/cli-run.mjs '<lane>' --brief TASK_BRIEF.md --effort high
 ```
 
 `cli-run` reads each vendor's terminal result and returns nonzero when the response is missing, interrupted, timed out or rejected by an output contract. It distinguishes authentication, quota and unavailable-tool failures so the next action can address the cause. Use `--expect-file` or `--expect-json` when your task needs a specific output shape.
@@ -38,7 +40,7 @@ When a requested write is refused by the worker's sandbox, hand that exact file 
 
 Use one audit step. One reviewer checks build against scope; a companion reviewer checks scope against the user's request at the same time. Prefer different model families from the author. If an independent reviewer is unavailable, record that limitation and arrange the required review before release.
 
-`finding-verifier` tries to reproduce each claim. `done-verifier` probes the named definition of done. Repairs follow confirmed findings and each fix gets a regression that is demonstrated to fail before the fix.
+The verification role tries to reproduce each claim and probe the named definition of done. Where your main agent has an installed agent set, `finding-verifier` and `done-verifier` supply these prompts. Repairs follow confirmed findings and each fix gets a regression that is demonstrated to fail before the fix.
 
 ## Research and shared notes
 

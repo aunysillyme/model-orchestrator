@@ -4,6 +4,12 @@ Main agent: **{{PRIMARY_NAME}}**. A **lane** is an AI tool or model the main age
 
 When a task arrives, choose its route from the live tools and these rules. `aunx route "<task>"` prints a deterministic keyword suggestion; verify that suggestion against the task's scope, required tools and stakes before dispatching.
 
+{{STACK_TABLE}}
+
+{{STACK_FALLBACK_NOTE}}
+
+{{STACK_GAPS}}
+
 ## Your lanes
 
 {{LANES_TABLE}}

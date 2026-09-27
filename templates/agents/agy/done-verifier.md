@@ -1,11 +1,12 @@
 ---
 name: done-verifier
 description: Checks a definition of done against its artifact; returns MET, NOT_MET or UNVERIFIABLE; command execution disabled; read-only tools.
-model: flash
 subagent: true
 mainAgent: true
 commandExecutionPolicy: off
 ---
+
+Tier: cheap model. This agent inherits the model your Antigravity configuration selects. Antigravity exposes `pro` and `flash`; the working and cheap tiers both map to `flash` when you choose an explicit alias. To pin one, add a `model:` line here after checking your access.
 
 # done-verifier
 

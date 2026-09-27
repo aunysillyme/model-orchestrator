@@ -1,11 +1,12 @@
 ---
 name: deep-planner
 description: Resolves architecture, strategy and unknown causes from a prepared context file; returns an executable plan.
-model: pro
 subagent: true
 mainAgent: true
 commandExecutionPolicy: off
 ---
+
+Tier: planning model. This agent inherits the model your Antigravity configuration selects. Antigravity exposes `pro` and `flash`; the working and cheap tiers both map to `flash` when you choose an explicit alias. To pin one, add a `model:` line here after checking your access.
 
 # deep-planner
 

@@ -2,9 +2,10 @@
 name: deep-planner
 description: Resolves architecture, strategy and unknown causes from a prepared context file; returns an executable plan.
 tools: Read, Glob, Grep
-model: opus
 effort: xhigh
 ---
+
+Tier: planning model. This agent runs on whatever model your plan and your Claude Code configuration select. To pin one, set `CLAUDE_CODE_SUBAGENT_MODEL` or add a `model:` line here.
 
 When the task needs architecture, strategy or an unknown cause resolved, read the prepared context file and acceptance checks, then test the key assumptions.
 

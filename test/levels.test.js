@@ -21,7 +21,8 @@ test('levels #1: routing names only installed agents and gives main-agent role f
   assert.doesNotMatch(routing, agentNames);
   assert.match(routing, /reading role on the main agent/);
   assert.match(routing, /planning role on the main agent/);
-  assert.match(routing, /review role on the main agent/);
+  assert.match(routing, /Review code without changing it:\*\* -> `cli-run agy`/);
+  assert.match(content(filesFor(2, ['codex']), 'ROUTING.md'), /review role on the main agent/);
   for (const primary of ['claude-code', 'agy']) {
     const installed = filesFor(2, [primary]);
     const names = [...content(installed, 'ROUTING.md').matchAll(new RegExp(agentNames, 'g'))].map(match => match[0]);

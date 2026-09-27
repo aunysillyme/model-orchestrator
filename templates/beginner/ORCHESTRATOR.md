@@ -1,5 +1,7 @@
 # ORCHESTRATOR.md: model routing inside one agent
 
+{{STACK_SUMMARY}}
+
 Main agent: **{{PRIMARY_NAME}}**. When work arrives, match it to a capability tier and the tools available in this session. A **tier** describes a model's capability and cost. A **lane** is an AI tool or model you can hand work to.
 
 ## Choose the tier for the job

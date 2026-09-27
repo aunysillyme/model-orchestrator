@@ -3,7 +3,9 @@ import { join, dirname, relative, resolve, sep, parse as parsePath, posix } from
 import { fileURLToPath } from 'node:url';
 import { render } from './render.js';
 import { createHash } from 'node:crypto';
-import { AIS, LEVELS, TOOLS, PROVIDERS, IMAGES, byId, toolById, providerById, npmSpec } from './catalog.js';
+import { ROLE_SPECS, assignRoles, roleTable, roleRoute, manifestRoles, inferPrimary } from './roles.js';
+import { LANE_FLAGS } from '../bin/cli-run.mjs';
+import { AIS, LEVELS, TOOLS, PROVIDERS, IMAGES, byId, toolById, providerById, npmSpec, summaryWithEvidence } from './catalog.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const GENERATOR_VERSION = JSON.parse(readFileSync(join(HERE, '..', 'package.json'), 'utf8')).version;
@@ -53,15 +55,17 @@ function table(rows, header) {
   return [line(header), line(header.map(() => '---')), ...rows.map(line)].join('\n');
 }
 
-export function lanesTable(selected, plans = {}) {
-  const rows = selected.map((a) => [
+export function lanesTable(selected, plans = {}, primary = inferPrimary(selected)) {
+  const { roles } = assignRoles({ selected, primary, plans });
+  const rows = selected.map(a => [
     a.name,
-    a.lane === 'A' ? 'subscription ($0 per call)' : a.lane === 'B' ? 'pay-per-token' : a.lane === 'local' ? 'local' : 'chat',
-    a.role,
-    a.cliRun ? '`cli-run ' + a.id + '`' : a.bin ? '`' + a.bin + '`' : 'the app',
+    a.facts.billing,
+    summaryWithEvidence(a),
+    Object.entries(roles).filter(([, role]) => role.ai === a.id).map(([id]) => id).join(', ') || 'none',
+    a.facts.cliRun ? '`cli-run ' + a.id + '`' : a.bin ? '`' + a.bin + '`' : 'the app',
     plans[a.id] ? `${plans[a.id].name} (${plans[a.id].headroom} headroom)` : 'not stated'
   ]);
-  return table(rows, ['AI', 'Lane', 'Wins at', 'Call it with', 'Plan']);
+  return table(rows, ['AI', 'Lane', 'What it is', 'Assigned roles', 'Call it with', 'Plan']);
 }
 
 function planGuidance(selected, plans = {}) {
@@ -114,7 +118,7 @@ export function scriptInstallers(selected) {
   const lines = [];
   for (const a of selected) {
     if (a.install.script) lines.push(`say "  ${a.name}:  curl -fsSL ${a.install.script} -o /tmp/${a.id}-install.sh && less /tmp/${a.id}-install.sh && bash /tmp/${a.id}-install.sh"`);
-    else if (a.install.url && a.kind !== 'chat') lines.push(`say "  ${a.name}:  ${a.install.url}"`);
+    else if (a.install.url && a.facts.kind !== 'chat') lines.push(`say "  ${a.name}:  ${a.install.url}"`);
   }
   return lines.length ? lines.join('\n') : 'say "  none"';
 }
@@ -163,105 +167,108 @@ export function dirProblems(dir) {
   return problems;
 }
 
-// The lane the generated weekly audit calls: the first ENABLED cli-run lane
-// in this preference order. None enabled means the job refuses at run time
-// (exit 13) instead of calling a lane the installer disabled.
-export const AUDIT_LANE_ORDER = ['hermes', 'qwen', 'codex', 'agy', 'grok'];
-export function auditLane(selected) {
-  const enabled = new Set(selected.filter((a) => a.cliRun).map((a) => a.id));
-  return AUDIT_LANE_ORDER.find((l) => enabled.has(l)) || null;
+// The weekly job uses the independent review assignment, then an eligible
+// bulk runner. A main-agent fallback without a runner keeps the exit-13 guard.
+export function auditLane(selected, primary = selected[0]) {
+  const { roles } = assignRoles({ selected, primary });
+  const id = roles.review.ai ?? roles.bulk.ai ?? null;
+  return selected.some(a => a.id === id && a.facts.cliRun) ? id : null;
 }
 
-// Everything ROUTING.md and RESEARCH_TRIAGE.md say about lanes is rendered
-// from the lanes the user actually has. A generated manual must never
-// recommend a command its own lanes.json disables.
+function stackContext(selected, primary, detected = new Set()) {
+  const installed = new Set(agentIds(primary));
+  const names = { plan: 'deep-planner', build: 'builder', review: 'code-reviewer', verify: 'finding-verifier', research: 'live-researcher', bulk: 'bulk-worker', read: 'reader' };
+  const agents = Object.fromEntries(Object.entries(names).filter(([, name]) => installed.has(name)));
+  return { selected, primary, detected, agents };
+}
+
+function rolePick(id, assignment, ctx) {
+  const entry = roleRoute(id, assignment, ctx);
+  if (!entry || !entry.ai) return `none selected: ${entry?.reason || entry?.why || 'no eligible lane'}`;
+  const ai = ctx.selected.find(a => a.id === entry.ai);
+  if (entry.command) return '`' + entry.command + '`';
+  if (entry.via === 'local') return `${ai.name} on your machine`;
+  if (entry.via === 'main-agent') {
+    if (ai.facts.kind === 'chat') return `paste the work into your main agent, ${entry.tier} tier`;
+    return `${entry.agent ? '`' + entry.agent + '` on ' : ''}your main agent, ${entry.tier} tier`;
+  }
+  return `${ai.name}, ${entry.tier} tier`;
+}
+
+// Routing advice uses the same assignments as the stack table and manifest.
+// Capability facts determine eligibility; selection order resolves equal fits.
 export function laneVars(selected, primary = selected[0]) {
-  const has = (id) => selected.some((a) => a.id === id);
+  const assignment = assignRoles({ selected, primary });
+  const ctx = stackContext(selected, primary);
+  const { roles } = assignment;
   const rolesForPrimary = routingRoles(primary);
-  // Provider-configurable lanes have no known family until the user probes
-  // their current model. Selection alone cannot establish independence.
-  const reviewer = primary?.modelFamily
-    ? selected.find((a) => a.cliRun && a.modelFamily && a.modelFamily !== primary.modelFamily)
-    : null;
-  const reviewCommand = reviewer ? '`cli-run ' + reviewer.id + (reviewer.id === 'codex' ? ' --audit' : '') + '`' : null;
+  const pick = id => rolePick(id, assignment, ctx);
+  // The installed subagent labels describe only main-agent assignments.
+  // An external winner must reach the action instructions as well as the table.
+  const assignedLabel = (id, local) => roles[id]?.ai && roles[id].ai !== primary?.id ? pick(id) : local;
+  const assignedRoles = {
+    PLANNER_ROLE: assignedLabel('plan', rolesForPrimary.PLANNER_ROLE),
+    BUILDER_ROLE: assignedLabel('build', rolesForPrimary.BUILDER_ROLE),
+    REVIEW_ROLE: assignedLabel('review', rolesForPrimary.REVIEW_ROLE),
+    FINDING_ROLE: assignedLabel('verify', rolesForPrimary.FINDING_ROLE),
+    DONE_ROLE: assignedLabel('verify', rolesForPrimary.DONE_ROLE),
+    LIVE_ROLE: assignedLabel('research', rolesForPrimary.LIVE_ROLE),
+    BULK_ROLE: assignedLabel('bulk', rolesForPrimary.BULK_ROLE),
+    READER_ROLE: assignedLabel('read', rolesForPrimary.READER_ROLE)
+  };
+  const reviewer = selected.find(a => a.id === roles.review.ai);
   const review = reviewer
-    ? `${reviewCommand} (different model family from the main agent by default; verify the current models before dispatch${reviewer.id === 'codex' ? '; read-only filesystem sandbox' : '; request review only and check the CLI permissions'})`
-    : `${rolesForPrimary.REVIEW_ROLE} in a fresh context. No different-family reviewer is selected; select one and verify its model before an independent review`;
-  const categories = new Set(selected.flatMap((a) => a.laneCategories || []));
-  const supplies = (category) => categories.has(category);
-  const picks = [
-    ['cheapest-metered', 'Bulk classify / extract / summarize, data may leave the machine', 'the cheapest metered lane, then the cheap model tier', 'use the selected bulk worker and verify its output'],
-    ['local', 'Bulk work on data that must stay local', 'the local lane', 'a privacy lane; route here for confinement'],
-    ['fan-out', 'Many independent items each needing its own agent turn', 'a concurrent fan-out lane', 'one call, N children, on a subscription'],
-    ['live-data', 'Live web or social reads', 'the live-data CLI', 'subscription-covered; the same search on the API bills per call'],
-    [null, 'Code review, no changes', `${rolesForPrimary.REVIEW_ROLE}, working model tier`, 'reproduce each finding before repair'],
-    [null, 'Second-opinion audit of a security-shaped diff', review, 'verify reviewer independence and reproduce findings'],
-    [null, 'Deep architecture / planning', 'planning model tier', 'expensive to get wrong'],
-    [null, 'Well-specified execution', 'the working model lane selected during Assign', 'match the section to available tools, rules and context'],
-    ['largest-context', 'Long-document analysis', 'the largest-context lane, or caching on the main agent', 'window size vs re-query cost'],
-    [null, 'Routing decisions themselves', 'the cheapest lane you have, or none', 'spend only the tokens the routing decision needs'],
-    ['free', 'Rough drafts, divergent reads, first-pass summaries', 'the free tier', '$0, and disagreement with the main agent is information'],
-    ['cheapest-metered', 'Anything citing a line, a number, or a source', 'the cheapest metered lane with a full verification pass', 'verify every supporting number and citation']
-  ].filter(([category]) => !category || supplies(category)).map(([, ...row]) => row);
+    ? `${pick('review')} (different model family from the main agent by default; verify the current models before dispatch${reviewer.facts.readOnlyMode ? '; read-only filesystem sandbox' : '; request review only and check the CLI permissions'})`
+    : `${rolesForPrimary.REVIEW_ROLE} in a fresh context. No different-family reviewer is selected; treat this as a self-check, not an independent review. ${roles.review.why}`;
+  const picks = ROLE_SPECS.filter(spec => roles[spec.id]).map(spec => [spec.job, spec.id === 'review' ? review : pick(spec.id), roles[spec.id].why]);
+  const metered = selected.some(a => a.facts.billing === 'pay-per-token');
+  const free = selected.some(a => a.facts.billing === 'free');
   const cost = [
-    'Prompt caching everywhere it fits: frozen prefix first, volatile text last.',
-    'Cascade: cheapest capable tier first, escalate on signal.',
-    ...(supplies('cheapest-metered') ? ['Batch APIs where the selected provider supports them, for work that can wait.'] : []),
-    ...(supplies('free') ? ['A free model for routing decisions.'] : []),
-    'Effort and reasoning knobs before model swaps; often the bigger lever.',
-    'Alias-based config so a vendor rename is a one-line repoint.'
+    'Prompt caching where it fits: frozen prefix first, volatile text last.',
+    `Use the assigned bulk route for bounded volume: ${pick('bulk')}. ${roles.bulk.why}.`,
+    ...(metered ? ["Batch APIs where the selected provider supports them, for work that can wait. When a rate is unverified, check your provider's rate."] : []),
+    ...(free ? ['A free model can carry routing decisions when its tools and context fit.'] : []),
+    'Select effort and scoped context before changing model tiers.',
+    'Read the current model roster before choosing an explicit model.'
   ];
-  const enabled = selected.filter((a) => a.cliRun).map((a) => a.id);
-  const cr = (id) => '`cli-run ' + id + '`';
-  const step0 = [];
-  if (has('hermes')) step0.push(`${cr('hermes')} (the free tier) for rough drafts and divergent reads`);
-  if (has('qwen')) step0.push(`${cr('qwen')} (the cheapest metered lane) for structured bulk, never for anything citing a line, number or source`);
-  if (has('grok')) step0.push(`${cr('grok')} for X and live web reads at $0`);
-  if (reviewer) step0.push(`${review} for a second-opinion read`);
-  if (has('codex') && reviewer?.id !== 'codex') step0.push(`${cr('codex --audit')} for a fresh-context review; verify its model family before treating it as independent`);
-  if (has('agy')) step0.push(`${cr('agy')} for research sweeps and concurrent fan-out`);
-  const stage1 = [];
-  if (has('codex')) stage1.push(`${cr('codex')} for a second-opinion critique of the map`);
-  if (has('grok')) stage1.push(`${cr('grok')} to verify current API behaviour instead of trusting recall`);
-  if (has('hermes')) stage1.push(`${cr('hermes')} for a divergent read`);
-  if (has('agy')) stage1.push(`${cr('agy')} for a wide sweep of prior art`);
-  const examples = [];
-  examples.push(has('grok') ? `| "What is trending on X today" | ${cr('grok')} |` : `| "What is trending on X today" | ${rolesForPrimary.LIVE_ROLE} (working model tier with web tools) |`);
-  examples.push(`| "Audit this auth diff" | ${review} |`);
-  examples.push(has('qwen') ? `| "Classify these 200 items" | ${rolesForPrimary.BULK_ROLE}, or ${cr('qwen')} if the items may leave the machine |` : `| "Classify these 200 items" | ${rolesForPrimary.BULK_ROLE} |`);
-  examples.push(enabled.length >= 2 ? '| "Research this topic properly" | several engines in parallel, see `RESEARCH_TRIAGE.md` |' : '| "Research this topic properly" | planning model tier plans, working model tier sweeps, a fresh context challenges; see `RESEARCH_TRIAGE.md` |');
-  const roles = [];
-  if (has('agy')) roles.push('| Web sweep | `cli-run agy` | widest landscape pass |');
-  if (has('codex')) roles.push('| Second-opinion read | `cli-run codex --audit` | question the premise, hunt for what the others would get wrong |');
-  if (has('grok')) roles.push('| Live data | `cli-run grok` | dated primary sources, real-time reads |');
-  if (has('hermes')) roles.push('| Cheap divergent read | `cli-run hermes` | another opinion at $0 |');
-  if (has('qwen')) roles.push('| Structured extraction | `cli-run qwen` | pull the facts into a table; never trust its citations without a check |');
-  roles.push('| Triage + the durable record | the orchestrator | opens primary sources, marks every claim, writes the artifact |');
-  const run = [];
-  if (has('agy')) run.push('node bin/cli-run.mjs agy   --brief "$BRIEF" --timeout 900 > research/out-agy.md');
-  if (has('codex')) run.push('node bin/cli-run.mjs codex --audit --brief "$BRIEF" --timeout 900 > research/out-codex.md');
-  if (has('grok')) run.push('node bin/cli-run.mjs grok  --brief "$BRIEF" --timeout 900 > research/out-grok.md');
-  if (has('hermes')) run.push('node bin/cli-run.mjs hermes --brief "$BRIEF" --timeout 900 > research/out-hermes.md');
-  if (has('qwen')) run.push('node bin/cli-run.mjs qwen  --brief "$BRIEF" --timeout 900 > research/out-qwen.md');
+  const enabled = selected.filter(a => a.facts.cliRun);
+  const step0 = ROLE_SPECS.filter(spec => roles[spec.id]?.ai && roles[spec.id].ai !== primary?.id)
+    .map(spec => `${pick(spec.id)} for ${spec.job.toLowerCase()}; ${roles[spec.id].why}`);
+  const stage1 = ['research', 'review', 'fan-out'].filter(id => roles[id]?.ai)
+    .map(id => `${id === 'review' ? review : pick(id)} for ${id === 'research' ? 'current primary sources' : id === 'review' ? 'a critique of the context file' : 'independent research units'}`);
+  const examples = [
+    `| "What is current on this topic" | ${pick('research')}; ${roles.research.why} |`,
+    `| "Audit this auth diff" | ${review} |`,
+    `| "Classify these 200 items" | ${pick('bulk')} |`,
+    '| "Research this topic properly" | plan the question, collect primary sources and verify claims; see `RESEARCH_TRIAGE.md` |'
+  ];
+  const researchRoles = ['research', 'review', 'bulk', 'fan-out'].filter(id => roles[id]?.ai)
+    .map(id => `| ${ROLE_SPECS.find(spec => spec.id === id).job} | ${id === 'review' ? review : pick(id)} | ${roles[id].why} |`);
+  researchRoles.push('| Triage + the durable record | the main agent | opens primary sources, marks every claim, writes the artifact |');
+  const runLanes = new Map();
+  for (const id of ['review', 'research', 'bulk', 'fan-out']) {
+    const entry = roleRoute(id, assignment, ctx);
+    if (entry?.command && !runLanes.has(entry.ai)) runLanes.set(entry.ai, entry.command);
+  }
+  const run = [...runLanes].map(([id, command]) => `node bin/cli-run.mjs ${command.replace(/^cli-run /, '')} --brief "$BRIEF" --timeout 900 > research/out-${id}.md`);
   return {
-    ...rolesForPrimary,
+    ...assignedRoles,
     TASK_LANES_TABLE: table(picks, ['Task type', 'Pick', 'Why']),
     COST_PLAYBOOK: cost.map((line, i) => `${i + 1}. ${line}`).join('\n'),
-    FAN_OUT_ADVICE: supplies('fan-out') ? ' Many independent items each needing its own agent turn → the selected concurrent fan-out lane.' : '',
-    METERED_CITATION_NOTE: supplies('cheapest-metered') ? " A lane's figure is re-derived before it is repeated: verify every supporting number and citation from the cheapest metered lane." : '',
-    RESEARCH_SELECTION_ADVICE: (enabled.length >= 2
-      ? 'send the same task brief to your selected CLI lanes, preferring different model families. Run each through `cli-run` so a run that produced nothing exits 10 and is treated as a missing engine.'
-      : 'use the main agent for the sweep, then a fresh-context second-opinion turn. Add CLI lanes from different model families for independent research passes.')
-      + (reviewer ? ` For independent review, use ${review}.` : ' No different-family reviewer is selected; verify a candidate lane\'s current model before treating its review as independent.'),
+    FAN_OUT_ADVICE: roles['fan-out'] ? ` Many independent items each needing their own agent turn → ${pick('fan-out')}.` : '',
+    METERED_CITATION_NOTE: metered ? ' Verify every supporting number and citation returned by a pay-per-token lane.' : '',
+    RESEARCH_SELECTION_ADVICE: `Use ${pick('research')} for current primary sources. ${roles.research.why}. ` + (enabled.length >= 2
+      ? 'Send a shared task brief to selected lanes with complementary capabilities; prefer different model families for independent perspectives.'
+      : 'Use a fresh context to challenge the sweep; add a different model family for independent research.') + ` For review, use ${review}.`,
     GAP_ANALYSIS_LANE: `${review}. Give it the same artifact and verify each finding before acting.`,
-    LANE_STEP0: step0.length ? step0.map((l) => '   - ' + l).join('\n') : '   - none selected yet: every task stays on your main agent\'s tiers until you add a lane (re-run the installer with more AIs)',
-    STAGE1_LANES: stage1.length ? '; ' + stage1.join(', ') : '',
+    LANE_STEP0: step0.length ? step0.map(line => '   - ' + line).join('\n') : '   - no separate lane selected yet: use your main agent\'s tiers; keep local-only work off cloud lanes and arrange independent review separately',
+    STAGE1_LANES: stage1.length ? '; ' + stage1.join('; ') : '',
     ATTACK_LANE: review,
-    LIVE_LANE: has('grok') ? '`cli-run grok` first ($0), then' : '',
-    BULK_LANE: has('qwen') ? ', or `cli-run qwen` if the data may leave your machine' : has('hermes') ? ', or `cli-run hermes` for a free rough pass' : '',
+    LIVE_LANE: `${pick('research')} for current sources, then`,
+    BULK_LANE: `; assigned bulk route: ${pick('bulk')}`,
     LANE_EXAMPLES: examples.join('\n'),
-    RESEARCH_ROLES: roles.join('\n'),
-    RESEARCH_RUN: run.length ? run.flatMap(command => ['# Or: ' + command.replace('node bin/cli-run.mjs', 'aunx cli-run'), command]).join('\n') : '# no cli-run lane selected: run the sweep on your main agent, then a fresh second-opinion turn (protocols/deep-research.md, level 1 shape)',
+    RESEARCH_ROLES: researchRoles.join('\n'),
+    RESEARCH_RUN: run.length ? run.flatMap(command => ['# Or: ' + command.replace('node bin/cli-run.mjs', 'aunx cli-run'), command]).join('\n') : '# no separate cli-run assignment: run the sweep on your main agent, then a fresh-context self-check',
     RESEARCH_ENGINES: String(run.length)
   };
 }
@@ -273,7 +280,7 @@ export function laneVars(selected, primary = selected[0]) {
 // note) is gated on this so a primary with no verified premise keeps the
 // original, more conservative wording.
 export function subagentsLoadRules(primary) {
-  return !!(primary && primary.subagentsLoadRules);
+  return !!(primary && primary.facts.loadsProjectRules);
 }
 
 // Canonical agent order, tier-first. Used to render a stable, non-hardcoded
@@ -282,7 +289,7 @@ export function subagentsLoadRules(primary) {
 // stale the way the finding-verifier omission did.
 const AGENT_ORDER = ['deep-planner', 'builder', 'code-reviewer', 'finding-verifier', 'live-researcher', 'bulk-worker', 'done-verifier', 'reader'];
 function agentIds(primary) {
-  if (!primary?.agentsDir) return [];
+  if (!primary?.facts.agentDefinitions) return [];
   const dir = join(TEMPLATES, 'agents', primary.id);
   if (!existsSync(dir)) return [];
   const files = readdirSync(dir).filter((f) => f.endsWith('.md') && f !== 'README.md').map((f) => f.replace(/\.md$/, ''));
@@ -313,32 +320,25 @@ function routingRoles(primary) {
 // The compact "choose a route before acting" table, rendered from the AIs the
 // user actually selected and the agents actually installed, never a second
 // hand-typed copy of ROUTING.md's decision tree.
-export function routeGateTable(selected) {
-  const rows = [
-    ['Bulk or mechanical, many similar items', 'bulk-worker'],
-    ['Needs live data', 'live-researcher'],
-    ['Review without changing', 'code-reviewer'],
-    ['Findings from a review or a scanner', 'finding-verifier, before any repair'],
-    ['Reading or digesting many files or notes', 'reader'],
-    ['Checking a tracker item against its stated definition of done', 'done-verifier'],
-    ['Ambiguous, architectural, expensive to get wrong', 'deep-planner'],
-    ['Everything else that changes files', 'builder after Assign confirms its tools, rules and context fit']
-  ];
-  for (const a of selected.filter((x) => x.cliRun)) rows.push([a.role, '`cli-run ' + a.id + '`']);
+export function routeGateTable(selected, primary = inferPrimary(selected)) {
+  const assignment = assignRoles({ selected, primary });
+  const ctx = stackContext(selected, primary);
+  const rows = ROLE_SPECS.filter(spec => assignment.roles[spec.id])
+    .map(spec => [spec.job, rolePick(spec.id, assignment, ctx)]);
   return table(rows, ['Task', 'Lane']);
 }
 
 // The marked block route-gate.mjs extracts at runtime. Installed only for
 // claude-code so the hook always finds a block to read; other primaries get
 // no hook and so get no block.
-export function routeGateSection(selected) {
+export function routeGateSection(selected, primary = inferPrimary(selected)) {
   return [
     '<!-- route-gate:start -->',
     '## Route gate: choose a route before acting',
     '',
     'Injected on every turn by the `route-gate` hook, so this table is read at runtime rather than recalled from memory.',
     '',
-    routeGateTable(selected),
+    routeGateTable(selected, primary),
     '',
     "Stay inline only when: (a) the brief would cost as much as the work itself, (b) the task needs this conversation's own context, (c) it is the human's decision or the final verification of delegated work (a delegate never verifies itself).",
     '',
@@ -437,15 +437,15 @@ export function activationSteps(opts) {
   // claude.ai (chat only, no CLI)'s custom instructions" was the sentence this
   // replaces (#22).
   else if (snippet) steps.push(`open ${primary.chatName || primary.name} and paste the block in ${join(dirAbs, snippet)} into its ${primary.chatSurface || 'custom instructions'}`);
-  if (primary && primary.agentsDir) steps.push(`subagents are in ${join(projectAbs, primary.agentsDir)}; run ${primary.bin} from ${projectAbs} to pick them up`);
+  if (primary && primary.facts.agentDefinitions) steps.push(`subagents are in ${join(projectAbs, primary.facts.agentDefinitions)}; run ${primary.bin} from ${projectAbs} to pick them up`);
   // Only claude-code ships hooks (route-gate, subagent-context): the wiring
   // lives in a snippet, applied only when the user opts in.
   if (opts.applySnippets) steps.push(`applied hooks to ${join(projectAbs, '.claude', 'settings.json')}, preserving existing settings and hooks`);
   else if (subagentsLoadRules(primary)) steps.push(`merge the hooks in ${join(dirAbs, 'settings.hooks.snippet.json')} into ${join(projectAbs, '.claude', 'settings.json')} (create it if missing) to wire the route-gate, subagent-context and route-metrics hooks`);
-  for (const a of selected.filter((a) => a.bin && a.kind === 'agent-cli')) steps.push(`sign in to ${a.name}: ${a.auth}`);
+  for (const a of selected.filter((a) => a.bin && a.facts.kind === 'agent-cli')) steps.push(`sign in to ${a.name}: ${a.auth}`);
   // A local runtime has a bin but no sign-in, so the agent-cli loop above skips it
   // and before this it appeared in no ordered list at any level (#26).
-  for (const a of selected.filter((a) => a.bin && a.kind === 'local')) {
+  for (const a of selected.filter((a) => a.bin && a.facts.kind === 'local-runtime')) {
     steps.push(level >= 3
       ? `${a.name}: follow vm/README.md, then run \`bash setup-vm.sh --start-services\` in vm/ to pull the configured model into its Compose service and verify local-small`
       : `install ${a.name}: ${a.install.url}, then \`${a.bin} pull <model>\` before the local lane can answer`);
@@ -468,7 +468,7 @@ export function proofSteps(opts) {
   if (level >= 2) {
     steps.push('Run `node bin/cli-run.mjs --doctor` from this folder, or `aunx cli-run --doctor` from your project root. It checks binary presence, not authentication or loaded instructions, and prints the model and effort each lane is pinned to. `--doctor --run` additionally uses a little quota to test live responses. No enabled lanes means delegation is inactive.');
     steps.push('Decide whether the route matters to you. Every lane starts unpinned, which means it runs on whatever its own config file says: a CLI configured months ago at a low reasoning effort will keep auditing at that effort while your docs describe something stronger. Pin it in `bin/lanes.json` under `defaults`, or per call with `--model` and `--effort`. Either way the run is recorded in the log with the value requested and where it came from.');
-    if (selected.some(a => a.cliRun)) {
+    if (selected.some(a => a.facts.cliRun)) {
       steps.push('To test a real output contract, choose an enabled lane from `bin/lanes.json` and run `node bin/cli-run.mjs <lane> \'Return only {"sorted":["apple","banana","pear"]}\' --expect-json`. The same command is available as `aunx cli-run <lane>` with those arguments. This uses quota. Expect JSON and exit 0; inspect the array yourself. A non-JSON response exits 10, a missing binary exits 13, and an authentication failure reports the vendor error. The explicit lane tests execution; your main agent still makes delegation decisions.');
     } else {
       steps.push('Delegation is inactive: no supported CLI lane is selected, so `--doctor` will exit 13. Defer the output-contract test until you select a supported CLI lane: re-run the installer with that lane in `--ais` and `--update-docs`, then install it and sign in using the printed instructions.');
@@ -489,7 +489,15 @@ function vars(opts) {
   const tools = opts.tools || [];
   const apis = opts.apis || [];
   const lvl = LEVELS.find((l) => l.id === level);
-  const lane = auditLane(selected);
+  const lane = auditLane(selected, primary);
+  const assignment = assignRoles({ selected, primary, detected: opts.detected, plans });
+  const stack = stackContext(selected, primary, opts.detected);
+  const enabled = selected.filter(a => a.facts.cliRun);
+  const exampleLane = enabled[0]?.id || '<lane>';
+  const exampleDefaults = { model: '<model-id>', ...(LANE_FLAGS[exampleLane]?.effort ? { effort: 'high' } : {}) };
+  const auditExample = enabled.find(a => a.facts.readOnlyMode);
+  const fallbackNote = 'When no separate lane qualifies, your main agent carries the job at its stated tier. Independent review and local-only work require an eligible lane.';
+  const gaps = assignment.unassigned.map(id => `${id}: ${assignment.roles[id].why}`).join(' ');
   const codecalc = tools.some((t) => t.id === 'codecalc');
   const dirAbs = resolve(opts.dir || 'ai-orchestrator');
   const projectAbs = resolve(opts.project || process.cwd());
@@ -534,10 +542,10 @@ function vars(opts) {
   // Only claude-code and agy put files under the project root. A chat primary
   // puts nothing there, so naming a project root would name a folder this run
   // never created (#21).
-  const writesProject = !!(primary && primary.agentsDir);
+  const writesProject = !!(primary && primary.facts.agentDefinitions);
   const readsProjectRules = !!(primary && primary.rulesFile);
   const whereThingsWent = [`- This folder: \`${dirAbs}\``];
-  if (writesProject) whereThingsWent.push(`- Project root (where your agent reads rules and subagents): \`${projectAbs}\``, `- Subagent definitions: \`${join(projectAbs, primary.agentsDir)}\``);
+  if (writesProject) whereThingsWent.push(`- Project root (where your agent reads rules and subagents): \`${projectAbs}\``, `- Subagent definitions: \`${join(projectAbs, primary.facts.agentDefinitions)}\``);
   else if (readsProjectRules) whereThingsWent.push(`- Project root (where ${primary.name} reads \`${primary.rulesFile}\`): \`${projectAbs}\`` + (existsSync(projectAbs) ? '' : ' (this run wrote nothing there; create the folder before you copy the snippet in)'), '- Subagent definitions: none, this agent has no subagent folder');
   else whereThingsWent.push('- Project root: none. A chat app reads pasted instructions, not files, so this install wrote nothing to a project folder.', '- Subagent definitions: none');
   whereThingsWent.push(`- The rules path your snippets use: \`${rulesPath}\``);
@@ -546,6 +554,15 @@ function vars(opts) {
     : '- Rules location: project-relative, so moving the project and its rules folder together preserves the paths.');
   return {
     ...laneVars(selected, primary),
+    STACK_TABLE: roleTable(assignment, stack),
+    STACK_FALLBACK_NOTE: fallbackNote,
+    STACK_GAPS: gaps,
+    STACK_SUMMARY: ['## Your stack: who does what', fallbackNote, gaps + ' Full assignments: [README.md](README.md#your-stack-who-does-what).'].join('\n'),
+    EXAMPLE_LANE: exampleLane,
+    EXAMPLE_EFFORT_FLAGS: LANE_FLAGS[exampleLane]?.effort ? ' --effort high' : '',
+    EXAMPLE_AUDIT_LANE: auditExample?.id || '',
+    EXAMPLE_AUDIT_BLOCK: auditExample ? `When reviewing with an available read-only mode, select its audit shape:\n\n\x60\x60\x60bash\naunx cli-run ${auditExample.id} --audit --brief REVIEW.md\nnode bin/cli-run.mjs ${auditExample.id} --audit --brief REVIEW.md\n\x60\x60\x60` : 'When reviewing, verify the chosen lane permissions and request review-only work.',
+    EXAMPLE_LANES_JSON: JSON.stringify({ enabled: enabled.map(a => a.id), defaults: { [exampleLane]: exampleDefaults } }, null, 2),
     ACTIVATION_STEPS: steps.map((st, i) => `${i + 1}. ${st}`).join('\n'),
     PROOF_STEPS: proofs.map((st, i) => `${i + 1}. ${st}`).join('\n'),
     LOAD_IT: opts.applySnippets
@@ -561,7 +578,7 @@ function vars(opts) {
     CLAUDE_HOOKS_ACTIVATION: opts.applySnippets
       ? 'The installer merged the hook entries into `.claude/settings.json` to wire all three in.'
       : 'Merge `settings.hooks.snippet.json`, written next to this file, into `.claude/settings.json` to wire all three in.',
-    CHAT_UPLOAD_NOTE: primary && primary.kind === 'chat' ? ' A chat app cannot open a local path: upload or paste any protocol file you want it to read.' : '',
+    CHAT_UPLOAD_NOTE: primary && primary.facts.kind === 'chat' ? ' A chat app cannot open a local path: upload or paste any protocol file you want it to read.' : '',
     WHERE_THINGS_WENT: whereThingsWent.join('\n'),
     RULES_PATH: rulesPath,
     RULES_PATH_NOTE: rulesPathNote,
@@ -569,7 +586,7 @@ function vars(opts) {
     RULES_DIR_OVERRIDE_JS: 'process.env.MODEL_ORCHESTRATOR_RULES_DIR',
     ROUTING_FILE: level >= 2 ? 'ROUTING.md' : 'ORCHESTRATOR.md',
     PROJECT_DIR: projectAbs,
-    AGENTS_DIR: primary && primary.agentsDir ? join(projectAbs, primary.agentsDir) : 'none (your main agent has no subagent folder)',
+    AGENTS_DIR: primary && primary.facts.agentDefinitions ? join(projectAbs, primary.facts.agentDefinitions) : 'none (your main agent has no subagent folder)',
     LITELLM_IMAGE: IMAGES.litellm,
     OLLAMA_IMAGE: IMAGES.ollama,
     CODECALC_PIN: pinOf('codecalc'),
@@ -581,21 +598,21 @@ function vars(opts) {
     INSTALL_DIR_SYSTEMD: systemdEscape(dirPosix),
     // vm/README.md step 3 named `grok login` and `agy` whatever you picked (#26).
     VM_SIGNIN: (() => {
-      const lines = selected.filter((a) => a.bin && a.kind === 'agent-cli').map((a) => `   - ${a.name}: ${a.auth}`);
-      for (const a of selected.filter((a) => a.bin && a.kind === 'local')) lines.push(`   - ${a.name}: no sign-in. Step 5 initializes the model in its Compose service.`);
+      const lines = selected.filter((a) => a.bin && a.facts.kind === 'agent-cli').map((a) => `   - ${a.name}: ${a.auth}`);
+      for (const a of selected.filter((a) => a.bin && a.facts.kind === 'local-runtime')) lines.push(`   - ${a.name}: no sign-in. Step 5 initializes the model in its Compose service.`);
       return lines.length ? lines.join('\n') : '   - none: no CLI you selected needs a sign-in on the box.';
     })(),
     VM_LOCAL_MODEL_SH: shellQuote(selected.some((a) => a.id === 'ollama') ? byId.ollama.gatewayModel.replace(/^ollama\//, '') : ''),
-    VM_SCRIPT_INSTALLERS: scriptInstallers(selected.filter((a) => a.kind !== 'local')),
+    VM_SCRIPT_INSTALLERS: scriptInstallers(selected.filter((a) => a.facts.kind !== 'local-runtime')),
     VM_LOCAL_SETUP: selected.some((a) => a.id === 'ollama')
       ? `The command waits for Ollama, pulls \`${byId.ollama.gatewayModel.replace(/^ollama\//, '')}\` inside its Compose service, then requires a nonempty chat completion through the gateway alias \`local-small\`. The container uses its own volume; a host Ollama installation is separate. This check sends one short prompt to the local model.`
       : 'No local runtime was selected. The command starts the configured services; verify any configured provider lanes separately.',
     AUDIT_LANE: lane || 'none',
     // Enforced boundary per lane: codex has a read-only sandbox flag; the others
     // run with whatever their own config allows, and the script says so.
-    AUDIT_LANE_FLAGS: lane === 'codex' ? '--audit' : '',
-    AUDIT_LANE_BOUNDARY_NOTE: lane === 'codex'
-      ? 'codex --audit, a read-only filesystem sandbox; commands and network follow the codex config'
+    AUDIT_LANE_FLAGS: selected.find(a => a.id === lane)?.facts.readOnlyMode ? '--audit' : '',
+    AUDIT_LANE_BOUNDARY_NOTE: selected.find(a => a.id === lane)?.facts.readOnlyMode
+      ? `${lane} --audit, a read-only filesystem sandbox; commands and network follow the ${lane} config`
       : lane
         ? `${lane} offers no sandbox flag cli-run can pass, so the denied-actions list is instruction-level only and enforcement is whatever ${lane}'s own permission config allows`
         : 'no lane selected',
@@ -613,15 +630,15 @@ function vars(opts) {
     PRIMARY_ID: primary ? primary.id : 'none',
     PRIMARY_NAME: primary ? primary.name : 'your agent',
     PRIMARY_RULES_FILE: primary && primary.rulesFile ? primary.rulesFile : 'your agent\'s instructions file',
-    PRIMARY_DEEP: primary && primary.models ? primary.models.deep : 'your strongest model',
-    PRIMARY_STANDARD: primary && primary.models ? primary.models.standard : 'your everyday model',
-    PRIMARY_FAST: primary && primary.models ? primary.models.fast : 'your cheapest model',
-    AIS_LIST: selected.map((a) => '- ' + a.name + ': ' + a.role).join('\n'),
+    PRIMARY_DEEP: 'the planning model available in your configuration',
+    PRIMARY_STANDARD: 'the working model available in your configuration',
+    PRIMARY_FAST: 'the cheap model available in your configuration',
+    AIS_LIST: selected.map((a) => '- ' + a.name + ': ' + summaryWithEvidence(a)).join('\n'),
     AI_IDS: selected.map((a) => a.id).join(','),
-    LANES_TABLE: lanesTable(selected, plans),
+    LANES_TABLE: lanesTable(selected, plans, primary),
     PLAN_GUIDANCE: planGuidance(selected, plans),
     INSTALL_TABLE: installTable(selected),
-    CLI_RUN_LANES: selected.filter((a) => a.cliRun).map((a) => a.id).join(', ') || 'none selected',
+    CLI_RUN_LANES: selected.filter((a) => a.facts.cliRun).map((a) => a.id).join(', ') || 'none selected',
     GATEWAY_MODELS: gatewayModels(selected, apis),
     ENV_NAMES: envNames(selected, apis).map((n) => '- `' + n + '`').join('\n'),
     ENV_EXPORTS: envNames(selected, apis).map((n) => n + '=').join('\n'),
@@ -640,7 +657,7 @@ function vars(opts) {
     PLAN_BIG_LINE: planBigExecuteSmallLine(primary),
     ROLES_BUILDER_ROW: rolesBuilderRow(primary),
     BUILDER_HANDOFF_NOTE: builderHandoffNote(primary),
-    ROUTE_GATE_SECTION: subagentsLoadRules(primary) ? '\n' + routeGateSection(selected) + '\n' : '',
+    ROUTE_GATE_SECTION: subagentsLoadRules(primary) ? '\n' + routeGateSection(selected, primary) + '\n' : '',
     AGENTS_LIST_LINE: claudeAgentIds().map((id) => '`' + id + '`').join(', '),
     RULES_FILE_REL: rulesFileRel,
     RULES_FILE_REL_JSON: JSON.stringify(rulesFileRel),
@@ -663,6 +680,18 @@ export function planFiles(opts) {
   const files = [];
   // root: 'dir' (the docs folder) or 'project' (where the agent actually looks for subagents)
   const add = (rel, content, mode, root = 'dir') => files.push({ rel, content, mode: mode || 0o644, root });
+  const renderAgent = (raw) => {
+    let content = render(raw, v);
+    const tier = raw.match(/^Tier: ((?:planning|working|cheap) model)\./m)?.[1];
+    const model = opts.plans?.[primary?.id]?.tierModels?.[tier];
+    // Mappings belong to a dated, verified plan entry. Every shipped mapping
+    // is null; an unstated plan leaves vendor resolution entirely intact.
+    if (model != null) {
+      if (typeof model !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9_.:/-]*$/.test(model)) throw new Error('invalid tierModels model identifier');
+      content = content.replace(/^---\n/, `---\nmodel: ${model}\n`);
+    }
+    return content;
+  };
   const addTemplates = (sub) => {
     for (const f of walk(join(TEMPLATES, sub))) {
       if (!installable(sub, f.rel)) continue;
@@ -678,7 +707,7 @@ export function planFiles(opts) {
   if (primary && primary.id === 'claude-code') {
     for (const f of walk(join(TEMPLATES, 'agents', 'claude-code'))) {
       if (!installable('agents', f.rel)) continue;
-      add(join('.claude', 'agents', f.rel), render(readFileSync(f.abs, 'utf8'), v), 0o644, 'project');
+      add(join('.claude', 'agents', f.rel), renderAgent(readFileSync(f.abs, 'utf8')), 0o644, 'project');
     }
     add('CLAUDE.snippet.md', render(readFileSync(join(TEMPLATES, 'agents', 'snippets', 'claude-code.md'), 'utf8'), v));
     // Delegate-by-default hooks (0.1.15), claude-code only: route-gate.mjs (UserPromptSubmit)
@@ -695,7 +724,7 @@ export function planFiles(opts) {
   } else if (primary && primary.id === 'agy') {
     for (const f of walk(join(TEMPLATES, 'agents', 'agy'))) {
       if (!installable('agents', f.rel)) continue;
-      add(join('.agents', 'agents', f.rel), render(readFileSync(f.abs, 'utf8'), v), 0o644, 'project');
+      add(join('.agents', 'agents', f.rel), renderAgent(readFileSync(f.abs, 'utf8')), 0o644, 'project');
     }
     add('GEMINI.snippet.md', render(readFileSync(join(TEMPLATES, 'agents', 'snippets', 'generic.md'), 'utf8'), v));
   } else if (primary && primary.rulesFile) {
@@ -715,10 +744,10 @@ export function planFiles(opts) {
       join('bin', 'lanes.json'),
       JSON.stringify(
         {
-          enabled: selected.filter((a) => a.cliRun).map((a) => a.id),
+          enabled: selected.filter((a) => a.facts.cliRun).map((a) => a.id),
           defaults: Object.fromEntries((opts.effortAuto || []).map((lane) => [lane, { effort: 'auto' }])),
           note: 'Lanes cli-run may call. Edit to enable or disable a lane. A lane not listed here exits 13 (unavailable).',
-          defaultsNote: 'Pin what a lane runs with, so the route in your docs is the route that runs: "defaults": {"codex": {"model": "<model-id>", "effort": "high"}}. Left empty, a lane inherits its own config file, which cli-run cannot see and does not guess. `--model` and `--effort` override this per call, and `--doctor` prints what each lane is pinned to. Every lane takes a model; every lane except qwen takes an effort.'
+          defaultsNote: 'Pin what a lane runs with, so the route in your docs is the route that runs: "defaults": {"' + (selected.find(a => a.facts.cliRun)?.id || '<lane>') + '": ' + JSON.stringify({ model: '<model-id>', ...(LANE_FLAGS[selected.find(a => a.facts.cliRun)?.id]?.effort ? { effort: 'high' } : {}) }) + '}. Left empty, a lane inherits its own config file, which cli-run cannot see and does not guess. `--model` and `--effort` override this per call, and `--doctor` prints what each lane is pinned to. Every enabled lane takes a model; the runner reports which lanes support an effort flag.'
         },
         null,
         2
@@ -749,6 +778,8 @@ export function planFiles(opts) {
           level,
           ais: selected.map((a) => a.id),
           primary: primary ? primary.id : null,
+          detected: selected.filter(a => opts.detected?.has(a.id)).map(a => a.id),
+          roles: manifestRoles(assignRoles({ selected, primary, detected: opts.detected, plans: opts.plans }), stackContext(selected, primary, opts.detected)),
           tools: (opts.tools || []).map((t) => t.id),
           apis: (opts.apis || []).map((p) => p.id),
           ...(Object.keys(opts.plans || {}).length ? { plans: Object.fromEntries(Object.entries(opts.plans).sort(([a], [b]) => a.localeCompare(b)).map(([id, p]) => [id, p.id])) } : {}),

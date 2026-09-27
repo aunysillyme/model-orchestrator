@@ -2,6 +2,12 @@
 
 Generated {{DATE}} from the AIs you said you have: `{{AI_IDS}}`.
 
+{{STACK_TABLE}}
+
+{{STACK_FALLBACK_NOTE}}
+
+{{STACK_GAPS}}
+
 ## Your lanes
 
 {{LANES_TABLE}}

@@ -7,25 +7,20 @@ Enabled lanes (edit `bin/lanes.json`): {{CLI_RUN_LANES}}.
 ## Call a lane with a task brief
 
 ```bash
-aunx cli-run codex --brief TASK_BRIEF.md --timeout 900
-node bin/cli-run.mjs codex --brief TASK_BRIEF.md --timeout 900
+aunx cli-run {{EXAMPLE_LANE}} --brief TASK_BRIEF.md --timeout 900
+node bin/cli-run.mjs {{EXAMPLE_LANE}} --brief TASK_BRIEF.md --timeout 900
 ```
 
-When `aunx` runs from your project, it prefers `./ai-orchestrator/bin/cli-run.mjs`; use `--dir <rules-directory>` for another installed location. It falls back to the package runner when that installed runner is absent.
+When `aunx` runs, it uses the packaged runner. Use `--dir <rules-directory>` to select an installed project runner and its lane configuration explicitly. An absent project runner falls back to the package runner.
 
 When requesting a particular route, inspect the lane's current roster and select the model and effort for the job:
 
 ```bash
-aunx cli-run codex "<prompt>" --model '<model-id>' --effort high
-node bin/cli-run.mjs codex "<prompt>" --model '<model-id>' --effort high
+aunx cli-run {{EXAMPLE_LANE}} "<prompt>" --model '<model-id>'{{EXAMPLE_EFFORT_FLAGS}}
+node bin/cli-run.mjs {{EXAMPLE_LANE}} "<prompt>" --model '<model-id>'{{EXAMPLE_EFFORT_FLAGS}}
 ```
 
-When reviewing with Codex, select the audit shape:
-
-```bash
-aunx cli-run codex --audit --brief REVIEW.md
-node bin/cli-run.mjs codex --audit --brief REVIEW.md
-```
+{{EXAMPLE_AUDIT_BLOCK}}
 
 When Qwen's safe mode is required, pass `--safe-mode` to that lane. `--quiet` suppresses human-readable status lines. `--timeout SECS` bounds each call.
 
@@ -47,15 +42,17 @@ When exit 0 returns, the native terminal event indicates completion, the respons
 When the task requires a file or structured output, add an explicit contract:
 
 ```bash
-aunx cli-run codex "Write out/report.md" --expect-file out/report.md
-node bin/cli-run.mjs codex "Write out/report.md" --expect-file out/report.md
-aunx cli-run grok "Return the table as JSON" --expect-json
-node bin/cli-run.mjs grok "Return the table as JSON" --expect-json
+aunx cli-run {{EXAMPLE_LANE}} "Write out/report.md" --expect-file out/report.md
+node bin/cli-run.mjs {{EXAMPLE_LANE}} "Write out/report.md" --expect-file out/report.md
+aunx cli-run {{EXAMPLE_LANE}} "Return the table as JSON" --expect-json
+node bin/cli-run.mjs {{EXAMPLE_LANE}} "Return the table as JSON" --expect-json
 ```
 
 `--expect-file` records existence, size, mtime and content hash before the run. It then requires a non-empty regular file that is new or changed by hash or later mtime. Use a unique per-attempt path when another process might write the same file. `--expect-json` requires parseable JSON. An unmet contract exits 10 with reason `contract_unmet`.
 
 ## Read each lane's completion signal
+
+The runner supports these lanes whether or not you selected them.
 
 | Lane | Invocation built | Accepted response |
 |---|---|---|
@@ -93,13 +90,12 @@ The runner classifies authoritative vendor error fields, with precedence `auth`,
 When a command flag is present, it overrides `bin/lanes.json` defaults. When both are absent, the lane uses its own configuration. Inspect that configuration when the model or effort matters.
 
 ```json
-{
-  "enabled": ["codex", "grok"],
-  "defaults": { "codex": { "model": "<model-id>", "effort": "high" } }
-}
+{{EXAMPLE_LANES_JSON}}
 ```
 
 Replace the placeholder with a current vendor model ID before using this example. Model and effort values are bounded to the supported safe character set.
+
+The runner supports these lanes whether or not you selected them.
 
 | Lane | Model flag | Effort flag |
 |---|---|---|

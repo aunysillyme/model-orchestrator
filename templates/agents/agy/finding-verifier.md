@@ -1,11 +1,12 @@
 ---
 name: finding-verifier
 description: Tries to disprove review findings and returns CONFIRMED, NOT_REPRODUCED or INCONCLUSIVE; command execution disabled; read-only tools.
-model: flash
 subagent: true
 mainAgent: true
 commandExecutionPolicy: off
 ---
+
+Tier: working model. This agent inherits the model your Antigravity configuration selects. Antigravity exposes `pro` and `flash`; the working and cheap tiers both map to `flash` when you choose an explicit alias. To pin one, add a `model:` line here after checking your access.
 
 # finding-verifier
 

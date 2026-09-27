@@ -12,6 +12,8 @@ Start with the agent or chat app you already use. The installer gives it task cl
 
 Map tiers to the models your agent actually exposes. With a chat app, use the same categories to decide whether the next turn needs a plan, an execution step or a short structured answer.
 
+The installer detects available tools, shows the proposed setup and asks for one confirmation. With no detected tool, choose your AIs first. Level 1 includes a **Your stack: who does what** table in its README and a summary in `ORCHESTRATOR.md`. The main agent carries eligible jobs; review and private work remain **none selected** unless the stack meets their separate requirements. [Assignment rules](how-it-routes.md#your-stack-who-does-what).
+
 Role selects the job. Complexity sets effort. Security, privacy, data loss and irreversible changes affect which model and reviewer can safely handle it. Check the current tool and model roster before deciding.
 
 ## Classify a task
@@ -24,7 +26,7 @@ When a worker fails, inspect the evidence and choose the next action explicitly.
 
 The build protocol starts by quoting the request and assigning acceptance checks. It probes available tools, tests uncertain assumptions, orders work by dependencies and collects one context file. An Assign step chooses the worker by reasoning fit, permissions, context capacity and headroom.
 
-After the build, an independent reviewer checks the final merged artifact. A companion reviewer checks the scope against the original ask in the same audit step. Findings get reproduced before repair, and each fix gets a regression that can fail. Release means the change is in use on named surfaces, with live behavior checked and a rollback identified.
+After the build, use a known different model family to review the final merged artifact. A companion reviewer checks the scope against the original ask in the same audit step. When the stack has one family, a fresh-context review is a self-check; record that independent review is unavailable. Findings get reproduced before repair, and each fix gets a regression that can fail. Release means the change is in use on named surfaces, with live behavior checked and a rollback identified.
 
 The mechanical audit-skip conditions are documented in `protocols/build-protocol.md`. They are evaluated together against the diff. The process uses one audit pass, with regression checks for its fixes.
 

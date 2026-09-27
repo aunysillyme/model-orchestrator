@@ -2,7 +2,18 @@
 
 When using Antigravity custom agents, load these definitions from `.agents/agents/<name>.md`. A coordinator can call them through `invoke_subagent`; `mainAgent: true` also supports `agy --agent <name>`.
 
-Use `pro` for the planning model tier and `flash` for working and cheap model tiers as the starting configuration. Check the live roster and tool reach before assigning a build.
+The definitions omit the optional model field and inherit your configuration. To pin an available alias, add `model:` to a definition: Antigravity exposes `pro` for planning and `flash` for working and cheap tiers. Check your access, the live roster and tool reach before assigning a build.
+
+| Agent | Tier | Effort guidance |
+|---|---|---|
+| deep-planner | planning model | xhigh where supported |
+| builder | working model | high |
+| code-reviewer | working model | high |
+| finding-verifier | working model | high |
+| live-researcher | working model | medium |
+| bulk-worker | cheap model | low |
+| done-verifier | cheap model | low |
+| reader | cheap model | low |
 
 `builder` has `commandExecutionPolicy: auto` so standard builds and checks can run, while destructive operations remain subject to the vendor's permission policy. Review and reading agents use `commandExecutionPolicy: off`.
 

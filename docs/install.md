@@ -6,18 +6,28 @@ Everything the installer asks, writes and accepts as a flag. The short version i
 
 ![Terminal walkthrough of the installer](demo.gif)
 
-This recording shows the published 0.1.x installer. Version 1.0 starts with no companions selected and prints third-party installation instructions for you to run. Re-record from the published release with `bash scripts/record-demo.sh`.
+This recording shows the published 0.1.x installer. Version 1.0 detects your tools and asks for one confirmation. Companions start unselected, and third-party installation instructions are printed for you to run. Re-record from the published release with `bash scripts/record-demo.sh`.
 
 ## What a run does
 
 
-The installer asks a few things, then writes a folder:
+The installer detects the AI binaries on your PATH, proposes a setup and shows **Your stack: who does what** before writing. The default flow asks exactly one question:
 
-1. **Which level?** 1 beginner · 2 intermediate · 3 advanced
-2. **Which AIs do you have access to?** (it marks the ones already on your PATH)
-3. **Which one is your main agent?** (the one that runs the system)
+```text
+Write these files?
+[Y/n/e]  (e to change anything above):
+```
+
+- **Confirm:** press Enter or `y` to write the displayed files. `n` exits without writing.
+- **Edit:** enter `e`, choose one setting and return to the summary. The edit menu includes level, AIs, main agent, companions, paths and plans; level 3 also includes API providers.
+- **No detected tools:** answer "Which AIs do you have access to?" first, then confirm. This path asks two questions.
+- **Defaults:** one selected tool starts at level 1; several tools including a supported worker start at level 2, subject to each tool's minimum level. Level 3 requires an explicit choice. Companions and API providers start unselected.
+- **Main agent:** capability ranking prefers project-rule-loading subagents, then an agent-definition surface, then a CLI with a project rules file. Ties keep selection order.
+- **Overrides:** explicit flags take precedence and appear in the plan. Existing recorded plans and automatic-effort consent survive a rerun.
 
 It never writes a secret, runs no third-party installer, and preserves existing documents by default. `--force` explicitly replaces them; `--apply-snippets` opts into the backed-up activation merge described below. Two exceptions, both stated when they happen: `MANIFEST.json` and `bin/lanes.json` are machine-owned and rewritten on every run so a changed selection applies; runtime files (`cli-run`, the audit job, compose, gateway config, setup script) are upgraded when the installed copy matches the hash a previous run recorded, kept and reported as a conflict when you edited them, and kept as unverifiable when no manifest exists (`--upgrade-runtime` replaces runtime files only). The same hash rule is available for documents on request: `--update-docs` regenerates the documents a previous run wrote and nobody edited, so a changed selection reaches `ROUTING.md` and the delegation matrix without `--force`; edited documents are kept and named. Docs and protocols go to `--dir` (default `./ai-orchestrator`). Only the main agent receives its subagent definitions when supported: Claude Code or Antigravity. Those definitions and Claude Code's three hook scripts go to the project root your agent runs from (`--project`, default the current directory). The generated `README.md` gives activation steps for that main agent and level, including the installed runner's smoke command at level 2 and up. Use `--uninstall` to remove unedited managed files, then remove your manually merged activation entries. See [Uninstall](#uninstall).
+
+The manifest's `roles` assignment is refreshed on every run. If a changed assignment leaves edited documents in place, the installer names that difference: `aunx route` uses the current manifest while those documents retain your edits. Use `--update-docs` to regenerate unchanged managed documents.
 
 ## Apply Claude Code snippets
 
@@ -36,7 +46,9 @@ npx model-orchestrator --yes --level 2 --ais claude-code,codex --primary claude-
 
 ## Plans and automatic effort
 
-State known subscription plans with `--plans codex=pro-20x,agy=ultra-5x`. The generated guidance uses plan headroom to allocate volume only. It never changes capability or independent-review rules. `--effort-auto` is explicit consent to set `auto` only for selected high or max headroom CLI lanes. Auto chooses medium below 4,000 prompt characters and high otherwise, never higher. A codex audit is always high. Name `xhigh` explicitly for security-critical or irreversible work.
+State known subscription plans with `--plans codex=pro-20x,agy=ultra-5x`, or choose subscription plans from the edit menu. The generated guidance uses plan headroom to allocate volume only. Every catalog plan currently has an unverified model mapping, so agent definitions omit `model:` and use your tool's configuration. Probe the available models before dispatching work. Claude Code also honors `CLAUDE_CODE_SUBAGENT_MODEL`; a manual `model:` line can set a verified choice. Plan support for `xhigh` and `max` effort remains UNVERIFIED.
+
+`--effort-auto` is explicit consent to set `auto` only for selected high or max headroom CLI lanes. Auto chooses medium below 4,000 prompt characters and high otherwise, never higher. An audit lane may impose its own effort floor; check its configuration. Name `xhigh` explicitly for security-critical or irreversible work. The default install skips plan and effort questions; choosing plans in the edit menu enables the effort choice in that same step.
 ## The two folders every run writes to
 
 An install has two targets, and a scripted run should set both.
@@ -51,6 +63,8 @@ An install has two targets, and a scripted run should set both.
 Rules inside the project use project-relative snippet paths, so moving the whole project preserves them. Rules outside the project use absolute paths and carry a relocation note. After moving those rules, re-run the installer or set `MODEL_ORCHESTRATOR_RULES_DIR` for the installed rule-reading hooks, and update your agent instruction paths. An absolute override names the new folder; a relative override is relative to `CLAUDE_PROJECT_DIR`. `route-metrics` reads no rules and keeps its home-directory log. The separately installed Claude Code plugin keeps its existing default-path lookup.
 
 ## Headless installation
+
+`--yes` requires both `--level` and `--ais`, giving scripted installs an explicit selection. Detection-based inference applies to the interactive flow. All existing flags remain available, including `--primary`, `--tools`, `--plans`, `--apis`, `--no-tools` and `--no-install`.
 
 ```bash
 # both targets set: docs in ./ai-orchestrator, subagents into ./my-app/.claude/agents
@@ -147,9 +161,11 @@ Install the command with `npm install -g model-orchestrator`, then run these fro
 | `aunx context CONTEXT.md` | Scaffold a shared context file |
 | `aunx checks ACCEPTANCE_CHECKS.json` | Scaffold executable acceptance checks |
 | `aunx checks run ACCEPTANCE_CHECKS.json` | Execute trusted check commands; exit 1 on any failure |
-| `aunx route "rename this file"` | Print an explained routing suggestion |
+| `aunx route [--dir PATH] "rename this file"` | Print the role, assigned AI, tier, effort and reason from your manifest |
 
 `aunx cli-run` uses the packaged runner by default; pass `--dir PATH` to use that project's own installed runner under `PATH/bin/` instead, and `aunx` prints the runner path it is using. Review check commands before running them: they execute with your shell permissions.
+
+`aunx route` reads `MANIFEST.json` first under `--dir`, then under `./ai-orchestrator`, then in the current folder. It reads regular JSON files of at most 1 MiB, refuses symlinks and executes no project code. A missing or invalid manifest gives the generic suggestion plus an install notice.
 
 ## Repo layout
 

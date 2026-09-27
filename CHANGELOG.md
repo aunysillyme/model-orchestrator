@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Changed
+
+- **Stack-dependent assignment:** planning, building, review, verification, research, bulk work, reading and private work are assigned from selected capability facts. Generated stack tables explain each choice; the manifest stores the current assignment and `aunx route` reads it. Independent review requires a known different model family, and private work requires local execution.
+- **Model tiers:** generated agent definitions use planning, working and cheap model tiers. Current plan-to-model mappings are unverified, so definitions leave the model to the user's tool configuration while preserving effort guidance.
+- **One-confirm installation:** interactive setup detects available AI tools and shows a proposed level, main agent, paths and role table before one confirmation. The edit menu changes individual settings; an empty detection asks for the user's AIs first. Headless `--yes` still requires explicit level and AI selection.
+- **Capability catalog:** AI entries carry `summary` and `facts`; role claims and duplicated capability fields are retired. The generated catalog marks unknown facts and inherited vendor claims as unverified.
+
 ### Fixed
 
 - **Coherent level installs:** routing uses installed agents or available role fallbacks, review guidance accounts for the main agent's model family, smoke paths are quoted, and README first reads and output-contract checks match the level and selected workers.
