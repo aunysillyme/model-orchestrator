@@ -15,17 +15,16 @@ test('every AI has the fields the installer relies on, and ids are unique', () =
   for (const a of AIS) {
     assert.ok(a.id && !ids.has(a.id), 'duplicate or missing id ' + a.id);
     ids.add(a.id);
-    assert.ok(a.name && a.vendor && a.role && a.auth, a.id + ' is missing a text field');
-    assert.ok(['agent-cli', 'chat', 'local'].includes(a.kind), a.id + ' kind');
-    assert.ok(['subscription', 'metered', 'free', 'local'].includes(a.access), a.id + ' access');
-    assert.ok(['A', 'B', 'local', 'chat'].includes(a.lane), a.id + ' lane');
+    assert.ok(a.name && a.vendor && a.summary && a.auth, a.id + ' is missing a text field');
+    assert.ok(['agent-cli', 'chat', 'local-runtime'].includes(a.facts.kind), a.id + ' kind');
+    assert.ok(['subscription', 'pay-per-token', 'free', 'local'].includes(a.facts.billing), a.id + ' access');
     assert.ok([1, 2, 3].includes(a.minLevel), a.id + ' minLevel');
-    assert.equal(typeof a.cliRun, 'boolean', a.id + ' cliRun');
+    assert.equal(typeof a.facts.cliRun, 'boolean', a.id + ' cliRun');
     const shapes = ['npm', 'script', 'url'].filter((k) => k in a.install);
     assert.ok(shapes.length >= 1, a.id + ' has no install method');
-    if (a.kind === 'agent-cli' || a.kind === 'local') assert.ok(a.bin, a.id + ' needs a bin');
-    if (a.kind === 'chat') assert.equal(a.bin, null, a.id + ' chat apps have no bin');
-    if (a.cliRun) assert.ok(['grok', 'codex', 'agy', 'hermes', 'qwen'].includes(a.id), a.id + ' claims a cli-run lane that has no judge');
+    if (a.facts.kind === 'agent-cli' || a.facts.kind === 'local-runtime') assert.ok(a.bin, a.id + ' needs a bin');
+    if (a.facts.kind === 'chat') assert.equal(a.bin, null, a.id + ' chat apps have no bin');
+    if (a.facts.cliRun) assert.ok(['grok', 'codex', 'agy', 'hermes', 'qwen'].includes(a.id), a.id + ' claims a cli-run lane that has no judge');
   }
 });
 
@@ -154,9 +153,23 @@ test('every documented install example that sets --dir also sets --project', () 
 
 test('chat apps carry a name and a paste surface that read as a sentence', () => {
   for (const a of AIS) {
-    if (a.kind !== 'chat') continue;
+    if (a.facts.kind !== 'chat') continue;
     assert.ok(a.chatName && a.chatSurface, a.id + ' needs chatName and chatSurface');
     // The catalog note belongs in the picker list, never inside a possessive (#22).
     assert.doesNotMatch(a.chatName, /[()]/, a.id + ': chatName must not carry a parenthetical');
   }
+});
+
+test('every AI carries every fact', () => {
+  const keys = ['modelFamily', 'kind', 'billing', 'pricing', 'headless', 'cliRun', 'writesFiles', 'readOnlyMode', 'liveWeb', 'runsLocally', 'fanOut', 'contextWindow', 'loadsProjectRules', 'agentDefinitions'];
+  for (const ai of AIS) for (const key of keys) assert.ok(ai.facts && Object.hasOwn(ai.facts, key), `${ai.id}: missing facts.${key}`);
+});
+
+test('no AI entry has a role key or duplicate legacy capability fields', () => {
+  const retired = ['role', 'laneCategories', 'lane', 'access', 'modelFamily', 'subagentsLoadRules', 'cliRun', 'agentsDir', 'kind'];
+  for (const ai of AIS) for (const key of retired) assert.ok(!Object.hasOwn(ai, key), `${ai.id}: legacy ${key}`);
+});
+
+test('no plan carries a tierModels value', () => {
+  for (const ai of AIS) for (const plan of ai.plans || []) assert.equal(plan.tierModels ?? null, null, `${ai.id}/${plan.id}`);
 });

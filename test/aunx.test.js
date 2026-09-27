@@ -1,10 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { suggestRoute } from '../src/aunx.js';
+import * as aunx from '../src/aunx.js';
 import { planFiles } from '../src/install.js';
 import { byId } from '../src/catalog.js';
 
@@ -102,6 +103,100 @@ test('aunx route covers the decision tree and explicitly labels suggestions', ()
   assert.match(r.stdout, /Suggestion: bulk-worker.*cheap model.*low/);
   assert.match(run(['route', 'hello there']).stdout, /unknown.*ROUTING.md/);
   assert.equal(run(['route']).status, 2);
+});
+
+test('aunx suggestions carry a stack role and preserve the existing agent and tier', () => {
+  for (const [task, role] of [
+    ['verify the findings', 'verify'], ['check the definition of done', 'verify'],
+    ['audit this auth diff', 'review'], ['search the latest docs', 'research'],
+    ['read many files', 'read'], ['plan the architecture', 'plan'],
+    ['rename this file', 'bulk'], ['build this feature', 'build']
+  ]) assert.equal(suggestRoute(task)?.role, role, task);
+});
+
+test('aunx route prints the assigned AI from its manifest without executing project code', t => {
+  const cwd = temp(t);
+  const dir = join(cwd, 'ai-orchestrator');
+  mkdirSync(join(dir, 'bin'), { recursive: true });
+  writeFileSync(join(dir, 'bin', 'cli-run.mjs'), 'console.log("PLANTED_RUNNER"); process.exit(66);');
+  writeFileSync(join(dir, 'MANIFEST.json'), JSON.stringify({ roles: {
+    review: { ai: 'grok', via: 'cli-run', command: 'cli-run grok', tier: 'working model', why: 'different model family from Anthropic' }
+  } }));
+  const result = run(['route', 'audit this auth diff'], cwd);
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /Suggestion: review \| tier: working model \| effort: high/);
+  assert.match(result.stdout, /Your stack:.*Grok.*aunx cli-run grok.*different model family from Anthropic/i);
+  assert.doesNotMatch(result.stdout, /PLANTED_RUNNER|No install found/);
+  const marker = join(cwd, 'must-not-exist');
+  writeFileSync(join(dir, 'MANIFEST.json'), JSON.stringify({ roles: {
+    review: { ai: 'grok', via: 'cli-run', command: `node -e 'require("fs").writeFileSync(${JSON.stringify(marker)}, "ran")'` }
+  } }));
+  assert.equal(run(['route', 'audit this auth diff'], cwd).status, 0);
+  assert.equal(existsSync(marker), false, 'route only reads JSON and never executes its commands');
+});
+
+test('aunx route looks in --dir, the default rules folder and the current folder in order', t => {
+  const cwd = temp(t);
+  const preferred = join(cwd, 'custom rules');
+  const defaultDir = join(cwd, 'ai-orchestrator');
+  mkdirSync(preferred);
+  mkdirSync(defaultDir);
+  const manifest = ai => JSON.stringify({ roles: { review: { ai, via: 'cli-run', command: `cli-run ${ai}` } } });
+  writeFileSync(join(preferred, 'MANIFEST.json'), manifest('agy'));
+  writeFileSync(join(defaultDir, 'MANIFEST.json'), manifest('grok'));
+  writeFileSync(join(cwd, 'MANIFEST.json'), manifest('codex'));
+  for (const option of [['--dir', preferred], [`--dir=${preferred}`]]) {
+    const result = run(['route', ...option, 'review this diff'], cwd);
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /Your stack:.*Antigravity.*cli-run agy/);
+  }
+  assert.match(run(['route', 'review this diff'], cwd).stdout, /Your stack:.*Grok.*cli-run grok/i);
+  rmSync(join(defaultDir, 'MANIFEST.json'));
+  assert.match(run(['route', 'review this diff'], cwd).stdout, /Your stack:.*Codex.*cli-run codex/);
+  assert.equal(run(['route', '--dir'], cwd).status, 2);
+  assert.equal(run(['route', '--dir', preferred, '--dir', preferred, 'review this diff'], cwd).status, 2);
+  assert.match(run(['--help'], cwd).stdout, /route \[--dir PATH\]/);
+});
+
+test('aunx route with no manifest keeps today\'s output and adds the install notice', t => {
+  const cwd = temp(t);
+  const result = run(['route', 'rename this file'], cwd);
+  assert.equal(result.status, 0);
+  assert.equal(result.stdout, 'Suggestion: bulk-worker | tier: cheap model | effort: low\nApply a repeatable mechanical change. Confirm against your ROUTING.md.\nNo install found; run the installer or pass --dir to see who your stack assigns.\n');
+});
+
+test('aunx manifest reader refuses malformed, oversized, non-regular and symlink files', t => {
+  const cwd = temp(t);
+  const dir = join(cwd, 'ai-orchestrator');
+  mkdirSync(dir);
+  const path = join(dir, 'MANIFEST.json');
+  const read = () => aunx.readManifestRoles({ cwd });
+  for (const text of ['{', 'null', '[]', '{"roles":[]}', '{"roles":{"review":null}}', ' '.repeat(1024 * 1024 + 1)]) {
+    writeFileSync(path, text);
+    assert.equal(read(), null);
+    const result = run(['route', 'review this diff'], cwd);
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /No install found/);
+  }
+  rmSync(path);
+  mkdirSync(path);
+  assert.equal(read(), null);
+  rmSync(path, { recursive: true });
+  const target = join(cwd, 'target.json');
+  writeFileSync(target, JSON.stringify({ roles: { review: { ai: 'codex', via: 'cli-run' } } }));
+  symlinkSync(target, path, 'file');
+  assert.equal(read(), null);
+});
+
+test('aunx route shows unassigned review as a self-check rather than an independent lane', t => {
+  const cwd = temp(t);
+  writeFileSync(join(cwd, 'MANIFEST.json'), JSON.stringify({ roles: {
+    review: { ai: null, via: 'none', reason: 'No different model family is selected. Use a fresh-context self-check.' }
+  } }));
+  const result = run(['route', 'review this diff'], cwd);
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /Your stack: none selected.*self-check/);
+  assert.doesNotMatch(result.stdout, /Your stack:.*code-reviewer/);
 });
 
 test('aunx checks run executes all checks and returns 1 on any failure', t => {

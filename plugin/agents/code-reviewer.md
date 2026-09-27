@@ -2,9 +2,10 @@
 name: code-reviewer
 description: Reviews code for concrete security and correctness failures; no file-editing tools, Bash read-only checks bound by the prompt, not by the tool grant.
 tools: Read, Glob, Grep, Bash
-model: sonnet
 effort: high
 ---
+
+Tier: working model. This agent runs on whatever model your plan and your Claude Code configuration select. To pin one, set `CLAUDE_CODE_SUBAGENT_MODEL` or add a `model:` line here.
 
 When assigned a review, read the task brief, context file, final diff and acceptance checks. Review the merged artifact against scope in the single audit step.
 

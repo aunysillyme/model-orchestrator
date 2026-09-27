@@ -10,7 +10,7 @@ Subscription CLIs keep their own sign-in state and use the access and quota incl
 
 ## 1b. Configure subscription access and API access separately
 
-The installer asks which metered API keys you hold separately from which CLIs you use. A Claude Code plan gives you `claude`; it does not give you an Anthropic API key. API-backed gateway lanes and their variable names in `vm/ENVIRONMENT.md` come from the selected API providers. Selecting Ollama adds the local alias separately.
+Choose metered API providers with `--apis` or the level 3 edit menu, separately from the CLIs you use. A Claude Code plan gives you `claude`; it does not give you an Anthropic API key. API-backed gateway lanes and their variable names in `vm/ENVIRONMENT.md` come from the selected API providers. Selecting Ollama adds the local alias separately. Level 3 always needs an explicit level choice.
 
 ## 2. Bind to aliases and configure job policies
 
@@ -18,7 +18,7 @@ Selected providers and the optional local runtime get gateway aliases such as `b
 
 For jobs you add, configure an eligible lane, token limits, spending limits and any escalation policy. Define the checks that justify a retry or a stronger model and the authorization each step needs.
 
-The supplied weekly audit uses one fixed CLI lane selected at installation, in this preference order: Hermes, Qwen Code, Codex, Antigravity, Grok. Each run calls that lane through `cli-run` with a timeout. Its behavior is a single report request to that selected lane; token caps and escalation require your own job configuration.
+The supplied weekly audit uses the assigned review lane, falling back to the assigned bulk lane when review is unavailable. The installed stack table explains which capabilities and billing facts chose it. Each run calls that fixed lane through `cli-run` with a timeout. Its behavior is a single report request to that selected lane; token caps and escalation require your own job configuration. A bulk-lane fallback does not establish independent review.
 
 ## 3. Dispatch on the box
 

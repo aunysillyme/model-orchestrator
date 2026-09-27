@@ -14,72 +14,167 @@ Generated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrite
 
 ### `claude-code` · Claude Code (Anthropic)
 
-- **Kind:** agent-cli · **Access:** subscription · **Lane:** subscription · **Level:** 1+
-- **Wins at:** orchestrator: routes, maps, builds, verifies, records
+- **Kind:** agent-cli · **Billing:** subscription · **Level:** 1+
+- **What it is:** Anthropic's terminal coding agent; its subagents load the project rules file
 - **Install:** `npm install -g @anthropic-ai/claude-code@2.1.226`
 - **Sign in:** run `claude` once and sign in with your Anthropic account
 - **Reads rules from:** `CLAUDE.md` · subagents in `.claude/agents/`
 - **Plans:**
-  - Claude Pro (base headroom, checked 2026-09-12): https://support.claude.com/en/articles/11049762-choose-a-claude-plan
-  - Claude Max 5x (high headroom, checked 2026-09-12): https://support.claude.com/en/articles/11049762-choose-a-claude-plan
-  - Claude Max 20x (max headroom, checked 2026-09-12): https://support.claude.com/en/articles/11049762-choose-a-claude-plan
+  - Claude Pro (base headroom, checked 2026-09-12; tier models: unverified): https://claude.com/pricing
+  - Claude Max 5x (high headroom, checked 2026-09-12; tier models: unverified): https://claude.com/pricing
+  - Claude Max 20x (max headroom, checked 2026-09-12; tier models: unverified): https://claude.com/pricing
 - **Built against:** 2.1.226 (the same number the npm pin uses)
+
+**Capability facts.** An unverified value needs a current capability check before use. Role assignments come from the selected stack, using these facts.
+
+| Fact | Value |
+|---|---|
+| `modelFamily` | Anthropic |
+| `kind` | agent-cli |
+| `billing` | subscription |
+| `pricing` | unverified |
+| `headless` | yes |
+| `cliRun` | no |
+| `writesFiles` | yes |
+| `readOnlyMode` | no |
+| `liveWeb` | yes |
+| `runsLocally` | no |
+| `fanOut` | unverified |
+| `contextWindow` | unverified |
+| `loadsProjectRules` | yes |
+| `agentDefinitions` | .claude/agents |
 
 ### `codex` · Codex CLI (OpenAI, ChatGPT plan)
 
-- **Kind:** agent-cli · **Access:** subscription · **Lane:** subscription · **Level:** 1+
-- **Wins at:** second coder and second-opinion reviewer
+- **Kind:** agent-cli · **Billing:** subscription · **Level:** 1+
+- **What it is:** OpenAI's terminal coding agent on a ChatGPT plan; `--audit` runs it in a read-only filesystem sandbox
 - **Install:** `npm install -g @openai/codex@0.153.4`
 - **Sign in:** `codex login` (add `--device-auth` on a machine with no browser)
 - **Reads rules from:** `AGENTS.md`
 - **cli-run lane:** yes
 - **Plans:**
-  - ChatGPT Plus (base headroom, checked 2026-09-12): https://learn.chatgpt.com/codex/pricing.md
-  - ChatGPT Pro 5x (high headroom, checked 2026-09-12): https://learn.chatgpt.com/codex/pricing.md
-  - ChatGPT Pro 20x (max headroom, checked 2026-09-12): https://learn.chatgpt.com/codex/pricing.md
+  - ChatGPT Plus (base headroom, checked 2026-09-12; tier models: unverified): https://learn.chatgpt.com/codex/pricing.md
+  - ChatGPT Pro 5x (high headroom, checked 2026-09-12; tier models: unverified): https://learn.chatgpt.com/codex/pricing.md
+  - ChatGPT Pro 20x (max headroom, checked 2026-09-12; tier models: unverified): https://learn.chatgpt.com/codex/pricing.md
 - **Built against:** 0.153.4 (the same number the npm pin uses)
+
+**Capability facts.** An unverified value needs a current capability check before use. Role assignments come from the selected stack, using these facts.
+
+| Fact | Value |
+|---|---|
+| `modelFamily` | OpenAI |
+| `kind` | agent-cli |
+| `billing` | subscription |
+| `pricing` | unverified |
+| `headless` | yes |
+| `cliRun` | yes |
+| `writesFiles` | yes |
+| `readOnlyMode` | yes |
+| `liveWeb` | unverified |
+| `runsLocally` | no |
+| `fanOut` | no |
+| `contextWindow` | unverified |
+| `loadsProjectRules` | no |
+| `agentDefinitions` | unverified |
 
 ### `agy` · Antigravity CLI `agy` (Google AI plan)
 
-- **Kind:** agent-cli · **Access:** subscription · **Lane:** subscription · **Level:** 1+
-- **Wins at:** deep research sweeps and concurrent fan-out (its subagent call takes an array)
+- **Kind:** agent-cli · **Billing:** subscription · **Level:** 1+
+- **What it is:** Google's Antigravity terminal agent; one subagent call starts several children. fanOut: UNVERIFIED against a vendor doc; inherited from the 0.1.x catalog.
 - **Install:** vendor script (read it first): `https://antigravity.google/cli/install.sh`
 - **Sign in:** first run opens a device-code sign-in with your Google account
 - **Reads rules from:** `GEMINI.md` · subagents in `.agents/agents/`
 - **cli-run lane:** yes
 - **Plans:**
-  - Google AI Pro (base headroom, checked 2026-09-12): https://gemini.google/subscriptions/
-  - Google AI Ultra 5x (high headroom, checked 2026-09-12): https://gemini.google/subscriptions/
-  - Google AI Ultra 20x (max headroom, checked 2026-09-12): https://gemini.google/subscriptions/
+  - Google AI Pro (base headroom, checked 2026-09-12; tier models: unverified): https://gemini.google/subscriptions/
+  - Google AI Ultra 5x (high headroom, checked 2026-09-12; tier models: unverified): https://gemini.google/subscriptions/
+  - Google AI Ultra 20x (max headroom, checked 2026-09-12; tier models: unverified): https://gemini.google/subscriptions/
 - **Built against:** 1.1.27
 - **Note:** Gemini CLI was retired by Google in June 2026. agy is the successor. Do not install `gemini`.
 
+**Capability facts.** An unverified value needs a current capability check before use. Role assignments come from the selected stack, using these facts.
+
+| Fact | Value |
+|---|---|
+| `modelFamily` | Google |
+| `kind` | agent-cli |
+| `billing` | subscription |
+| `pricing` | unverified |
+| `headless` | yes |
+| `cliRun` | yes |
+| `writesFiles` | yes |
+| `readOnlyMode` | no |
+| `liveWeb` | unverified |
+| `runsLocally` | no |
+| `fanOut` | yes (UNVERIFIED against a vendor doc; inherited from the 0.1.x catalog.) |
+| `contextWindow` | unverified |
+| `loadsProjectRules` | unverified |
+| `agentDefinitions` | .agents/agents |
+
 ### `grok` · Grok CLI (xAI, X Premium)
 
-- **Kind:** agent-cli · **Access:** subscription · **Lane:** subscription · **Level:** 1+
-- **Wins at:** X and live web reads at no per-call cost (its search tools bill on the API, not on the CLI)
+- **Kind:** agent-cli · **Billing:** subscription · **Level:** 1+
+- **What it is:** xAI's terminal agent with first-party X and web search tools; searches are covered by the subscription rather than billed per call. liveWeb: UNVERIFIED against a vendor doc; inherited from the 0.1.x catalog.
 - **Install:** vendor script (read it first): `https://x.ai/cli/install.sh`
 - **Sign in:** `grok login` (add `--device-auth` on a headless machine)
 - **cli-run lane:** yes
 - **Plans:**
-  - SuperGrok (base headroom, checked 2026-09-12): https://x.ai/news/grok-build-cli
-  - SuperGrok Plus (high headroom, checked 2026-09-12): https://x.ai/pricing
-  - X Premium Plus (base headroom, checked 2026-09-12): https://x.ai/news/grok-build-cli
+  - SuperGrok (base headroom, checked 2026-09-12; tier models: unverified): https://x.ai/news/grok-build-cli
+  - SuperGrok Plus (high headroom, checked 2026-09-12; tier models: unverified): https://x.ai/pricing
+  - X Premium Plus (base headroom, checked 2026-09-12; tier models: unverified): https://x.ai/news/grok-build-cli
 - **Built against:** 1.0.5
+
+**Capability facts.** An unverified value needs a current capability check before use. Role assignments come from the selected stack, using these facts.
+
+| Fact | Value |
+|---|---|
+| `modelFamily` | xAI |
+| `kind` | agent-cli |
+| `billing` | subscription |
+| `pricing` | unverified |
+| `headless` | yes |
+| `cliRun` | yes |
+| `writesFiles` | yes |
+| `readOnlyMode` | no |
+| `liveWeb` | yes (UNVERIFIED against a vendor doc; inherited from the 0.1.x catalog.) |
+| `runsLocally` | no |
+| `fanOut` | no |
+| `contextWindow` | unverified |
+| `loadsProjectRules` | no |
+| `agentDefinitions` | unverified |
 
 ### `hermes` · Hermes Agent (Nous Research)
 
-- **Kind:** agent-cli · **Access:** free · **Lane:** subscription · **Level:** 2+
-- **Wins at:** the free tier: rough drafts, first-pass summaries, cheap divergent reads, cron jobs on a box
+- **Kind:** agent-cli · **Billing:** free · **Level:** 2+
+- **What it is:** A free terminal agent that chains whichever providers you authenticate
 - **Install:** https://github.com/NousResearch/hermes-agent
 - **Sign in:** `hermes auth add <provider>` per provider; its own fallback chain handles outages
 - **cli-run lane:** yes
 - **Built against:** 0.20.0
 
+**Capability facts.** An unverified value needs a current capability check before use. Role assignments come from the selected stack, using these facts.
+
+| Fact | Value |
+|---|---|
+| `modelFamily` | unverified |
+| `kind` | agent-cli |
+| `billing` | free |
+| `pricing` | unverified |
+| `headless` | yes |
+| `cliRun` | yes |
+| `writesFiles` | yes |
+| `readOnlyMode` | no |
+| `liveWeb` | unverified |
+| `runsLocally` | no |
+| `fanOut` | no |
+| `contextWindow` | unverified |
+| `loadsProjectRules` | no |
+| `agentDefinitions` | unverified |
+
 ### `qwen` · Qwen Code CLI (Alibaba, provider-agnostic)
 
-- **Kind:** agent-cli · **Access:** metered · **Lane:** pay-per-token · **Level:** 2+
-- **Wins at:** cheapest metered bulk lane for structured output; never for anything that cites a line, a number or a source
+- **Kind:** agent-cli · **Billing:** pay-per-token · **Level:** 2+
+- **What it is:** A provider-agnostic terminal agent; you supply the API key, so its rate is your provider's rate
 - **Install:** `npm install -g @qwen-code/qwen-code@0.22.3`
 - **Sign in:** a provider key in an environment variable, named (not stored) in ~/.qwen/settings.json. There is no free Qwen cloud tier any more.
 - **Reads rules from:** `QWEN.md`
@@ -87,34 +182,129 @@ Generated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrite
 - **Built against:** 0.22.3 (the same number the npm pin uses)
 - **Note:** Its own success flags lie on API failures. cli-run checks the two honest signals for you.
 
+**Capability facts.** An unverified value needs a current capability check before use. Role assignments come from the selected stack, using these facts.
+
+| Fact | Value |
+|---|---|
+| `modelFamily` | unverified |
+| `kind` | agent-cli |
+| `billing` | pay-per-token |
+| `pricing` | unverified |
+| `headless` | yes |
+| `cliRun` | yes |
+| `writesFiles` | yes |
+| `readOnlyMode` | no |
+| `liveWeb` | unverified |
+| `runsLocally` | no |
+| `fanOut` | no |
+| `contextWindow` | unverified |
+| `loadsProjectRules` | no |
+| `agentDefinitions` | unverified |
+
 ### `ollama` · Ollama (local models)
 
-- **Kind:** local · **Access:** local · **Lane:** local · **Level:** 2+
-- **Wins at:** the privacy lane: anything that must never leave the machine. Not a cost lane.
+- **Kind:** local-runtime · **Billing:** local · **Level:** 2+
+- **What it is:** A local model runtime; work sent here stays on the machine
 - **Install:** https://ollama.com/download (or `brew install ollama`)
 - **Sign in:** none
 - **Built against:** 0.33.3
 
+**Capability facts.** An unverified value needs a current capability check before use. Role assignments come from the selected stack, using these facts.
+
+| Fact | Value |
+|---|---|
+| `modelFamily` | unverified |
+| `kind` | local-runtime |
+| `billing` | local |
+| `pricing` | unverified |
+| `headless` | yes |
+| `cliRun` | no |
+| `writesFiles` | no |
+| `readOnlyMode` | no |
+| `liveWeb` | no |
+| `runsLocally` | yes |
+| `fanOut` | no |
+| `contextWindow` | unverified |
+| `loadsProjectRules` | no |
+| `agentDefinitions` | unverified |
+
 ### `claude-app` · Claude app or claude.ai (chat only, no CLI)
 
-- **Kind:** chat · **Access:** subscription · **Lane:** chat · **Level:** 1+
-- **Wins at:** single-agent use through Projects and custom instructions
+- **Kind:** chat · **Billing:** subscription · **Level:** 1+
+- **What it is:** A chat app; it reads pasted instructions, not files
 - **Install:** https://claude.ai
 - **Sign in:** sign in
 
+**Capability facts.** An unverified value needs a current capability check before use. Role assignments come from the selected stack, using these facts.
+
+| Fact | Value |
+|---|---|
+| `modelFamily` | Anthropic |
+| `kind` | chat |
+| `billing` | subscription |
+| `pricing` | unverified |
+| `headless` | no |
+| `cliRun` | no |
+| `writesFiles` | no |
+| `readOnlyMode` | no |
+| `liveWeb` | unverified |
+| `runsLocally` | no |
+| `fanOut` | no |
+| `contextWindow` | unverified |
+| `loadsProjectRules` | no |
+| `agentDefinitions` | unverified |
+
 ### `chatgpt-app` · ChatGPT (chat only, no CLI)
 
-- **Kind:** chat · **Access:** subscription · **Lane:** chat · **Level:** 1+
-- **Wins at:** single-agent use through custom instructions and Projects
+- **Kind:** chat · **Billing:** subscription · **Level:** 1+
+- **What it is:** A chat app; it reads pasted instructions, not files
 - **Install:** https://chatgpt.com
 - **Sign in:** sign in
 
+**Capability facts.** An unverified value needs a current capability check before use. Role assignments come from the selected stack, using these facts.
+
+| Fact | Value |
+|---|---|
+| `modelFamily` | OpenAI |
+| `kind` | chat |
+| `billing` | subscription |
+| `pricing` | unverified |
+| `headless` | no |
+| `cliRun` | no |
+| `writesFiles` | no |
+| `readOnlyMode` | no |
+| `liveWeb` | unverified |
+| `runsLocally` | no |
+| `fanOut` | no |
+| `contextWindow` | unverified |
+| `loadsProjectRules` | no |
+| `agentDefinitions` | unverified |
+
 ### `gemini-app` · Gemini app (chat only, no CLI)
 
-- **Kind:** chat · **Access:** subscription · **Lane:** chat · **Level:** 1+
-- **Wins at:** single-agent use through Gems and saved instructions
+- **Kind:** chat · **Billing:** subscription · **Level:** 1+
+- **What it is:** A chat app; it reads pasted instructions, not files
 - **Install:** https://gemini.google.com
 - **Sign in:** sign in
+
+**Capability facts.** An unverified value needs a current capability check before use. Role assignments come from the selected stack, using these facts.
+
+| Fact | Value |
+|---|---|
+| `modelFamily` | Google |
+| `kind` | chat |
+| `billing` | subscription |
+| `pricing` | unverified |
+| `headless` | no |
+| `cliRun` | no |
+| `writesFiles` | no |
+| `readOnlyMode` | no |
+| `liveWeb` | unverified |
+| `runsLocally` | no |
+| `fanOut` | no |
+| `contextWindow` | unverified |
+| `loadsProjectRules` | no |
+| `agentDefinitions` | unverified |
 
 ## Companion tools
 

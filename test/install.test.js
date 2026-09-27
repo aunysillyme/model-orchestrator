@@ -61,7 +61,7 @@ test('no rendered file still contains a placeholder, at any level, for any prima
   const all = Object.values(byId);
   for (const level of [1, 2, 3]) {
     const selected = all.filter((a) => a.minLevel <= level);
-    for (const primary of selected.filter((a) => a.kind !== 'local')) {
+    for (const primary of selected.filter((a) => a.facts.kind !== 'local-runtime')) {
       for (const f of planFiles({ level, selected, primary })) {
         assert.doesNotMatch(f.content, /\{\{\s*[A-Z0-9_]+\s*\}\}/, `${f.rel} (level ${level}, primary ${primary.id}) still has a placeholder`);
       }
@@ -201,7 +201,7 @@ test('a conflicting parent is caught before any write, so nothing is left behind
 
 test('the weekly audit is rendered for an enabled lane, the install dir, and refuses when no lane exists', () => {
   assert.equal(auditLane(sel('claude-code', 'codex', 'ollama')), 'codex');
-  assert.equal(auditLane(sel('claude-code', 'hermes', 'codex')), 'hermes');
+  assert.equal(auditLane(sel('claude-code', 'hermes', 'codex')), 'codex');
   assert.equal(auditLane(sel('claude-code', 'ollama')), null);
   const withLane = planFiles({ level: 3, selected: sel('codex'), primary: byId.codex, dir: '/opt/custom-orch' });
   const sh = withLane.find((f) => f.rel === join('vm', 'jobs', 'weekly-audit.sh')).content;
@@ -535,7 +535,7 @@ test('lane sections render from the selection: a claude-code-only install names 
     assert.doesNotMatch(c, /cli-run (codex|grok|hermes|agy|qwen)/, `${rel} recommends a lane that is not selected`);
     assert.doesNotMatch(c, /cli-run\.mjs (codex|grok|hermes|agy|qwen)/, `${rel} recommends a lane that is not selected`);
   }
-  assert.match(only.find((f) => f.rel === 'ROUTING.md').content, /none selected yet/);
+  assert.match(only.find((f) => f.rel === 'ROUTING.md').content, /no separate lane selected yet/);
   const codexOnly = planFiles({ level: 2, selected: sel('claude-code', 'codex'), primary: byId['claude-code'], dir: '/tmp/x', project: '/tmp/x' });
   const r = codexOnly.find((f) => f.rel === 'ROUTING.md').content;
   assert.match(r, /cli-run codex --audit/);
@@ -545,8 +545,8 @@ test('lane sections render from the selection: a claude-code-only install names 
   assert.doesNotMatch(rt, /cli-run\.mjs (grok|hermes|agy|qwen)/);
   assert.match(rt, /1 research engine/);
   const lv = laneVars(sel('claude-code', 'grok', 'qwen'));
-  assert.match(lv.LIVE_LANE, /cli-run grok/);
-  assert.match(lv.BULK_LANE, /cli-run qwen/);
+  assert.match(lv.LIVE_LANE, /live-researcher/);
+  assert.match(lv.BULK_LANE, /cli-run grok/);
   assert.match(lv.ATTACK_LANE, /cli-run grok.*different model family/, 'review should use a selected family different from the main agent');
 });
 
@@ -619,11 +619,11 @@ test('pins: images and npm installs are versioned, and the pin reaches the rende
   assert.match(p.find((f) => f.rel === 'CONTEXT7.md').content, /@upstash\/context7-mcp@\d+\.\d+\.\d+/);
 });
 
-test('agy as primary renders concrete model tiers and a builder that may run commands', () => {
+test('agy as primary renders available model tiers and a builder that may run commands', () => {
   const p = planFiles({ level: 1, selected: sel('agy'), primary: byId.agy, dir: '/x', project: '/x' });
   const orch = p.find((f) => f.rel === 'ORCHESTRATOR.md').content;
   assert.doesNotMatch(orch, /your strongest model/);
-  assert.match(orch, /\| planning model \|[^\n]+\| pro \|/);
+  assert.match(orch, /\| planning model \|[^\n]+\| the planning model available in your configuration \|/);
   const builder = p.find((f) => f.rel === join('.agents', 'agents', 'builder.md')).content;
   assert.match(builder, /commandExecutionPolicy: auto/);
   assert.match(p.find((f) => f.rel === join('.agents', 'agents', 'code-reviewer.md')).content, /commandExecutionPolicy: off/);
@@ -772,7 +772,7 @@ test('chat activation fits a 1500-character field for each chat primary', () => 
 // They are one array now, so this test is what keeps them one.
 test('the generated README carries the same activation steps the terminal prints', () => {
   for (const level of [1, 2, 3]) {
-    for (const primary of Object.values(byId).filter((a) => a.kind !== 'local' && a.minLevel <= level)) {
+    for (const primary of Object.values(byId).filter((a) => a.facts.kind !== 'local-runtime' && a.minLevel <= level)) {
       const opts = { level, selected: [primary], primary, dir: '/tmp/mo-dir', project: '/tmp/mo-project', tools: [] };
       const steps = activationSteps(opts);
       const readme = planFiles(opts).find((f) => f.rel === 'README.md').content;
@@ -783,7 +783,7 @@ test('the generated README carries the same activation steps the terminal prints
 });
 
 test('the generated README never names an activation file this run did not write', () => {
-  for (const primary of Object.values(byId).filter((a) => a.kind !== 'local')) {
+  for (const primary of Object.values(byId).filter((a) => a.facts.kind !== 'local-runtime')) {
     const opts = { level: 1, selected: [primary], primary, dir: '/tmp/mo-dir', project: '/tmp/mo-project' };
     const files = planFiles(opts);
     const written = new Set(files.map((f) => f.rel));
@@ -844,7 +844,7 @@ const proveSection = (readme) => {
 
 test('the generated README carries exactly the proof steps, for every level and primary', () => {
   for (const level of [1, 2, 3]) {
-    for (const primary of Object.values(byId).filter((a) => a.kind !== 'local' && a.minLevel <= level)) {
+    for (const primary of Object.values(byId).filter((a) => a.facts.kind !== 'local-runtime' && a.minLevel <= level)) {
       const opts = { level, selected: [primary], primary, dir: '/tmp/mo-dir', project: '/tmp/mo-project', tools: [] };
       const readme = planFiles(opts).find((f) => f.rel === 'README.md').content;
       const expected = proofSteps({ level, primary }).map((st, i) => `${i + 1}. ${st}`).join('\n');
@@ -855,7 +855,7 @@ test('the generated README carries exactly the proof steps, for every level and 
 
 test('the proof steps never name a bin/ file the plan did not write', () => {
   for (const level of [1, 2, 3]) {
-    for (const primary of Object.values(byId).filter((a) => a.kind !== 'local' && a.minLevel <= level)) {
+    for (const primary of Object.values(byId).filter((a) => a.facts.kind !== 'local-runtime' && a.minLevel <= level)) {
       const opts = { level, selected: [primary], primary, dir: '/tmp/mo-dir', project: '/tmp/mo-project', tools: [] };
       const files = planFiles(opts);
       const written = new Set(files.map((f) => f.rel.split('\\').join('/')));
@@ -878,14 +878,14 @@ test('the vm README names a sign-in for every selected CLI and for no other', ()
   ];
   for (const ids of cases) {
     const selected = sel(...ids);
-    const primary = selected.find((a) => a.kind !== 'local');
+    const primary = selected.find((a) => a.facts.kind !== 'local-runtime');
     const vm = planFiles({ level: 3, selected, primary, dir: '/tmp/mo-dir', project: '/tmp/mo-project', tools: [], apis: [] })
       .find((f) => f.rel.split('\\').join('/') === 'vm/README.md').content;
     const setup = vm.slice(vm.indexOf('## Setup, in order'), vm.indexOf('## The dispatch shape'));
-    for (const a of selected.filter((x) => x.kind === 'agent-cli')) {
+    for (const a of selected.filter((x) => x.facts.kind === 'agent-cli')) {
       assert.ok(setup.includes(a.auth), `${ids}: vm README omits the sign-in for ${a.id}`);
     }
-    for (const other of Object.values(byId).filter((a) => a.kind === 'agent-cli' && !ids.includes(a.id))) {
+    for (const other of Object.values(byId).filter((a) => a.facts.kind === 'agent-cli' && !ids.includes(a.id))) {
       assert.ok(!setup.includes(other.auth), `${ids}: vm README carries the sign-in for ${other.id}, which was not selected`);
       assert.ok(!setup.includes(`\`${other.bin} login`), `${ids}: vm README tells you to run ${other.bin} login`);
     }
@@ -1024,10 +1024,10 @@ test('the claude-code snippet\'s agent list is generated from the agent files ac
   for (const id of ids) assert.ok(snippet.includes('`' + id + '`'), `CLAUDE.snippet.md agent list is missing ${id}`);
 });
 
-test('routeGateTable renders the fixed rows plus one per selected cli-run lane', () => {
+test('routeGateTable renders assigned roles and eligible independent review', () => {
   const base = routeGateTable(sel('claude-code'));
   assert.match(base, /bulk-worker/);
-  assert.match(base, /done-verifier/);
+  assert.match(base, /finding-verifier/);
   assert.match(base, /reader/);
   assert.doesNotMatch(base, /cli-run/, 'no cli-run lane was selected');
   const withCodex = routeGateTable(sel('claude-code', 'codex'));

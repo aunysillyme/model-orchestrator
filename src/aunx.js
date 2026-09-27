@@ -1,8 +1,10 @@
 import { spawn, spawnSync } from 'node:child_process';
-import { constants, closeSync, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, writeFileSync } from 'node:fs';
+import { constants, closeSync, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, readSync, writeFileSync } from 'node:fs';
 import { dirname, join, parse, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { windowsSpawnPlan } from '../bin/cli-run.mjs';
+import { byId } from './catalog.js';
+import { ROLE_SPECS } from './roles.js';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const COMMON = join(ROOT, 'templates', 'common');
@@ -17,7 +19,10 @@ const HELP = `aunx: model router tools for AI coding agents
   aunx checks [new] [PATH]            Create ACCEPTANCE_CHECKS.json
   aunx checks run [PATH]              Run local checks; exit 1 on any FAIL. checks run executes
                                        the commands in your checks file, so run it only on files you trust.
-  aunx route "<task>"                 Suggest an agent, tier and effort
+  aunx route [--dir PATH] "<task>"    Suggest a stack role, tier and effort
+
+Route reads MANIFEST.json from --dir, then ./ai-orchestrator, then the current
+directory. It reads regular JSON files of at most 1 MiB and executes no project code.
 
 Scaffolds preserve existing files. Check commands run only with checks run.
 Use aunx install --help for the installer flags (or model-orchestrator --help).
@@ -136,20 +141,76 @@ export function runChecks(file) {
   return failed ? 1 : 0;
 }
 
+// Unlike a runner lookup, this discovers data only. lstat plus O_NOFOLLOW
+// refuses symlinks; an identity check and bounded read cover replacement/growth.
+export function readManifestRoles({ dir, cwd = process.cwd() } = {}) {
+  const candidates = [
+    ...(dir === undefined ? [] : [join(resolve(cwd, dir), 'MANIFEST.json')]),
+    join(cwd, 'ai-orchestrator', 'MANIFEST.json'),
+    join(cwd, 'MANIFEST.json')
+  ];
+  const maxBytes = 1024 * 1024;
+  const roleIds = new Set(ROLE_SPECS.map(spec => spec.id));
+  for (const path of new Set(candidates)) {
+    let fd;
+    try {
+      const before = lstatSync(path);
+      if (!before.isFile() || before.isSymbolicLink() || before.size > maxBytes) continue;
+      fd = openSync(path, constants.O_RDONLY | (constants.O_NOFOLLOW || 0) | (constants.O_NONBLOCK || 0));
+      const after = fstatSync(fd);
+      if (!after.isFile() || after.size > maxBytes || after.dev !== before.dev || after.ino !== before.ino) continue;
+      const buffer = Buffer.alloc(maxBytes + 1);
+      let length = 0;
+      while (length < buffer.length) {
+        const count = readSync(fd, buffer, length, buffer.length - length, null);
+        if (!count) break;
+        length += count;
+      }
+      if (length > maxBytes) continue;
+      const manifest = JSON.parse(buffer.toString('utf8', 0, length));
+      const roles = manifest?.roles;
+      if (!roles || typeof roles !== 'object' || Array.isArray(roles) || !Object.keys(roles).length) continue;
+      if (Object.entries(roles).some(([id, role]) => !roleIds.has(id) || !role || typeof role !== 'object' || Array.isArray(role)
+          || (role.ai !== null && (typeof role.ai !== 'string' || !role.ai))
+          || !['main-agent', 'cli-run', 'subagent', 'manual', 'local', 'none'].includes(role.via)
+          || ['agent', 'tier', 'command', 'why', 'reason'].some(key => role[key] !== undefined && typeof role[key] !== 'string'))) continue;
+      return roles;
+    } catch {
+      // Missing, invalid, non-regular or unreadable JSON is an absent manifest.
+    } finally {
+      if (fd !== undefined) closeSync(fd);
+    }
+  }
+  return null;
+}
+
+function stackSuggestion(assignment) {
+  if (!assignment) return 'Your stack: none selected. Re-run the installer to assign this role.';
+  const clean = value => String(value).replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ');
+  const reason = assignment.why || assignment.reason;
+  if (!assignment.ai) return `Your stack: none selected${reason ? `. ${clean(reason)}` : '.'}`;
+  const name = clean(byId[assignment.ai]?.name || assignment.ai);
+  let via;
+  if (assignment.command) via = '`' + clean(assignment.command.startsWith('cli-run ') ? `aunx ${assignment.command}` : assignment.command) + '`';
+  else if (assignment.agent) via = '`' + clean(assignment.agent) + '` on your main agent';
+  else via = { 'main-agent': 'your main agent', local: 'your local runtime', manual: 'manual handoff', subagent: 'a subagent', 'cli-run': 'cli-run' }[assignment.via];
+  return `Your stack: ${name}, via ${via || 'your selected tool'}${reason ? ` (${clean(reason)})` : ''}.`;
+}
+
 // Ordered by the action requested. These are suggestions, so the project rules remain authoritative.
 export function suggestRoute(task) {
   const text = task.toLowerCase();
   const routes = [
-    [/\b(verify|reproduce|validate|confirm|check)\b.*\b(findings?|reports?|bugs?)\b/, 'finding-verifier', 'working model', 'high', 'Reproduce each claim against the named evidence.'],
-    [/\b(definition[- ]of[- ]done|acceptance checks?|completion|finished|done)\b.*\b(check|verify|met|audit)\b|\b(check|verify)\b.*\b(done|complete|completion|acceptance)\b/, 'done-verifier', 'cheap model', 'low', 'Probe the stated definition of done.'],
-    [/\b(review|audit)\b/, 'code-reviewer', 'working model', 'high', 'Review the change and reproduce potential defects.'],
-    [/\b(latest|current|live|news|search|browse|research|look up)\b/, 'live-researcher', 'working model', 'medium', 'Fetch current evidence before drawing a conclusion.'],
-    [/\b(read(?:ing)?|summari[sz]e|digest|scan)\b.*\b(files|notes|documents|codebase|repo|folder)\b/, 'reader', 'cheap model', 'low', 'Read the requested files and return cited facts.'],
-    [/\b(design|architect(?:ure)?|ambiguous|tradeoffs?|plan|strategy|unknown cause|find why|debug|diagnose|investigate)\b/, 'deep-planner', 'planning model', 'xhigh', 'Resolve the design and interfaces before building; use equivalent effort where xhigh is unavailable.'],
-    [/\b(rename|format|sort|classify|tag|bulk|mechanical|replace|lint)\b/, 'bulk-worker', 'cheap model', 'low', 'Apply a repeatable mechanical change.'],
-    [/\b(build(?:ing)?|implement|code|fix|create|write|add|refactor)\b/, 'builder', 'working model', 'high', 'Build within a task brief and run its acceptance checks.']
+    [/\b(verify|reproduce|validate|confirm|check)\b.*\b(findings?|reports?|bugs?)\b/, 'finding-verifier', 'working model', 'high', 'Reproduce each claim against the named evidence.', 'verify'],
+    [/\b(definition[- ]of[- ]done|acceptance checks?|completion|finished|done)\b.*\b(check|verify|met|audit)\b|\b(check|verify)\b.*\b(done|complete|completion|acceptance)\b/, 'done-verifier', 'cheap model', 'low', 'Probe the stated definition of done.', 'verify'],
+    [/\b(review|audit)\b/, 'code-reviewer', 'working model', 'high', 'Review the change and reproduce potential defects.', 'review'],
+    [/\b(latest|current|live|news|search|browse|research|look up)\b/, 'live-researcher', 'working model', 'medium', 'Fetch current evidence before drawing a conclusion.', 'research'],
+    [/\b(read(?:ing)?|summari[sz]e|digest|scan)\b.*\b(files|notes|documents|codebase|repo|folder)\b/, 'reader', 'cheap model', 'low', 'Read the requested files and return cited facts.', 'read'],
+    [/\b(design|architect(?:ure)?|ambiguous|tradeoffs?|plan|strategy|unknown cause|find why|debug|diagnose|investigate)\b/, 'deep-planner', 'planning model', 'xhigh', 'Resolve the design and interfaces before building; use equivalent effort where xhigh is unavailable.', 'plan'],
+    [/\b(rename|format|sort|classify|tag|bulk|mechanical|replace|lint)\b/, 'bulk-worker', 'cheap model', 'low', 'Apply a repeatable mechanical change.', 'bulk'],
+    [/\b(build(?:ing)?|implement|code|fix|create|write|add|refactor)\b/, 'builder', 'working model', 'high', 'Build within a task brief and run its acceptance checks.', 'build']
   ];
-  for (const [pattern, agent, tier, effort, reason] of routes) if (pattern.test(text)) return { agent, tier, effort, reason };
+  for (const [pattern, agent, tier, effort, reason, role] of routes) if (pattern.test(text)) return { agent, tier, effort, reason, role };
   return null;
 }
 
@@ -188,9 +249,13 @@ export async function main(args) {
     return scaffold(template, tail[0] || template);
   }
   if (command === 'route') {
-    if (rest.length !== 1 || !rest[0].trim()) throw new Error('usage: aunx route "<task>"');
-    const route = suggestRoute(rest[0]);
-    console.log(route ? `Suggestion: ${route.agent} | tier: ${route.tier} | effort: ${route.effort}\n${route.reason} Confirm against your ROUTING.md.` : 'Suggestion: unknown task category. Read your ROUTING.md and choose a route for the task.');
+    if (rest.length === 1 && ['--help', '-h'].includes(rest[0])) { console.log(HELP); return 0; }
+    const parsed = runnerArgs(rest);
+    if (parsed.rest.length !== 1 || !parsed.rest[0].trim()) throw new Error('usage: aunx route [--dir PATH] "<task>"');
+    const route = suggestRoute(parsed.rest[0]);
+    const roles = readManifestRoles({ dir: parsed.dir });
+    console.log(route ? `Suggestion: ${roles ? route.role : route.agent} | tier: ${route.tier} | effort: ${route.effort}\n${roles ? stackSuggestion(roles[route.role]) + '\n' : ''}${route.reason} Confirm against your ROUTING.md.` : 'Suggestion: unknown task category. Read your ROUTING.md and choose a route for the task.');
+    if (!roles) console.log('No install found; run the installer or pass --dir to see who your stack assigns.');
     return 0;
   }
   return runNode(join(ROOT, 'bin', 'cli.js'), args);

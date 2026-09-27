@@ -269,10 +269,11 @@ test('cli-run: usage errors and unavailable lanes exit with their documented cod
 
 test('interactive path accepts piped answers and aborts on EOF instead of defaulting', () => {
   const dir = join(mkdtempSync(join(tmpdir(), 'orch-int-')), 'out');
-  const ok = run(["--no-install"], { input: `2\n1,2\n1\ny\nn\nn\n${dir}\n${dir}\n4\n4\ny\n` }); // level, AIs, primary, tools (codecalc/obsidian-tc/context7), targets, plan choices, confirm
+  const args = ['--no-install', '--ais', 'claude-code,codex', '--dir', dir, '--project', dir];
+  const ok = run(args, { input: 'y\n' });
   assert.equal(ok.status, 0, ok.stderr + ok.stdout);
   assert.ok(existsSync(join(dir, 'ROUTING.md')), 'level 2 file missing after interactive run');
-  const eof = run(['--no-install'], { input: '2\n' });
+  const eof = run(args, { input: '' });
   assert.equal(eof.status, 2, 'EOF mid-prompt must abort, not confirm a write');
   assert.match(eof.stderr, /input ended/);
   rmSync(dir, { recursive: true, force: true });
@@ -425,7 +426,7 @@ test('--tools obsidian-tc is accepted, --yes alone does not select it, --list sa
   assert.match(l.stdout, /Optional and heavier/);
   assert.match(l.stdout, /Obsidian vault/);
   const dflt = run(['--yes', '--level', '1', '--ais', 'codex', '--dry']);
-  assert.match(dflt.stdout, /tools    none\n/);
+  assert.match(dflt.stdout, /tools    none \(companions are opt-in\)\n/);
   assert.doesNotMatch(dflt.stdout, /OBSIDIAN-TC\.md/);
   const both = run(['--yes', '--level', '1', '--ais', 'codex', '--tools', 'codecalc,obsidian-tc', '--dry']);
   assert.equal(both.status, 0, both.stderr);
@@ -438,7 +439,7 @@ test('--tools context7 is accepted, --yes alone does not select it, --list says 
   assert.match(l.stdout, /context7/);
   assert.match(l.stdout, /network call/);
   const dflt = run(['--yes', '--level', '1', '--ais', 'codex', '--dry']);
-  assert.match(dflt.stdout, /tools    none\n/);
+  assert.match(dflt.stdout, /tools    none \(companions are opt-in\)\n/);
   assert.doesNotMatch(dflt.stdout, /CONTEXT7\.md/);
   const all = run(['--yes', '--level', '1', '--ais', 'codex', '--tools', 'codecalc,obsidian-tc,context7', '--dry']);
   assert.equal(all.status, 0, all.stderr);
@@ -678,7 +679,7 @@ test('the interactive installer prints vendor setup and never spawns npm', () =>
   writeShellStub(join(bin, 'npm'), `echo "$@" > "${captured}"\nexit 0`);
   // Codex is absent from this PATH, so setup instructions must be printed.
   const r = run(['--level', '1', '--ais', 'codex', '--primary', 'codex', '--no-tools', '--dir', join(d, 'out'), '--project', join(d, 'proj')], {
-    input: '4\ny\ny\n',
+    input: 'y\n',
     // PATH deliberately excludes /usr/bin: a machine with a real codex there would skip its missing-binary instruction.
     env: winEnv(process.platform === 'win32' ? [bin, dirname(process.execPath), WIN_SH_DIR].filter(Boolean).join(delimiter) : [bin, dirname(process.execPath), '/bin'].join(delimiter), d)
   });
@@ -1015,7 +1016,7 @@ test('an auto-picked primary is named in the plan, an explicit one is not', () =
     assert.match(auto.stdout, /primary\s+claude-code \(chosen for you from claude-code, codex; pass --primary to decide it yourself\)/);
     const explicit = run(['--yes', '--level', '2', '--ais', 'claude-code,codex', '--primary', 'codex', '--dir', dir, '--project', dir, '--dry']);
     assert.equal(explicit.status, 0, explicit.stderr + explicit.stdout);
-    assert.match(explicit.stdout, /primary\s+codex\n/);
+    assert.match(explicit.stdout, /primary\s+codex \(from --primary\)\n/);
     assert.doesNotMatch(explicit.stdout, /chosen for you/);
     const single = run(['--yes', '--level', '2', '--ais', 'claude-code', '--dir', dir, '--project', dir, '--dry']);
     assert.doesNotMatch(single.stdout, /chosen for you/, 'one candidate is not a choice made for you');

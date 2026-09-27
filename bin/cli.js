@@ -1,17 +1,18 @@
 #!/usr/bin/env node
 // model-orchestrator installer.
-// Asks which level you want and which AIs you have access to, then writes the
-// matching files into a folder. It never writes a secret, never runs a vendor
+// Detects available AIs and previews a stack-specific setup for confirmation.
+// Writes the matching files into a folder. It never writes a secret or runs a vendor
 // shell script. Existing documents are preserved unless an update is requested.
 
 import { stdin, stdout } from 'node:process';
 import { makeAsker } from '../src/prompt.js';
 import { resolve, join } from 'node:path';
 import { which } from '../src/detect.js';
-import { AIS, LEVELS, TOOLS, PROVIDERS, aisForLevel, agentCandidates, byId, npmSpec } from '../src/catalog.js';
+import { AIS, LEVELS, TOOLS, PROVIDERS, aisForLevel, agentCandidates, byId, npmSpec, summaryWithEvidence } from '../src/catalog.js';
 import { planFiles, writeFiles, resolveSelection, resolveTools, resolveApis, dirProblems, readManifest, activationSteps, MACHINE_OWNED, RUNTIME, toPosixRel, GENERATOR_VERSION } from '../src/install.js';
 import { uninstallFiles } from '../src/uninstall.js';
 import { assertSnippetPrimary, planSnippetApplication } from '../src/apply-snippets.js';
+import { assignRoles, inferPrimary, roleTable } from '../src/roles.js';
 
 // One strict parse. Unknown flags, missing values and duplicates are usage
 // errors (exit 2) before anything is planned, so a typo like --dryy can never
@@ -99,13 +100,13 @@ Flags
                      and --yes is set, the run picks one and says so in the plan; pass this to decide it yourself.
   --tools a,b        companion docs and snippets to set up, all optional (default: none)
   --apis a,b         level 3 only: metered API keys you HOLD (anthropic,openai,google,xai,openrouter); --no-apis for none.
-                     Asked separately from the CLIs because a subscription is not an API key.
+                     Select these with --apis or the edit screen; a subscription is not an API key.
   --plans a=plan,b=plan  stated subscription plans for guidance; --plans none clears prior stated plans
   --effort-auto      consent to write auto effort defaults for selected high or max plan cli-run lanes
   --dir path         where to write the docs and protocols (default ./ai-orchestrator)
   --project path     the project root your agent runs from; subagent definitions go here (default: current directory,
                      so set it: a run from your home folder otherwise drops the subagent files there)
-  --yes              skip confirmations
+  --yes              skip confirmations; requires --level and --ais for a reproducible install
   --apply-snippets   apply Claude Code rules and hooks with timestamped backups (opt-in)
   --force            overwrite every file that already exists, documents included
   --upgrade-runtime  replace the runtime files (cli-run, the audit job, compose, gateway config, setup script) even
@@ -129,7 +130,8 @@ if (flag('list')) {
   console.log('');
   for (const a of AIS) {
     const here = a.bin ? (which(a.bin) ? 'installed' : 'not on PATH') : 'app';
-    console.log(`${a.id.padEnd(13)} ${a.name}\n${''.padEnd(13)} level ${a.minLevel}+ · ${a.access} · ${here}\n${''.padEnd(13)} ${a.role}`);
+    const billing = { subscription: 'subscription lane', 'pay-per-token': 'pay-per-token lane', free: 'free lane', local: 'local lane' }[a.facts.billing];
+    console.log(`${a.id.padEnd(13)} ${a.name}\n${''.padEnd(13)} level ${a.minLevel}+ · ${billing} · ${here}\n${''.padEnd(13)} ${summaryWithEvidence(a)}`);
     const install = a.install.npm
       ? 'npm install -g ' + npmSpec(a)
       : a.install.script
@@ -146,7 +148,7 @@ if (flag('list')) {
 }
 
 const yes = flag('yes');
-const rl = yes || flag('uninstall') ? null : makeAsker({ input: stdin, output: stdout });
+let rl = null;
 const ask = (q, fallback) => (rl ? rl.ask(q, fallback) : Promise.resolve(fallback));
 
 function bad(msg) {
@@ -174,7 +176,134 @@ function plansFromIds(raw, selected) {
 function plansFromManifest(manifest, selected) {
   const raw = manifest && manifest.plans;
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
-  return plansFromIds(Object.entries(raw).map(([id, plan]) => `${id}=${plan}`).join(','), selected);
+  const pairs = Object.entries(raw).filter(([id]) => selected.some((ai) => ai.id === id));
+  return pairs.length ? plansFromIds(pairs.map(([id, plan]) => `${id}=${plan}`).join(','), selected) : {};
+}
+
+function inferLevel(selected) {
+  return Math.min(2, Math.max(1, selected.length >= 2 && selected.some((ai) => ai.facts.cliRun) ? 2 : 1, ...selected.map((ai) => ai.minLevel)));
+}
+
+// Detection reads filesystem metadata only. A caller can supply the detector
+// for deterministic tests; no detected vendor program is executed here.
+export function inferSetup({ selected, detect = which } = {}) {
+  const detected = new Set(AIS.filter((ai) => ai.bin && detect(ai.bin)).map((ai) => ai.id));
+  const picks = selected || AIS.filter((ai) => detected.has(ai.id));
+  return { detected, selected: picks, level: inferLevel(picks), primary: inferPrimary(agentCandidates(picks)) || null, tools: [], apis: [], plans: {}, effortAuto: [] };
+}
+
+function selectedFromIds(raw) {
+  const { selected, unknown } = resolveSelection(raw.split(',').map((s) => s.trim()).filter(Boolean));
+  if (unknown.length) bad('unknown AI id(s): ' + unknown.join(', ') + ' (see --list)');
+  if (!selected.length) bad('pick at least one AI');
+  return selected;
+}
+
+function numberedPicks(answer, available, noun) {
+  if (answer.toLowerCase() === 'none') return [];
+  const picked = answer.split(',').map((s) => s.trim()).filter(Boolean).map((number) => {
+    const index = Number(number);
+    const item = Number.isInteger(index) && index > 0 ? available[index - 1] : null;
+    if (!item) bad(`no ${noun} numbered ${number}`);
+    return item;
+  });
+  return [...new Set(picked)];
+}
+
+async function askAis(available, detected, selected = []) {
+  console.log('\nWhich AIs do you have access to? (numbers, comma-separated; detected ones are marked)');
+  available.forEach((ai, i) => console.log(`  ${String(i + 1).padStart(2)} ${detected.has(ai.id) ? '*' : ' '} ${ai.name}`));
+  const fallback = available.map((ai, i) => selected.includes(ai) ? i + 1 : null).filter(Boolean).join(',');
+  return numberedPicks(await ask(`\nYour picks${fallback ? ' [' + fallback + ']' : ''}: `, fallback), available, 'AI');
+}
+
+function eligibleEffort(selected, plans) {
+  return selected.filter((ai) => ai.facts.cliRun && plans[ai.id] && ['high', 'max'].includes(plans[ai.id].headroom)).map((ai) => ai.id).sort();
+}
+
+function validateSetup(state) {
+  if (![1, 2, 3].includes(state.level)) bad('level must be 1, 2 or 3');
+  if (!state.selected.length) bad('pick at least one AI');
+  const tooHigh = state.selected.filter((ai) => ai.minLevel > state.level);
+  if (tooHigh.length) bad(`${tooHigh.map((ai) => ai.id).join(', ')} need level ${Math.max(...tooHigh.map((ai) => ai.minLevel))} or higher`);
+  const candidates = agentCandidates(state.selected);
+  if (!candidates.length) bad('pick at least one agent or chat app to be the orchestrator; a local model runtime on its own cannot run the system');
+  if (!candidates.includes(state.primary)) bad('--primary must be one of: ' + candidates.map((ai) => ai.id).join(', '));
+  if (state.level < 3 && state.apis.length) bad('--apis only applies at level 3 (the gateway)');
+  const dirBad = dirProblems(state.dir);
+  if (dirBad.length) bad(dirBad.join('; '));
+  const projectBad = dirProblems(state.project);
+  if (projectBad.length) bad('--project: ' + projectBad.join('; '));
+}
+
+async function editSetup(state, sources) {
+  console.log('\nChange what?\n  1 level (1, 2 or 3; 3 needs an always-on Linux machine)\n  2 which AIs\n  3 main agent\n  4 companion tools\n  5 where the files go (folder and project root)\n  6 subscription plans' + (state.level === 3 ? '\n  7 level 3 API keys' : '') + '\n  0 nothing, back to the summary');
+  const choice = await ask('\nNumber [0]: ', '0');
+  if (choice === '0') return;
+  if (choice === '1') {
+    LEVELS.forEach((l) => console.log(`  ${l.id} ${l.name}: ${l.tagline}`));
+    state.level = Number(await ask(`Level [${state.level}]: `, String(state.level)));
+    state.levelChosen = true;
+    sources.delete('level');
+  } else if (choice === '2') {
+    state.selected = await askAis(AIS, state.detected, state.selected);
+    sources.delete('ais');
+    if (!state.levelChosen) state.level = inferLevel(state.selected);
+    if (!state.primaryChosen || !agentCandidates(state.selected).includes(state.primary)) {
+      state.primary = inferPrimary(agentCandidates(state.selected)) || null;
+      state.primaryChosen = false;
+      sources.delete('primary');
+    }
+    state.plans = Object.fromEntries(Object.entries(state.plans).filter(([id]) => state.selected.some((ai) => ai.id === id)));
+    state.effortAuto = state.effortAuto.filter((id) => state.selected.some((ai) => ai.id === id && ai.facts.cliRun));
+  } else if (choice === '3') {
+    const candidates = agentCandidates(state.selected);
+    candidates.forEach((ai, i) => console.log(`  ${i + 1} ${ai.name}`));
+    const fallback = String(candidates.indexOf(state.primary) + 1);
+    const answer = Number(await ask(`Main agent [${fallback}]: `, fallback));
+    state.primary = Number.isInteger(answer) ? candidates[answer - 1] : null;
+    state.primaryChosen = true;
+    sources.delete('primary');
+  } else if (choice === '4') {
+    console.log('Companion tools (optional): selecting one writes docs and config snippets. Install each project yourself.');
+    TOOLS.forEach((tool, i) => console.log(`  ${i + 1} ${tool.name}: ${tool.role}\n    ${tool.requires}\n    ${tool.optionalNote}`));
+    const fallback = TOOLS.map((tool, i) => state.tools.includes(tool) ? i + 1 : null).filter(Boolean).join(',') || 'none';
+    state.tools = numberedPicks(await ask(`Companions [${fallback}]: `, fallback), TOOLS, 'tool');
+    sources.delete('tools');
+    sources.delete('no-tools');
+  } else if (choice === '5') {
+    state.dir = resolve(await ask(`Docs folder [${state.dir}]: `, state.dir));
+    state.project = resolve(await ask(`Project root [${state.project}]: `, state.project));
+    sources.delete('dir');
+    sources.delete('project');
+  } else if (choice === '6') {
+    const plans = {};
+    for (const ai of state.selected.filter((candidate) => candidate.plans)) {
+      const first = ai.plans[0];
+      console.log(`\nWhich ${ai.vendor} plan? (checked ${first.checked}, source ${first.source})`);
+      ai.plans.forEach((plan, i) => console.log(`  ${i + 1} ${plan.name} (${plan.headroom} headroom)`));
+      console.log(`  ${ai.plans.length + 1} not sure`);
+      const fallback = String(state.plans[ai.id] ? ai.plans.indexOf(state.plans[ai.id]) + 1 : ai.plans.length + 1);
+      const answer = Number(await ask(`Plan [${fallback}]: `, fallback));
+      if (!Number.isInteger(answer) || answer < 1 || answer > ai.plans.length + 1) bad('pick a listed plan number');
+      if (answer <= ai.plans.length) plans[ai.id] = ai.plans[answer - 1];
+    }
+    state.plans = plans;
+    state.plansChosen = true;
+    state.effortChosen = true;
+    const eligible = eligibleEffort(state.selected, plans);
+    state.effortAuto = eligible.length && /^y/i.test(await ask(`Size reasoning effort per task automatically on ${eligible.join(', ')}? [y/N] `, 'n')) ? eligible : [];
+    sources.delete('plans');
+    sources.delete('effort-auto');
+  } else if (choice === '7' && state.level === 3) {
+    console.log('Which metered API keys do you HOLD? A subscription is not an API key. Only variable names are written.');
+    PROVIDERS.forEach((provider, i) => console.log(`  ${i + 1} ${provider.name} (${provider.envName})`));
+    const fallback = PROVIDERS.map((provider, i) => state.apis.includes(provider) ? i + 1 : null).filter(Boolean).join(',') || 'none';
+    state.apis = numberedPicks(await ask(`Your keys [${fallback}]: `, fallback), PROVIDERS, 'provider');
+    sources.delete('apis');
+    sources.delete('no-apis');
+  } else bad('pick a listed edit number');
+  validateSetup(state);
 }
 
 async function main() {
@@ -199,202 +328,113 @@ async function main() {
   console.log('\nmodel-orchestrator\nModel router for AI coding agents: installs routing rules, 8 subagents, hooks and a CLI runner so your AI picks model and effort per task and saves tokens\n');
   if (flag('no-install')) console.log('--no-install is no longer needed: the installer never runs a third-party install.');
 
-  // 1. Level
-  let level = Number(opt('level'));
-  if (![1, 2, 3].includes(level)) {
-    if (yes) bad('--level must be 1, 2 or 3 when --yes is set');
-    console.log('Which level?');
-    for (const l of LEVELS) console.log(`  ${l.id}  ${l.name}: ${l.tagline}`);
-    level = Number(await ask('\nLevel [1]: ', '1'));
-    if (![1, 2, 3].includes(level)) bad('level must be 1, 2 or 3');
-  }
-
-  // 2. Access
-  const available = aisForLevel(level);
-  let ids;
-  if (opt('ais')) {
-    ids = opt('ais').split(',').map((s) => s.trim()).filter(Boolean);
-  } else {
-    if (yes) bad('--ais is required with --yes (comma-separated ids, see --list)');
-    console.log('\nWhich AIs do you have access to? (numbers, comma-separated; detected ones are marked)');
-    available.forEach((a, i) => {
-      const mark = a.bin && which(a.bin) ? '*' : ' ';
-      console.log(`  ${String(i + 1).padStart(2)} ${mark} ${a.name}`);
-    });
-    const detected = available.map((a, i) => (a.bin && which(a.bin) ? i + 1 : null)).filter(Boolean);
-    const fallback = detected.join(',');
-    const answer = await ask(`\nYour picks${fallback ? ' [' + fallback + ']' : ''}: `, fallback);
-    ids = answer
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean)
-      .map((n) => {
-        const a = available[Number(n) - 1];
-        if (!a) bad(`no AI numbered ${n}`);
-        return a.id;
-      });
-  }
-  const { selected, unknown } = resolveSelection(ids);
-  if (unknown.length) bad('unknown AI id(s): ' + unknown.join(', ') + ' (see --list)');
-  if (!selected.length) bad('pick at least one AI');
-  const tooHigh = selected.filter((a) => a.minLevel > level);
-  if (tooHigh.length) bad(`${tooHigh.map((a) => a.id).join(', ')} need level ${Math.max(...tooHigh.map((a) => a.minLevel))} or higher`);
-
-  // 3. Main agent (the one that runs the system)
-  const candidates = agentCandidates(selected);
-  let primary = null;
-  let primaryAutoPicked = false;
-  if (opt('primary')) {
-    primary = byId[opt('primary')];
-    if (!primary || !candidates.includes(primary)) bad('--primary must be one of: ' + candidates.map((a) => a.id).join(', '));
-  } else if (candidates.length === 1) {
-    primary = candidates[0];
-  } else if (candidates.length === 0) {
-    bad('pick at least one agent or chat app to be the orchestrator; a local model runtime on its own cannot run the system');
-  } else if (candidates.length > 1) {
-    // --yes picks for the user: claude-code if present, else the first agent that can load subagent
-    // definitions (it gets five files written for it), else the first candidate. #19: codex listed
-    // before agy used to win and nothing was written to the project root.
-    if (yes) {
-      primary = candidates.find((a) => a.id === 'claude-code') || candidates.find((a) => a.agentsDir) || candidates[0];
-      primaryAutoPicked = true;
-    }
-    else {
-      console.log('\nWhich one is your main agent (the one that runs the system)?');
-      candidates.forEach((a, i) => console.log(`  ${i + 1}  ${a.name}`));
-      const n = Number(await ask('\nMain agent [1]: ', '1'));
-      primary = candidates[n - 1];
-      if (!primary) bad('pick a listed number');
-    }
-  }
-
-  // 3b. Companion tools (not AIs: things the AIs call)
-  let tools = [];
-  if (opt('tools')) {
-    const r = resolveTools(opt('tools').split(',').map((s) => s.trim()).filter(Boolean));
-    if (r.unknown.length) bad('unknown tool id(s): ' + r.unknown.join(', ') + ' (see --list)');
-    tools = r.tools;
-  } else if (!yes && !flag('no-tools')) {
-    console.log('\nCompanion tools (all optional): selecting one writes docs and config snippets. Install each project yourself.');
-    for (const t of TOOLS) {
-      console.log(`\n  [ ] ${t.id}: ${t.role}\n    ${t.repo}\n    needs: ${t.requires}\n    ${t.optionalNote}`);
-      const a = await ask(`  Set up ${t.id}? [y/N]: `, 'n');
-      if (/^y/i.test(a)) tools.push(t);
-    }
-  }
-
-  // 3c. Level 3: which metered API keys the user HOLDS. Separate from the CLI
-  // question on purpose: a Claude Code plan is not an Anthropic API key.
-  let apis = [];
+  if (!yes) rl = makeAsker({ input: stdin, output: stdout });
+  if (yes && ![1, 2, 3].includes(Number(opt('level')))) bad('--level must be 1, 2 or 3 when --yes is set');
+  if (yes && !opt('ais')) bad('--ais is required with --yes (comma-separated ids, see --list)');
   if (flag('no-apis') && opt('apis')) bad('--no-apis and --apis contradict each other');
-  if (level >= 3 && !flag('no-apis')) {
-    if (opt('apis')) {
-      const r = resolveApis(opt('apis').split(',').map((s) => s.trim()).filter(Boolean));
-      if (r.unknown.length) bad('unknown provider id(s): ' + r.unknown.join(', ') + ' (see --list)');
-      apis = r.apis;
-    } else if (!yes) {
-      console.log('\nLevel 3 gateway: which metered API keys do you HOLD? (numbers, comma-separated, or none)');
-      console.log('  This is separate from the CLIs above: a subscription is not an API key. Only variable NAMES are written; you keep the values in your secrets manager.');
-      PROVIDERS.forEach((prov, i) => console.log(`  ${String(i + 1).padStart(2)}   ${prov.name}  (${prov.envName})`));
-      const a = await ask('\nYour keys [none]: ', '');
-      apis = a
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .map((n) => {
-          const prov = PROVIDERS[Number(n) - 1];
-          if (!prov) bad(`no provider numbered ${n}`);
-          return prov;
-        });
-    }
-  } else if (level < 3 && opt('apis')) {
-    bad('--apis only applies at level 3 (the gateway)');
+
+  console.log('Looking for AI tools on your PATH...');
+  const setup = inferSetup({ selected: opt('ais') ? selectedFromIds(opt('ais')) : undefined });
+  console.log('  found: ' + (AIS.filter((ai) => setup.detected.has(ai.id)).map((ai) => `${ai.bin} (${ai.name})`).join(', ') || 'none'));
+  if (!setup.selected.length && !yes) {
+    const available = opt('level') ? aisForLevel(Number(opt('level'))) : AIS;
+    setup.selected = await askAis(available, setup.detected);
   }
-
-  // 4. Targets: the docs folder, and the project root the agent runs from
-  const dir = resolve(opt('dir') || (await ask('\nWrite docs and protocols into [./ai-orchestrator]: ', './ai-orchestrator')));
-  const dirBad = dirProblems(dir);
-  if (dirBad.length) bad(dirBad.join('; '));
-  const project = resolve(opt('project') || (primary && primary.agentsDir && !yes ? await ask(`\nProject root your agent runs from (subagents go in ${primary.agentsDir}/ there) [.]: `, '.') : '.'));
-  const projectBad = dirProblems(project);
-  if (projectBad.length) bad('--project: ' + projectBad.join('; '));
-
-  // A prior manifest is read before planning so an omitted reconfiguration
-  // preserves consent and stated plans instead of silently clearing either.
-  const prev = readManifest(dir);
-  let plans;
-  let plansKept = false;
-  if (opt('plans') !== null) {
-    plans = plansFromIds(opt('plans'), selected);
-  } else if (prev) {
-    plans = plansFromManifest(prev, selected);
-    plansKept = Object.keys(plans).length > 0;
-  } else if (!yes) {
-    plans = {};
-    for (const ai of selected.filter((a) => a.plans)) {
-      const first = ai.plans[0];
-      console.log(`\nWhich ${ai.vendor} plan? (checked ${first.checked}, source ${first.source})`);
-      ai.plans.forEach((p, i) => console.log(`  ${i + 1}  ${p.name} (${p.headroom} headroom)`));
-      console.log(`  ${ai.plans.length + 1}  not sure`);
-      const answer = Number(await ask(`Plan [${ai.plans.length + 1}]: `, String(ai.plans.length + 1)));
-      if (!Number.isInteger(answer) || answer < 1 || answer > ai.plans.length + 1) bad('pick a listed plan number');
-      if (answer <= ai.plans.length) plans[ai.id] = ai.plans[answer - 1];
-    }
-  } else {
-    plans = {};
+  setup.level = opt('level') ? Number(opt('level')) : inferLevel(setup.selected);
+  setup.primary = opt('primary') ? byId[opt('primary')] : inferPrimary(agentCandidates(setup.selected)) || null;
+  setup.levelChosen = opt('level') !== null;
+  setup.primaryChosen = opt('primary') !== null;
+  setup.plansChosen = opt('plans') !== null;
+  setup.effortChosen = flag('effort-auto');
+  setup.dir = resolve(opt('dir') || './ai-orchestrator');
+  setup.project = resolve(opt('project') || '.');
+  if (opt('tools')) {
+    const result = resolveTools(opt('tools').split(',').map((value) => value.trim()).filter(Boolean));
+    if (result.unknown.length) bad('unknown tool id(s): ' + result.unknown.join(', ') + ' (see --list)');
+    setup.tools = result.tools;
   }
-
-  const eligibleAuto = selected.filter((a) => a.cliRun && plans[a.id] && ['high', 'max'].includes(plans[a.id].headroom)).map((a) => a.id).sort();
-  let effortAuto;
-  if (flag('effort-auto')) {
-    effortAuto = eligibleAuto;
-  } else if (prev && Array.isArray(prev.effortAuto)) {
-    effortAuto = prev.effortAuto.filter((id) => selected.some((a) => a.id === id && a.cliRun));
-  } else if (!yes && eligibleAuto.length) {
-    const answer = await ask(`\nSize reasoning effort per task automatically on ${eligibleAuto.join(', ')}? [y/N] `, 'n');
-    effortAuto = /^y/i.test(answer) ? eligibleAuto : [];
-  } else {
-    effortAuto = [];
+  if (opt('apis')) {
+    const result = resolveApis(opt('apis').split(',').map((value) => value.trim()).filter(Boolean));
+    if (result.unknown.length) bad('unknown provider id(s): ' + result.unknown.join(', ') + ' (see --list)');
+    setup.apis = result.apis;
+    if (setup.level < 3) bad('--apis only applies at level 3 (the gateway)');
   }
+  validateSetup(setup);
 
-  // 5. Plan
+  let prev = readManifest(setup.dir);
+  setup.plans = opt('plans') !== null ? plansFromIds(opt('plans'), setup.selected) : plansFromManifest(prev, setup.selected);
+  let plansKept = opt('plans') === null && Object.keys(setup.plans).length > 0;
+  setup.effortAuto = flag('effort-auto') ? eligibleEffort(setup.selected, setup.plans)
+    : Array.isArray(prev?.effortAuto) ? prev.effortAuto.filter((id) => setup.selected.some((ai) => ai.id === id && ai.facts.cliRun)) : [];
+  const sources = new Set(Object.keys(parsed.out));
   const applySnippets = flag('apply-snippets');
-  if (applySnippets) assertSnippetPrimary(primary);
-  const files = planFiles({ level, selected, primary, dir, project, tools, apis, plans, effortAuto, applySnippets });
-  if (applySnippets) files.push(...planSnippetApplication({ primary, project, files }));
-  const lvl = LEVELS.find((l) => l.id === level);
-  const agentFiles = files.filter((f) => f.root === 'project');
-  const projectKinds = [
-    [agentFiles.filter((f) => primary?.agentsDir && toPosixRel(f.rel).startsWith(primary.agentsDir + '/')).length, 'subagents'],
-    [agentFiles.filter((f) => toPosixRel(f.rel).startsWith('.claude/hooks/')).length, 'hooks']
-  ].filter(([count]) => count).map(([count, kind]) => `${count} ${kind}`).join(' + ');
-  const statedPlans = Object.entries(plans).map(([id, p]) => `${id}=${p.id}`).join(', ');
-  console.log(`\nPlan\n  level    ${lvl.id} ${lvl.name}\n  access   ${selected.map((a) => a.id).join(', ')}\n  primary  ${primary ? primary.id : 'none'}${primaryAutoPicked ? ` (chosen for you from ${candidates.map((a) => a.id).join(', ')}; pass --primary to decide it yourself)` : ''}\n  tools    ${tools.map((t) => t.id).join(', ') || 'none'}\n  plans    ${statedPlans || 'none stated'}` + (level >= 3 ? `\n  api keys ${apis.map((p) => p.id).join(', ') || 'none'}` : '') + `\n  folder   ${dir}\n  project  ${project}${projectKinds ? ' (' + projectKinds + ' go here)' : ''}\n  files    ${files.length}`);
-  if (plansKept) console.log('  plans kept from the previous run');
-  if (agentFiles.length && !opt('project')) {
-    console.log(`\nNote: --project defaults to the current directory, so the ${projectKinds} go to the current directory (${project}). Pass --project to put them somewhere else.`);
-  }
-  if (level >= 2 && !selected.some((a) => a.cliRun)) {
-    console.log('\nWarning: no executable lanes selected; delegation is inactive. Use level 1 for a single-agent setup, or add a supported CLI. Doctor will exit 13 until a lane is enabled.');
-  }
-  if (flag('dry') || flag('dry-run')) {
-    for (const f of files) console.log('  - ' + (f.root === 'project' ? '[project] ' : '') + f.rel);
-    if (applySnippets) {
-      const preview = writeFiles(files, { dir, project, dry: true, force: flag('force'), upgradeRuntime: flag('upgrade-runtime'), updateDocs: flag('update-docs'), prevManifest: prev, backupExisting: true });
-      for (const path of preview.written) console.log('  would write ' + path);
-      for (const path of [...preview.skipped, ...preview.conflicts, ...preview.unverifiable, ...preview.docsConflict, ...preview.docsUnverifiable]) console.log('  would keep ' + path);
-      for (const path of preview.backups) console.log('  would back up ' + path);
+  let files;
+  let plannedManifest;
+  while (true) {
+    validateSetup(setup);
+    const { level, selected, primary, dir, project, tools, apis, plans, effortAuto, detected } = setup;
+    if (applySnippets) assertSnippetPrimary(primary);
+    files = planFiles({ level, selected, primary, dir, project, tools, apis, plans, effortAuto, detected, applySnippets });
+    plannedManifest = JSON.parse(files.find((file) => file.rel === 'MANIFEST.json').content);
+    if (applySnippets) files.push(...planSnippetApplication({ primary, project, files }));
+    const lvl = LEVELS.find((entry) => entry.id === level);
+    const candidates = agentCandidates(selected);
+    const agentFiles = files.filter((file) => file.root === 'project');
+    const projectKinds = [
+      [agentFiles.filter((file) => primary?.facts.agentDefinitions && toPosixRel(file.rel).startsWith(primary.facts.agentDefinitions + '/')).length, 'subagents'],
+      [agentFiles.filter((file) => toPosixRel(file.rel).startsWith('.claude/hooks/')).length, 'hooks']
+    ].filter(([count]) => count).map(([count, kind]) => `${count} ${kind}`).join(' + ');
+    const from = (key) => sources.has(key) ? ` (from --${key})` : '';
+    const autoPrimary = !setup.primaryChosen && candidates.length > 1
+      ? ` (chosen for you from ${candidates.map((ai) => ai.id).join(', ')}; pass --primary to decide it yourself)` : '';
+    const detectedAccess = !sources.has('ais') && selected.every((ai) => detected.has(ai.id)) ? ' (detected on your PATH)' : '';
+    const statedPlans = Object.entries(plans).map(([id, plan]) => `${id}=${plan.id}`).join(', ');
+    console.log(`\nPlan\n  level    ${lvl.id} ${lvl.name}: ${lvl.tagline}${from('level')}\n  access   ${selected.map((ai) => ai.id).join(', ')}${from('ais')}${detectedAccess}\n  primary  ${primary.id}${from('primary')}${autoPrimary}\n  tools    ${tools.map((tool) => tool.id).join(', ') || 'none (companions are opt-in)'}${from('tools')}${from('no-tools')}\n  plans    ${statedPlans || 'not stated (your tools select the model)'}${from('plans')}`
+      + (level >= 3 ? `\n  api keys ${apis.map((provider) => provider.id).join(', ') || 'none'}${from('apis')}${from('no-apis')}` : '')
+      + (effortAuto.length || sources.has('effort-auto') ? `\n  auto effort ${effortAuto.join(', ') || 'none eligible'}${from('effort-auto')}` : '')
+      + `\n  folder   ${dir}${from('dir')}\n  project  ${project}${projectKinds ? ' (' + projectKinds + ' go here)' : ''}${from('project')}\n  files    ${files.length}`);
+    if (plansKept) console.log('  plans kept from the previous run');
+    if (agentFiles.length && !sources.has('project')) console.log(`\nNote: --project defaults to the current directory, so the ${projectKinds} go to the current directory (${project}). Pass --project to put them somewhere else.`);
+    const assignment = assignRoles({ selected, primary, detected, plans });
+    const agents = Object.fromEntries(Object.entries(plannedManifest.roles || {}).filter(([, role]) => role.agent).map(([id, role]) => [id, role.agent]));
+    console.log('\n' + roleTable(assignment, { selected, primary, detected, agents }));
+    if (level >= 2 && !selected.some((ai) => ai.facts.cliRun)) console.log('\nWarning: no executable lanes selected; delegation is inactive. Use level 1 for a single-agent setup, or add a supported CLI. Doctor will exit 13 until a lane is enabled.');
+    if (flag('dry') || flag('dry-run')) {
+      for (const file of files) console.log('  - ' + (file.root === 'project' ? '[project] ' : '') + file.rel);
+      if (applySnippets) {
+        const preview = writeFiles(files, { dir, project, dry: true, force: flag('force'), upgradeRuntime: flag('upgrade-runtime'), updateDocs: flag('update-docs'), prevManifest: prev, backupExisting: true });
+        for (const path of preview.written) console.log('  would write ' + path);
+        for (const path of [...preview.skipped, ...preview.conflicts, ...preview.unverifiable, ...preview.docsConflict, ...preview.docsUnverifiable]) console.log('  would keep ' + path);
+        for (const path of preview.backups) console.log('  would back up ' + path);
+      }
+      console.log('\n--dry: nothing written.');
+      rl && rl.close();
+      return;
     }
-    console.log('\n--dry: nothing written.');
-    rl && rl.close();
-    return;
-  }
-  const go = yes ? 'y' : await ask('\nWrite these files? [Y/n]: ', 'y');
-  if (!/^y/i.test(go)) {
+    if (yes) break;
+    const go = (await ask('\nWrite these files?\n[Y/n/e]  (e to change anything above): ', 'y')).toLowerCase();
+    if (go === 'y' || go === 'yes') break;
+    if (go === 'e') {
+      const oldDir = setup.dir;
+      const oldPlans = setup.plans;
+      await editSetup(setup, sources);
+      if (setup.plans !== oldPlans) plansKept = false;
+      if (oldDir !== setup.dir) {
+        prev = readManifest(setup.dir);
+        if (!setup.plansChosen) {
+          setup.plans = plansFromManifest(prev, setup.selected);
+          plansKept = Object.keys(setup.plans).length > 0;
+        }
+        if (!setup.effortChosen) setup.effortAuto = Array.isArray(prev?.effortAuto) ? prev.effortAuto.filter((id) => setup.selected.some((ai) => ai.id === id && ai.facts.cliRun)) : [];
+      }
+      continue;
+    }
+    if (go !== 'n' && go !== 'no') bad('answer y, n or e');
     console.log('Nothing written.');
     rl && rl.close();
     return;
   }
+  const { level, selected, primary, dir, project, tools, apis, plans, effortAuto } = setup;
 
   // Reconfiguration: compare what a previous run recorded with what was asked now.
   const changed = prev
@@ -402,6 +442,7 @@ async function main() {
         .concat(['ais', 'tools', 'apis'].filter((k) => JSON.stringify(prev[k] || []) !== JSON.stringify({ ais: selected, tools, apis }[k].map((x) => x.id))))
         .concat(JSON.stringify(prev.plans || {}) !== JSON.stringify(Object.fromEntries(Object.entries(plans).map(([id, p]) => [id, p.id]))) ? ['plans'] : [])
         .concat(JSON.stringify((prev.effortAuto || []).slice().sort()) !== JSON.stringify(effortAuto.slice().sort()) ? ['effortAuto'] : [])
+        .concat(JSON.stringify(prev.roles || {}) !== JSON.stringify(plannedManifest.roles || {}) ? ['roles'] : [])
     : [];
 
   let written, skipped, upgraded, conflicts, unverifiable, docsUpdated, docsConflict, docsUnverifiable, docsRenamed;
@@ -421,6 +462,7 @@ async function main() {
       if (changed.length) {
         console.log(`  selection changed: ${changed.join(', ')}`);
         console.log(`  applied: ${ownedWritten.join(', ') || 'nothing'} (machine-owned files are always rewritten, so the new lanes are live)`);
+        if (changed.includes('roles')) console.log('  the role assignment changed; MANIFEST.json and aunx route are current. Any kept documents may still carry the previous assignment.');
       } else console.log('  selection identical.');
     }
     if (upgraded.length) console.log(`  runtime upgraded: ${upgraded.join(', ')} ${flag('upgrade-runtime') ? '(--upgrade-runtime: replaced whether or not you had edited them)' : '(each installed copy matched the hash of a previous run, so nobody had edited it)'}`);

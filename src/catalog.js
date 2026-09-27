@@ -4,22 +4,16 @@
 // Fields
 //   id         stable key used in --ais and in generated files
 //   name       what the prompt shows
-//   kind       'agent-cli' (a terminal agent), 'chat' (a chat app, no CLI), 'local' (a local model runtime)
+//   summary    what the AI is and gives; role assignment is computed in roles.js
+//   facts      capability claims, billing and model family; null means UNVERIFIED
+//   factNotes  provenance caveats attached to the named capability facts
 //   bin        binary to look for on PATH, or null
-//   access     'subscription' ($0 per call on a plan you already pay for), 'metered' (per token), 'free', 'local'
-//   lane       'A' = subscription CLI, 'B' = metered API, 'local' = stays on the machine
-//   laneCategories  routing capabilities used to filter generated routing advice
-//   role       the one job it wins at in a multi-AI stack
 //   minLevel   1 beginner, 2 intermediate, 3 advanced
 //   install    { npm: pkg } for a global npm install command printed for you to run,
 //              { script: url } for a vendor shell installer the installer only PRINTS, never runs,
 //              { url } for a download page
 //   auth       how you sign in, always the vendor's own flow, never a key typed into this tool
 //   rulesFile  the instructions file that agent reads from a project root, if any
-//   agentsDir  where that agent keeps project-level subagent definitions, if any
-//   cliRun     true when bin/cli-run.mjs has a judge for this lane
-//   modelFamily default family for review suggestions; verify the current model
-//              before dispatch. Omitted for provider-configurable lanes.
 //   builtAgainst  the vendor version this release's lane wiring and judges were
 //              exercised against. ONE number per lane: the README compatibility
 //              table is generated from it, and where install.npm exists the pin
@@ -31,7 +25,8 @@
 //              a sentence you can read once (#22)
 //   chatSurface chat apps only: where the pasted block goes in that app
 //   plans      optional known subscription plans: { id, name, headroom,
-//              source, checked }. Guidance uses headroom only, never prices.
+//              source, checked, tierModels }. A null tierModels leaves model selection
+//              to the user's plan and agent configuration.
 
 export const CATALOG_MODELS = { measuredAt: '2026-09-23', expiresAt: '2026-10-23', source: 'catalog compatibility snapshot; verify with the provider before use' };
 
@@ -62,224 +57,324 @@ export const LEVELS = [
 export const AIS = [
   {
     id: 'claude-code',
+    facts: { // Capability snapshot checked 2026-09-27; unknown facts stay null.
+      modelFamily: 'Anthropic',
+      kind: 'agent-cli',
+      billing: 'subscription',
+      pricing: null, // UNVERIFIED: check your provider's current rate.
+      headless: true,
+      cliRun: false,
+      writesFiles: true,
+      readOnlyMode: false,
+      liveWeb: true, // Source: templates/agents/claude-code/live-researcher.md grants WebSearch and WebFetch.
+      runsLocally: false,
+      fanOut: null, // UNVERIFIED: no vendor doc states N children in one call.
+      contextWindow: null, // UNVERIFIED: context capacity depends on the selected model.
+      // Verified at code.claude.com/docs/en/sub-agents (fetched 2026-09-10): "A
+      // non-fork subagent's initial context contains: CLAUDE.md files: every
+      // level of the CLAUDE.md hierarchy the main conversation loads ... The
+      // built-in Explore and Plan agents skip this." No other lane in this
+      // catalog has that documented, so the builder-by-default routing, the
+      // route-gate hook and the inline-threshold note are gated on this field
+      // and stay claude-code only.
+      loadsProjectRules: true,
+      agentDefinitions: '.claude/agents',
+    },
     name: 'Claude Code (Anthropic)',
     vendor: 'Anthropic',
-    modelFamily: 'Anthropic',
-    kind: 'agent-cli',
     bin: 'claude',
-    access: 'subscription',
-    lane: 'A',
-    role: 'orchestrator: routes, maps, builds, verifies, records',
+    summary: 'Anthropic\'s terminal coding agent; its subagents load the project rules file',
     minLevel: 1,
     install: { npm: '@anthropic-ai/claude-code', url: 'https://code.claude.com/docs/en/setup', pin: '2.1.226' },
     builtAgainst: '2.1.226',
     auth: 'run `claude` once and sign in with your Anthropic account',
     rulesFile: 'CLAUDE.md',
-    agentsDir: '.claude/agents',
-    cliRun: false,
-    models: { deep: 'opus', standard: 'sonnet', fast: 'haiku' },
+    // tierModels is UNVERIFIED: no checked vendor source maps this plan to model aliases.
     plans: [
-      { id: 'pro', name: 'Claude Pro', headroom: 'base', source: 'https://support.claude.com/en/articles/11049762-choose-a-claude-plan', checked: '2026-09-12' },
-      { id: 'max-5x', name: 'Claude Max 5x', headroom: 'high', source: 'https://support.claude.com/en/articles/11049762-choose-a-claude-plan', checked: '2026-09-12' },
-      { id: 'max-20x', name: 'Claude Max 20x', headroom: 'max', source: 'https://support.claude.com/en/articles/11049762-choose-a-claude-plan', checked: '2026-09-12' }
-    ],
-    // Verified at code.claude.com/docs/en/sub-agents (fetched 2026-09-10): "A
-    // non-fork subagent's initial context contains: CLAUDE.md files: every
-    // level of the CLAUDE.md hierarchy the main conversation loads ... The
-    // built-in Explore and Plan agents skip this." No other lane in this
-    // catalog has that documented, so the builder-by-default routing, the
-    // route-gate hook and the inline-threshold note are gated on this field
-    // and stay claude-code only.
-    subagentsLoadRules: true
+      { id: 'pro', name: 'Claude Pro', headroom: 'base', tierModels: null, source: 'https://claude.com/pricing', checked: '2026-09-12' },
+      { id: 'max-5x', name: 'Claude Max 5x', headroom: 'high', tierModels: null, source: 'https://claude.com/pricing', checked: '2026-09-12' },
+      { id: 'max-20x', name: 'Claude Max 20x', headroom: 'max', tierModels: null, source: 'https://claude.com/pricing', checked: '2026-09-12' }
+    ]
   },
   {
     id: 'codex',
-    laneCategories: ['second-coder'],
+    facts: { // Capability snapshot checked 2026-09-27; unknown facts stay null.
+      modelFamily: 'OpenAI',
+      kind: 'agent-cli',
+      billing: 'subscription',
+      pricing: null, // UNVERIFIED: check your provider's current rate.
+      headless: true,
+      cliRun: true,
+      writesFiles: true,
+      readOnlyMode: true, // Source: --audit maps to a read-only filesystem sandbox (src/install.js).
+      liveWeb: null, // UNVERIFIED: no checked capability source.
+      runsLocally: false,
+      fanOut: false,
+      contextWindow: null, // UNVERIFIED: context capacity depends on the selected model.
+      loadsProjectRules: false,
+      agentDefinitions: null, // UNVERIFIED: no project agent-definition path is cataloged.
+    },
     name: 'Codex CLI (OpenAI, ChatGPT plan)',
     vendor: 'OpenAI',
-    modelFamily: 'OpenAI',
-    kind: 'agent-cli',
     bin: 'codex',
-    access: 'subscription',
-    lane: 'A',
-    role: 'second coder and second-opinion reviewer',
+    summary: 'OpenAI\'s terminal coding agent on a ChatGPT plan; `--audit` runs it in a read-only filesystem sandbox',
     minLevel: 1,
     install: { npm: '@openai/codex', url: 'https://developers.openai.com/codex/cli', pin: '0.153.4' },
     builtAgainst: '0.153.4',
     auth: '`codex login` (add `--device-auth` on a machine with no browser)',
     rulesFile: 'AGENTS.md',
-    agentsDir: null,
-    cliRun: true
-    , plans: [
-      { id: 'plus', name: 'ChatGPT Plus', headroom: 'base', source: 'https://learn.chatgpt.com/codex/pricing.md', checked: '2026-09-12' },
-      { id: 'pro-5x', name: 'ChatGPT Pro 5x', headroom: 'high', source: 'https://learn.chatgpt.com/codex/pricing.md', checked: '2026-09-12' },
-      { id: 'pro-20x', name: 'ChatGPT Pro 20x', headroom: 'max', source: 'https://learn.chatgpt.com/codex/pricing.md', checked: '2026-09-12' }
+    // tierModels is UNVERIFIED: no checked vendor source maps this plan to model aliases.
+    plans: [
+      { id: 'plus', name: 'ChatGPT Plus', headroom: 'base', tierModels: null, source: 'https://learn.chatgpt.com/codex/pricing.md', checked: '2026-09-12' },
+      { id: 'pro-5x', name: 'ChatGPT Pro 5x', headroom: 'high', tierModels: null, source: 'https://learn.chatgpt.com/codex/pricing.md', checked: '2026-09-12' },
+      { id: 'pro-20x', name: 'ChatGPT Pro 20x', headroom: 'max', tierModels: null, source: 'https://learn.chatgpt.com/codex/pricing.md', checked: '2026-09-12' }
     ]
   },
   {
     id: 'agy',
-    laneCategories: ['fan-out', 'largest-context'],
+    factNotes: { fanOut: 'UNVERIFIED against a vendor doc; inherited from the 0.1.x catalog.' },
+    facts: { // Capability snapshot checked 2026-09-27; unknown facts stay null.
+      modelFamily: 'Google',
+      kind: 'agent-cli',
+      billing: 'subscription',
+      pricing: null, // UNVERIFIED: check your provider's current rate.
+      headless: true,
+      cliRun: true,
+      writesFiles: true,
+      readOnlyMode: false,
+      liveWeb: null, // UNVERIFIED: no checked capability source.
+      runsLocally: false,
+      fanOut: true, // UNVERIFIED against a vendor doc; inherited from the 0.1.x catalog.
+      contextWindow: null, // UNVERIFIED: context capacity depends on the selected model.
+      loadsProjectRules: null, // UNVERIFIED: project rules inheritance needs a vendor-doc check.
+      agentDefinitions: '.agents/agents',
+    },
     name: 'Antigravity CLI `agy` (Google AI plan)',
     vendor: 'Google',
-    modelFamily: 'Google',
-    kind: 'agent-cli',
     bin: 'agy',
-    access: 'subscription',
-    lane: 'A',
-    role: 'deep research sweeps and concurrent fan-out (its subagent call takes an array)',
+    summary: 'Google\'s Antigravity terminal agent; one subagent call starts several children',
     minLevel: 1,
     install: { script: 'https://antigravity.google/cli/install.sh' },
     builtAgainst: '1.1.27',
     auth: 'first run opens a device-code sign-in with your Google account',
     rulesFile: 'GEMINI.md',
-    agentsDir: '.agents/agents',
-    cliRun: true,
-    models: { deep: 'pro', standard: 'flash', fast: 'flash' },
+    // tierModels is UNVERIFIED: no checked vendor source maps this plan to model aliases.
     plans: [
-      { id: 'ai-pro', name: 'Google AI Pro', headroom: 'base', source: 'https://gemini.google/subscriptions/', checked: '2026-09-12' },
-      { id: 'ultra-5x', name: 'Google AI Ultra 5x', headroom: 'high', source: 'https://gemini.google/subscriptions/', checked: '2026-09-12' },
-      { id: 'ultra-20x', name: 'Google AI Ultra 20x', headroom: 'max', source: 'https://gemini.google/subscriptions/', checked: '2026-09-12' }
+      { id: 'ai-pro', name: 'Google AI Pro', headroom: 'base', tierModels: null, source: 'https://gemini.google/subscriptions/', checked: '2026-09-12' },
+      { id: 'ultra-5x', name: 'Google AI Ultra 5x', headroom: 'high', tierModels: null, source: 'https://gemini.google/subscriptions/', checked: '2026-09-12' },
+      { id: 'ultra-20x', name: 'Google AI Ultra 20x', headroom: 'max', tierModels: null, source: 'https://gemini.google/subscriptions/', checked: '2026-09-12' }
     ],
     note: 'Gemini CLI was retired by Google in June 2026. agy is the successor. Do not install `gemini`.'
   },
   {
     id: 'grok',
-    laneCategories: ['live-data'],
+    factNotes: { liveWeb: 'UNVERIFIED against a vendor doc; inherited from the 0.1.x catalog.' },
+    facts: { // Capability snapshot checked 2026-09-27; unknown facts stay null.
+      modelFamily: 'xAI',
+      kind: 'agent-cli',
+      billing: 'subscription',
+      pricing: null, // UNVERIFIED: check your provider's current rate.
+      headless: true,
+      cliRun: true,
+      writesFiles: true,
+      readOnlyMode: false,
+      liveWeb: true, // UNVERIFIED against a vendor doc; inherited first-party X and web search tools.
+      runsLocally: false,
+      fanOut: false,
+      contextWindow: null, // UNVERIFIED: context capacity depends on the selected model.
+      loadsProjectRules: false,
+      agentDefinitions: null, // UNVERIFIED: no project agent-definition path is cataloged.
+    },
     name: 'Grok CLI (xAI, X Premium)',
     vendor: 'xAI',
-    modelFamily: 'xAI',
-    kind: 'agent-cli',
     bin: 'grok',
-    access: 'subscription',
-    lane: 'A',
-    role: 'X and live web reads at no per-call cost (its search tools bill on the API, not on the CLI)',
+    summary: 'xAI\'s terminal agent with first-party X and web search tools; searches are covered by the subscription rather than billed per call',
     minLevel: 1,
     install: { script: 'https://x.ai/cli/install.sh' },
     builtAgainst: '1.0.5',
     auth: '`grok login` (add `--device-auth` on a headless machine)',
     rulesFile: null,
-    agentsDir: null,
-    cliRun: true
-    , plans: [
-      { id: 'supergrok', name: 'SuperGrok', headroom: 'base', source: 'https://x.ai/news/grok-build-cli', checked: '2026-09-12' },
-      { id: 'supergrok-plus', name: 'SuperGrok Plus', headroom: 'high', source: 'https://x.ai/pricing', checked: '2026-09-12' },
-      { id: 'x-premium-plus', name: 'X Premium Plus', headroom: 'base', source: 'https://x.ai/news/grok-build-cli', checked: '2026-09-12' }
+    // tierModels is UNVERIFIED: no checked vendor source maps this plan to model aliases.
+    plans: [
+      { id: 'supergrok', name: 'SuperGrok', headroom: 'base', tierModels: null, source: 'https://x.ai/news/grok-build-cli', checked: '2026-09-12' },
+      { id: 'supergrok-plus', name: 'SuperGrok Plus', headroom: 'high', tierModels: null, source: 'https://x.ai/pricing', checked: '2026-09-12' },
+      { id: 'x-premium-plus', name: 'X Premium Plus', headroom: 'base', tierModels: null, source: 'https://x.ai/news/grok-build-cli', checked: '2026-09-12' }
     ]
   },
   {
     id: 'hermes',
-    laneCategories: ['free'],
+    facts: { // Capability snapshot checked 2026-09-27; unknown facts stay null.
+      modelFamily: null, // UNVERIFIED: the configured provider or model determines the family.
+      kind: 'agent-cli',
+      billing: 'free',
+      pricing: null, // UNVERIFIED: check your provider's current rate.
+      headless: true,
+      cliRun: true,
+      writesFiles: true,
+      readOnlyMode: false,
+      liveWeb: null, // UNVERIFIED: no checked capability source.
+      runsLocally: false,
+      fanOut: false,
+      contextWindow: null, // UNVERIFIED: context capacity depends on the selected model.
+      loadsProjectRules: false,
+      agentDefinitions: null, // UNVERIFIED: no project agent-definition path is cataloged.
+    },
     name: 'Hermes Agent (Nous Research)',
     vendor: 'Nous Research',
-    kind: 'agent-cli',
     bin: 'hermes',
-    access: 'free',
-    lane: 'A',
-    role: 'the free tier: rough drafts, first-pass summaries, cheap divergent reads, cron jobs on a box',
+    summary: 'A free terminal agent that chains whichever providers you authenticate',
     minLevel: 2,
     install: { url: 'https://github.com/NousResearch/hermes-agent' },
     builtAgainst: '0.20.0',
     auth: '`hermes auth add <provider>` per provider; its own fallback chain handles outages',
     rulesFile: null,
-    agentsDir: null,
-    cliRun: true
   },
   {
     id: 'qwen',
-    laneCategories: ['cheapest-metered'],
+    facts: { // Capability snapshot checked 2026-09-27; unknown facts stay null.
+      modelFamily: null, // UNVERIFIED: the configured provider or model determines the family.
+      kind: 'agent-cli',
+      billing: 'pay-per-token',
+      pricing: null, // UNVERIFIED: check your provider's current rate.
+      headless: true,
+      cliRun: true,
+      writesFiles: true,
+      readOnlyMode: false,
+      liveWeb: null, // UNVERIFIED: no checked capability source.
+      runsLocally: false,
+      fanOut: false,
+      contextWindow: null, // UNVERIFIED: context capacity depends on the selected model.
+      loadsProjectRules: false,
+      agentDefinitions: null, // UNVERIFIED: no project agent-definition path is cataloged.
+    },
     name: 'Qwen Code CLI (Alibaba, provider-agnostic)',
     vendor: 'Alibaba',
-    kind: 'agent-cli',
     bin: 'qwen',
-    access: 'metered',
-    lane: 'B',
-    role: 'cheapest metered bulk lane for structured output; never for anything that cites a line, a number or a source',
+    summary: 'A provider-agnostic terminal agent; you supply the API key, so its rate is your provider\'s rate',
     minLevel: 2,
     install: { npm: '@qwen-code/qwen-code', url: 'https://qwenlm.github.io/qwen-code-docs/en/users/overview/', pin: '0.22.3' },
     builtAgainst: '0.22.3',
     auth: 'a provider key in an environment variable, named (not stored) in ~/.qwen/settings.json. There is no free Qwen cloud tier any more.',
     rulesFile: 'QWEN.md',
-    agentsDir: null,
-    cliRun: true,
     note: 'Its own success flags lie on API failures. cli-run checks the two honest signals for you.'
   },
   {
     id: 'ollama',
+    facts: { // Capability snapshot checked 2026-09-27; unknown facts stay null.
+      modelFamily: null, // UNVERIFIED: the configured provider or model determines the family.
+      kind: 'local-runtime',
+      billing: 'local',
+      pricing: null, // UNVERIFIED: check your provider's current rate.
+      headless: true,
+      cliRun: false,
+      writesFiles: false,
+      readOnlyMode: false,
+      liveWeb: false,
+      runsLocally: true,
+      fanOut: false,
+      contextWindow: null, // UNVERIFIED: context capacity depends on the selected model.
+      loadsProjectRules: false,
+      agentDefinitions: null, // UNVERIFIED: no project agent-definition path is cataloged.
+    },
     gatewayModel: 'ollama/llama3.2:3b',
     modelsChecked: CATALOG_MODELS.measuredAt,
     modelsExpires: CATALOG_MODELS.expiresAt,
-    laneCategories: ['local'],
     name: 'Ollama (local models)',
     vendor: 'Ollama',
-    kind: 'local',
     bin: 'ollama',
-    access: 'local',
-    lane: 'local',
-    role: 'the privacy lane: anything that must never leave the machine. Not a cost lane.',
+    summary: 'A local model runtime; work sent here stays on the machine',
     minLevel: 2,
     install: { url: 'https://ollama.com/download', brew: 'ollama' },
     builtAgainst: '0.33.3',
     auth: 'none',
     rulesFile: null,
-    agentsDir: null,
-    cliRun: false
   },
   {
     id: 'claude-app',
-    modelFamily: 'Anthropic',
+    facts: { // Capability snapshot checked 2026-09-27; unknown facts stay null.
+      modelFamily: 'Anthropic',
+      kind: 'chat',
+      billing: 'subscription',
+      pricing: null, // UNVERIFIED: check your provider's current rate.
+      headless: false,
+      cliRun: false,
+      writesFiles: false,
+      readOnlyMode: false,
+      liveWeb: null, // UNVERIFIED: no checked capability source.
+      runsLocally: false,
+      fanOut: false,
+      contextWindow: null, // UNVERIFIED: context capacity depends on the selected model.
+      loadsProjectRules: false,
+      agentDefinitions: null, // UNVERIFIED: no project agent-definition path is cataloged.
+    },
     name: 'Claude app or claude.ai (chat only, no CLI)',
     vendor: 'Anthropic',
-    kind: 'chat',
     bin: null,
-    access: 'subscription',
-    lane: 'chat',
-    role: 'single-agent use through Projects and custom instructions',
+    summary: 'A chat app; it reads pasted instructions, not files',
     minLevel: 1,
     install: { url: 'https://claude.ai' },
     auth: 'sign in',
     chatName: 'the Claude app or claude.ai',
     chatSurface: 'custom instructions or a Project',
     rulesFile: null,
-    agentsDir: null,
-    cliRun: false
   },
   {
     id: 'chatgpt-app',
-    modelFamily: 'OpenAI',
+    facts: { // Capability snapshot checked 2026-09-27; unknown facts stay null.
+      modelFamily: 'OpenAI',
+      kind: 'chat',
+      billing: 'subscription',
+      pricing: null, // UNVERIFIED: check your provider's current rate.
+      headless: false,
+      cliRun: false,
+      writesFiles: false,
+      readOnlyMode: false,
+      liveWeb: null, // UNVERIFIED: no checked capability source.
+      runsLocally: false,
+      fanOut: false,
+      contextWindow: null, // UNVERIFIED: context capacity depends on the selected model.
+      loadsProjectRules: false,
+      agentDefinitions: null, // UNVERIFIED: no project agent-definition path is cataloged.
+    },
     name: 'ChatGPT (chat only, no CLI)',
     vendor: 'OpenAI',
-    kind: 'chat',
     bin: null,
-    access: 'subscription',
-    lane: 'chat',
-    role: 'single-agent use through custom instructions and Projects',
+    summary: 'A chat app; it reads pasted instructions, not files',
     minLevel: 1,
     install: { url: 'https://chatgpt.com' },
     auth: 'sign in',
     chatName: 'ChatGPT',
     chatSurface: 'custom instructions or a Project',
     rulesFile: null,
-    agentsDir: null,
-    cliRun: false
   },
   {
     id: 'gemini-app',
-    modelFamily: 'Google',
+    facts: { // Capability snapshot checked 2026-09-27; unknown facts stay null.
+      modelFamily: 'Google',
+      kind: 'chat',
+      billing: 'subscription',
+      pricing: null, // UNVERIFIED: check your provider's current rate.
+      headless: false,
+      cliRun: false,
+      writesFiles: false,
+      readOnlyMode: false,
+      liveWeb: null, // UNVERIFIED: no checked capability source.
+      runsLocally: false,
+      fanOut: false,
+      contextWindow: null, // UNVERIFIED: context capacity depends on the selected model.
+      loadsProjectRules: false,
+      agentDefinitions: null, // UNVERIFIED: no project agent-definition path is cataloged.
+    },
     name: 'Gemini app (chat only, no CLI)',
     vendor: 'Google',
-    kind: 'chat',
     bin: null,
-    access: 'subscription',
-    lane: 'chat',
-    role: 'single-agent use through Gems and saved instructions',
+    summary: 'A chat app; it reads pasted instructions, not files',
     minLevel: 1,
     install: { url: 'https://gemini.google.com' },
     auth: 'sign in',
     chatName: 'the Gemini app',
     chatSurface: 'saved instructions or a Gem',
     rulesFile: null,
-    agentsDir: null,
-    cliRun: false
   }
 ];
 
@@ -361,5 +456,12 @@ export function aisForLevel(level) {
 
 export function agentCandidates(selected) {
   // Which of the selected AIs can be the single main agent at level 1.
-  return selected.filter((a) => a.kind === 'agent-cli' || a.kind === 'chat');
+  return selected.filter((a) => a.facts.kind === 'agent-cli' || a.facts.kind === 'chat');
+}
+
+
+// Preserve provenance when the compact summary is rendered away from facts.
+export function summaryWithEvidence(ai) {
+  const notes = Object.entries(ai.factNotes || {}).map(([fact, note]) => `${fact}: ${note}`);
+  return notes.length ? `${ai.summary.replace(/\.$/, '')}. ${notes.join(' ')}` : ai.summary;
 }

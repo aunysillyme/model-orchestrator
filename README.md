@@ -81,30 +81,34 @@ Read [beginner](docs/part-1-beginner.md), [intermediate](docs/part-2-intermediat
 
 ## Works with the AIs you already pay for
 
-Choose the tools you have; the generated rules describe that selection. The main agent receives its agent set when one is available: Claude Code or Antigravity. At level 2 and up, selected CLIs supported by the runner become worker lanes.
+The installer detects your AI tools, shows the proposed setup and asks **Write these files?** with `[Y/n/e]`. Confirm once, or enter `e` to change a setting. With no detected tools, select the AIs you have first. The main agent receives its supported agent set; at level 2 and up, selected CLIs supported by the runner become worker lanes.
 
-| AI | Installer ID | Setup |
+| AI | Installer ID | What it is and gives |
 |---|---|---|
-| Claude Code | `claude-code` | When main: `CLAUDE.snippet.md`, subagents and routing hooks |
-| Codex | `codex` | CLI code work and review; `AGENTS.snippet.md` when main |
-| Antigravity | `agy` | CLI work; `GEMINI.snippet.md` and custom agents when main |
-| Grok | `grok` | CLI work with live-data tools |
-| Hermes | `hermes` | Headless CLI work |
-| Qwen Code | `qwen` | CLI work with your chosen model; `QWEN.snippet.md` when main |
-| Ollama | `ollama` | Local models |
+| Claude Code | `claude-code` | Anthropic's terminal agent; project rules, subagents and routing hooks when main |
+| Codex | `codex` | OpenAI's terminal agent; read-only filesystem sandbox for `--audit`, project rules when main |
+| Antigravity | `agy` | Google's terminal agent; project rules and custom agents when main |
+| Grok | `grok` | xAI's terminal agent on a subscription |
+| Hermes | `hermes` | A free terminal agent using the providers you authenticate |
+| Qwen Code | `qwen` | A terminal agent using your provider key; project rules when main |
+| Ollama | `ollama` | A model runtime that runs on your machine |
 | Claude, ChatGPT and Gemini apps | `claude-app`, `chatgpt-app`, `gemini-app` | `PASTE-INTO-YOUR-AGENT.md`: a routing block for your chat app |
+
+Every install includes **Your stack: who does what**: planning, building, independent review, verification, research, bulk work, reading and private work, plus fan-out and long-context roles when supported. One deterministic assignment uses the selected tools' capabilities, billing and selection order. Independent review requires a known different model family; private work requires a local runtime. Unavailable roles are stated explicitly.
+
+Subagent definitions name planning, working or cheap model tiers. Your plan and tool configuration select the actual models. `MANIFEST.json` stores the assignment, and `aunx route` reads it even when you keep edited routing documents. [How assignment works](docs/how-it-routes.md).
 
 `npx model-orchestrator --list` prints supported IDs and setup notes. [The catalog](docs/catalog.md) lists installation, sign-in and detection details.
 
 ## Lane runner (`aunx cli-run`)
 
-Run from your project. `aunx` prefers your installed `ai-orchestrator/bin/cli-run.mjs`; `--dir` selects another rules folder. It uses the package runner when the project has no installed copy.
+Run from your project. `aunx cli-run` uses the package runner; pass `--dir` to use a project's installed runner. Replace `<lane>` below with a CLI lane from your generated stack table.
 
 ```bash
 aunx cli-run --doctor
-aunx cli-run codex --brief TASK_BRIEF.md --effort high
+aunx cli-run '<lane>' --brief TASK_BRIEF.md
 # Direct form from the installed rules folder:
-node bin/cli-run.mjs codex --brief TASK_BRIEF.md --effort high
+node bin/cli-run.mjs '<lane>' --brief TASK_BRIEF.md
 ```
 
 `--doctor --run` sends a small live check through your own vendor sign-ins. Each run records the requested model and effort and a fixed result class in a local log. A missing result returns nonzero. Add `--expect-file` or `--expect-json` when success needs a concrete output contract. [Runner reference](bin/README.md).
@@ -127,7 +131,7 @@ aunx route "rename this file"
 aunx route "design the auth system"
 ```
 
-The first suggests cheap bulk work; the second suggests deep planning. The classifier uses keywords, explains its suggestion, and points ambiguous unmatched requests to `ROUTING.md`. It makes no model call and launches no worker.
+The first suggests cheap bulk work; the second suggests planning. Each prints the AI assigned to that role in your installation. Use `--dir PATH` for a custom rules folder; otherwise it reads `./ai-orchestrator/MANIFEST.json`, then `./MANIFEST.json`. With no install, it prints a generic suggestion and an install notice. The classifier uses keywords and points unmatched requests to `ROUTING.md`. It reads JSON and launches no worker.
 
 ## See where your agent sends work (`aunx route-metrics`)
 

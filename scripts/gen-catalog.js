@@ -2,11 +2,18 @@
 // Regenerates docs/catalog.md and the README's vendor compatibility table from
 // src/catalog.js. The test suite checks they agree, so neither can drift (#23).
 import { writeFileSync, readFileSync } from 'node:fs';
-import { AIS, LEVELS, TOOLS, IMAGES, npmSpec } from '../src/catalog.js';
+import { AIS, LEVELS, TOOLS, IMAGES, npmSpec, summaryWithEvidence } from '../src/catalog.js';
 import { readdirSync } from 'node:fs';
 
 export function protocolCount() {
   return readdirSync(new URL('../templates/common/protocols/', import.meta.url)).filter((f) => f.endsWith('.md') && f !== 'README.md').length;
+}
+
+function factValue(value) {
+  if (value === null) return 'unverified';
+  if (typeof value === 'boolean') return value ? 'yes' : 'no';
+  if (typeof value === 'object') return Object.entries(value).map(([key, item]) => `${key}: ${factValue(item)}`).join('; ');
+  return String(value).replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
 }
 
 export function catalogMarkdown() {
@@ -19,15 +26,17 @@ export function catalogMarkdown() {
       : a.install.script
         ? 'vendor script (read it first): `' + a.install.script + '`'
         : a.install.url + (a.install.brew ? ' (or `brew install ' + a.install.brew + '`)' : '');
-    md += `### \`${a.id}\` · ${a.name}\n\n- **Kind:** ${a.kind} · **Access:** ${a.access} · **Lane:** ${a.lane === 'A' ? 'subscription' : a.lane === 'B' ? 'pay-per-token' : a.lane} · **Level:** ${a.minLevel}+\n- **Wins at:** ${a.role}\n- **Install:** ${how}\n- **Sign in:** ${a.auth}\n`;
-    if (a.rulesFile) md += `- **Reads rules from:** \`${a.rulesFile}\`` + (a.agentsDir ? ` · subagents in \`${a.agentsDir}/\`` : '') + '\n';
-    if (a.cliRun) md += '- **cli-run lane:** yes\n';
+    md += `### \`${a.id}\` · ${a.name}\n\n- **Kind:** ${a.facts.kind} · **Billing:** ${a.facts.billing} · **Level:** ${a.minLevel}+\n- **What it is:** ${summaryWithEvidence(a)}\n- **Install:** ${how}\n- **Sign in:** ${a.auth}\n`;
+    if (a.rulesFile) md += `- **Reads rules from:** \`${a.rulesFile}\`` + (a.facts.agentDefinitions ? ` · subagents in \`${a.facts.agentDefinitions}/\`` : '') + '\n';
+    if (a.facts.cliRun) md += '- **cli-run lane:** yes\n';
     if (a.plans) {
       md += '- **Plans:**\n';
-      for (const p of a.plans) md += `  - ${p.name} (${p.headroom} headroom, checked ${p.checked}): ${p.source}\n`;
+      for (const p of a.plans) md += `  - ${p.name} (${p.headroom} headroom, checked ${p.checked}; tier models: ${factValue(p.tierModels)}): ${p.source}\n`;
     }
     if (a.builtAgainst) md += `- **Built against:** ${a.builtAgainst}` + (a.install.npm ? ' (the same number the npm pin uses)' : '') + '\n';
     if (a.note) md += `- **Note:** ${a.note}\n`;
+    md += '\n**Capability facts.** An unverified value needs a current capability check before use. Role assignments come from the selected stack, using these facts.\n\n| Fact | Value |\n|---|---|\n';
+    for (const [key, value] of Object.entries(a.facts)) md += `| \`${key}\` | ${factValue(value)}${a.factNotes?.[key] ? ` (${factValue(a.factNotes[key])})` : ''} |\n`;
     md += '\n';
   }
   md += '## Companion tools\n\n';

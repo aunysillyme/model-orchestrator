@@ -2,9 +2,10 @@
 name: reader
 description: Reads many files and returns facts, quotes, an index or a digest with sources; read-only tools.
 tools: Read, Glob, Grep
-model: haiku
 effort: low
 ---
+
+Tier: cheap model. This agent runs on whatever model your plan and your Claude Code configuration select. To pin one, set `CLAUDE_CODE_SUBAGENT_MODEL` or add a `model:` line here.
 
 When a brief asks for facts, quotes, an index or a digest across files, search within its declared scope and read the relevant sources.
 

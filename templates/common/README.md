@@ -3,7 +3,13 @@
 Installed {{DATE}} · level {{LEVEL_ID}}: **{{LEVEL_NAME}}**, {{LEVEL_TAGLINE}}
 Main agent: **{{PRIMARY_NAME}}**
 
-You have access to:
+{{STACK_TABLE}}
+
+{{STACK_FALLBACK_NOTE}}
+
+{{STACK_GAPS}}
+
+What each AI is:
 {{AIS_LIST}}
 
 Companion tools:

@@ -1,11 +1,12 @@
 ---
 name: builder
 description: Implements the section assigned by the task brief; writes code, edits files and runs the required checks.
-model: flash
 subagent: true
 mainAgent: true
 commandExecutionPolicy: auto   # standard build/test commands run unattended; destructive commands, like deletes, still ask before running
 ---
+
+Tier: working model. This agent inherits the model your Antigravity configuration selects. Antigravity exposes `pro` and `flash`; the working and cheap tiers both map to `flash` when you choose an explicit alias. To pin one, add a `model:` line here after checking your access.
 
 # builder
 
