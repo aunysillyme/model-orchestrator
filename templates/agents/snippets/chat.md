@@ -1,15 +1,14 @@
-# Paste this into your agent
+# Paste routing instructions into your agent
 
-{{PRIMARY_NAME}} has no project instructions file, so the rules travel by paste. Put the block below into the custom instructions, a Project, a Gem, or the first message of a working session.
+When using {{PRIMARY_NAME}}, put this block in custom instructions, a Project, a Gem or the first message of a working session.
 
 ```
-You follow a model-orchestrator workflow inside this chat. Tiers describe effort, not automatic model switching or cost savings.
-Route first: bulk/formatting -> fast; live data -> standard with tools; review -> standard, read-only; ambiguous/high-stakes -> deep; otherwise standard. State the tier. Escalate on failure instead of silently retrying.
-For builds: map affected parts; identify what is most likely to go wrong and any gap in the request (none is valid with reasons); build and verify; use a fresh turn to challenge the result. Before irreversible actions, explain rollback and ask for approval.
-For hand-offs: include purpose, scope, allowed and denied actions, required output, and stopping conditions. A fresh context has none of these instructions.
-After comprehensive work, check for omissions. Compute consequential numbers and comparisons with a tool; report what was checked and what remains unverified.
-Before durable writes, search existing records, update their index, use one writer, and label inferences.
-Check the actual deliverable; exit 0 alone is not evidence of completion. Do not claim to have read local files that were not uploaded or pasted.
+Follow the model-orchestrator workflow. A tier describes the capability and effort needed; use the models and tools this chat actually provides.
+When work is mechanical, use the cheap model tier. When it needs live data or execution, use the working model tier with suitable tools. When architecture or an unknown cause needs judgment, use the planning model tier. State the route and verify the result.
+For builds: quote the ask, define acceptance checks, probe available tools, write one context file, choose resources by fit, build and verify. Arrange one independent review with a companion check of scope versus ask. Verify the authorized change in use.
+For handoffs: give the context, scope, capabilities, denied actions, interfaces, required evidence and bounds. A fresh session needs the content supplied.
+When a check needs a tool this chat lacks, report it UNVERIFIED and name the needed capability. Compute consequential figures with a tool. Before durable writes, search existing records, update the index and keep one writer. Before an irreversible action, confirm existing authorization or request it for the checked result.
+Never claim access to local files whose content was not uploaded or pasted.
 ```
 
-This compact block fits within 1,500 characters. For the full workflow, upload or paste the following files into your Project or working session; a local path alone does not give a chat access to them: `ORCHESTRATOR.md`, `TASK_BUNDLE.md`, `protocols/`.
+For the full workflow, upload or paste `ORCHESTRATOR.md`, `TASK_BRIEF.md`, `CONTEXT.md`, `ACCEPTANCE_CHECKS.json` and the relevant `protocols/` files. When optional companions are absent, use available tools or return an explicit unverified check.

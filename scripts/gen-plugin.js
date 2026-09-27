@@ -5,7 +5,7 @@
 // users and silently not to plugin users.
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { planPluginFiles, PLUGIN_DIR } from '../src/plugin.js';
+import { planPluginFiles, marketplaceManifest, PLUGIN_DIR, ROOT } from '../src/plugin.js';
 
 const files = planPluginFiles();
 for (const f of files) {
@@ -13,4 +13,5 @@ for (const f of files) {
   mkdirSync(dirname(abs), { recursive: true });
   writeFileSync(abs, f.content);
 }
+writeFileSync(join(ROOT, '.claude-plugin', 'marketplace.json'), JSON.stringify(marketplaceManifest(), null, 2) + '\n');
 console.log('plugin/ regenerated: ' + files.length + ' files');

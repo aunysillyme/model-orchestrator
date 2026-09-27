@@ -1,34 +1,25 @@
-# Propagate: change completeness
+# Propagate: complete a shared change
 
-**A rename is a refactor, not a single-file edit.** Any change to a name, term, path, slug, schema field, routing rule or shared convention reaches everything that uses it, and the goal is zero silent strays.
+When changing a name, term, path, slug, schema field, routing rule or shared convention, treat every consumer as part of the change. Use scoped search or a cheap worker to collect references before asking a planning model to decide anything.
 
-This is retrieval work. It stays with the orchestrator (or a cheap worker for the grep sweep). It never goes to the deep tier: a judgment model re-deriving a file list is the most expensive routing mistake there is.
+## Map consumers before editing
 
-## 1. Map everything it touches (before editing anything)
+- Search code, configuration, hooks, scheduled jobs and CI within the authorized repositories.
+- Search project instructions and any authorized record store for the old term and link forms.
+- Check documented external consumers such as webhooks, dashboards or generated outputs.
+- When obsidian-tc is selected, use backlinks and text search; when absent, use file search and the project's own link checker.
+- Scope recursive searches away from `.git`, `node_modules` and generated build output unless that output is explicitly part of verification.
 
-- **Docs and notes:** backlinks to the thing being renamed; literal search for the old term and its link forms. With obsidian-tc: `get_backlinks`, `search_text`, then `find_unresolved_links` after the change (`protocols/memory-and-record.md`).
-- **Memory / instructions:** grep every instructions file your agents read (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `QWEN.md`, custom instructions) and any memory store.
-- **Code / config:** grep the repos, settings files, hooks, scheduled jobs, CI, and the files this installer wrote.
-- **Other people's surfaces:** anything that consumes the old name from outside (webhooks, dashboards, bookmarks).
+## Update the affected surfaces
 
-```bash
-grep -rniE "<old-term>" --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=dist .
-```
+- Turn each hit into a checklist item with its owner and needed permission.
+- Use a supported refactor or link-rewrite tool when one exists; otherwise apply scoped edits.
+- Update indexes and documentation in the same change.
+- When a consumer is outside the granted scope, return the exact required handoff and keep it visible in coverage.
 
-## 2. Build the checklist
+## Verify old and new references
 
-Every hit becomes a line, grouped by surface. Nothing closes until the list is empty. Mark which items are approval-gated (production deploys, database migrations, anything public).
-
-## 3. Execute on all fronts
-
-Change every item. Use the tool's own governed rename where one exists (a link rewriter, an IDE refactor) over hand edits. If an index or README lists the renamed thing, that index is part of the change, not a follow-up.
-
-## 4. Verify: the loud negative (non-negotiable)
-
-Re-grep the OLD identifier across every surface. **Expect zero**, except historical records you name explicitly. Then check for dangling references the rename created (unresolved links, 404s, failing imports).
-
-Paste the final grep output as proof. If any stray survives, it is not done.
-
-## Why the last step is the one that matters
-
-Steps 1 to 3 find what you thought of. Step 4 finds what you did not. A rename that "looks complete" and leaves one stray is worse than an unstarted one, because the stray is now believed.
+- Search the old identifier again in every declared scope.
+- Require zero active references, except named compatibility paths or historical records.
+- Verify the new links, imports and consumer behavior with the relevant checker.
+- Return the search command, exit status and any intentional retained matches as evidence.

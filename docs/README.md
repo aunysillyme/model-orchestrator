@@ -1,20 +1,17 @@
-# docs/
+# Documentation
 
-Reference, then reading. The reference pages carry the detail the README links out to; the three parts explain the thinking behind each level and how to grow from one to the next.
+Use these pages for setup, operation and evidence. The [front page](../README.md) gives the short introduction.
 
-| Reference | What is in it | File |
-|---|---|---|
-| Installing | every flag, the two folders a run writes to, headless examples, the full file list | [install.md](install.md) |
-| How it routes | role, complexity and stakes; the three verifier agents; pinning model and effort | [how-it-routes.md](how-it-routes.md) |
-| Guarantees | what is enforced by code, delegated to a vendor flag, or only an instruction | [guarantees.md](guarantees.md) |
-| Companion tools | codecalc, obsidian-tc and Context7: what each closes and what it needs first | [companions.md](companions.md) |
-
-| Part | Read if | File |
-|---|---|---|
-| 1 Beginner | you use one LLM or one agent and want it to route well | [part-1-beginner.md](part-1-beginner.md) |
-| 2 Intermediate | you have several AIs and want to call them through their CLIs from one orchestrator | [part-2-intermediate.md](part-2-intermediate.md) |
-| 3 Advanced | you want the whole thing running unattended on a virtual machine | [part-3-advanced.md](part-3-advanced.md) |
-| Audit brief | the security notes and the two second-opinion audit rounds this shipped with | [audit-brief.md](audit-brief.md) |
-| Catalog | what each AI and companion tool in the installer is for, how it installs, how it signs in | [catalog.md](catalog.md) |
-
-Each part ends with "what the installer gives you at this level" so the doc and the files agree.
+| Page | What it gives you |
+|---|---|
+| [Install and upgrade](install.md) | Walkthrough, flags, project commands, safe updates and uninstall |
+| [How routing works](how-it-routes.md) | Role, complexity, stakes and independent verification |
+| [Guarantees](guarantees.md) | What code enforces and what the agent follows as instructions |
+| [Companions](companions.md) | Optional projects, setup links and alternatives using existing tools |
+| [Beginner](part-1-beginner.md) | Routing inside one agent or chat app |
+| [Intermediate](part-2-intermediate.md) | Delegation across several AI CLIs |
+| [Advanced](part-3-advanced.md) | Gateway templates and scheduled work on a Linux host |
+| [Catalog](catalog.md) | Supported tools, installation and sign-in notes |
+| [Security review history](security-review-history.md) | Review rounds, reproduced findings, fixes and regression tests |
+| [Proof](../proof/README.md) | Dated measurements, methods, sample sizes and reproduction scripts |
+| [Commands](../bin/README.md) | `aunx` subcommands and lane-runner exit codes |

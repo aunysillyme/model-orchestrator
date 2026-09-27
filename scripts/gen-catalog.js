@@ -19,7 +19,7 @@ export function catalogMarkdown() {
       : a.install.script
         ? 'vendor script (read it first): `' + a.install.script + '`'
         : a.install.url + (a.install.brew ? ' (or `brew install ' + a.install.brew + '`)' : '');
-    md += `### \`${a.id}\` · ${a.name}\n\n- **Kind:** ${a.kind} · **Access:** ${a.access} · **Lane:** ${a.lane} · **Level:** ${a.minLevel}+\n- **Wins at:** ${a.role}\n- **Install:** ${how}\n- **Sign in:** ${a.auth}\n`;
+    md += `### \`${a.id}\` · ${a.name}\n\n- **Kind:** ${a.kind} · **Access:** ${a.access} · **Lane:** ${a.lane === 'A' ? 'subscription' : a.lane === 'B' ? 'pay-per-token' : a.lane} · **Level:** ${a.minLevel}+\n- **Wins at:** ${a.role}\n- **Install:** ${how}\n- **Sign in:** ${a.auth}\n`;
     if (a.rulesFile) md += `- **Reads rules from:** \`${a.rulesFile}\`` + (a.agentsDir ? ` · subagents in \`${a.agentsDir}/\`` : '') + '\n';
     if (a.cliRun) md += '- **cli-run lane:** yes\n';
     if (a.plans) {

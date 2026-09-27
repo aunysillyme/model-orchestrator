@@ -1,15 +1,18 @@
-# protocols/
+# Workflow playbooks
 
-Seven procedures. Each one is a list of questions whose answers can be wrong.
+When a task matches a row, use that procedure and keep its evidence with the result.
 
-| File | Fires when | The gate |
+| File | Use when | Result |
 |---|---|---|
-| `build-protocol.md` | You build, code, implement, migrate or deploy | 3 phases, 8 stages; the ship step is the only irreversible one |
-| `propagate.md` | You rename or change anything other files reference | Re-grep the OLD name everywhere and expect zero |
-| `gap-analysis.md` | You finished something comprehensive | A second pass that hunts for what is MISSING, ideally by a different model |
-| `deep-research.md` | The source set is unknown and the answer will be cited later | Parallel engines, then triage; disagreement is the signal |
-| `numbers-and-logic.md` | You are about to state a number, a comparison, a complexity, an equivalence | Computed by a tool (codecalc) or not stated |
-| `memory-and-record.md` | You are about to write anything durable | Searched first, indexed in the same pass, one writer (obsidian-tc when selected) |
-| `docs-then-prove.md` | You are about to write code against a library, SDK, API or CLI | Current docs first (Context7 when selected), then a run proves it; the run wins on disagreement |
+| `build-protocol.md` | Building, implementing, migrating or deploying | A scoped, checked change verified in use |
+| `context-file.md` | Sharing build context across agents | One source file every brief reads |
+| `acceptance-checks.md` | Turning requirements into final-artifact checks | Commands and explicit manual checks with PASS/FAIL evidence |
+| `decision-log.md` | Choosing an approach or skipping a step | Did / Why / Serves / Rejected with evidence |
+| `propagate.md` | Changing a shared name, path or convention | All affected surfaces updated and the old identifier checked |
+| `gap-analysis.md` | Checking coverage against a request | Missing scope and evidence gaps reported |
+| `deep-research.md` | Answering a question from an initially unknown source set | Bounded research with verified sources |
+| `numbers-and-logic.md` | Reporting consequential numbers or logical claims | Computed results and method |
+| `memory-and-record.md` | Writing durable information | A searchable, indexed record with one writer |
+| `docs-then-prove.md` | Coding against a changing interface | Current documentation and runtime verification |
 
-Not for lookups, prose edits, bulk classification or one-line config. Those get none of this.
+For lookups, prose edits, bulk classification and one-line configuration changes, use the relevant routing rule and direct verification. When an optional companion tool is absent, each affected procedure names an equivalent local workflow.

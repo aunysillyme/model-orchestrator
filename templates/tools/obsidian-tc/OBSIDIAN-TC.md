@@ -12,7 +12,7 @@ A durable, searchable, governed store that the protocols can call by name:
 |---|---|
 | find what exists before writing (deep research dedupe, gap analysis) | `semantic_search`, `search_text`, `search_regex` |
 | map everything a rename touches (propagate) | `get_backlinks`, `find_unresolved_links`, `rewrite_link` |
-| record the end-to-end doc (build Stage 7) | `write_note` (compare-and-swap, confirmation on overwrite), `patch_note`, `append_note` |
+| record the end-to-end doc (build Record step) | `write_note` (compare-and-swap, confirmation on overwrite), `patch_note`, `append_note` |
 | keep inferred content honest | `write_note` with `provenance: "agent_synthesis"` runs a poison scan before the write lands |
 | keep a shared vault safe for several agents | JWT scopes, per-vault folder ACLs, a read-only kill switch, human-in-the-loop tokens |
 

@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 
 test('#44 proxy comparison explains the request layer, installed artifacts, choices and composition', () => {
   const readme = readFileSync(new URL('../README.md', import.meta.url), 'utf8');
-  const section = readme.match(/## Model orchestrator or a model proxy\n([\s\S]*?)(?=\n## )/)?.[1];
+  const section = readme.match(/## Model routing and request-level proxies\n([\s\S]*?)(?=\n## )/)?.[1];
   assert.ok(section, 'comparison section exists');
   for (const name of ['LiteLLM', 'Portkey', 'OpenRouter', 'claude-code-router']) assert.ok(section.includes(name));
   assert.match(section, /per request underneath the agent/);

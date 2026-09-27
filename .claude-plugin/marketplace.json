@@ -4,7 +4,7 @@
     "name": "model-orchestrator maintainers",
     "url": "https://github.com/aunysillyme/model-orchestrator"
   },
-  "description": "The model-orchestrator plugin for Claude Code: routing hooks and tiered subagents.",
+  "description": "Model router for Claude Code: routing hooks and subagents for planning, working and cheap model tiers.",
   "plugins": [
     {
       "name": "model-orchestrator",

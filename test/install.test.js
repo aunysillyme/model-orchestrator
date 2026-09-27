@@ -242,7 +242,7 @@ test('codecalc: selected writes CODECALC.md and snippets; the numbers-and-logic 
   assert.ok(!without.some((f) => f.rel === 'CODECALC.md'));
   assert.ok(without.some((f) => f.rel === join('protocols', 'numbers-and-logic.md')));
   const nl = without.find((f) => f.rel === join('protocols', 'numbers-and-logic.md')).content;
-  assert.match(nl, /not selected/);
+  assert.match(nl, /calculator|project runtime/);
   assert.match(nl, /github\.com\/The-40-Thieves\/codecalc/);
 });
 
@@ -547,7 +547,7 @@ test('lane sections render from the selection: a claude-code-only install names 
   const lv = laneVars(sel('claude-code', 'grok', 'qwen'));
   assert.match(lv.LIVE_LANE, /cli-run grok/);
   assert.match(lv.BULK_LANE, /cli-run qwen/);
-  assert.match(lv.ATTACK_LANE, /code-reviewer at deep tier/, 'no codex means no codex audit lane');
+  assert.match(lv.ATTACK_LANE, /code-reviewer at planning model tier/, 'no codex means no codex audit lane');
 });
 
 test('snippet paths and the agents note are computed from --dir and --project', () => {
@@ -623,7 +623,7 @@ test('agy as primary renders concrete model tiers and a builder that may run com
   const p = planFiles({ level: 1, selected: sel('agy'), primary: byId.agy, dir: '/x', project: '/x' });
   const orch = p.find((f) => f.rel === 'ORCHESTRATOR.md').content;
   assert.doesNotMatch(orch, /your strongest model/);
-  assert.match(orch, /\| pro, highest effort/);
+  assert.match(orch, /\| planning model \|[^\n]+\| pro \|/);
   const builder = p.find((f) => f.rel === join('.agents', 'agents', 'builder.md')).content;
   assert.match(builder, /commandExecutionPolicy: auto/);
   assert.match(p.find((f) => f.rel === join('.agents', 'agents', 'code-reviewer.md')).content, /commandExecutionPolicy: off/);
@@ -752,7 +752,7 @@ test('the agent snippet names the routing file for the level: ORCHESTRATOR.md at
       const files = planFiles({ level, selected: sel('claude-code', 'codex'), primary: byId[primary] });
       const snippet = files.find((f) => /\.snippet\.md$/.test(f.rel));
       assert.ok(snippet, `no snippet at level ${level} for ${primary}`);
-      assert.match(snippet.content, new RegExp('Routing rules live in `[^`]*/' + file.replace('.', '\\.') + '`'), `${snippet.rel} at level ${level} should point at ${file}`);
+      assert.match(snippet.content, new RegExp('read `[^`]*/' + file.replace('.', '\\.') + '`'), `${snippet.rel} at level ${level} should point at ${file}`);
       assert.doesNotMatch(snippet.content, /or `[^`]*ROUTING\.md` at level 2\+/, 'the conditional clause is gone');
     }
   }
@@ -972,16 +972,16 @@ test('the route-gate block ends with the hidden route marker instruction', () =>
 test('ROUTING.md rule 5 names builder for claude-code and keeps "builds it directly" for codex', () => {
   const cc = planFiles({ level: 2, selected: sel('claude-code'), primary: byId['claude-code'], dir: 'x', project: 'y' }).find((f) => f.rel === 'ROUTING.md').content;
   assert.match(cc, /builder executes by default/, 'claude-code ROUTING.md should route the main build to builder');
-  assert.doesNotMatch(cc, /the orchestrator builds it directly\. Bounded sub-parts/, 'claude-code should not keep the old wording');
+  assert.doesNotMatch(cc, /the main agent builds it directly until Assign verifies/, 'claude-code should not keep the old wording');
 
   const codex = planFiles({ level: 2, selected: sel('codex'), primary: byId.codex, dir: 'x', project: 'y' }).find((f) => f.rel === 'ROUTING.md').content;
-  assert.match(codex, /the orchestrator builds it directly\. Bounded sub-parts/, 'codex should keep the conservative wording: it has no verified premise');
+  assert.match(codex, /the main agent builds it directly until Assign verifies/, 'codex should keep the conservative wording: it has no verified premise');
   assert.doesNotMatch(codex, /builder executes by default/, 'codex has no builder agent to route to');
 
   assert.equal(subagentsLoadRules(byId['claude-code']), true);
   assert.equal(subagentsLoadRules(byId.codex), false);
   assert.equal(subagentsLoadRules(byId.agy), false, 'only claude-code has the verified sub-agents doc quote');
-  assert.match(decisionRule5(byId['claude-code']), /general-purpose should not take work a named agent already owns/);
+  assert.match(decisionRule5(byId['claude-code']), /When rules matter, use the matching named agent/);
 });
 
 test('no generated claude-code file states the old unqualified "holds none of these rules" premise', () => {
@@ -1095,26 +1095,16 @@ test('every claude-code agent carrying Bash qualifies any "Read-only" claim, in 
 
 // ---- pre-release audit finding 3: claude-code installs still contradicted delegate by default ----
 
-test('claude-code level 2 install contains none of the old orchestrator-writes-everything phrasing; codex still does', () => {
-  const forbidden = ['main build itself', 'does not hand off the main build', 'the orchestrator executes', 'never handed off whole'];
-  const cc = planFiles({ level: 2, selected: sel('claude-code'), primary: byId['claude-code'], dir: 'x', project: 'y' });
-  for (const f of cc) {
-    for (const phrase of forbidden) assert.ok(!f.content.includes(phrase), `${f.rel} still contains the old phrase "${phrase}"`);
+test('build guidance assigns sections by capability and carries task-specific context', () => {
+  for (const primary of [byId['claude-code'], byId.codex]) {
+    const files = planFiles({ level: 2, selected: sel(primary.id), primary, dir: 'x', project: 'y' });
+    const blob = files.map(f => f.content).join('\n');
+    assert.doesNotMatch(blob, /never handed off whole|Hard cap one re-audit|two deep-tier checkpoints/);
+    const protocol = files.find(f => f.rel === join('protocols', 'build-protocol.md')).content;
+    assert.match(protocol, /Assign/);
+    assert.match(protocol, /context file/i);
+    assert.match(protocol, /acceptance check/i);
   }
-  const codex = planFiles({ level: 2, selected: sel('codex'), primary: byId.codex, dir: 'x', project: 'y' });
-  const codexBlob = codex.map((f) => f.content).join('\n');
-  let stillPresent = 0;
-  for (const phrase of forbidden) if (codexBlob.includes(phrase)) stillPresent++;
-  assert.ok(stillPresent >= 3, 'codex should keep the conservative wording: it has no verified sub-agents premise');
-
-  // The three specific surfaces the audit named, checked directly.
-  const bp = cc.find((f) => f.rel === join('protocols', 'build-protocol.md')).content;
-  assert.match(bp, /Executes Stage 3 from the orchestrator's brief/);
-  assert.match(bp, /Why Stage 3 goes to builder by default/);
-  const builder = cc.find((f) => f.rel === join('.claude', 'agents', 'builder.md')).content;
-  assert.doesNotMatch(builder, /the main build itself/);
-  const routing = cc.find((f) => f.rel === 'ROUTING.md').content;
-  assert.match(routing, /builder executes from the orchestrator's brief/);
 });
 
 // ---- windows CI finding: MACHINE_OWNED/RUNTIME membership checks must not

@@ -1,18 +1,24 @@
-# What holds, and what is only asked for
+# Guarantees and verification
 
-Read this before running any of it unattended.
+model-orchestrator installs only its own files. It runs no third-party installs and sends no telemetry. `npx` itself downloads this package through npm before the installer starts.
 
-Most of what this package ships is text an agent is asked to follow. Be clear about which is which before relying on it unattended.
+Use the distinction below when choosing which parts to run unattended.
 
-| Property | How it holds |
+| Property | What enforces it |
 |---|---|
-| Installer writes only inside `--dir` and `--project`, never a secret, never over a document without `--force` (or `--update-docs`, which touches only documents provably untouched since a previous run); machine-owned config always, runtime files only when provably untouched or with `--upgrade-runtime` | **enforced by code** (preflight, exclusive create, rollback, manifest hashes; tested) |
-| `cli-run` exit codes, process-group kill on timeout and on SIGINT/SIGTERM, UTF-8-safe streaming, fixed-code durable log, `--expect-*` contracts with a pre-run snapshot | **enforced by code** (tested with stub lanes) |
-| Codex audit lane runs read-only | **delegated to the vendor flag** (`--audit` → `--sandbox read-only`); commands and network still follow your codex config |
-| Other lanes' permissions, sign-in state, model versions | **delegated to each vendor's own config**; `--doctor` checks presence, not versions |
-| Gateway binds to loopback, keys by name only | **enforced in the generated files**; whether the gateway authenticates is your environment |
-| Lane selection, tiers, privacy classes, one-writer, escalation, the protocols | **agent instructions**. Nothing here stops an agent that ignores its rules; the task bundle and the protocols make ignoring them visible, not impossible |
-| Weekly audit bounded, previous report preserved | **enforced in the generated script and unit** (watchdog, temp-and-rename, `TimeoutStartSec`) |
+| Installer writes stay inside `--dir` and `--project`; existing edits are preserved by default | Code: path preflight, exclusive creation, rollback and manifest hashes |
+| Companion tools start unselected, including with `--yes` | Code: explicit tool selection; missing tools get printed setup commands |
+| `--update-docs` refreshes unedited documents; `--upgrade-runtime` replaces runtime files only | Code: recorded hashes, file classes and named conflicts |
+| Uninstall removes only unchanged managed files | Code: complete manifest validation before removal, containment checks and hash comparison |
+| `cli-run` returns nonzero for missing results, timeouts and rejected output contracts | Code: vendor-specific output checks, process cleanup and `--expect-*` checks against a pre-run snapshot |
+| Acceptance checks report PASS or FAIL and return exit 1 for any failure | Code: `aunx checks run ACCEPTANCE_CHECKS.json`; run it before the action you want to gate |
+| Proof entries carry measurement dates, methods and expiry dates | Code: data validation and an expiry check in `npm test` |
+| Codex audits request read-only filesystem access | Vendor flag: `--audit` selects `--sandbox read-only`; command and network permissions still follow the vendor configuration |
+| Other workers' permissions, sign-in state and model availability | Vendor configuration and your live verification with `aunx cli-run --doctor --run` |
+| Gateway listens on loopback and refers to secrets by environment-variable name | Generated configuration; authentication and deployment remain your responsibility |
+| Model choice, effort guidance, privacy rules, one writer and independent review | Agent instructions in the routing rules, task brief and protocols |
+| Weekly review has bounded execution and preserves the previous report on failure | Generated script and service: watchdog, temporary output and rename |
 
-If you need a property in the third row to be enforced, that is a router, a policy engine or a sandbox, and this package does not claim to be one.
+The acceptance-check runner executes commands you supply, with your shell's permissions. Review a check file before running it. Wire its exit code into your own release command or CI when you want it to block that action.
 
+The plugin's routing hooks only read files and emit context; they run no subprocess, perform no network access and write no files. The separate installed metrics hook writes a local routing log without prompt text. [Security review history](security-review-history.md) links the regression evidence for these boundaries.

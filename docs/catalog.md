@@ -1,20 +1,20 @@
 # Catalog
 
-Generated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrites it. Protocols shipped at every level: 7 (counted from `templates/common/protocols/`).
+Generated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrites it. Protocols shipped at every level: 10 (counted from `templates/common/protocols/`).
 
 ## Levels
 
 | Level | Name | Tagline | Gives |
 |---|---|---|---|
 | 1 | Beginner | one LLM or agent, routed well | tiers, task classification, every protocol, one agent set up to follow them |
-| 2 | Intermediate | several LLMs and agents, called through their CLIs | everything in Beginner plus cli-run, a delegation matrix, task bundles and three-engine research triage |
+| 2 | Intermediate | several LLMs and agents, called through their CLIs | everything in Beginner plus cli-run, a delegation matrix, task briefs and three-engine research triage |
 | 3 | Advanced | everything above, plus a virtual machine that runs it unattended | everything in Intermediate plus a gateway config, scheduled jobs, a dispatch layer and privacy gates for a box |
 
 ## AIs
 
 ### `claude-code` · Claude Code (Anthropic)
 
-- **Kind:** agent-cli · **Access:** subscription · **Lane:** A · **Level:** 1+
+- **Kind:** agent-cli · **Access:** subscription · **Lane:** subscription · **Level:** 1+
 - **Wins at:** orchestrator: routes, maps, builds, verifies, records
 - **Install:** `npm install -g @anthropic-ai/claude-code@2.1.226`
 - **Sign in:** run `claude` once and sign in with your Anthropic account
@@ -27,7 +27,7 @@ Generated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrite
 
 ### `codex` · Codex CLI (OpenAI, ChatGPT plan)
 
-- **Kind:** agent-cli · **Access:** subscription · **Lane:** A · **Level:** 1+
+- **Kind:** agent-cli · **Access:** subscription · **Lane:** subscription · **Level:** 1+
 - **Wins at:** second coder and second-opinion reviewer (a different model family reading your diff)
 - **Install:** `npm install -g @openai/codex@0.153.4`
 - **Sign in:** `codex login` (add `--device-auth` on a machine with no browser)
@@ -41,7 +41,7 @@ Generated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrite
 
 ### `agy` · Antigravity CLI `agy` (Google AI plan)
 
-- **Kind:** agent-cli · **Access:** subscription · **Lane:** A · **Level:** 1+
+- **Kind:** agent-cli · **Access:** subscription · **Lane:** subscription · **Level:** 1+
 - **Wins at:** deep research sweeps and concurrent fan-out (its subagent call takes an array)
 - **Install:** vendor script (read it first): `https://antigravity.google/cli/install.sh`
 - **Sign in:** first run opens a device-code sign-in with your Google account
@@ -56,7 +56,7 @@ Generated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrite
 
 ### `grok` · Grok CLI (xAI, X Premium)
 
-- **Kind:** agent-cli · **Access:** subscription · **Lane:** A · **Level:** 1+
+- **Kind:** agent-cli · **Access:** subscription · **Lane:** subscription · **Level:** 1+
 - **Wins at:** X and live web reads at no per-call cost (its search tools bill on the API, not on the CLI)
 - **Install:** vendor script (read it first): `https://x.ai/cli/install.sh`
 - **Sign in:** `grok login` (add `--device-auth` on a headless machine)
@@ -69,7 +69,7 @@ Generated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrite
 
 ### `hermes` · Hermes Agent (Nous Research)
 
-- **Kind:** agent-cli · **Access:** free · **Lane:** A · **Level:** 2+
+- **Kind:** agent-cli · **Access:** free · **Lane:** subscription · **Level:** 2+
 - **Wins at:** the free tier: rough drafts, first-pass summaries, cheap divergent reads, cron jobs on a box
 - **Install:** https://github.com/NousResearch/hermes-agent
 - **Sign in:** `hermes auth add <provider>` per provider; its own fallback chain handles outages
@@ -78,7 +78,7 @@ Generated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrite
 
 ### `qwen` · Qwen Code CLI (Alibaba, provider-agnostic)
 
-- **Kind:** agent-cli · **Access:** metered · **Lane:** B · **Level:** 2+
+- **Kind:** agent-cli · **Access:** metered · **Lane:** pay-per-token · **Level:** 2+
 - **Wins at:** cheapest metered bulk lane for structured output; never for anything that cites a line, a number or a source
 - **Install:** `npm install -g @qwen-code/qwen-code@0.22.3`
 - **Sign in:** a provider key in an environment variable, named (not stored) in ~/.qwen/settings.json. There is no free Qwen cloud tier any more.
@@ -124,7 +124,7 @@ Generated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrite
 - **Gives:** exact arithmetic, code execution in 31 languages, SMT logic checks, complexity and equivalence proofs; offline, no key, no telemetry
 - **Install:** `uvx 'codecalc[full]' setup --write` (needs uv (https://docs.astral.sh/uv/) and Python 3.10+)
 - **Registers itself with:** Claude Code, Claude Desktop, Cursor, VS Code, Zed; snippets for the rest are written to `mcp/`
-- **Default:** selected
+- **Default:** not selected
 
 ### `obsidian-tc` · obsidian-tc (governed memory: an agent-ready MCP server over an Obsidian vault)
 

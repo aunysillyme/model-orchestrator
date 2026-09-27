@@ -8,7 +8,7 @@ import { readFileSync, readdirSync, statSync, existsSync, mkdtempSync, mkdirSync
 import { join, resolve, relative, sep } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
-import { planPluginFiles, pluginManifest, PLUGIN_DIR, ROOT, PLUGIN_HOOKS, HAND_OWNED, DEFAULT_RULES, PLUGIN_NAME } from '../src/plugin.js';
+import { planPluginFiles, pluginManifest, marketplaceManifest, PLUGIN_DIR, ROOT, PLUGIN_HOOKS, HAND_OWNED, DEFAULT_RULES, PLUGIN_NAME } from '../src/plugin.js';
 import { claudeAgentIds, planFiles, TEMPLATES } from '../src/install.js';
 import { byId } from '../src/catalog.js';
 
@@ -57,6 +57,7 @@ test('plugin.json version is package.json version, and the marketplace entry poi
   assert.equal(resolve(ROOT, entry.source), PLUGIN_DIR, 'the marketplace entry must resolve to plugin/');
   assert.ok(!('version' in entry), 'the version lives in plugin.json only; a second copy here would drift');
   assert.deepEqual(pluginManifest(), manifest);
+  assert.deepEqual(marketplaceManifest(), market);
 });
 
 // ---- hooks.json and hook safety ----

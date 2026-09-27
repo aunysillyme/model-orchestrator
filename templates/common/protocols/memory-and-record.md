@@ -1,30 +1,31 @@
-# Memory and record: the store is part of the change
+# Memory and record: keep durable information findable
 
-Every protocol here ends in a write: the end-to-end doc, the rename that lands everywhere, the research brief, the gap report. A write that nothing indexes is a note in a drawer. This protocol says how the store is kept honest, whatever the store is.
+When writing durable information, search existing records, update their index and use one writer for the shared record.
 
-Companion tool for this rule: **obsidian-tc**, {{OBSIDIAN_TC_STATUS}}.
+Optional companion: **obsidian-tc**, {{OBSIDIAN_TC_STATUS}}.
 
-## Rules
+## Record a change
 
-1. **Search before you write.** A research brief, a decision, a rule: check whether it already exists (`semantic_search` for the concept, `search_text` for the exact phrase). Duplicates are how a store starts lying: two notes, two answers, and a reader picks one.
-2. **The folder index is part of the change, not a follow-up.** Every folder has one index file that says what is in it and what state it is in. Any write, edit or delete reopens that index in the same pass and corrects whatever the change made untrue. A stale index is worse than a missing one because agents believe it.
-3. **One writer per run.** Several agents may propose; one records. If you are not the writer, produce the file and name it in your report.
-4. **Machine output stays out of the index.** Scan dumps, logs, traces embed well and outrank the thing they describe. Keep them outside the searchable store, or in a folder the index excludes.
-5. **A record is not present state.** A note, a ticket, a checkbox is a dated observation. Re-read the live thing before you act on it.
-6. **Inferred content is marked as inferred.** A conclusion an agent reached, rather than copied from a source, carries `source: agent-synthesis` (and, with obsidian-tc, goes through its poison scan before it lands). A reader must be able to tell a quote from a guess.
-7. **Compare-and-swap on overwrite.** Read, then write with the hash you read. A blind overwrite of a note someone else changed is a lost update nobody notices.
+1. Search for the concept and exact phrase before creating a new record. When a matching record exists, update it within the granted scope.
+2. Read the owning folder's index and correct any description, status or link changed by the work.
+3. Assign one writer; have other lanes return proposed edits with evidence.
+4. Keep machine logs and raw traces outside the curated record index, or in an explicitly excluded folder.
+5. Before acting on a dated record, probe the current state it describes.
+6. Mark synthesis and inference distinctly from source quotations.
+7. Before overwriting, verify the current version or content hash. If it changed since the read, reconcile the changes first.
 
-## Where the other protocols touch the store
+## Connect records to work
 
-| Protocol | Store call |
+| Workflow | Record action |
 |---|---|
-| Propagate, step 1 | `get_backlinks` on the thing being renamed; `search_text` for the literal old term; after the change, `find_unresolved_links` |
-| Build, Stage 7 | the end-to-end doc goes in the folder that owns the domain; its index is updated in the same pass |
-| Deep research, step 4 | `semantic_search` before the brief is written; a hit means append to the existing note, not a second note |
-| Gap analysis | the "what exists" enumeration starts from the store, then diffs against the live state |
+| Shared rename | Search references and backlinks, then check for unresolved links |
+| Build report | Store the operations document in its owning folder and update the index |
+| Research | Search existing coverage and attach new verified evidence |
+| Coverage check | Compare recorded scope against the current artifact |
+| Decision | Record Did / Why / Serves / Rejected with evidence |
 
-## Without obsidian-tc
+## Local record workflow
 
-The rules still bind. `grep -rn` is your literal search, a folder README is your index, `git` is your compare-and-swap. What is not allowed is a write nobody can find again.
+When obsidian-tc is absent, use scoped file search, a folder README and version control. Before editing, compare the file with the version you read; version control alone does not prevent a concurrent lost update. Keep writes within the task's authorized paths.
 
-Source: https://github.com/The-40-Thieves/obsidian-tc
+Companion source: https://github.com/The-40-Thieves/obsidian-tc

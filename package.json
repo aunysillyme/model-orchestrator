@@ -1,10 +1,11 @@
 {
   "name": "model-orchestrator",
-  "version": "0.1.35",
-  "description": "Model orchestrator: rules, subagents and a lane runner tell agents which model to use, so small work goes to cheap tiers and fewer tokens go to frontier models.",
+  "version": "1.0.0",
+  "description": "Model router for AI coding agents: installs routing rules, 8 subagents, hooks and a CLI runner so your AI picks model and effort per task and saves tokens",
   "type": "module",
   "bin": {
-    "model-orchestrator": "bin/cli.js"
+    "model-orchestrator": "bin/cli.js",
+    "aunx": "bin/aunx.js"
   },
   "files": [
     "bin",
@@ -15,9 +16,9 @@
     "LICENSE",
     "CHANGELOG.md",
     "SECURITY.md",
-    "scripts",
     "llms.txt",
-    "AGENTS.md"
+    "AGENTS.md",
+    "proof"
   ],
   "scripts": {
     "start": "node bin/cli.js",
@@ -25,7 +26,10 @@
     "prepublishOnly": "npm test",
     "dry-run": "node bin/cli.js --yes --level 2 --ais claude-code,codex,grok --dir ./tmp-dry-run --dry",
     "gen:catalog": "node scripts/gen-catalog.js",
-    "gen:plugin": "node scripts/gen-plugin.js"
+    "gen:plugin": "node scripts/gen-plugin.js",
+    "proof:measure": "node proof/scripts/measure.js",
+    "proof:render": "node proof/scripts/render.js",
+    "proof:demo": "node proof/scripts/record-gate.js"
   },
   "engines": {
     "node": ">=18"
@@ -81,8 +85,10 @@
     "prompt-routing",
     "coding-agent",
     "ai-coding",
-    "coding-agents"
+    "coding-agents",
+    "aunx"
   ],
   "author": "aunysillyme (https://github.com/aunysillyme)",
-  "license": "MIT"
+  "license": "MIT",
+  "funding": "https://github.com/sponsors/aunysillyme"
 }

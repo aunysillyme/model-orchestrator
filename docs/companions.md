@@ -1,17 +1,33 @@
-# Companion tools
+# Works well with
 
-All optional. The installer asks about each one separately; selecting one writes a doc and config snippets, it installs nothing. `--tools codecalc,obsidian-tc,context7` or `--no-tools` for scripted runs; `--yes` alone selects only the recommended one.
+Companions add calculation, searchable notes or current library documentation. They are other authors' projects, with their own releases and support channels. All are opt-in; a default install and `--yes` both select none.
 
-## Companion tools (all optional)
+```bash
+npx model-orchestrator --tools codecalc,obsidian-tc,context7
+```
 
-An orchestrator routes work. It does not make a model stop guessing numbers, it does not give it a memory, and it does not make it check a library's current docs before writing against it. Three tools close those gaps: codecalc and obsidian-tc are from the same maintainer, Context7 is from Upstash. The installer asks about each one separately; selecting one writes a doc and config snippets, it installs nothing. `--tools codecalc,obsidian-tc,context7` or `--no-tools` for scripted runs; `--yes` alone selects only the recommended one.
+Selecting a companion writes model-orchestrator's setup guide and configuration snippets. The installer installs only its own files, prints missing tools together under **Install these yourself**, and leaves third-party commands for you to run. `--no-tools` remains accepted for existing scripts.
 
-| Tool | Closes | Default | You need first |
+## Choose a companion
+
+| Project | Maintainer | What it adds | Setup and support |
 |---|---|---|---|
-| [codecalc](https://github.com/The-40-Thieves/codecalc) | guessed numbers, comparisons, complexity and equivalence claims: exact arithmetic, code execution in 31 languages, SMT logic checks, `verify_translation` / `verify_optimization`; offline, no key | yes | Python 3.10+ and `uv`. `uvx 'codecalc[full]' setup --write` registers it with Claude Code, Claude Desktop, Cursor, VS Code, Zed; snippets for Codex, Antigravity, Qwen Code are written for you |
-| [obsidian-tc](https://github.com/The-40-Thieves/obsidian-tc) | no durable memory: hybrid search, backlinks, compare-and-swap writes with a confirmation gate, folder ACLs, a poison scan on inferred writes; 163 tools, local by default; AGPL-3.0 | no | an Obsidian vault folder; Node 24+ or Bun 1.1+ (stricter than this installer); Ollama with `nomic-embed-text` or a cloud embeddings key; the Obsidian app and its Local REST API plugin only for live bridge tools. Skip it if you do not keep notes in Obsidian |
-| [Context7](https://github.com/upstash/context7) | stale library recall: current, version-specific docs and code examples pulled into the prompt for any library, SDK, API or CLI; hosted, or `npx` locally; MIT | no | nothing to install for the hosted endpoint; Node.js 18+ for the local alternative; a free API key is optional, for a higher rate limit. Always makes a network call, unlike the other two: skip it offline |
+| [codecalc](https://github.com/The-40-Thieves/codecalc) | The-40-Thieves | Local arithmetic, code execution, logic and equivalence checks | Follow the generated `CODECALC.md` and the [upstream instructions](https://github.com/The-40-Thieves/codecalc#readme); report tool issues [upstream](https://github.com/The-40-Thieves/codecalc/issues) |
+| [obsidian-tc](https://github.com/The-40-Thieves/obsidian-tc) | The-40-Thieves | Search, backlinks and controlled writes for an Obsidian notes folder | Follow `OBSIDIAN-TC.md` and the [upstream instructions](https://github.com/The-40-Thieves/obsidian-tc#readme); report tool issues [upstream](https://github.com/The-40-Thieves/obsidian-tc/issues) |
+| [Context7](https://github.com/upstash/context7) | Upstash | Current documentation and examples for a specific library version | Follow `CONTEXT7.md` and the [upstream instructions](https://github.com/upstash/context7#readme); report tool issues [upstream](https://github.com/upstash/context7/issues) |
 
-Context7 pairs with codecalc rather than duplicating it: Context7 tells the agent what a library is documented to do on this version, codecalc runs the code and proves what it actually does. Docs never stand as proof on their own, and where the two disagree the run wins.
+Check each project's current runtime and sign-in requirements before installing it. Context7 sends documentation queries over the network, including when its MCP server runs locally. Keep private source and secrets out of query text.
 
-Whether or not you select them, every level carries the three rules they serve: `protocols/numbers-and-logic.md` (when calling a calculator is mandatory, how to report a computed figure, why a thought log is not evidence), `protocols/memory-and-record.md` (search before writing, the folder index is part of the change, one writer, inferred content marked as inferred), and `protocols/docs-then-prove.md` (current docs before writing a call, then a run proves it, the run wins on disagreement).
+## Use the protocols with your existing tools
+
+| Need | With a companion | With your existing tools |
+|---|---|---|
+| Compute and verify | codecalc | A calculator, a local runtime or your project's test command |
+| Search and record | obsidian-tc | A notes folder, file search and version control |
+| Check an API | Context7 | Current official documentation and upstream source, then a local execution check |
+
+Every install includes `protocols/numbers-and-logic.md`, `protocols/memory-and-record.md` and `protocols/docs-then-prove.md`. The protocols describe the job; companion selection changes which tool can do it.
+
+## Keep an existing setup
+
+Upgrading from 0.1.x preserves existing codecalc files. `--uninstall` removes a managed companion guide or snippet only when its content still matches the recorded hash; edited files stay and are listed. See [Upgrading from 0.1.x](install.md#upgrading-from-01x).

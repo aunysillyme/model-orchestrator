@@ -10,7 +10,7 @@
 // This script always exits 0, never blocks on stdin past a short bound,
 // reads at most 64 KB of the rules file through a fixed-size buffer (never
 // a full read of an arbitrarily large or non-regular file), and never
-// executes anything it reads. See docs/audit-brief.md for the security notes.
+// executes anything it reads. See docs/security-review-history.md for the security notes.
 import { statSync, openSync, readSync, closeSync, realpathSync } from 'node:fs';
 import { join, isAbsolute, basename } from 'node:path';
 
@@ -52,7 +52,7 @@ function bound(text) {
 }
 
 function fallback(reason) {
-  return 'route-gate: ' + reason + '. Pick the lane before acting: read ' + RULES_FILE_REL + ' yourself.';
+  return 'route-gate: ' + reason + '. Choose the route before acting: read ' + RULES_FILE_REL + ' yourself.';
 }
 
 function projectRoot() {

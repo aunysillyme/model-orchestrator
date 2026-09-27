@@ -1,28 +1,38 @@
-# AGENTS.md
+# Agent instructions
 
-Two audiences: an agent that wants to USE this package for a project, and an agent that is working ON this repository.
+## Use the model router in a project
 
-## Using this package from an agent
+When configuring a project, run `npx model-orchestrator --list` to inspect supported IDs. Preview a scoped setup with:
 
-model-orchestrator writes routing rules, subagents and a CLI lane runner so an agent sends each task to the right model, subagent or CLI and spends fewer frontier tokens. It is not a proxy or gateway. Headless use:
+```bash
+npx model-orchestrator --yes --level 2 --ais claude-code,codex --project <repo> --dir <repo>/ai-orchestrator --dry-run
+```
 
-- `npx model-orchestrator --list` prints every supported AI id.
-- `npx model-orchestrator --yes --level 2 --ais claude-code,codex --project <repo> --dir <repo>/ai-orchestrator --dry-run` prints the plan and writes nothing.
-- Drop `--dry-run` to write it. Existing files are never overwritten without `--force`; activation snippets (for example `CLAUDE.snippet.md`, `settings.hooks.snippet.json`) are written for a person or agent to merge.
-- The generated `README.md` in `--dir` lists what to copy where and one smoke command to prove the rules took.
-- Claude Code users can install the hooks and subagents as a plugin instead of merging snippets: `claude plugin marketplace add aunysillyme/model-orchestrator`, then `claude plugin install model-orchestrator@model-orchestrator`. The rules still come from the installer above; see [`plugin/README.md`](plugin/README.md).
-- A summary for LLMs, with links to every doc: [`llms.txt`](llms.txt).
+When the selection and target paths are correct, remove `--dry-run`. Read the generated `README.md` for activation and the smoke check. Use `--apply-snippets` for a backed-up Claude Code activation merge. When updating an existing install, use `--update-docs` to regenerate unchanged managed documents; edited files stay and are named.
 
-## Working on this repository
+When choosing tools, select companions explicitly with `--tools`. Defaults select none, including with `--yes`. The installer installs only its own files and prints third-party setup commands for the user.
 
-The files the installer writes for end users live under `templates/`.
+When `aunx` is installed, use:
 
-- Read `CONTRIBUTING.md` first, then `src/README.md` (the catalog drives everything) and `docs/audit-brief.md` (the threat model and what has already been attacked).
-- Run `npm test` before proposing a change and quote the count and the exit code; the suite prints the current number.
-- Everything renders from `src/catalog.js`. Add an AI or a tool there, not in a template. Templates carry no logic.
-- `plugin/` is generated. Edit the agent or hook in `templates/`, then `npm run gen:plugin`; `test/plugin.test.js` fails when the committed bundle drifts. A plugin hook may only read: no network, no file writes, no subprocess.
-- Never put a value that looks like a credential anywhere in this repo, including tests and examples. Environment variable names only.
-- `bin/cli.js` writes only inside `--dir` and `--project`, never over a document without `--force`, and never runs a vendor script. A change that weakens any of those will be refused in review; the tests that hold them are in `test/install.test.js` and `test/cli.test.js`.
-- `bin/cli-run.mjs` must exit non-zero when a lane produced nothing. Every judge has a red case in `test/judges.test.js`; add one before you change a judge.
-- Prose in this repo uses no em dashes (`test/prose.test.js` enforces it).
-- Why these rules exist: each one is the fix for a failure that reached an audit or CI. `CHANGELOG.md` names the issue behind each.
+- **Worker call:** `aunx cli-run codex --brief TASK_BRIEF.md --effort high`.
+- **Shared facts:** `aunx context CONTEXT.md`.
+- **Task scope:** `aunx brief new TASK_BRIEF.md`.
+- **Verification:** `aunx checks ACCEPTANCE_CHECKS.json`, then fill and run trusted commands with `aunx checks run ACCEPTANCE_CHECKS.json`.
+- **Routing suggestion:** `aunx route "rename this file"`, then apply the installed `ROUTING.md` to the actual context.
+- **Own measurements:** `aunx route-metrics --summary`; use [proof/README.md](proof/README.md) for package measurements and scripts.
+
+When using the Claude Code plugin, follow [plugin/README.md](plugin/README.md). The installer supplies project-specific routing rules. Use [llms.txt](llms.txt) for the documentation index.
+
+## Change this repository
+
+- **Read first:** `CONTRIBUTING.md`, `src/README.md` and `docs/security-review-history.md`.
+- **Catalog:** when adding an AI or companion, edit `src/catalog.js`; keep templates free of logic.
+- **Templates:** when changing installed instructions, edit `templates/`. Use public terms: task brief, context file, acceptance checks, definition of done and result.
+- **Generated files:** run `npm run gen:catalog` after catalog changes and `npm run gen:plugin` after plugin-template changes. `test/plugin.test.js` checks the committed bundle.
+- **Plugin safety:** hooks may only read and emit context. No network, file writes, subprocesses or credential access.
+- **Installer safety:** writes remain inside `--dir` and `--project`; preserve user edits according to manifest hashes and explicit flags. Run no third-party installer.
+- **Runner safety:** preserve exit codes and the log schema. Before changing an output judge, add a failing case in `test/judges.test.js`.
+- **Secrets:** use environment-variable names only. Never add a credential value to code, examples or tests.
+- **Proof:** measure through `proof/scripts/`, store results in `proof/results.json` and regenerate the proof page. The suite rejects expired entries.
+- **Verify:** run `npm test` and report tests, pass, fail, skipped and exit code. The suite prints current counts. Use `npm pack --dry-run` to inspect publication contents.
+- **Style:** use short condition-to-action instructions and no em dashes. `test/prose.test.js` checks public vocabulary and examples.

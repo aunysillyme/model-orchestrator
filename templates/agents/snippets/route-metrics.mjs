@@ -22,7 +22,7 @@
 //
 // The durable log holds no provider-supplied string: prompt text, tool
 // descriptions, and the "why" half of the route marker are never read into a
-// field, only the named, charset-bounded values below. See docs/audit-brief.md.
+// field, only the named, charset-bounded values below. See docs/security-review-history.md.
 //
 // Second entry point: `node route-metrics.mjs --summary [--since <ISO date>]`
 // prints a plain-text report from the log and exits 0 without touching stdin.

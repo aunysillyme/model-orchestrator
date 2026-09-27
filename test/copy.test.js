@@ -16,16 +16,16 @@ const llms = read('llms.txt');
 // Claims the package does not make. 0.1.11 retired the first one after an audit.
 const OVERCLAIM = /cheapest AI that does it well|switches between models|automatically (selects|picks|chooses|switches)/i;
 
-test('description, README opening and banner all say it is a model orchestrator', () => {
+test('description, README opening and banner all say it is a model router', () => {
   assert.ok(banner, 'the banner line must be found in bin/cli.js');
   for (const [name, s] of [['description', pkg.description], ['README line 5', lead], ['banner', banner]]) {
-    assert.match(s, /model orchestrator/i, name + ' must name what the package is');
+    assert.match(s, /model router/i, name + ' must name what the package is');
     assert.doesNotMatch(s, OVERCLAIM, name + ' must not promise routing the code does not perform');
   }
 });
 
 test('description and README opening state the same purpose', () => {
-  const purpose = 'so small work goes to cheap tiers and fewer tokens go to frontier models';
+  const purpose = 'so your AI picks model and effort per task and saves tokens';
   assert.ok(pkg.description.includes(purpose), 'package.json description');
   assert.ok(lead.includes(purpose), 'README opening');
 });
@@ -66,5 +66,5 @@ test('llms.txt follows the llmstxt.org shape and ships in the package', () => {
 test('every llms.txt link to this repository points at a file that exists', () => {
   const links = [...llms.matchAll(/\]\((https:\/\/github\.com\/aunysillyme\/model-orchestrator\/blob\/main\/([^)]+))\)/g)];
   assert.ok(links.length >= 5, 'expected the doc links, found ' + links.length);
-  for (const [, url, path] of links) assert.ok(existsSync(new URL(path, root)), 'dead link in llms.txt: ' + url);
+  for (const [, url, path] of links) assert.ok(existsSync(new URL(path.split('#')[0], root)), 'dead link in llms.txt: ' + url);
 });

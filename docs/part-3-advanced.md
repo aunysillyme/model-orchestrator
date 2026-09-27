@@ -6,9 +6,9 @@ A small always-on Linux box owns the schedule. Your laptop stays the interactive
 
 One OpenAI-compatible gateway (LiteLLM) fronts every metered provider. Nothing else on the box holds a credential: not the orchestrator, not a job, not a container. Rotating a key is a change in one place. The gateway binds to loopback or a private mesh, never to the public interface.
 
-Subscription CLIs keep their own sign-in state and stay off the gateway; they are already $0.
+Subscription CLIs keep their own sign-in state and use the access and quota included in your plan.
 
-## 1b. A subscription is not an API key
+## 1b. Configure subscription access and API access separately
 
 The installer asks which metered API keys you hold separately from which CLIs you use. A Claude Code plan gives you `claude`; it does not give you an Anthropic API key, and the gateway only serves what a key unlocks. Gateway lanes and the variable names in `vm/ENVIRONMENT.md` are rendered from the keys, never from the CLI list.
 
@@ -26,7 +26,7 @@ Each gateway lane is an alias (`bulk-cheap`, `standard`, `deep`, `long-context`,
 
 ## 4. The weekly gap analysis becomes a job
 
-A timer enumerates live state (gateway lanes, timers, CLI versions), diffs it against the delegation matrix, and lets the free lane draft the report. It catches the dead lane and the silently renamed model. Its "watched by" line starts as `nothing`, and that line is the one that tells you what to build next.
+A timer enumerates live state (gateway lanes, timers, CLI versions), diffs it against the delegation matrix, and lets the free lane draft the report. It identifies unavailable workers and silently renamed models. Its "watched by" line starts as `nothing`, and that line is the one that tells you what to build next.
 
 ## 5. What runs where
 
@@ -40,10 +40,10 @@ A timer enumerates live state (gateway lanes, timers, CLI versions), diffs it ag
 
 Headless Linux gotchas the setup script handles: install a keyring or the CLIs re-prompt for auth on every launch; run device-code sign-ins inside `tmux`; invoke CLIs by absolute path from non-login shells.
 
-## 6. Rules that do not bend on a box
+## 6. Set spending and privacy boundaries
 
-- No payment card on any compute lane without a human saying so. Free credit only.
-- Local first; cloud only when local genuinely cannot.
+- Set an approved spending limit before scheduling a compute job. Stop for approval when a job would exceed it.
+- Choose local or hosted execution from capacity, privacy and the approved budget.
 - Private notes, client data and personal records never go to a third-party bulk lane. Name the barred lanes.
 - Nothing binds to `0.0.0.0`.
 - A secret is never printed, never in argv, never in a file in the repo.
@@ -54,15 +54,15 @@ What and why · trigger · invocation chain · dependencies · reads · writes �
 
 ## 8. codecalc on the box
 
-Runs as a stdio MCP server next to the orchestrator CLI: offline, no key, nothing to bind. The weekly audit's figures (lane counts, version deltas, spend) are computed there, not estimated by the free lane that drafts the report. See [codecalc](https://github.com/The-40-Thieves/codecalc).
+If selected, it runs as a stdio MCP server next to the orchestrator CLI: offline, no key, nothing to bind. Without it, compute figures with an available calculator or runtime. The weekly audit's figures (lane counts, version deltas, spend) are computed there, not estimated by the free lane that drafts the report. See [codecalc](https://github.com/The-40-Thieves/codecalc).
 
 ## 9. obsidian-tc on the box
 
-Stdio next to the orchestrator, or the upstream Docker service against a bind-mounted vault. Embeddings on the box's Ollama, so nothing leaves the machine. HTTP transport stays off unless every caller is on the private mesh and auth is on.
+If selected, use stdio next to the orchestrator, or the upstream Docker service against a bind-mounted vault. Without it, use a searchable notes folder with one writer. Embeddings on the box's Ollama, so nothing leaves the machine. HTTP transport stays off unless every caller is on the private mesh and auth is on.
 
-## 10. context7 on the box
+## 10. Context7 on the box
 
-Unlike the other two companions, it is never fully local: the hosted endpoint is a network call over HTTPS from the box, or a local `npx` server over stdio still needs no cloud account to run anonymously. Either way, only the library name and the query text leave the box, never source code. Scheduled jobs that write code against a vendored dependency pull its current docs through Context7 first, then prove the shape with codecalc before it ships.
+If selected, Context7 retrieves documentation over the network, including when its MCP server runs locally. Keep private source and secrets out of query text. Without it, read current official docs or upstream source. Then test the API shape with your local runtime before release.
 
 ## What the installer gives you at this level
 

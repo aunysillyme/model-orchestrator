@@ -194,7 +194,7 @@ const SKIP_LANE_SIGNAL_DEATH_ON_WIN32 = process.platform === 'win32' && 'a lane 
 test('--help and --list exit 0 and mention every level', () => {
   const h = run(['--help']);
   assert.doesNotMatch(h.stdout, /level 1 only/, '--primary applies at every level');
-  assert.match(h.stdout, /--primary id\s+the agent that runs the system/);
+  assert.match(h.stdout, /--primary id\s+the main agent that runs the system/);
   assert.equal(h.status, 0);
   assert.match(h.stdout, /--level 1\|2\|3/);
   const l = run(['--list']);
@@ -410,10 +410,10 @@ test('cli-run: provider message text reaches stderr but never the durable log', 
   rmSync(d, { recursive: true, force: true });
 });
 
-test('--no-tools with --tools is a usage error, and the filesystem root is refused as --dir', () => {
-  const c = run(['--yes', '--level', '1', '--ais', 'codex', '--no-tools', '--tools', 'nope', '--dry']);
-  assert.equal(c.status, 2);
-  assert.match(c.stderr, /contradict/);
+test('--no-tools remains compatible with explicit tools, and the filesystem root is refused as --dir', () => {
+  const c = run(['--yes', '--level', '1', '--ais', 'codex', '--no-tools', '--tools', 'codecalc', '--dry']);
+  assert.equal(c.status, 0, c.stderr);
+  assert.match(c.stdout, /CODECALC\.md/);
   const root = run(['--yes', '--level', '1', '--ais', 'codex', '--no-tools', '--dir', '/', '--force', '--dry']);
   assert.equal(root.status, 2);
   assert.match(root.stderr, /filesystem root/);
@@ -425,7 +425,7 @@ test('--tools obsidian-tc is accepted, --yes alone does not select it, --list sa
   assert.match(l.stdout, /Optional and heavier/);
   assert.match(l.stdout, /Obsidian vault/);
   const dflt = run(['--yes', '--level', '1', '--ais', 'codex', '--dry']);
-  assert.match(dflt.stdout, /tools    codecalc\n/);
+  assert.match(dflt.stdout, /tools    none\n/);
   assert.doesNotMatch(dflt.stdout, /OBSIDIAN-TC\.md/);
   const both = run(['--yes', '--level', '1', '--ais', 'codex', '--tools', 'codecalc,obsidian-tc', '--dry']);
   assert.equal(both.status, 0, both.stderr);
@@ -438,7 +438,7 @@ test('--tools context7 is accepted, --yes alone does not select it, --list says 
   assert.match(l.stdout, /context7/);
   assert.match(l.stdout, /network call/);
   const dflt = run(['--yes', '--level', '1', '--ais', 'codex', '--dry']);
-  assert.match(dflt.stdout, /tools    codecalc\n/);
+  assert.match(dflt.stdout, /tools    none\n/);
   assert.doesNotMatch(dflt.stdout, /CONTEXT7\.md/);
   const all = run(['--yes', '--level', '1', '--ais', 'codex', '--tools', 'codecalc,obsidian-tc,context7', '--dry']);
   assert.equal(all.status, 0, all.stderr);
@@ -670,23 +670,24 @@ test('#6: rerunning with an added lane applies it to lanes.json and MANIFEST.jso
   rmSync(d, { recursive: true, force: true });
 });
 
-test('#8: the interactive install spawns npm with the same pinned spec the table prints', () => {
+test('the interactive installer prints vendor setup and never spawns npm', () => {
   const d = mkdtempSync(join(tmpdir(), 'orch-pin-'));
   const bin = join(d, 'bin');
   mkdirSync(bin);
   const captured = join(d, 'npm-argv.txt');
   writeShellStub(join(bin, 'npm'), `echo "$@" > "${captured}"\nexit 0`);
-  // codex is NOT on this PATH, so the installer offers to install it; answer y.
+  // Codex is absent from this PATH, so setup instructions must be printed.
   const r = run(['--level', '1', '--ais', 'codex', '--primary', 'codex', '--no-tools', '--dir', join(d, 'out'), '--project', join(d, 'proj')], {
     input: '4\ny\ny\n',
-    // PATH deliberately excludes /usr/bin: a machine with a real codex there would skip the install prompt.
+    // PATH deliberately excludes /usr/bin: a machine with a real codex there would skip its missing-binary instruction.
     env: winEnv(process.platform === 'win32' ? [bin, dirname(process.execPath), WIN_SH_DIR].filter(Boolean).join(delimiter) : [bin, dirname(process.execPath), '/bin'].join(delimiter), d)
   });
   assert.equal(r.status, 0, r.stderr + r.stdout);
-  assert.ok(existsSync(captured), 'the installer never offered to install codex (is a real codex on this PATH?):\n' + r.stdout);
-  const argv = readFileSync(captured, 'utf8').trim();
-  assert.match(argv, /^install -g @openai\/codex@\d+\.\d+\.\d+$/, 'npm was spawned without the catalog pin: ' + argv);
-  assert.match(r.stdout, /run `npm install -g @openai\/codex@\d+\.\d+\.\d+` now/);
+  assert.equal(existsSync(captured), false, 'installer must never invoke a vendor package manager');
+  assert.match(r.stdout, /Install these yourself/);
+  assert.match(r.stdout, /npm install -g @openai\/codex@\d+\.\d+\.\d+/);
+  assert.match(r.stdout, /https:\/\/developers\.openai\.com\/codex\/cli/);
+  assert.doesNotMatch(r.stdout, /run `npm install|now\? \[y\/N\]/);
   rmSync(d, { recursive: true, force: true });
 });
 
@@ -835,7 +836,7 @@ test('#12: with a manifest, an untouched runtime file is upgraded, an edited one
   rmSync(d, { recursive: true, force: true });
 });
 
-test('cli-run --doctor explains why the primary agent is not a lane, and says nothing when the primary is one', () => {
+test('cli-run --doctor explains why the main agent is not a lane, and says nothing when the primary is one', () => {
   const d = mkdtempSync(join(tmpdir(), 'orch-docp-'));
   mkdirSync(join(d, 'bin'));
   const copy = join(d, 'bin', 'cli-run.mjs');
@@ -844,11 +845,11 @@ test('cli-run --doctor explains why the primary agent is not a lane, and says no
   writeFileSync(join(d, 'MANIFEST.json'), JSON.stringify({ primary: 'claude-code' }));
   const r = spawnSync(process.execPath, [copy, '--doctor'], { encoding: 'utf8', env: winEnv('/nonexistent', d) });
   assert.equal(r.status, 13, r.stdout + r.stderr);
-  assert.match(r.stdout, /note: claude-code is the primary agent and is not an executable lane/);
+  assert.match(r.stdout, /note: claude-code is the main agent and is not an executable lane/);
   writeFileSync(join(d, 'bin', 'lanes.json'), '{"enabled":["codex"]}');
   writeFileSync(join(d, 'MANIFEST.json'), JSON.stringify({ primary: 'codex' }));
   const r2 = spawnSync(process.execPath, [copy, '--doctor'], { encoding: 'utf8', env: winEnv('/nonexistent', d) });
-  assert.doesNotMatch(r2.stdout, /is the primary agent/);
+  assert.doesNotMatch(r2.stdout, /is the main agent/);
   writeFileSync(join(d, 'MANIFEST.json'), '{"primary": "../evil; rm"}');
   assert.doesNotMatch(spawnSync(process.execPath, [copy, '--doctor'], { encoding: 'utf8', env: winEnv('/nonexistent', d) }).stdout, /evil/, 'a manifest primary that is not a catalog-shaped id is ignored');
   rmSync(d, { recursive: true, force: true });

@@ -1,28 +1,22 @@
-# Gap analysis: the second pass
+# Gap analysis: compare scope with the request
 
-**On any comprehensive task, run a second pass that hunts for what is MISSING, not just verifies what is there.** Comprehensive means research, audits, plans, builds, and multi-file work.
+When a task covers several requirements or surfaces, compare the result with the user's ask and the prepared map. For a build, run this as the companion consult in the same audit step; it asks scope versus ask while the auditor checks build versus scope.
 
-Verification asks "is what I did correct?". Gap analysis asks "what did I not do?". They are different questions and the second one is the one a first pass cannot answer about itself.
+## Check coverage
 
-## The shape
+1. Enumerate the actual files, tests, configured lanes, jobs and sources within scope.
+2. Map every clause of the request to evidence in the result.
+3. Identify missing requirements, unintended additions and changes omitted from the map.
+4. Check the behavior expected when a dependency is absent or unavailable.
+5. Return one coverage row per requirement with IMPLEMENTED, PARTIAL, MISSING or OUT-OF-SCOPE and a source path or check.
 
-1. **Enumerate what exists.** The live state, not the plan: files written, tests present, lanes configured, jobs scheduled, sources consulted.
-2. **Diff it against the ask and the map.** Every clause of the original request maps to at least one thing you did. Every item on the Stage 1 map maps to a change. A clause with no step is dropped scope; a step with no clause is invented scope. Say both.
-3. **Hunt the absences.** For each category: what would a reader expect to find here that is not here? What does the source say that the output does not? What fails if a dependency is down?
-4. **Report the gaps as findings**, not as apologies. Each one: what is missing, where it should be, and whether you are closing it now or naming it as open.
+## Choose the reviewer
 
-## Who runs it
+- When an independent reviewer is available, give it the whole ask and scope with the final artifact.
+- At level 2 and above, consider this selected lane: {{GAP_ANALYSIS_LANE}}
+- When only one agent is available, use a fresh context for the coverage question and identify the independence limit. A build's required independent audit remains pending until an eligible reviewer can perform it.
+- For a recurring capability check, enumerate live state and compare it with the documented configuration on the configured schedule.
 
-- **Level 1 (one agent):** the same agent, in a fresh turn, with a brief that says "you are looking for what is missing; do not re-verify what is present". Fresh context matters more than a different model.
-- **Level 2 and up:** {{GAP_ANALYSIS_LANE}}
-- **Level 3:** make it recurring. A weekly audit job enumerates live state (lanes, jobs, services, model lists), diffs it against the plan, and files a report. It catches the dead lane and the silently renamed model nobody noticed.
+## Resolve reported gaps
 
-## The second half: analyze, compare, suggest
-
-Once the gaps are named, for each lane or component: what does it give, is there a cheaper, better or faster alternative, and what is the best paid option beside the free default. Parked is fine; unshown is not.
-
-## Anti-patterns
-
-- Treating a green test suite as a gap analysis. Tests verify presence; they cannot see absence.
-- Asking the model that wrote the thing whether it is complete, in the same context. It will say yes.
-- Reporting gaps you did not verify. A gap is a finding; it needs the same evidence a bug does.
+When a gap is reported, verify the claim against the artifact before assigning a change. Keep unverified observations separate. When a gap changes the approved scope, return the decision to the user; when it is already in scope, complete it and rerun its acceptance check.

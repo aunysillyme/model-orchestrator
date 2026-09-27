@@ -19,7 +19,7 @@ export const REPO_URL = 'https://github.com/aunysillyme/model-orchestrator';
 // ROUTING.md at level 2 and 3, ORCHESTRATOR.md at level 1. Level 2 first, so
 // a project that moved up a level reads the newer file.
 export const DEFAULT_RULES = ['ai-orchestrator/ROUTING.md', 'ai-orchestrator/ORCHESTRATOR.md'];
-export const DEFAULT_TASK_BUNDLE = 'ai-orchestrator/TASK_BUNDLE.md';
+export const DEFAULT_TASK_BRIEF = 'ai-orchestrator/TASK_BRIEF.md';
 
 // route-metrics.mjs is not here on purpose: it appends a routing log to disk,
 // and the plugin ships only hooks that read. `npx model-orchestrator` still
@@ -37,7 +37,7 @@ export function pluginVars() {
     RULES_DIR_OVERRIDE_JS: "''",
     RULES_FILE_REL: DEFAULT_RULES.join(' or '),
     RULES_FILE_REL_JSON: JSON.stringify(DEFAULT_RULES[0] + ' (' + DEFAULT_RULES[1] + ' on a level 1 install)'),
-    TASK_BUNDLE_REL_JSON: JSON.stringify(DEFAULT_TASK_BUNDLE),
+    TASK_BRIEF_REL_JSON: JSON.stringify(DEFAULT_TASK_BRIEF),
     RULES_CANDIDATES_JSON: JSON.stringify(DEFAULT_RULES),
     SETUP_HINT_JSON: JSON.stringify(
       'This project has no model-orchestrator routing rules yet. Running `npx model-orchestrator` in the project root writes them (' +
@@ -59,14 +59,23 @@ export function pluginManifest() {
     name: PLUGIN_NAME,
     version: GENERATOR_VERSION,
     description:
-      'Routing for Claude Code: a hook injects your project\'s routing table on every prompt, so each task goes to the right subagent tier and fewer tokens go to the most expensive model. Ships ' +
+      'Model router for Claude Code: injects project routing rules on each prompt and provides ' +
       n +
-      ' subagents across three model tiers.',
+      ' subagents for planning, working and cheap model tiers.',
     author: { name: 'model-orchestrator maintainers', url: REPO_URL },
     homepage: REPO_URL + '#readme',
     repository: REPO_URL,
     license: 'MIT',
     keywords: ['routing', 'subagents', 'hooks', 'model-router', 'token-optimization', 'delegation']
+  };
+}
+
+export function marketplaceManifest() {
+  return {
+    name: PLUGIN_NAME,
+    owner: { name: 'model-orchestrator maintainers', url: REPO_URL },
+    description: 'Model router for Claude Code: routing hooks and subagents for planning, working and cheap model tiers.',
+    plugins: [{ name: PLUGIN_NAME, source: './plugin', category: 'development' }]
   };
 }
 

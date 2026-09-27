@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "checks": [
+    {
+      "id": "replace-this-example",
+      "source": "Replace with the user's quoted requirement",
+      "description": "Replace with a property of the final artifact and a command that verifies it",
+      "command": ["node", "-e", "process.exit(1)"],
+      "cwd": "."
+    }
+  ]
+}

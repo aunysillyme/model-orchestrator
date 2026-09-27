@@ -1,28 +1,29 @@
-# CLAUDE.md for the box
+# Project instructions for the server
 
-Copy to `~/CLAUDE.md` on the machine (or your agent's equivalent rules file). A session here inherits these without a human present.
+When activating an unattended machine, copy these rules to the agent's documented instructions path and verify that a fresh session loads them.
 
-## Cost rule
-Prefer the cheapest tier that does the job well. Delegate grunt work through the dispatch layer; keep the reasoning in-session.
+## Choose the route
 
-Send to the cheap tier via the gateway or `cli-run`: bulk classification and tagging, reformatting, extraction, first-pass summaries, mechanical transforms, explicit rough drafts.
+When work is classification, extraction, formatting or other bounded volume, select an eligible cheap model. When it requires architecture, writing code, review or current sources, use the tier and tools named in `{{RULES_PATH}}/ROUTING.md` and `{{RULES_PATH}}/DELEGATION_MATRIX.md`.
 
-Never send to the cheap tier: anything that will be published in a person's own voice, code that gets committed, anything needing current vendor-specific knowledge, anything where being wrong is expensive, anything time-sensitive.
+When dispatch fails, inspect its class and report the cause. Continue locally only when the session has the required scope, tools and capacity.
 
-## On dispatch failure
-Report it and fall back to doing the work in-session. Never silently retry the same lane.
+## Keep service ingress private
 
-## Zero ingress
-Nothing binds to `0.0.0.0`. Nothing publishes a container port to the public interface. New services go on loopback or the private mesh.
+Bind services to loopback or the configured private network. Never publish a container port on the public interface without explicit authorization and the required access controls.
 
-## Unattended means no human-gated escalation
-An unresolved call that is irreversible or rewrites a standing rule gets surfaced (a message, a ticket comment) and stops. It is never executed on the strength of a model's confidence.
+## Handle unattended decisions
 
-## One writer
-Scheduled jobs and other engines propose. One writer records. If you are not that writer, produce a file and name it in your report.
+When an action exceeds the existing mandate, preserve the checked result and return the needed approval through the configured channel. Continue independent authorized work. Never execute an irreversible action solely on a model's confidence.
 
-## Secrets
-Names in the environment, values in the secrets manager. Never print one, never pass one in argv, never write one to disk here.
+## Record with one writer
 
-## Routing
-`{{RULES_PATH}}/ROUTING.md` and `{{RULES_PATH}}/DELEGATION_MATRIX.md` are the rules. `{{RULES_PATH}}/protocols/` are the procedures.
+When scheduled jobs or other engines produce evidence, return proposed updates to the designated record writer. Keep raw machine logs separate from curated records.
+
+## Protect secrets
+
+Load secret values from the configured manager at runtime. Never print them, put them in argv, or write them into this generated folder.
+
+## Run and verify
+
+When building, follow `{{RULES_PATH}}/protocols/build-protocol.md`. For background work, arm the five-minute heartbeat at launch and diagnose two checks without progress. When optional companions are absent, use the local runtime, official docs and project records described by each protocol.

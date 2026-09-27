@@ -1,40 +1,37 @@
 # model-orchestrator
 
-> Model orchestrator for AI coding agents and LLMs (Claude Code, Codex, Antigravity (Google), Grok, Qwen, Ollama). One installer writes routing rules, subagent definitions and a CLI lane runner for the AI tools you already have. The rules tell your agent which model, subagent or CLI to use for each task, so small work goes to cheap tiers and fewer tokens go to frontier models. It sits above the request layer: your agent reads the rules and picks the lane, so the decision stays readable, versioned and editable. Request-level routers and gateways compose underneath it.
+> Model router for AI coding agents: installs routing rules, subagents, hooks and a CLI runner so your AI picks model and effort per task and saves tokens. A lane is an AI tool or model that can receive work; a tier describes model strength and cost. It sits above the request layer: your agent reads the rules and picks the lane. Request-level proxies and gateways can carry API calls underneath it.
 
-Install and run: `npx model-orchestrator` (interactive), or headless: `npx model-orchestrator --yes --level 2 --ais claude-code,codex --project . --dir ./ai-orchestrator`. Preview without writing: add `--dry-run`. List every supported AI: `npx model-orchestrator --list`. Node 18 or newer, zero runtime dependencies, MIT licence.
+Install: `npx model-orchestrator`. Headless: `npx model-orchestrator --yes --level 2 --ais claude-code,codex --project . --dir ./ai-orchestrator`. Add `--dry-run` to preview. Companions default to none, including with `--yes`; the installer installs only its own files and prints third-party setup commands for the user.
 
-Levels: 1 beginner (one agent or chat app), 2 intermediate (several agent CLIs, each called through `cli-run`), 3 advanced (adds a virtual machine with a gateway and a scheduled audit job). On Claude Code the install also delegates execution to subagents by default and ships three hooks: `route-gate` (UserPromptSubmit) and `subagent-context` (SubagentStart) inject the routing table every turn, and `route-metrics` logs route markers and subagent dispatches.
+Command: `npm install -g model-orchestrator` makes `aunx` available. `aunx` alone runs the installer; `aunx cli-run` runs an AI CLI; `aunx route-metrics --summary` shows local routing activity; `aunx brief`, `aunx context` and `aunx checks` scaffold task context and verification. `aunx checks run ACCEPTANCE_CHECKS.json` executes trusted check commands and exits 1 on any failure. `aunx route "rename this file"` prints an explained suggestion without launching a worker.
 
-Claude Code plugin: `/plugin marketplace add aunysillyme/model-orchestrator`, then `/plugin install model-orchestrator@model-orchestrator`. It installs the two read-only hooks (`route-gate`, `subagent-context`) and eight subagents; the routing rules still come from `npx model-orchestrator`, and the routing log (`route-metrics.mjs`) is npm-only.
-
-Pick a model proxy (LiteLLM, Portkey, OpenRouter, claude-code-router) for per-request model routing underneath an agent; pick model-orchestrator for installed routing rules, subagents, hooks and a lane runner for coding agents and subscription CLIs. They compose.
+Pick a model proxy (LiteLLM, Portkey, OpenRouter, claude-code-router) for per-request model routing underneath an agent; pick model-orchestrator for task delegation using installed rules, subagents, hooks and a CLI runner. They compose.
 
 ## Docs
 
-- [README](https://github.com/aunysillyme/model-orchestrator/blob/main/README.md): what it is, a real dry-run plan, the levels, the AIs, the principles
-- [Installing](https://github.com/aunysillyme/model-orchestrator/blob/main/docs/install.md): every flag, the two folders a run writes to, headless examples, the full file list
-- [How it routes](https://github.com/aunysillyme/model-orchestrator/blob/main/docs/how-it-routes.md): role, complexity and stakes; the three verifier agents; pinning model and effort per lane
-- [Guarantees](https://github.com/aunysillyme/model-orchestrator/blob/main/docs/guarantees.md): what is enforced by code, what is delegated to a vendor flag, what is only an instruction
-- [Companion tools](https://github.com/aunysillyme/model-orchestrator/blob/main/docs/companions.md): codecalc, obsidian-tc and Context7, what each closes and what it needs first
-- [Part 1: beginner](https://github.com/aunysillyme/model-orchestrator/blob/main/docs/part-1-beginner.md): one agent, tiers, the task bundle every delegation carries
-- [Part 2: intermediate](https://github.com/aunysillyme/model-orchestrator/blob/main/docs/part-2-intermediate.md): several agent CLIs, the lane runner, pinning model and effort per lane
-- [Part 3: advanced](https://github.com/aunysillyme/model-orchestrator/blob/main/docs/part-3-advanced.md): the VM, the gateway, scheduled jobs, privacy gates
-- [AI catalog](https://github.com/aunysillyme/model-orchestrator/blob/main/docs/catalog.md): every supported AI, how to sign in, how each is detected
+- [Start here](https://github.com/aunysillyme/model-orchestrator/blob/main/README.md): model routing, activation, commands, search-phrased FAQ and related projects
+- [Install and upgrade](https://github.com/aunysillyme/model-orchestrator/blob/main/docs/install.md): flags, walkthrough, 0.1.x upgrades, project commands and uninstall
+- [How routing works](https://github.com/aunysillyme/model-orchestrator/blob/main/docs/how-it-routes.md): role, complexity, stakes, model and effort, independent verification
+- [Guarantees](https://github.com/aunysillyme/model-orchestrator/blob/main/docs/guarantees.md): code-enforced properties, vendor permissions and agent instructions
+- [Optional companions](https://github.com/aunysillyme/model-orchestrator/blob/main/docs/companions.md): other authors' tools, upstream setup and support, fallback tools
+- [Beginner](https://github.com/aunysillyme/model-orchestrator/blob/main/docs/part-1-beginner.md): model tiers, a task brief, a context file and acceptance checks inside one agent
+- [Intermediate](https://github.com/aunysillyme/model-orchestrator/blob/main/docs/part-2-intermediate.md): subscription lanes, pay-per-token lanes, research and shared work
+- [Advanced](https://github.com/aunysillyme/model-orchestrator/blob/main/docs/part-3-advanced.md): Linux host, gateway templates, scheduled work and privacy boundaries
+- [Catalog](https://github.com/aunysillyme/model-orchestrator/blob/main/docs/catalog.md): supported AIs, install commands, sign-in and detection
 
 ## Reference
 
-- [Claude Code plugin](https://github.com/aunysillyme/model-orchestrator/blob/main/plugin/README.md): installing the hooks and subagents with `/plugin install`, what the plugin reads, and what it leaves to the installer
-- [CLI runner](https://github.com/aunysillyme/model-orchestrator/blob/main/bin/README.md): `cli-run` lanes, exit codes, the route logged per run
-- [Templates](https://github.com/aunysillyme/model-orchestrator/blob/main/templates/README.md): the routing, tiers, task bundle and protocol files the installer renders
-- [Changelog](https://github.com/aunysillyme/model-orchestrator/blob/main/CHANGELOG.md): every release and the issue behind each fix
-- [Agent instructions](https://github.com/aunysillyme/model-orchestrator/blob/main/AGENTS.md): running the installer from an agent, and contributing
-
-## Plans and automatic effort
-
-- [Plans and automatic effort](https://github.com/aunysillyme/model-orchestrator/blob/main/docs/install.md#plans-and-automatic-effort): `--plans AI=plan` states a subscription plan so the guidance allocates volume by headroom; opt-in `--effort-auto` sizes effort per call on high or max headroom CLI lanes, medium or high, with xhigh named explicitly for security-critical or irreversible work
+- [Commands](https://github.com/aunysillyme/model-orchestrator/blob/main/bin/README.md): aunx subcommands, CLI runner exit codes and output contracts
+- [Templates](https://github.com/aunysillyme/model-orchestrator/blob/main/templates/README.md): routing rules, task brief, context, acceptance checks and protocols
+- [Claude Code plugin](https://github.com/aunysillyme/model-orchestrator/blob/main/plugin/README.md): installing read-only routing hooks and subagents through the plugin marketplace
+- [Proof](https://github.com/aunysillyme/model-orchestrator/blob/main/proof/README.md): dated measurements, methods, sample sizes, expiry and reproduction scripts
+- [Security review history](https://github.com/aunysillyme/model-orchestrator/blob/main/docs/security-review-history.md): completed review rounds, incident summaries and regression evidence
+- [Changelog](https://github.com/aunysillyme/model-orchestrator/blob/main/CHANGELOG.md): release changes and upgrade notes
+- [Agent instructions](https://github.com/aunysillyme/model-orchestrator/blob/main/AGENTS.md): headless setup and contributor checks
 
 ## Optional
 
-- [Security policy](https://github.com/aunysillyme/model-orchestrator/blob/main/SECURITY.md)
-- [Audit brief](https://github.com/aunysillyme/model-orchestrator/blob/main/docs/audit-brief.md): the security notes and what has already been security-reviewed
+- [Security policy](https://github.com/aunysillyme/model-orchestrator/blob/main/SECURITY.md): private vulnerability reporting
+- [agent-personalizer](https://github.com/aunysillyme/agent-personalizer): one interview writes the profile and rules every AI reads, kept in sync from one source
+- [website-build-skill](https://github.com/aunysillyme/website-build-skill): current website-building expertise for your AI, from research and design through accessibility and security

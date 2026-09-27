@@ -1,71 +1,61 @@
-# Part 1 · Beginner: one LLM or agent, routed well
+# Part 1: route work inside one agent
 
-You do not need five vendors to orchestrate. You need three things inside the one agent you already have: **tiers**, **task classes**, and **gates that can fail**.
+Start with the agent or chat app you already use. The installer gives it task classes, model tiers and checks it can apply before calling another tool.
 
-## 1. Route by capability tier, not model name
+## Choose a tier for the job
 
-| Tier | For | Effort |
+| Tier | Job | Effort guidance |
 |---|---|---|
-| deep | ambiguous planning, architecture, strategy, root-cause debugging, anything expensive to get wrong | highest |
-| standard | writing code, reviewing code, executing a known plan, synthesizing research | high |
-| fast | classifying, extracting, formatting, bulk summaries | low |
+| Planning model | Ambiguous requirements, architecture and root-cause analysis | Increase reasoning for the unresolved decisions |
+| Working model | Build a scoped change, review code, synthesize research | Match effort to complexity and consequences |
+| Cheap model | Classify, extract, format and digest many files | Keep routine work bounded |
 
-If your agent exposes model choice (Claude Code, Codex, Antigravity), map the tiers to its strongest, everyday and cheapest models. If it does not (a chat app), the tiers become **how hard you ask it to think**: a deep task gets a planning turn before anything is written; a fast task gets "table, one row per item, no commentary".
+Map tiers to the models your agent actually exposes. With a chat app, use the same categories to decide whether the next turn needs a plan, an execution step or a short structured answer.
 
-Three cost levers, always together: tier (price per token), token discipline (how many tokens: read only what you will touch, never re-read, deliverables not narration), effort (how hard each call thinks).
+Role selects the job. Complexity sets effort. Security, privacy, data loss and irreversible changes affect which model and reviewer can safely handle it. Check the current tool and model roster before deciding.
 
-And three inputs into the choice, not one. **Role** picks the agent. **Complexity** moves the effort: a worker executing a finished plan needs less reasoning than the reviewer judging its output, so when the plan is airtight the spec is carrying the thinking. **Stakes** move the tier and who reads the result: security, privacy, data loss and irreversible changes are the four worth naming, because none of their failures can be fixed by editing the code afterwards. A one-line change to an auth check is simple and high-stakes at once, and it is the stakes that decide.
+## Classify a task
 
-Robustness first, cost second. You split tiers because the split produces better work.
+The installed decision tree covers bulk work, reading many files, live data, review, verification of findings, definition-of-done checks, ambiguous planning and builds. `aunx route "rename this file"` gives a keyword-based suggestion; the agent applies the full rules to the task's context.
 
-## 2. Classify every task, first match wins
+When a worker fails, inspect the evidence and choose the next action explicitly. A reproducible problem can justify a stronger model or more capable tools. A simple lookup belongs with a reader or a direct tool call.
 
-1. Bulk and mechanical → fast.
-2. Needs live data → standard, with tools. Freshness comes from tools, not from a bigger model, and anything a search returns is a lead, not a fact.
-3. Review without changing → standard, read-only, findings ranked by severity.
-4. Ambiguous, strategic, expensive to get wrong → deep, then hand the plan down.
-5. Everything else that changes files → do it directly at standard. Bounded sub-parts can go down a tier; the main build never goes to a fresh context whole.
+## Build from checks to verified use
 
-Modifiers: plan big, execute small · never silently retry a failed attempt at the same tier (escalate once and say so; two consults that do not unstick it means stop and ask) · de-escalate when a request sounds deep but is a lookup.
+The build protocol starts by quoting the request and assigning acceptance checks. It probes available tools, tests uncertain assumptions, orders work by dependencies and collects one context file. An Assign step chooses the worker by reasoning fit, permissions, context capacity and headroom.
 
-## 3. Gates that can fail
+After the build, an independent reviewer checks the final merged artifact. A companion reviewer checks the scope against the original ask in the same audit step. Findings get reproduced before repair, and each fix gets a regression that can fail. Release means the change is in use on named surfaces, with live behavior checked and a rollback identified.
 
-> A gate you cannot fail is not a gate.
+The mechanical audit-skip conditions are documented in `protocols/build-protocol.md`. They are evaluated together against the diff. The process uses one audit pass, with regression checks for its fixes.
 
-"Does this look good?" passes every time. "Name what is most likely to go wrong, and what the request as filed missed" can come back empty, which is how you know it worked.
+## Give each worker a task brief
 
-Every build gets two checkpoints. **Before writing:** you map what it touches and what could break, then ask the deep tier on the finished map for one named weak spot and one gap in the request. **After it is green:** a fresh context challenges it (bad input, failing dependency, drift from the plan), allowed to answer CLEAN, every finding reproduced before it reaches you. Then the ship, with a rollback named and an explicit yes. Then the loud negative: re-check the old name everywhere and expect zero.
+```bash
+aunx context CONTEXT.md
+aunx brief new TASK_BRIEF.md
+aunx checks ACCEPTANCE_CHECKS.json
+```
 
-## 4. Every hand-off carries a brief
+The context file carries verified facts once. The task brief quotes the ask and names scope, files, non-goals, interfaces to preserve, available and missing tools, checks, measurements, order of work and a coverage-table report. A worker gets the same task boundaries whether it is a subagent or a separate CLI.
 
-A subagent, a fresh chat, a second window may hold none of your rules, and that is the default to assume. The one documented exception is a Claude Code subagent: it loads the project's CLAUDE.md hierarchy at start, so it keeps the standing rules, just not this task's scope. Either way, it reads an unspecified edge as an open one. The brief: purpose, task class, granted scope, capabilities, denied actions, conventions it does not have, report contract (what was not done, what is unverified), exit parameters (when to stop, and what to return if it hits the bound). Absence is denial.
+Claude Code subagents load the project's instruction hierarchy. A separate CLI or chat window may need those instructions supplied explicitly. Probe what the worker receives and include the missing context.
 
-## 5. The second pass
+## Compute, record and verify with your tools
 
-After anything comprehensive, a fresh turn that hunts for what is **missing**, not what is present. Every clause of the ask maps to a step; every step maps to a clause. A clause with no step is dropped scope; a step with no clause is invented scope. Say both.
+- **Numbers:** use a calculator or execution tool for figures someone will act on. codecalc is an optional companion.
+- **Notes:** search before writing, keep the index accurate and use one writer. A notes folder works; obsidian-tc adds search and controlled writes.
+- **APIs:** read current official documentation and test the call. Context7 can retrieve the documentation when available.
+- **Decisions:** record Did / Why / Serves / Rejected when choosing between approaches. Keep evidence and operational consequences in the record.
 
-## 6. Deep research, single agent
-
-Plan the sub-questions as their own turn and inspect them before spending anything. Sweep. Then a fresh second-opinion turn told to question the premise. Plant one deliberately wrong figure and see whether it corrects it. Mark every claim CONFIRMED / DISAGREEMENT / REPORTED / UNVERIFIED. Agreement is weak evidence; disagreement is the signal.
-
-## 7. Numbers and logic are computed, never guessed
-
-The one thing tiers and gates cannot fix: a model confident about `0.1 + 0.2` does not feel uncertain, it feels finished. So any figure someone will act on, any comparison you state, any complexity or equivalence claim goes through a tool that computes. The companion for that is [codecalc](https://github.com/The-40-Thieves/codecalc): exact arithmetic, a sandboxed code runner in 31 languages, an SMT logic checker, and proofs that a port or an optimization preserved behaviour. One command registers it with Claude Code, Claude Desktop, Cursor, VS Code or Zed. Without it the rule still binds; use anything that calculates.
-
-Logic flow follows the same rule. Reasoning scaffolds help models with no native reasoning mode and add nothing to ones that already think first. The authorising evidence is the computed outcome, never the thought log.
-
-## 8. Memory and record
-
-Every protocol ends in a write. Search before you write (duplicates are how a store starts lying), correct the folder index in the same pass, one writer per session, mark inferred content as inferred. The optional companion for that is [obsidian-tc](https://github.com/The-40-Thieves/obsidian-tc), a governed MCP server over an Obsidian vault: hybrid search, backlinks, compare-and-swap writes, folder ACLs. It needs an Obsidian vault, Node 24+ or Bun, and Ollama or a cloud embeddings key, so it is off by default; without it the rule still binds against a notes folder and `grep`.
-
-## 9. Docs, then prove
-
-A model's recall of a library's API is training data, not a live source; it goes stale the moment the vendor ships a release it never saw. Before writing code against a library, SDK, API or CLI you have not confirmed this session, pull current, version-specific docs; then a run, not the doc, is what proves the code behaves that way. The optional companion is [Context7](https://github.com/upstash/context7) (Upstash): it hands the agent current, version-aware documentation and code examples on request, hosted or run locally with `npx`. It pairs with codecalc rather than replacing it: Context7 says what the code is supposed to do, codecalc's run says what it actually does, and the run wins where they disagree. It needs a network call (there is no offline mode), so it is off by default; without it the rule still binds, read the vendor's own docs or source by hand.
+Every protocol names the fallback when its optional companion is absent. [Companion setup](companions.md).
 
 ## What the installer gives you at this level
 
-`README.md` (start here) · `ORCHESTRATOR.md` · `TASK_BUNDLE.md` · `protocols/{build-protocol, propagate, gap-analysis, deep-research, numbers-and-logic, memory-and-record, docs-then-prove}.md` · `CODECALC.md`, `OBSIDIAN-TC.md` and `CONTEXT7.md` with `mcp/` snippets for the companion tools you selected · the loading surface for your primary agent (Claude Code subagents, Antigravity custom agents, a rules-file snippet, or a paste block for a chat app).
+- **Rules:** `ORCHESTRATOR.md` and the loading surface for your main agent.
+- **Briefs:** `TASK_BRIEF.md`, a context-file template and acceptance-check template.
+- **Protocols:** building, context, acceptance checks, decisions, propagation, gap analysis, research, calculation, notes and documentation verification.
+- **Optional tools:** setup guides and MCP snippets only for companions you select.
 
-## When you have outgrown it
+## Add a second model family
 
-You keep wanting a second model family to read your diff, a $0 lane for bulk, or a live-data lane your primary does not have. That is [Part 2](part-2-intermediate.md).
+When a task would benefit from another model's review or a CLI with different tools, move to [Part 2](part-2-intermediate.md).

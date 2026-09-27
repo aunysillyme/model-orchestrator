@@ -1,0 +1,174 @@
+{
+  "schemaVersion": 1,
+  "environment": {
+    "node": "v22.22.3",
+    "platform": "darwin",
+    "arch": "arm64"
+  },
+  "entries": [
+    {
+      "id": "install-dry-ms",
+      "label": "Dry install wall time",
+      "kind": "reproducible",
+      "value": 42.220875,
+      "unit": "ms median",
+      "measuredAt": "2026-09-27",
+      "method": "Spawn a fresh Node installer process per sample; level 2, Claude Code + Codex, no companions, --dry. Includes Node startup and planning; writes no install files. Isolated home and PATH, no real vendors.",
+      "sampleSize": 7,
+      "script": "proof/scripts/install-time.js",
+      "expiresAt": "2026-10-11",
+      "samples": [
+        51.577042,
+        48.655542,
+        46.568834,
+        42.220875,
+        41.573667,
+        39.881333,
+        40.983417
+      ]
+    },
+    {
+      "id": "runner-overhead-ms",
+      "label": "Lane runner overhead",
+      "kind": "reproducible",
+      "value": 63.742250999999996,
+      "unit": "ms median difference",
+      "measuredAt": "2026-09-27",
+      "method": "Paired fresh processes: direct Node stub versus cli-run hermes with the same stub. Alternates pair order. Includes wrapper startup, validation and local log writes; excludes vendor/network/model time.",
+      "sampleSize": 7,
+      "script": "proof/scripts/runner-overhead.js",
+      "expiresAt": "2026-10-11",
+      "pairs": [
+        {
+          "directMs": 26.925375,
+          "wrappedMs": 409.562,
+          "overheadMs": 382.63662500000004
+        },
+        {
+          "directMs": 28.554875,
+          "wrappedMs": 95.06725,
+          "overheadMs": 66.512375
+        },
+        {
+          "directMs": 28.981666,
+          "wrappedMs": 94.610209,
+          "overheadMs": 65.628543
+        },
+        {
+          "directMs": 26.295583,
+          "wrappedMs": 86.161958,
+          "overheadMs": 59.866375
+        },
+        {
+          "directMs": 28.71575,
+          "wrappedMs": 82.585583,
+          "overheadMs": 53.869833
+        },
+        {
+          "directMs": 26.668791,
+          "wrappedMs": 90.411042,
+          "overheadMs": 63.742250999999996
+        },
+        {
+          "directMs": 34.081333,
+          "wrappedMs": 82.568041,
+          "overheadMs": 48.48670799999999
+        }
+      ]
+    },
+    {
+      "id": "missing-results-caught",
+      "label": "Empty results flagged",
+      "kind": "reproducible",
+      "value": 10,
+      "unit": "fixtures rejected",
+      "measuredAt": "2026-09-27",
+      "method": "Run cli-run against an exit-0 stub for every supported lane, once with empty stdout and once with an empty native final result. Count exit 10/11 only. A successful Hermes response is the positive control. Synthetic fixtures measure these shapes only.",
+      "sampleSize": 10,
+      "script": "proof/scripts/missing-results.js",
+      "expiresAt": "2026-10-11",
+      "outcomes": [
+        {
+          "lane": "grok",
+          "fixture": "empty-stdout",
+          "exitCode": 11
+        },
+        {
+          "lane": "grok",
+          "fixture": "empty-final-result",
+          "exitCode": 10
+        },
+        {
+          "lane": "codex",
+          "fixture": "empty-stdout",
+          "exitCode": 11
+        },
+        {
+          "lane": "codex",
+          "fixture": "empty-final-result",
+          "exitCode": 10
+        },
+        {
+          "lane": "agy",
+          "fixture": "empty-stdout",
+          "exitCode": 11
+        },
+        {
+          "lane": "agy",
+          "fixture": "empty-final-result",
+          "exitCode": 10
+        },
+        {
+          "lane": "hermes",
+          "fixture": "empty-stdout",
+          "exitCode": 11
+        },
+        {
+          "lane": "hermes",
+          "fixture": "empty-final-result",
+          "exitCode": 11
+        },
+        {
+          "lane": "qwen",
+          "fixture": "empty-stdout",
+          "exitCode": 11
+        },
+        {
+          "lane": "qwen",
+          "fixture": "empty-final-result",
+          "exitCode": 10
+        }
+      ]
+    },
+    {
+      "id": "acceptance-failures-blocked",
+      "label": "Acceptance failures blocked",
+      "kind": "reproducible",
+      "value": 4,
+      "unit": "fixtures rejected",
+      "measuredAt": "2026-09-27",
+      "method": "Run aunx checks run against nonzero, manual, missing-program and timeout fixtures. Each must exit 1; a passing command must exit 0. This is a local command gate, activated by the user in their release sequence.",
+      "sampleSize": 4,
+      "script": "proof/scripts/check-gate.js",
+      "expiresAt": "2026-10-11",
+      "outcomes": [
+        {
+          "fixture": "nonzero",
+          "exitCode": 1
+        },
+        {
+          "fixture": "manual",
+          "exitCode": 1
+        },
+        {
+          "fixture": "missing",
+          "exitCode": 1
+        },
+        {
+          "fixture": "timeout",
+          "exitCode": 1
+        }
+      ]
+    }
+  ]
+}

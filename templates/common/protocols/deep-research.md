@@ -1,44 +1,30 @@
-# Deep research: parallel engines, then triage
+# Deep research: bounded questions and verified sources
 
-Two research lanes, not three. The old "quick fact / known source / deep" split was ceremony.
+When one lookup or a known source answers the question, retrieve it and answer directly. When the source set is unknown, several sources need reconciliation and the result will be cited later, use this procedure.
 
-| Lane | Entry condition | Output |
-|---|---|---|
-| **Search** | You can name the source, or one lookup answers it | Inline answer, no artifact |
-| **Deep** | All three: the source set is unknown, several sources must be reconciled, and the output must survive being cited later | A dated, cited artifact |
+## Prepare and run
 
-## The shape of a deep run
+1. Write the research questions, source standard, authorized scope, search ceiling and stop condition.
+2. Break the question into independent sub-questions and check that each serves the user's ask.
+3. Vet sources before relying on them. For implementation sources, inspect reputation, usage, maintenance, authorship and licence.
+4. Run independent questions on available authorized engines, then open primary sources supporting material claims.
+5. Search existing records before adding a new durable report.
+6. Write one dated synthesis with citations, claim status and unresolved questions.
+7. Name the practical next step supported by the evidence: use, prototype, monitor, reject or take no action.
 
-```
-0 CHARTER   what topics, what counts as a source, what is worth interrupting a human for
-1 PLAN      decompose into sub-questions   <- highest leverage stage; a mis-scoped question
-                                              produces a confident report about the wrong thing
-2 RUN       fan out to independent engines
-3 TRIAGE    reconcile disagreement against primary sources you open yourself
-4 DEDUPE    check what you already have BEFORE writing (semantic search; see memory-and-record.md)
-5 BRIEF     one dated artifact with marks (below)
-6 ROUTE     adopt / prototype / watch / pass / no action
-```
+## Mark each claim
 
-## Marks every claim carries
+- **CONFIRMED:** verified against a primary source, with independent corroboration where required by the question.
+- **DISAGREEMENT:** keep competing readings and name the evidence that would settle them.
+- **REPORTED:** attribute a source's statement to that source.
+- **UNVERIFIED:** name the absent evidence or access.
 
-- **CONFIRMED**: at least two independent engines agreed AND you opened the primary source.
-- **DISAGREEMENT**: engines conflicted. Record the verdict and the rejected reading. Never average.
-- **REPORTED**: a named person's post, a forum thread, a tool's self-report. Quoted, not trusted.
-- **UNVERIFIED**: plausible, single-source, or unsourced precision. Do not cite as fact.
+When engines agree, inspect their shared premise. When they disagree, keep the difference visible until source evidence resolves it. When a figure affects a decision, compute it or verify its source.
 
-Agreement is weak evidence. Disagreement is the signal.
+## Select available research tools
 
-## Level 1: one agent
+{{RESEARCH_SELECTION_ADVICE}} Have one writer reconcile the outputs and maintain the durable report. Give every engine the context file, task brief and stopping condition.
 
-You still get the shape. Run PLAN as its own turn and inspect it before spending anything. Run the sweep. Then run a **fresh-context second-opinion turn** with a brief that says "question the premise; list what this report would get wrong if its sources were stale". Plant one deliberately wrong figure in the brief and see whether it corrects it: if it does not, its confirmations are worth less than they look. Mark every claim.
+When only one engine is available, use a fresh context to question the sources and coverage, and report that limit. When Context7 is absent, use official docs or source. When a computing companion is absent, use the local runtime for numerical checks. When a record-store companion is absent, use project files and version control.
 
-## Level 2 and up: selected engines, one triager
-
-{{RESEARCH_SELECTION_ADVICE}} The orchestrator triages: it opens the primary sources itself, marks each claim, and writes the brief. Only the orchestrator writes the durable record; every other engine proposes.
-
-Known failure shape: one engine will return confident unsourced numerics and claim full coverage. Downgrade those to hypothesis. The engines that report their own gaps honestly are the ones to weight.
-
-## Measure
-
-Count **dispositions**, not briefs. A week that produced seven briefs and zero decisions is a failure.
+When evaluating a research method itself, use a labelled false-premise fixture and confirm that the method rejects it. Keep fixture claims separate from the factual report.

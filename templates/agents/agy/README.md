@@ -1,5 +1,11 @@
-# .agents/agents/
+# Antigravity project agents
 
-Antigravity CLI custom agents, one per tier plus three checks (`finding-verifier`, `done-verifier`, `reader`), in the `.agents/agents/<name>.md` format (YAML frontmatter + system prompt). `model` is a tier (`flash`, `pro`) or `inherit`. `subagent: true` lets a coordinator call them through `invoke_subagent`, which takes an array and launches concurrently; `mainAgent: true` lets you launch them directly with `agy --agent <name>`.
+When using Antigravity custom agents, load these definitions from `.agents/agents/<name>.md`. A coordinator can call them through `invoke_subagent`; `mainAgent: true` also supports `agy --agent <name>`.
 
-`commandExecutionPolicy` is `auto` for `builder` (it has to run builds and tests; deletes and other destructive commands still ask before running) and `off` for the read-only agents: `code-reviewer`, `finding-verifier`, `live-researcher`, `done-verifier`, `reader`. `model` is a tier: `pro` for deep-planner, `flash` for the rest. `done-verifier` and `reader` never write and, with `commandExecutionPolicy: off`, cannot execute any command at all here, mutating or not: unlike its claude-code counterpart, which does carry an unrestricted `Bash` and stays read-only by its prompt rather than by the tool grant, agy's `done-verifier` is mechanically blocked from shelling out and probes artifacts through whatever read or fetch capability it has instead. Neither is `bulk-worker`, which classifies, tags and transforms items and does write.
+Use `pro` for the planning model tier and `flash` for working and cheap model tiers as the starting configuration. Check the live roster and tool reach before assigning a build.
+
+`builder` has `commandExecutionPolicy: auto` so standard builds and checks can run, while destructive operations remain subject to the vendor's permission policy. Review and reading agents use `commandExecutionPolicy: off`.
+
+`code-reviewer`, `finding-verifier`, `done-verifier` and `reader` use read-only tools with command execution disabled. Their Claude Code counterparts carrying Bash have a prompt-enforced read-only boundary instead. When an Antigravity agent needs a shell probe, hand the exact probe to an authorized worker and report the unverified check until its evidence returns.
+
+When optional companion software is absent, use available read, fetch and local-runtime capabilities through the authorized owner. `bulk-worker` owns classification and transformation; `reader` returns source facts and digests.
