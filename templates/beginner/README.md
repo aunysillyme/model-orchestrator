@@ -1,3 +1,3 @@
 # templates/beginner/
 
-Written at every level. `ORCHESTRATOR.md` is the single-agent routing document: tiers as effort levels inside one agent, the five-branch decision tree, the two checkpoints, and when you have outgrown level 1. At level 2+ `ROUTING.md` supersedes it and says so.
+Written at every level. `ORCHESTRATOR.md` is the single-agent routing document: planning, working and cheap model tiers; task classification; building from a shared context file and acceptance checks; handing off a task brief; tool fallbacks; and when to add another AI tool. At level 2 and up, `ROUTING.md` supersedes it.

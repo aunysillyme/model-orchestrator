@@ -14,16 +14,16 @@ When selecting another AI tool, use `DELEGATION_MATRIX.md` and verify its curren
 
 When routing, consider three levers together: tier sets capability and price; scoped context limits token use; effort sets how much reasoning the call applies.
 
-| Agent | Starting tier | Starting effort | Reassess when |
+| Role | Starting tier | Starting effort | Reassess when |
 |---|---|---|---|
-| deep-planner | planning model | xhigh where supported | The decision can be resolved from a known plan or needs a new capability |
-| code-reviewer | working model | high | Security, privacy or irreversible effects raise the review scope |
-| finding-verifier | working model | high | Reproduction needs another runtime or access path |
-| builder | working model | high | Architecture, security or irreversible work needs xhigh and suitable model capability |
-| live-researcher | working model | medium | Synthesis becomes complex or sources disagree |
-| bulk-worker | cheap model | low | The input stops fitting the given categories |
-| done-verifier | cheap model | low | The definition of done requires interpretation or unavailable tools |
-| reader | cheap model | low | The requested result needs judgment across sources |
+| {{PLANNER_ROLE}} | planning model | xhigh where supported | The decision can be resolved from a known plan or needs a new capability |
+| {{REVIEW_ROLE}} | working model | high | Security, privacy or irreversible effects raise the review scope |
+| {{FINDING_ROLE}} | working model | high | Reproduction needs another runtime or access path |
+| {{BUILDER_ROLE}} | working model | high | Architecture, security or irreversible work needs xhigh and suitable model capability |
+| {{LIVE_ROLE}} | working model | medium | Synthesis becomes complex or sources disagree |
+| {{BULK_ROLE}} | cheap model | low | The input stops fitting the given categories |
+| {{DONE_ROLE}} | cheap model | low | The definition of done requires interpretation or unavailable tools |
+| {{READER_ROLE}} | cheap model | low | The requested result needs judgment across sources |
 
 When the vendor uses different effort names, choose its equivalent after reading its current capabilities. Before each build, probe the live model roster, compare the configured pin with the lane's default, and record the selected model and effort with a reason. A pin below the current default calls for review; a newer model still needs to fit the job.
 

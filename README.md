@@ -37,11 +37,11 @@ npx model-orchestrator --yes --level 2 --ais claude-code,codex --primary claude-
 
 ## After you install
 
-1. **Rules:** copy `ai-orchestrator/CLAUDE.snippet.md` into your project's `CLAUDE.md`.
-2. **Hooks:** merge `ai-orchestrator/settings.hooks.snippet.json` into `.claude/settings.json`.
-3. **Verification:** run `node ./ai-orchestrator/bin/cli-run.mjs --doctor`, or `aunx cli-run --doctor` when the command is installed.
+1. **Start:** open `ai-orchestrator/README.md` (or the README in your chosen `--dir`) for activation steps generated for your main agent and level.
+2. **Activate:** use the snippet named there. For Claude Code, copy `CLAUDE.snippet.md` into the project's `CLAUDE.md` and merge `settings.hooks.snippet.json` into `.claude/settings.json`.
+3. **Verify:** follow the generated activation check. At level 2 and up, also run `node ./ai-orchestrator/bin/cli-run.mjs --doctor`, or `aunx cli-run --doctor` when the command is installed.
 
-`--apply-snippets` applies those Claude Code activation steps with timestamped backups and preserves surrounding rules and settings. Preview with `--apply-snippets --dry`. Start a fresh Claude Code session from the project folder, then follow the printed sign-in steps. [Installation and upgrades](docs/install.md) cover every flag.
+For a Claude Code main agent, `--apply-snippets` applies the rules and hooks with timestamped backups and preserves surrounding rules and settings. Preview with `--apply-snippets --dry`. Follow the printed sign-in steps, then start a fresh session in your main agent. [Installation and upgrades](docs/install.md) cover every flag.
 
 Install the command once to use the shorter forms below:
 
@@ -81,18 +81,18 @@ Read [beginner](docs/part-1-beginner.md), [intermediate](docs/part-2-intermediat
 
 ## Works with the AIs you already pay for
 
-Choose the tools you have; the generated rules describe that selection.
+Choose the tools you have; the generated rules describe that selection. The main agent receives its agent set when one is available: Claude Code or Antigravity. At level 2 and up, selected CLIs supported by the runner become worker lanes.
 
 | AI | Installer ID | Setup |
 |---|---|---|
-| Claude Code | `claude-code` | Project rules, subagents and routing hooks |
-| Codex | `codex` | CLI work and independent review |
-| Antigravity | `agy` | CLI work and custom agents |
+| Claude Code | `claude-code` | When main: `CLAUDE.snippet.md`, subagents and routing hooks |
+| Codex | `codex` | CLI code work and review; `AGENTS.snippet.md` when main |
+| Antigravity | `agy` | CLI work; `GEMINI.snippet.md` and custom agents when main |
 | Grok | `grok` | CLI work with live-data tools |
 | Hermes | `hermes` | Headless CLI work |
-| Qwen Code | `qwen` | CLI work with your chosen model |
+| Qwen Code | `qwen` | CLI work with your chosen model; `QWEN.snippet.md` when main |
 | Ollama | `ollama` | Local models |
-| Claude, ChatGPT and Gemini apps | `claude-app`, `chatgpt-app`, `gemini-app` | A routing block to paste into your chat app |
+| Claude, ChatGPT and Gemini apps | `claude-app`, `chatgpt-app`, `gemini-app` | `PASTE-INTO-YOUR-AGENT.md`: a routing block for your chat app |
 
 `npx model-orchestrator --list` prints supported IDs and setup notes. [The catalog](docs/catalog.md) lists installation, sign-in and detection details.
 
@@ -175,7 +175,7 @@ Install routing rules with `npx model-orchestrator`, so your agent has guidance 
 
 ### How do I route tasks to cheaper models?
 
-Use `aunx route "rename this file"` for a keyword-based suggestion, then apply your installed `ROUTING.md` and `TIERS.md` to the actual task. Role selects the job, complexity sets effort, and the consequences of a mistake affect the model and reviewer.
+Use `aunx route "rename this file"` for a keyword-based suggestion, then apply your installed `ORCHESTRATOR.md` at level 1, or `ROUTING.md` and `TIERS.md` at level 2 and up, to the actual task. Role selects the job, complexity sets effort, and the consequences of a mistake affect the model and reviewer.
 
 ### How does this work with an AI gateway or LLM router?
 

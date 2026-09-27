@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Fixed
+
+- **Coherent level installs:** routing uses installed agents or available role fallbacks, review guidance accounts for the main agent's model family, smoke paths are quoted, and README first reads and output-contract checks match the level and selected workers.
+- **Level 3 setup:** initialize the configured local model inside Compose, verify `local-small`, and configure the scheduled service's executable search path.
+- **Accurate level descriptions:** qualify activation and agent sets by main agent, keep companions opt-in, and describe the weekly job's fixed lane, observed data and configurable budget and privacy policies.
+
 ## [1.0.0] - 2026-09-27
 
 ### Added

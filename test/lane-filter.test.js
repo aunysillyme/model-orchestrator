@@ -18,6 +18,7 @@ test('DELEGATION_MATRIX for claude-code alone omits unavailable lane picks and c
   const taskRows = matrix.split('## Match the task to an available lane')[1].split('## Install and sign-in')[0];
   assert.doesNotMatch(taskRows, /the cheapest metered lane, then the cheap model tier/);
   assert.doesNotMatch(taskRows, /local lane|fan-out lane|live-data CLI|second-coder CLI|largest-context lane|free tier/);
+  assert.doesNotMatch(taskRows, /cli-run (codex|agy|grok|hermes|qwen)/);
   assert.doesNotMatch(matrix, /Batch APIs|free model for routing|free or local model/);
   assert.match(taskRows, /Deep architecture \/ planning.*planning model tier/);
   assert.doesNotMatch(content(files, 'ROUTING.md'), /→ (?:a|the selected) concurrent fan-out lane|cheapest metered lane measured/);
@@ -30,17 +31,17 @@ test('DELEGATION_MATRIX for multiple selected AIs retains only their supplied la
   const files = docs(['claude-code', 'codex', 'grok']);
   const matrix = content(files, 'DELEGATION_MATRIX.md');
   const taskRows = matrix.split('## Match the task to an available lane')[1].split('## Install and sign-in')[0];
-  assert.match(taskRows, /second-coder CLI in read-only audit mode/);
+  assert.match(taskRows, /cli-run codex --audit.*different model family.*read-only filesystem sandbox/);
   assert.match(taskRows, /live-data CLI/);
   assert.doesNotMatch(taskRows, /cheapest metered lane|local lane|fan-out lane|largest-context lane|free tier/);
   assert.doesNotMatch(matrix, /Batch APIs|free model for routing/);
-  assert.match(content(files, join('protocols', 'gap-analysis.md')), /selected second-opinion coder lane/);
+  assert.match(content(files, join('protocols', 'gap-analysis.md')), /cli-run codex --audit.*different model family/);
 });
 
 test('DELEGATION_MATRIX with all selected lane suppliers retains every category', () => {
   const files = docs(AIS.filter((ai) => ai.kind !== 'chat').map((ai) => ai.id));
   const matrix = content(files, 'DELEGATION_MATRIX.md');
-  for (const pick of ['the cheapest metered lane, then the cheap model tier', 'the local lane', 'a concurrent fan-out lane', 'the live-data CLI', 'the second-coder CLI', 'the largest-context lane', 'the free tier']) {
+  for (const pick of ['the cheapest metered lane, then the cheap model tier', 'the local lane', 'a concurrent fan-out lane', 'the live-data CLI', '`cli-run codex --audit`', 'the largest-context lane', 'the free tier']) {
     assert.ok(matrix.includes(pick), pick);
   }
   assert.match(matrix, /Batch APIs/);

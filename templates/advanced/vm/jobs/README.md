@@ -10,6 +10,8 @@ Paths in the service and the script were rendered for this install: `{{INSTALL_D
 
 ## Install a job
 
+Before copying the unit, run `command -v node` and `command -v <selected-cli>` in the account that will run the timer. The service sets `PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin`; add the absolute parent directories of your actual Node and vendor CLI executables to its `Environment="PATH=..."` line when needed. The script resolves `node` and vendor commands through that PATH. systemd does not expand `$PATH`, `$HOME` or `~` in this setting, so write complete directories and retain the system entries. Shell profile files and interactive version-manager initialization are not loaded.
+
 ```bash
 mkdir -p ~/.config/systemd/user
 cp weekly-audit.service weekly-audit.timer ~/.config/systemd/user/

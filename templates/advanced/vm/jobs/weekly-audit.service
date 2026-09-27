@@ -5,6 +5,9 @@ After=network-online.target
 [Service]
 Type=oneshot
 WorkingDirectory={{INSTALL_DIR_SYSTEMD}}
+# Add absolute Node and vendor CLI directories if they live outside these defaults.
+# systemd does not expand shell variables in Environment=.
+Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 # Names come from a file OUTSIDE this repo, mode 600. Edit the path.
 EnvironmentFile=%h/.config/ai-orchestrator/gateway.env
 ExecStart=/bin/bash "{{INSTALL_DIR_SYSTEMD}}/vm/jobs/weekly-audit.sh"

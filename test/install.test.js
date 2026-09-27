@@ -547,7 +547,7 @@ test('lane sections render from the selection: a claude-code-only install names 
   const lv = laneVars(sel('claude-code', 'grok', 'qwen'));
   assert.match(lv.LIVE_LANE, /cli-run grok/);
   assert.match(lv.BULK_LANE, /cli-run qwen/);
-  assert.match(lv.ATTACK_LANE, /code-reviewer at planning model tier/, 'no codex means no codex audit lane');
+  assert.match(lv.ATTACK_LANE, /cli-run grok.*different model family/, 'review should use a selected family different from the main agent');
 });
 
 test('snippet paths and the agents note are computed from --dir and --project', () => {
@@ -892,14 +892,21 @@ test('the vm README names a sign-in for every selected CLI and for no other', ()
   }
 });
 
-test('a selected local runtime gets an install step at every level it is allowed', () => {
+test('a selected local runtime gets host setup at level 2 and container setup at level 3', () => {
   const ollama = byId.ollama;
   for (const level of [2, 3]) {
     const selected = sel('claude-code', 'ollama');
     const steps = activationSteps({ level, selected, primary: byId['claude-code'], dir: '/tmp/mo-dir', project: '/tmp/mo-project', tools: [] });
-    const step = steps.find((st) => st.includes(ollama.install.url));
+    const step = steps.find((st) => st.includes(ollama.name));
     assert.ok(step, `level ${level}: no activation step names ${ollama.name}`);
-    assert.ok(step.includes(`${ollama.bin} pull`), `level ${level}: the step must say how to get a model, not just the download page`);
+    if (level === 2) {
+      assert.ok(step.includes(ollama.install.url));
+      assert.ok(step.includes(`${ollama.bin} pull`), 'level 2 must say how to get a host model');
+    } else {
+      assert.match(step, /setup-vm.sh --start-services/);
+      assert.match(step, /Compose service.*verify local-small/);
+      assert.ok(!step.includes(ollama.install.url), 'level 3 initializes its container instead of requiring host Ollama');
+    }
     const readme = planFiles({ level, selected, primary: byId['claude-code'], dir: '/tmp/mo-dir', project: '/tmp/mo-project', tools: [] })
       .find((f) => f.rel === 'README.md').content;
     assert.ok(readme.includes(step), `level ${level}: README is missing the ollama step`);

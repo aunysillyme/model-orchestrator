@@ -214,7 +214,7 @@ test('non-interactive install writes a level 3 tree into a temp dir and refuses 
     assert.ok(existsSync(join(project, '.claude', 'agents', 'bulk-worker.md')), 'subagents must land in --project');
     assert.match(r.stdout, /To activate, in order:/);
     assert.match(r.stdout, /1\. copy the block in .*CLAUDE\.snippet\.md into .*CLAUDE\.md/);
-    assert.match(r.stdout, /cli-run\.mjs --doctor/);
+    assert.match(r.stdout, /cli-run\.mjs' --doctor/);
     assert.match(r.stdout, /api keys anthropic, openrouter/);
     rmSync(project, { recursive: true, force: true });
     const readme = readFileSync(join(dir, 'README.md'), 'utf8');
