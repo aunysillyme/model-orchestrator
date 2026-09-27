@@ -7,8 +7,8 @@ Generated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrite
 | Level | Name | Tagline | Gives |
 |---|---|---|---|
 | 1 | Beginner | one LLM or agent, routed well | tiers, task classification, every protocol, one agent set up to follow them |
-| 2 | Intermediate | several LLMs and agents, called through their CLIs | everything in Beginner plus cli-run, a delegation matrix, task briefs and multi-engine research triage |
-| 3 | Advanced | everything above, plus a virtual machine that runs it unattended | everything in Intermediate plus a gateway config, scheduled jobs, a dispatch layer and privacy gates for a box |
+| 2 | Intermediate | several LLMs and agents, called through their CLIs | everything in Beginner plus cli-run, a delegation matrix and multi-engine research triage |
+| 3 | Advanced | everything above, plus templates for your always-on Linux machine | everything in Intermediate plus a gateway config, a scheduled review job, dispatch guidance and configurable privacy gates |
 
 ## AIs
 
@@ -28,7 +28,7 @@ Generated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrite
 ### `codex` · Codex CLI (OpenAI, ChatGPT plan)
 
 - **Kind:** agent-cli · **Access:** subscription · **Lane:** subscription · **Level:** 1+
-- **Wins at:** second coder and second-opinion reviewer (a different model family reading your diff)
+- **Wins at:** second coder and second-opinion reviewer
 - **Install:** `npm install -g @openai/codex@0.153.4`
 - **Sign in:** `codex login` (add `--device-auth` on a machine with no browser)
 - **Reads rules from:** `AGENTS.md`

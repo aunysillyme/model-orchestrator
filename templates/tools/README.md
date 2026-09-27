@@ -4,7 +4,7 @@ Companion tools: not AIs, but things the AIs call. Each subfolder is written onl
 
 | Folder | Written | Contents |
 |---|---|---|
-| `codecalc/` | when codecalc is selected (recommended, default yes) | `CODECALC.md` (install, per-client registration, the skill) and `mcp/` snippets for the agents its own `setup --write` does not cover |
+| `codecalc/` | when codecalc is selected (optional, default no) | `CODECALC.md` (install, per-client registration, the skill) and `mcp/` snippets for the agents its own `setup --write` does not cover |
 | `obsidian-tc/` | when obsidian-tc is selected (optional, default no; needs an Obsidian vault, Node 24+, Ollama or a cloud embeddings key) | `OBSIDIAN-TC.md` (what you need first, install, per-agent registration, security posture) and `mcp/` snippets |
 | `context7/` | when context7 is selected (optional, default no; needs a network call, a Node 18+ local alternative, an optional API key) | `CONTEXT7.md` (what you need first, install, per-agent registration, security posture) and `mcp/` snippets |
 

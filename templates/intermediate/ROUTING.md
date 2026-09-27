@@ -20,13 +20,13 @@ When a cheaper eligible route can complete and verify the task, select it. When 
 
 0. **An external lane offers useful reach or capacity:** check `DELEGATION_MATRIX.md` and call the selected CLI through `aunx cli-run` or the installed `bin/cli-run.mjs`.
 {{LANE_STEP0}}
-1. **Bulk or mechanical work:** classify, tag, extract, rename or reformat -> cheap model tier / bulk-worker{{BULK_LANE}}.{{FAN_OUT_ADVICE}}
-1a. **Read or digest many files:** -> reader; return facts, quotes or an index within the brief's scope.
+1. **Bulk or mechanical work:** classify, tag, extract, rename or reformat -> cheap model tier / {{BULK_ROLE}}{{BULK_LANE}}.{{FAN_OUT_ADVICE}}
+1a. **Read or digest many files:** -> {{READER_ROLE}}; return facts, quotes or an index within the brief's scope.
 2. **Current data is required:** -> {{LIVE_LANE}} working model tier with live tools.
-3. **Review code without changing it:** -> code-reviewer, working model tier. For security-critical scope -> {{ATTACK_LANE}} with appropriate effort.
-3a. **A reviewer or scanner has returned findings:** -> finding-verifier; reproduce each claim before repair.
-3b. **Check a task's definition of done:** -> done-verifier; probe the named artifact and return MET, NOT_MET or UNVERIFIABLE.
-4. **Ambiguity, architecture or an unknown cause:** -> planning model tier / deep-planner. Return a concrete plan for execution.
+3. **Review code without changing it:** -> {{REVIEW_ROLE}}, working model tier. For security-critical scope -> {{ATTACK_LANE}} with appropriate effort.
+3a. **A reviewer or scanner has returned findings:** -> {{FINDING_ROLE}}; reproduce each claim before repair.
+3b. **Check a task's definition of done:** -> {{DONE_ROLE}}; probe the named artifact and return MET, NOT_MET or UNVERIFIABLE.
+4. **Ambiguity, architecture or an unknown cause:** -> planning model tier / {{PLANNER_ROLE}}. Return a concrete plan for execution.
 {{DECISION_RULE5}}
 
 {{WHO_BUILDS}}
@@ -70,13 +70,13 @@ When work runs in the background, check liveness and output growth every five mi
 
 | Task | Route |
 |---|---|
-| Design the architecture for a service | deep-planner, planning model tier |
-| Review this service for bugs | code-reviewer, working model tier |
+| Design the architecture for a service | {{PLANNER_ROLE}}, planning model tier |
+| Review this service for bugs | {{REVIEW_ROLE}}, working model tier |
 {{ADD_ENDPOINT_ROW}}
-| Find why this silently drops rows | deep-planner, then a scoped build |
-| Summarize similar notes into one index | bulk-worker, cheap model tier |
-| Read every file and extract mentions of a topic | reader, cheap model tier |
-| Verify the audit's findings | finding-verifier before repairs |
-| Check whether the stated definition of done holds | done-verifier |
+| Find why this silently drops rows | {{PLANNER_ROLE}}, then a scoped build |
+| Summarize similar notes into one index | {{BULK_ROLE}}, cheap model tier |
+| Read every file and extract mentions of a topic | {{READER_ROLE}}, cheap model tier |
+| Verify the audit's findings | {{FINDING_ROLE}} before repairs |
+| Check whether the stated definition of done holds | {{DONE_ROLE}} |
 {{LANE_EXAMPLES}}
 {{ROUTE_GATE_SECTION}}

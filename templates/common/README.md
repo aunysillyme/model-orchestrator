@@ -27,7 +27,7 @@ These are the same steps, in the same order, that the installer printed in your 
 
 | File | Read it when |
 |---|---|
-| `ORCHESTRATOR.md` | First. The routing rules your main agent follows: tiers, task classes, acceptance checks and resource selection. |
+| `{{ROUTING_FILE}}` | First. The routing rules your main agent follows: tiers, task classes, acceptance checks and resource selection. |
 | `CONTEXT.md` | At the start of a run. Shared source facts, scope, decisions and measurements (`aunx context`). |
 | `ACCEPTANCE_CHECKS.json` | When verifying the final artifact (`aunx checks run`). Replace the failing example first. |
 | `DECISIONS.md` | When choosing an approach. Did / Why / Serves / Rejected with evidence. |

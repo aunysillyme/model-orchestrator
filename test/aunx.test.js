@@ -5,6 +5,8 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSyn
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { suggestRoute } from '../src/aunx.js';
+import { planFiles } from '../src/install.js';
+import { byId } from '../src/catalog.js';
 
 const CLI = resolve('bin/aunx.js');
 const run = (args, cwd, extra = {}) => spawnSync(process.execPath, [CLI, ...args], { cwd, encoding: 'utf8', timeout: 10000, ...extra });
@@ -88,7 +90,8 @@ test('aunx route covers the decision tree and explicitly labels suggestions', ()
     ['design the auth system', 'deep-planner'], ['plan the architecture', 'deep-planner'], ['find why this silently drops rows', 'deep-planner'], ['build this feature', 'builder']
   ];
   for (const [task, agent] of cases) assert.equal(suggestRoute(task)?.agent, agent, task);
-  const tiers = readFileSync('templates/intermediate/TIERS.md', 'utf8');
+  const tiers = planFiles({ level: 2, selected: [byId['claude-code']], primary: byId['claude-code'] })
+    .find(file => file.rel === 'TIERS.md').content;
   for (const [task] of cases) {
     const result = suggestRoute(task);
     assert.ok(tiers.includes(`| ${result.agent} | ${result.tier} | ${result.effort}`), `suggestion agrees with TIERS.md: ${task}`);

@@ -15,9 +15,9 @@ When routing, select capability, context size and effort together. Use a cheap m
 ## Decision tree (first match wins)
 
 1. **Bulk or mechanical:** classify, tag, extract, rename or reformat -> cheap model tier.
-2. **Read many files:** use reader when available; otherwise read the scoped sources and return the requested digest.
+2. **Read many files:** use {{READER_ROLE}}; read the scoped sources and return the requested digest.
 3. **Current data:** use live tools with a working model.
-4. **Review code:** use code-reviewer or an independent working model with read-only scope enforced by its prompt; Bash access remains a separate tool grant.
+4. **Review code:** use {{REVIEW_ROLE}} in a fresh context, or an independent working model with read-only scope enforced by its prompt; Bash access remains a separate tool grant.
 5. **Verify findings:** reproduce each claim before a repair.
 6. **Check a definition of done:** probe its named artifact and report MET, NOT_MET or UNVERIFIABLE.
 7. **Ambiguity or architecture:** use a planning model and return an executable plan.

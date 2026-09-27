@@ -1,6 +1,6 @@
-# vm/: the box that runs it unattended
+# vm/: templates for your always-on Linux machine
 
-Level 3 = levels 1 and 2 plus a machine that is always on. A small Linux VM (any cloud's free ARM tier is enough) that holds the CLIs, a model gateway, and the scheduled jobs. Your laptop stays the interactive driver; the box owns the schedule.
+Level 3 adds deployment templates to levels 1 and 2. Provide a Linux machine sized for your workload to hold the CLIs, a model gateway, and the scheduled jobs. Your laptop stays the interactive driver; the machine owns the schedule after you configure it.
 
 Generated {{DATE}} for: `{{AI_IDS}}`. Installed at `{{INSTALL_DIR}}`; the systemd unit and the audit script carry that path.
 
@@ -29,11 +29,13 @@ The model-orchestrator installer writes these files only. When you separately in
 3. Sign each CLI in, using the flow its vendor gives you. Run these inside `tmux` so a dropped SSH session does not kill the prompt. Headless Linux has no keyring by default; `setup-vm.sh` installs one so the CLIs stop re-prompting.
 {{VM_SIGNIN}}
 4. Put provider keys in your secrets manager and export the names listed in `ENVIRONMENT.md` into the gateway's environment at start time. Never write a value into a file in this folder. The gateway config was rendered from the API keys you said you hold, not from your CLI subscriptions: those are different entitlements.
-5. `docker compose up -d`, then list the lanes without putting the key in argv (the key must be a single token, `^[A-Za-z0-9._-]+$`, because it is interpolated into curl's config grammar):
+5. From this `vm/` folder, run `bash setup-vm.sh --start-services` with those environment variables injected. It starts Compose and validates `GATEWAY_MASTER_KEY` as a single token matching `^[A-Za-z0-9._-]+$`. {{VM_LOCAL_SETUP}}
+
+   To inspect configured aliases afterward, keep the key out of argv:
    ```bash
    printf 'header = "Authorization: Bearer %s"\n' "$GATEWAY_MASTER_KEY" | curl -s --config - http://127.0.0.1:4000/v1/models
    ```
-6. Install the weekly audit: `jobs/README.md`.
+6. Install the weekly audit: `jobs/README.md`. Set the service's literal `PATH` to include the directories that hold your Node and selected CLI executables before enabling the timer.
 7. Copy `box-CLAUDE.md` to `~/CLAUDE.md` on the box (or your agent's equivalent rules file) so a session there inherits the house rules without you present.
 
 ## The dispatch shape

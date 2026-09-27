@@ -17,7 +17,7 @@ The installer asks a few things, then writes a folder:
 2. **Which AIs do you have access to?** (it marks the ones already on your PATH)
 3. **Which one is your main agent?** (the one that runs the system)
 
-It never writes a secret, runs no third-party installer, and preserves existing documents by default. `--force` explicitly replaces them; `--apply-snippets` opts into the backed-up activation merge described below. Two exceptions, both stated when they happen: `MANIFEST.json` and `bin/lanes.json` are machine-owned and rewritten on every run so a changed selection applies; runtime files (`cli-run`, the audit job, compose, gateway config, setup script) are upgraded when the installed copy matches the hash a previous run recorded, kept and reported as a conflict when you edited them, and kept as unverifiable when no manifest exists (`--upgrade-runtime` replaces runtime files only). The same hash rule is available for documents on request: `--update-docs` regenerates the documents a previous run wrote and nobody edited, so a changed selection reaches `ROUTING.md` and the delegation matrix without `--force`; edited documents are kept and named. Docs and protocols go to `--dir` (default `./ai-orchestrator`); subagent definitions (and, on Claude Code, three hook scripts) go to the project root your agent runs from (`--project`, default the current directory), because that is the only place Claude Code and Antigravity read them. It ends with an activation summary: what to copy where, which sign-ins, and one smoke command. Use `--uninstall` to remove unedited managed files, then remove your manually merged activation entries. See [Uninstall](#uninstall).
+It never writes a secret, runs no third-party installer, and preserves existing documents by default. `--force` explicitly replaces them; `--apply-snippets` opts into the backed-up activation merge described below. Two exceptions, both stated when they happen: `MANIFEST.json` and `bin/lanes.json` are machine-owned and rewritten on every run so a changed selection applies; runtime files (`cli-run`, the audit job, compose, gateway config, setup script) are upgraded when the installed copy matches the hash a previous run recorded, kept and reported as a conflict when you edited them, and kept as unverifiable when no manifest exists (`--upgrade-runtime` replaces runtime files only). The same hash rule is available for documents on request: `--update-docs` regenerates the documents a previous run wrote and nobody edited, so a changed selection reaches `ROUTING.md` and the delegation matrix without `--force`; edited documents are kept and named. Docs and protocols go to `--dir` (default `./ai-orchestrator`). Only the main agent receives its subagent definitions when supported: Claude Code or Antigravity. Those definitions and Claude Code's three hook scripts go to the project root your agent runs from (`--project`, default the current directory). The generated `README.md` gives activation steps for that main agent and level, including the installed runner's smoke command at level 2 and up. Use `--uninstall` to remove unedited managed files, then remove your manually merged activation entries. See [Uninstall](#uninstall).
 
 ## Apply Claude Code snippets
 
@@ -44,7 +44,7 @@ An install has two targets, and a scripted run should set both.
 | Flag | Default | What lands there |
 |---|---|---|
 | `--dir` | `./ai-orchestrator` | the docs, protocols and (level 2+) `bin/cli-run.mjs`. Named after what it contains, not after this package, so a project can hold one without looking like a checkout of it. Pass `--dir ./model-orchestrator` if you prefer the package name. |
-| `--project` | the current directory | the subagent definitions, and the rules file your agent reads. Only Claude Code (`.claude/agents/`) and Antigravity (`.agents/agents/`) get files here, because that is the only place those CLIs look. Claude Code also gets three hook scripts in `.claude/hooks/`, wired by a settings snippet you merge yourself or apply with `--apply-snippets`. |
+| `--project` | the current directory | the main agent's subagent definitions: `.claude/agents/` for Claude Code or `.agents/agents/` for Antigravity. A Claude Code main agent also gets three hook scripts in `.claude/hooks/`, wired by a settings snippet you merge yourself or apply with `--apply-snippets`. The generated activation steps name the project rules file to create or update. |
 
 `--project` defaulting to the current directory is the one that surprises people: run the command from your home folder with Claude Code as the main agent and the subagent and hook files land in your home folder. The installer prints the resolved project path in the plan and says when you left it at the default. Set it.
 
@@ -106,6 +106,8 @@ The command prints the remaining manual steps: remove the pasted model-orchestra
 
 ## What gets written (level 3, everything)
 
+The tree shows the activation alternatives. Each install writes the main agent's snippet and its supported agent set; companion files appear when selected. Paths beginning with `<project>/` are relative to `--project`, separate from the rules folder.
+
 ```
 ai-orchestrator/
   README.md                 start here, written for your level and your AIs
@@ -116,14 +118,20 @@ ai-orchestrator/
   DECISIONS.md             the decision log: Did / Why / Serves / Rejected
   protocols/                acceptance-checks · build-protocol · context-file · decision-log · deep-research · docs-then-prove · gap-analysis · memory-and-record · numbers-and-logic · propagate
   CODECALC.md  OBSIDIAN-TC.md  CONTEXT7.md  mcp/   companion-tool install docs + per-agent registration snippets (if selected)
-  <project>/.claude/agents/ one per tier plus finding-verifier, done-verifier, reader, at the PROJECT root (if Claude Code is main agent)
-  <project>/.claude/hooks/  route-gate.mjs (UserPromptSubmit) + subagent-context.mjs (SubagentStart) + route-metrics.mjs (all five: see [Route metrics](../README.md#see-where-your-agent-sends-work-aunx-route-metrics)), Claude Code only
-  CLAUDE.snippet.md         the block to paste into your CLAUDE.md
-  settings.hooks.snippet.json  the hooks block to merge into .claude/settings.json (Claude Code only)
+  CLAUDE.snippet.md         paste into CLAUDE.md (Claude Code main agent)
+  settings.hooks.snippet.json  merge into .claude/settings.json (Claude Code main agent)
+  GEMINI.snippet.md         paste into GEMINI.md (Antigravity main agent)
+  AGENTS.snippet.md         paste into AGENTS.md (Codex main agent)
+  QWEN.snippet.md           paste into QWEN.md (Qwen Code main agent)
+  PASTE-INTO-YOUR-AGENT.md  paste into instructions (main agent with no project rules file)
   ROUTING.md                multi-lane decision tree (level 2+)
   TIERS.md  DELEGATION_MATRIX.md  RESEARCH_TRIAGE.md  CLI-RUN.md
   bin/cli-run.mjs  bin/lanes.json          (aunx cli-run --doctor, or node bin/cli-run.mjs --doctor)
   vm/                       gateway config, compose, box rules, privacy gates, jobs/ (level 3)
+
+<project>/.claude/agents/  Claude Code main agent's subagent set
+<project>/.claude/hooks/   route-gate.mjs, subagent-context.mjs, route-metrics.mjs (Claude Code main agent)
+<project>/.agents/agents/  Antigravity main agent's custom agent set
 ```
 
 ## Project commands (`aunx`)

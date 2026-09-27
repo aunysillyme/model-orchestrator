@@ -69,7 +69,7 @@ function planGuidance(selected, plans = {}) {
     const p = plans[a.id];
     const volume = p.headroom === 'base'
       ? 'Keep this base-headroom lane for short second opinions. If it is your main agent, delegate volume to high or max headroom lanes.'
-      : 'Use this high or max headroom lane for volume: scoped well-specified builds, pre-ship second-family checks through cli-run, and first-pass research.';
+      : 'Use this high or max headroom lane for volume: scoped well-specified builds, first-pass research, and pre-ship reviews through cli-run when its configured model family differs from the author\'s.';
     return `- **${a.name}: ${p.name} (${p.headroom} headroom).** ${volume} Capability and independent-review rules are unchanged. Checked ${p.checked}.`;
   });
   return lines.length ? lines.join('\n') : 'State subscription plans with `--plans` to receive volume-allocation guidance. Capability and independent-review rules stay unchanged.';
@@ -175,8 +175,18 @@ export function auditLane(selected) {
 // Everything ROUTING.md and RESEARCH_TRIAGE.md say about lanes is rendered
 // from the lanes the user actually has. A generated manual must never
 // recommend a command its own lanes.json disables.
-export function laneVars(selected) {
+export function laneVars(selected, primary = selected[0]) {
   const has = (id) => selected.some((a) => a.id === id);
+  const rolesForPrimary = routingRoles(primary);
+  // Provider-configurable lanes have no known family until the user probes
+  // their current model. Selection alone cannot establish independence.
+  const reviewer = primary?.modelFamily
+    ? selected.find((a) => a.cliRun && a.modelFamily && a.modelFamily !== primary.modelFamily)
+    : null;
+  const reviewCommand = reviewer ? '`cli-run ' + reviewer.id + (reviewer.id === 'codex' ? ' --audit' : '') + '`' : null;
+  const review = reviewer
+    ? `${reviewCommand} (different model family from the main agent by default; verify the current models before dispatch${reviewer.id === 'codex' ? '; read-only filesystem sandbox' : '; request review only and check the CLI permissions'})`
+    : `${rolesForPrimary.REVIEW_ROLE} in a fresh context. No different-family reviewer is selected; select one and verify its model before an independent review`;
   const categories = new Set(selected.flatMap((a) => a.laneCategories || []));
   const supplies = (category) => categories.has(category);
   const picks = [
@@ -184,8 +194,8 @@ export function laneVars(selected) {
     ['local', 'Bulk work on data that must stay local', 'the local lane', 'a privacy lane; route here for confinement'],
     ['fan-out', 'Many independent items each needing its own agent turn', 'a concurrent fan-out lane', 'one call, N children, on a subscription'],
     ['live-data', 'Live web or social reads', 'the live-data CLI', 'subscription-covered; the same search on the API bills per call'],
-    ['second-coder', 'Code review, no changes', 'working model tier, or the second-coder CLI', 'a different model family catches what one misses'],
-    ['second-coder', 'Second-opinion audit of a security-shaped diff', 'the second-coder CLI in read-only audit mode', 'a second family challenges, the orchestrator reproduces'],
+    [null, 'Code review, no changes', `${rolesForPrimary.REVIEW_ROLE}, working model tier`, 'reproduce each finding before repair'],
+    [null, 'Second-opinion audit of a security-shaped diff', review, 'verify reviewer independence and reproduce findings'],
     [null, 'Deep architecture / planning', 'planning model tier', 'expensive to get wrong'],
     [null, 'Well-specified execution', 'the working model lane selected during Assign', 'match the section to available tools, rules and context'],
     ['largest-context', 'Long-document analysis', 'the largest-context lane, or caching on the main agent', 'window size vs re-query cost'],
@@ -207,7 +217,8 @@ export function laneVars(selected) {
   if (has('hermes')) step0.push(`${cr('hermes')} (the free tier) for rough drafts and divergent reads`);
   if (has('qwen')) step0.push(`${cr('qwen')} (the cheapest metered lane) for structured bulk, never for anything citing a line, number or source`);
   if (has('grok')) step0.push(`${cr('grok')} for X and live web reads at $0`);
-  if (has('codex')) step0.push(`${cr('codex --audit')} for a second-opinion read by a second model family`);
+  if (reviewer) step0.push(`${review} for a second-opinion read`);
+  if (has('codex') && reviewer?.id !== 'codex') step0.push(`${cr('codex --audit')} for a fresh-context review; verify its model family before treating it as independent`);
   if (has('agy')) step0.push(`${cr('agy')} for research sweeps and concurrent fan-out`);
   const stage1 = [];
   if (has('codex')) stage1.push(`${cr('codex')} for a second-opinion critique of the map`);
@@ -215,9 +226,9 @@ export function laneVars(selected) {
   if (has('hermes')) stage1.push(`${cr('hermes')} for a divergent read`);
   if (has('agy')) stage1.push(`${cr('agy')} for a wide sweep of prior art`);
   const examples = [];
-  examples.push(has('grok') ? `| "What is trending on X today" | ${cr('grok')} |` : '| "What is trending on X today" | live-researcher (working model tier with web tools) |');
-  examples.push(has('codex') ? `| "Audit this auth diff" | ${cr('codex --audit')} |` : '| "Audit this auth diff" | code-reviewer at planning model tier, in a fresh context told to challenge |');
-  examples.push(has('qwen') ? `| "Classify these 200 items" | bulk-worker, or ${cr('qwen')} if the items may leave the machine |` : '| "Classify these 200 items" | bulk-worker |');
+  examples.push(has('grok') ? `| "What is trending on X today" | ${cr('grok')} |` : `| "What is trending on X today" | ${rolesForPrimary.LIVE_ROLE} (working model tier with web tools) |`);
+  examples.push(`| "Audit this auth diff" | ${review} |`);
+  examples.push(has('qwen') ? `| "Classify these 200 items" | ${rolesForPrimary.BULK_ROLE}, or ${cr('qwen')} if the items may leave the machine |` : `| "Classify these 200 items" | ${rolesForPrimary.BULK_ROLE} |`);
   examples.push(enabled.length >= 2 ? '| "Research this topic properly" | several engines in parallel, see `RESEARCH_TRIAGE.md` |' : '| "Research this topic properly" | planning model tier plans, working model tier sweeps, a fresh context challenges; see `RESEARCH_TRIAGE.md` |');
   const roles = [];
   if (has('agy')) roles.push('| Web sweep | `cli-run agy` | widest landscape pass |');
@@ -233,19 +244,19 @@ export function laneVars(selected) {
   if (has('hermes')) run.push('node bin/cli-run.mjs hermes --brief "$BRIEF" --timeout 900 > research/out-hermes.md');
   if (has('qwen')) run.push('node bin/cli-run.mjs qwen  --brief "$BRIEF" --timeout 900 > research/out-qwen.md');
   return {
+    ...rolesForPrimary,
     TASK_LANES_TABLE: table(picks, ['Task type', 'Pick', 'Why']),
     COST_PLAYBOOK: cost.map((line, i) => `${i + 1}. ${line}`).join('\n'),
     FAN_OUT_ADVICE: supplies('fan-out') ? ' Many independent items each needing its own agent turn → the selected concurrent fan-out lane.' : '',
     METERED_CITATION_NOTE: supplies('cheapest-metered') ? " A lane's figure is re-derived before it is repeated: verify every supporting number and citation from the cheapest metered lane." : '',
-    RESEARCH_SELECTION_ADVICE: enabled.length >= 2
+    RESEARCH_SELECTION_ADVICE: (enabled.length >= 2
       ? 'send the same task brief to your selected CLI lanes, preferring different model families. Run each through `cli-run` so a run that produced nothing exits 10 and is treated as a missing engine.'
-      : 'use the main agent for the sweep, then a fresh-context second-opinion turn. Add CLI lanes from different model families for independent research passes.',
-    GAP_ANALYSIS_LANE: supplies('second-coder')
-      ? 'a **different model family** reading the same artifact. Use the selected second-opinion coder lane in read-only mode; verify each finding before acting.'
-      : 'a fresh-context second pass reading the same artifact. Use a different model family when one is available; verify each finding before acting.',
+      : 'use the main agent for the sweep, then a fresh-context second-opinion turn. Add CLI lanes from different model families for independent research passes.')
+      + (reviewer ? ` For independent review, use ${review}.` : ' No different-family reviewer is selected; verify a candidate lane\'s current model before treating its review as independent.'),
+    GAP_ANALYSIS_LANE: `${review}. Give it the same artifact and verify each finding before acting.`,
     LANE_STEP0: step0.length ? step0.map((l) => '   - ' + l).join('\n') : '   - none selected yet: every task stays on your main agent\'s tiers until you add a lane (re-run the installer with more AIs)',
     STAGE1_LANES: stage1.length ? '; ' + stage1.join(', ') : '',
-    ATTACK_LANE: has('codex') ? '`cli-run codex --audit` (a second model family in a read-only sandbox)' : 'code-reviewer at planning model tier, in a fresh context told to challenge and allowed to answer CLEAN',
+    ATTACK_LANE: review,
     LIVE_LANE: has('grok') ? '`cli-run grok` first ($0), then' : '',
     BULK_LANE: has('qwen') ? ', or `cli-run qwen` if the data may leave your machine' : has('hermes') ? ', or `cli-run hermes` for a free rough pass' : '',
     LANE_EXAMPLES: examples.join('\n'),
@@ -270,14 +281,33 @@ export function subagentsLoadRules(primary) {
 // shipped, so a future agent addition or removal cannot leave the sentence
 // stale the way the finding-verifier omission did.
 const AGENT_ORDER = ['deep-planner', 'builder', 'code-reviewer', 'finding-verifier', 'live-researcher', 'bulk-worker', 'done-verifier', 'reader'];
-export function claudeAgentIds() {
-  const dir = join(TEMPLATES, 'agents', 'claude-code');
+function agentIds(primary) {
+  if (!primary?.agentsDir) return [];
+  const dir = join(TEMPLATES, 'agents', primary.id);
   if (!existsSync(dir)) return [];
   const files = readdirSync(dir).filter((f) => f.endsWith('.md') && f !== 'README.md').map((f) => f.replace(/\.md$/, ''));
   const set = new Set(files);
   const ordered = AGENT_ORDER.filter((id) => set.has(id));
   const extra = files.filter((id) => !AGENT_ORDER.includes(id)).sort();
   return [...ordered, ...extra];
+}
+export function claudeAgentIds() {
+  return agentIds(byId['claude-code']);
+}
+
+function routingRoles(primary) {
+  const installed = new Set(agentIds(primary));
+  const role = (id, label) => installed.has(id) ? id : `${label} role on the main agent`;
+  return {
+    BULK_ROLE: role('bulk-worker', 'bulk processing'),
+    BUILDER_ROLE: role('builder', 'build'),
+    READER_ROLE: role('reader', 'reading'),
+    REVIEW_ROLE: role('code-reviewer', 'code review'),
+    FINDING_ROLE: role('finding-verifier', 'finding verification'),
+    DONE_ROLE: role('done-verifier', 'completion verification'),
+    PLANNER_ROLE: role('deep-planner', 'planning'),
+    LIVE_ROLE: role('live-researcher', 'live research')
+  };
 }
 
 // The compact "choose a route before acting" table, rendered from the AIs the
@@ -415,9 +445,13 @@ export function activationSteps(opts) {
   for (const a of selected.filter((a) => a.bin && a.kind === 'agent-cli')) steps.push(`sign in to ${a.name}: ${a.auth}`);
   // A local runtime has a bin but no sign-in, so the agent-cli loop above skips it
   // and before this it appeared in no ordered list at any level (#26).
-  for (const a of selected.filter((a) => a.bin && a.kind === 'local')) steps.push(`install ${a.name}: ${a.install.url}, then \`${a.bin} pull <model>\` before the local lane can answer`);
+  for (const a of selected.filter((a) => a.bin && a.kind === 'local')) {
+    steps.push(level >= 3
+      ? `${a.name}: follow vm/README.md, then run \`bash setup-vm.sh --start-services\` in vm/ to pull the configured model into its Compose service and verify local-small`
+      : `install ${a.name}: ${a.install.url}, then \`${a.bin} pull <model>\` before the local lane can answer`);
+  }
   for (const t of tools) steps.push(`${t.id}: ${t.install}`);
-  if (level >= 2) steps.push(`smoke test: node ${join(dirAbs, 'bin', 'cli-run.mjs')} --doctor   (or aunx cli-run --dir ${shellQuote(dirAbs)} --doctor; add --run to send each lane one tiny prompt)`);
+  if (level >= 2) steps.push(`smoke test: node ${shellQuote(join(dirAbs, 'bin', 'cli-run.mjs'))} --doctor   (or aunx cli-run --dir ${shellQuote(dirAbs)} --doctor; add --run to send each lane one tiny prompt)`);
   if (level >= 3) steps.push(`box: read ${join(dirAbs, 'vm', 'README.md')}; keys named in vm/ENVIRONMENT.md go in your secrets manager, never a file`);
   return steps;
 }
@@ -426,7 +460,7 @@ export function activationSteps(opts) {
 // activationSteps is: level 1 writes no bin/, so a step naming cli-run.mjs or
 // lanes.json there described an install that did not happen (#27).
 export function proofSteps(opts) {
-  const { level, primary } = opts;
+  const { level, primary, selected = primary ? [primary] : [] } = opts;
   const steps = [
     'Start a fresh agent session and ask: "Read the orchestrator instructions. Quote the routing rule you will use, then sort pear, apple, banana alphabetically. Name the tier and whether you delegated."',
     'Expect the cheap model tier and `apple, banana, pear`. If the agent cannot quote the routing rule, check the snippet location or chat instructions before continuing. This is a manual activation check, not proof that every future task follows the rules.'
@@ -434,7 +468,11 @@ export function proofSteps(opts) {
   if (level >= 2) {
     steps.push('Run `node bin/cli-run.mjs --doctor` from this folder, or `aunx cli-run --doctor` from your project root. It checks binary presence, not authentication or loaded instructions, and prints the model and effort each lane is pinned to. `--doctor --run` additionally uses a little quota to test live responses. No enabled lanes means delegation is inactive.');
     steps.push('Decide whether the route matters to you. Every lane starts unpinned, which means it runs on whatever its own config file says: a CLI configured months ago at a low reasoning effort will keep auditing at that effort while your docs describe something stronger. Pin it in `bin/lanes.json` under `defaults`, or per call with `--model` and `--effort`. Either way the run is recorded in the log with the value requested and where it came from.');
-    steps.push('To test a real output contract, choose an enabled lane from `bin/lanes.json` and run `node bin/cli-run.mjs <lane> \'Return only {"sorted":["apple","banana","pear"]}\' --expect-json`. The same command is available as `aunx cli-run <lane>` with those arguments. This uses quota. Expect JSON and exit 0; inspect the array yourself. A non-JSON response exits 10, a missing binary exits 13, and an authentication failure reports the vendor error. The explicit lane tests execution; your main agent still makes delegation decisions.');
+    if (selected.some(a => a.cliRun)) {
+      steps.push('To test a real output contract, choose an enabled lane from `bin/lanes.json` and run `node bin/cli-run.mjs <lane> \'Return only {"sorted":["apple","banana","pear"]}\' --expect-json`. The same command is available as `aunx cli-run <lane>` with those arguments. This uses quota. Expect JSON and exit 0; inspect the array yourself. A non-JSON response exits 10, a missing binary exits 13, and an authentication failure reports the vendor error. The explicit lane tests execution; your main agent still makes delegation decisions.');
+    } else {
+      steps.push('Delegation is inactive: no supported CLI lane is selected, so `--doctor` will exit 13. Defer the output-contract test until you select a supported CLI lane: re-run the installer with that lane in `--ais` and `--update-docs`, then install it and sign in using the printed instructions.');
+    }
   }
   // Only claude-code ships the route-gate hook, so only claude-code gets a
   // proof step that checks it fired: the table must come from the hook's
@@ -485,7 +523,7 @@ function vars(opts) {
   const pinOf = (id) => (toolById[id] && toolById[id].pin) || 'latest';
   const snippet = snippetFor(primary);
   const steps = activationSteps({ level, selected, primary, tools, dir: opts.dir, project: opts.project, applySnippets: opts.applySnippets });
-  const proofs = proofSteps({ level, primary });
+  const proofs = proofSteps({ level, primary, selected });
   const routingFile = level >= 2 ? 'ROUTING.md' : 'ORCHESTRATOR.md';
   // The path route-gate.mjs and subagent-context.mjs resolve at runtime,
   // relative to CLAUDE_PROJECT_DIR. Mirrors the RULES_PATH fallback below:
@@ -507,7 +545,7 @@ function vars(opts) {
     ? '- Rules location: absolute, because this folder is outside the project. ' + rulesPathNote
     : '- Rules location: project-relative, so moving the project and its rules folder together preserves the paths.');
   return {
-    ...laneVars(selected),
+    ...laneVars(selected, primary),
     ACTIVATION_STEPS: steps.map((st, i) => `${i + 1}. ${st}`).join('\n'),
     PROOF_STEPS: proofs.map((st, i) => `${i + 1}. ${st}`).join('\n'),
     LOAD_IT: opts.applySnippets
@@ -544,9 +582,14 @@ function vars(opts) {
     // vm/README.md step 3 named `grok login` and `agy` whatever you picked (#26).
     VM_SIGNIN: (() => {
       const lines = selected.filter((a) => a.bin && a.kind === 'agent-cli').map((a) => `   - ${a.name}: ${a.auth}`);
-      for (const a of selected.filter((a) => a.bin && a.kind === 'local')) lines.push(`   - ${a.name}: no sign-in. Install it from ${a.install.url}, then \`${a.bin} pull <model>\`.`);
+      for (const a of selected.filter((a) => a.bin && a.kind === 'local')) lines.push(`   - ${a.name}: no sign-in. Step 5 initializes the model in its Compose service.`);
       return lines.length ? lines.join('\n') : '   - none: no CLI you selected needs a sign-in on the box.';
     })(),
+    VM_LOCAL_MODEL_SH: shellQuote(selected.some((a) => a.id === 'ollama') ? byId.ollama.gatewayModel.replace(/^ollama\//, '') : ''),
+    VM_SCRIPT_INSTALLERS: scriptInstallers(selected.filter((a) => a.kind !== 'local')),
+    VM_LOCAL_SETUP: selected.some((a) => a.id === 'ollama')
+      ? `The command waits for Ollama, pulls \`${byId.ollama.gatewayModel.replace(/^ollama\//, '')}\` inside its Compose service, then requires a nonempty chat completion through the gateway alias \`local-small\`. The container uses its own volume; a host Ollama installation is separate. This check sends one short prompt to the local model.`
+      : 'No local runtime was selected. The command starts the configured services; verify any configured provider lanes separately.',
     AUDIT_LANE: lane || 'none',
     // Enforced boundary per lane: codex has a read-only sandbox flag; the others
     // run with whatever their own config allows, and the script says so.

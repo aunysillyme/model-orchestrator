@@ -18,6 +18,8 @@
 //   rulesFile  the instructions file that agent reads from a project root, if any
 //   agentsDir  where that agent keeps project-level subagent definitions, if any
 //   cliRun     true when bin/cli-run.mjs has a judge for this lane
+//   modelFamily default family for review suggestions; verify the current model
+//              before dispatch. Omitted for provider-configurable lanes.
 //   builtAgainst  the vendor version this release's lane wiring and judges were
 //              exercised against. ONE number per lane: the README compatibility
 //              table is generated from it, and where install.npm exists the pin
@@ -46,14 +48,14 @@ export const LEVELS = [
     key: 'intermediate',
     name: 'Intermediate',
     tagline: 'several LLMs and agents, called through their CLIs',
-    gives: 'everything in Beginner plus cli-run, a delegation matrix, task briefs and multi-engine research triage'
+    gives: 'everything in Beginner plus cli-run, a delegation matrix and multi-engine research triage'
   },
   {
     id: 3,
     key: 'advanced',
     name: 'Advanced',
-    tagline: 'everything above, plus a virtual machine that runs it unattended',
-    gives: 'everything in Intermediate plus a gateway config, scheduled jobs, a dispatch layer and privacy gates for a box'
+    tagline: 'everything above, plus templates for your always-on Linux machine',
+    gives: 'everything in Intermediate plus a gateway config, a scheduled review job, dispatch guidance and configurable privacy gates'
   }
 ];
 
@@ -62,6 +64,7 @@ export const AIS = [
     id: 'claude-code',
     name: 'Claude Code (Anthropic)',
     vendor: 'Anthropic',
+    modelFamily: 'Anthropic',
     kind: 'agent-cli',
     bin: 'claude',
     access: 'subscription',
@@ -94,11 +97,12 @@ export const AIS = [
     laneCategories: ['second-coder'],
     name: 'Codex CLI (OpenAI, ChatGPT plan)',
     vendor: 'OpenAI',
+    modelFamily: 'OpenAI',
     kind: 'agent-cli',
     bin: 'codex',
     access: 'subscription',
     lane: 'A',
-    role: 'second coder and second-opinion reviewer (a different model family reading your diff)',
+    role: 'second coder and second-opinion reviewer',
     minLevel: 1,
     install: { npm: '@openai/codex', url: 'https://developers.openai.com/codex/cli', pin: '0.153.4' },
     builtAgainst: '0.153.4',
@@ -117,6 +121,7 @@ export const AIS = [
     laneCategories: ['fan-out', 'largest-context'],
     name: 'Antigravity CLI `agy` (Google AI plan)',
     vendor: 'Google',
+    modelFamily: 'Google',
     kind: 'agent-cli',
     bin: 'agy',
     access: 'subscription',
@@ -142,6 +147,7 @@ export const AIS = [
     laneCategories: ['live-data'],
     name: 'Grok CLI (xAI, X Premium)',
     vendor: 'xAI',
+    modelFamily: 'xAI',
     kind: 'agent-cli',
     bin: 'grok',
     access: 'subscription',
@@ -220,6 +226,7 @@ export const AIS = [
   },
   {
     id: 'claude-app',
+    modelFamily: 'Anthropic',
     name: 'Claude app or claude.ai (chat only, no CLI)',
     vendor: 'Anthropic',
     kind: 'chat',
@@ -238,6 +245,7 @@ export const AIS = [
   },
   {
     id: 'chatgpt-app',
+    modelFamily: 'OpenAI',
     name: 'ChatGPT (chat only, no CLI)',
     vendor: 'OpenAI',
     kind: 'chat',
@@ -256,6 +264,7 @@ export const AIS = [
   },
   {
     id: 'gemini-app',
+    modelFamily: 'Google',
     name: 'Gemini app (chat only, no CLI)',
     vendor: 'Google',
     kind: 'chat',
