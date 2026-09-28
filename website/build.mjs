@@ -5,6 +5,7 @@ import path from 'node:path';
 import { documentHtml, renderMarkdown, releaseEntries, pages, origin, repository, escape, populateLanding } from './content.mjs';
 import { validRelease } from './assets/releases.js';
 import {marked} from 'marked';
+import {sourceDocument, discoveryFiles, publicRoutes} from './discovery.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.dirname(here);
@@ -68,6 +69,7 @@ await cp(path.join(here, 'assets'), path.join(out, 'assets'), {recursive: true})
 await writeFile(path.join(out, 'index.html'), documentHtml({title: 'Model Orchestrator | AunySillyMe', description: 'Model router for AI coding agents: routing rules, subagents and a CLI runner that give your AI a playbook for the model, effort and tools each task needs.', route: '/', body: landing}));
 
 const navItems = [...pages].map(([source, slug]) => `<a href="/docs/${slug}/">${escape(({overview: 'Overview', guides: 'All guides', commands: 'Commands', proof: 'Measured proof', changelog: 'Changelog'})[slug] || slug.replaceAll('-', ' '))}</a>`).join('');
+const publicDocuments = new Map();
 for (const [source, slug] of pages) {
   const markdown = await readFile(path.join(root, source), 'utf8');
   const title = markdown.match(/^# (.+)$/m)?.[1].replace(/[`*_]/g, '') || slug;
@@ -78,11 +80,15 @@ for (const [source, slug] of pages) {
 <article class="markdown">${renderMarkdown(markdown, source)}</article><footer class="bottom"><a href="/">← Back to model-orchestrator</a><a href="${repository}/issues/new/choose" target="_blank" rel="noopener noreferrer">File an issue ↗</a></footer></main></div>`;
   const directory = path.join(out, 'docs', slug);
   await mkdir(directory, {recursive: true});
+  const plain = sourceDocument(markdown, source, slug, commit);
+  publicDocuments.set(slug, {title, markdown: plain});
+  await writeFile(path.join(directory, 'index.md'), plain);
   await writeFile(path.join(directory, 'index.html'), documentHtml({title: `${title} | Model Orchestrator`, description: `${title}. Documentation from the model-orchestrator repository.`, route: `/docs/${slug}/`, body}));
 }
+for (const [name, content] of discoveryFiles(publicDocuments)) await writeFile(path.join(out, name), content);
 
-await writeFile(path.join(out, '404.html'), documentHtml({title: 'Page not found | Model Orchestrator', description: 'Return to model-orchestrator and its documentation.', route: '/', body: '<main class="main document"><h1>Page not found</h1><p>The page may have moved.</p><p><a class="primary" href="/">Return to model-orchestrator →</a></p></main>'}));
+await writeFile(path.join(out, '404.html'), documentHtml({title: 'Page not found | Model Orchestrator', description: 'Return to model-orchestrator and its documentation.', route: '/', discovery: false, body: '<main class="main document"><h1>Page not found</h1><p>The page may have moved.</p><p><a class="primary" href="/">Return to model-orchestrator →</a></p></main>'}));
 await writeFile(path.join(out, 'robots.txt'), `User-agent: *\nAllow: /\nSitemap: ${origin}/sitemap.xml\n`);
-await writeFile(path.join(out, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${['/', ...[...pages.values()].map(slug => `/docs/${slug}/`)].map(route => `<url><loc>${origin}${route}</loc></url>`).join('')}</urlset>\n`);
+await writeFile(path.join(out, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${publicRoutes.map(route => `<url><loc>${origin}${route}</loc></url>`).join('')}</urlset>\n`);
 await writeFile(path.join(out, 'build-info.json'), JSON.stringify({commit, built, published, registryVerified, pages: pages.size + 1}, null, 2) + '\n');
 console.log(`Built landing page and ${pages.size} source-derived docs pages, npm v${published.version}, commit ${commit.slice(0, 7)}.`);
