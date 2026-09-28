@@ -115,7 +115,7 @@ export function parseTrivyReport(data, target, resolved, scannerVersion) {
       // A Go binary built without module version stamping lists its own main module
       // with no version. Its dependencies are still listed and scanned, so that one
       // root entry is recorded by name; any other versionless package stays unknown.
-      if (result.Type === 'gobinary' && pkg.Relationship === 'root') { unversionedRoots.push(pkg.Name); continue; }
+      if (result.Class === 'lang-pkgs' && result.Type === 'gobinary' && pkg.Relationship === 'root') { unversionedRoots.push(pkg.Name); continue; }
       throw new Error('incomplete-container-package');
     }
     packageCount += result.Packages.length;
