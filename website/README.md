@@ -39,6 +39,8 @@ The root `vercel.json` is the source of the install, build and output settings. 
 
 `website/content.mjs` explicitly lists the public Markdown sources: the repository README, public guides in `docs`, command README, proof README and changelog. The build does not recursively publish repository files or operational instructions.
 
+`website/assets/navigation.js` keeps the landing page sidebar and mobile navigation synchronized with the current section. Passive scrolling, resize, deep-link navigation, page restoration and content resizing schedule a single animation-frame update. The reading boundary uses the sticky header and CSS scroll offset; reaching the bottom selects Changelog. An overflowing sidebar scrolls only its own navigation container to expose the active link, without moving page position or keyboard focus. The breadcrumb is Home and links to the portfolio. There is no network dependency for this behavior.
+
 `website/landing.html` owns the editorial introduction. `website/assets` owns the approved avatar, CSS and browser behavior. Changes to marketing copy or the trailer URL still require a source edit and push. The automation updates existing content; it does not invent new feature explanations or generate a new video.
 
 The source commit comes from `VERCEL_GIT_COMMIT_SHA`, or the local Git HEAD. npm metadata is fetched at build time with a ten-second timeout. `website/release-fallback.json` is a previously verified public release, used only when that lookup fails.

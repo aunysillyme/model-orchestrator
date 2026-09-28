@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Fixed
+
+- The product website navigation follows the section being read, keeps the active sidebar link visible, and labels its portfolio breadcrumb Home.
+
 ## [1.0.2] - 2026-09-28
 
 ### Fixed
