@@ -26,7 +26,7 @@ The root `vercel.json` is the source of the install, build and output settings. 
 ## Dependencies
 
 - Vercel project and GitHub integration: project ID `prj_HWCUc01VxliaCToJBeQbqg8pjgo0`, team `aunysillymes-projects`.
-- Cloudflare DNS: the `model-orchestrator` record under `aunysillyme.dev`. The exact live record and public-domain check are UNVERIFIED until the deployment owner completes launch.
+- Cloudflare DNS: the `model-orchestrator` record under `aunysillyme.dev`. DNS-only CNAME to `bb9493e20ea5c81c.vercel-dns-016.com`, TTL 300, record ID `6028469f5b74ecc19db52364830cbd40`. Vercel reported the domain correctly configured and HTTPS served the site publicly on 2026-09-28.
 - npm registry: public, credential-free metadata for `model-orchestrator/latest`.
 - Cloudinary: the approved silent v2 trailer, public ID `aunysillyme.dev/model-orchestrator-trailer`, version `1790569976`.
 - Google Fonts: Cormorant Garamond and JetBrains Mono, with local serif and monospace fallbacks.
@@ -79,9 +79,9 @@ python3 -m http.server 8773 --directory website/dist
 
 Open the local URL, check the desktop and mobile layouts, follow a documentation link, use the install copy button, and scroll the trailer at least halfway into view. It should play once, silently. With reduced motion enabled, use the native play button instead.
 
-For production, open the custom domain and `/build-info.json`. Match its commit to the intended Git push and inspect the corresponding Vercel build's successful test output. Production deployment and Git-triggered round-trip evidence are UNVERIFIED until filled by the deployment owner.
+For production, open the custom domain and `/build-info.json`. Match its commit to the intended Git push and inspect the corresponding Vercel build's successful test output. Launch verified on 2026-09-28: Git push `ff74138b02c8ada3acf449ef95cdfae920bea2ec` automatically created production deployment `dpl_Esua8ytjsTdo8EBK9U6xYNuU28an` (source `git`, state `READY`). The public HTTPS `/build-info.json` returned that exact commit, npm version `1.0.1`, and 15 content pages. Vercel ran the package and website checks before promotion. GitHub website run `36380117546` also passed.
 
-Rollback uses Vercel's previous successful production deployment. Record its deployment identifier before promoting a replacement. The first launch has no prior product-site deployment to restore; its rollback is removal of the new subdomain assignment/DNS record without changing the portfolio's apex or www records.
+Rollback uses Vercel's previous successful production deployment. Record its deployment identifier before promoting a replacement. The first known-good rollback target is `dpl_Esua8ytjsTdo8EBK9U6xYNuU28an` at commit `ff74138b02c8ada3acf449ef95cdfae920bea2ec`. The first launch has no prior product-site deployment to restore; its rollback is removal of the new subdomain assignment/DNS record without changing the portfolio's apex or www records.
 
 ## Source of truth
 
