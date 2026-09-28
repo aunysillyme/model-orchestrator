@@ -1,0 +1,59 @@
+name: catalog advisories
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - src/catalog.js
+      - scripts/catalog-advisory-*.mjs
+      - scripts/check-catalog-advisories.mjs
+      - test/catalog-advisories.test.js
+      - docs/catalog-advisor*.md
+      - docs/catalog-advisory-exceptions.json
+      - .github/workflows/catalog-advisories.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: catalog-advisories-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - name: Check catalog pins with OSV and Trivy
+        run: node scripts/check-catalog-advisories.mjs --report-dir .release-work/catalog-advisories
+      - name: Retain summary even when scanning fails
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p .release-work/catalog-advisories
+          if [ ! -f .release-work/catalog-advisories/report.json ]; then
+            node --input-type=module <<'NODE'
+          import { writeFileSync } from 'node:fs';
+          const report = { schemaVersion: 1, sourceCommit: process.env.GITHUB_SHA, generatedAt: new Date().toISOString(),
+            results: [{ source: 'workflow', status: 'unknown', reason: 'checker-produced-no-report' }], exclusions: [] };
+          writeFileSync('.release-work/catalog-advisories/report.json', JSON.stringify(report, null, 2) + '\n');
+          NODE
+          fi
+          if [ ! -f .release-work/catalog-advisories/summary.md ]; then
+            printf '# Catalog advisories\n\nUnknown: the checker produced no summary. Inspect the failed workflow step.\n' > .release-work/catalog-advisories/summary.md
+          fi
+          cat .release-work/catalog-advisories/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload dated report and summary
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: catalog-advisories-${{ github.sha }}-${{ github.run_attempt }}
+          path: .release-work/catalog-advisories/
+          if-no-files-found: error
+          retention-days: 30

@@ -21,9 +21,28 @@ systemctl --user list-timers        # it should be listed with a next-run time
 loginctl enable-linger "$USER"      # so user timers run without a login session
 ```
 
-The service reads only `GATEWAY_MASTER_KEY` from `~/.config/ai-orchestrator/weekly-audit.env`, outside this folder with mode 600. Provision that audit-only file from your secrets manager and point `EnvironmentFile=` at it before installing. Keep the gateway's provider-key environment separate. Existing installs must replace or edit their copied service, then run `systemctl --user daemon-reload`; updating the source template alone does not update the installed unit. The key must be a single token matching `^[A-Za-z0-9._-]+$`; any embedded or trailing newline is refused.
+The service reads `GATEWAY_MASTER_KEY` and optional documented runtime/location settings from `~/.config/ai-orchestrator/weekly-audit.env`, outside this folder with mode 600. Provision that audit-only file from your secrets manager and point `EnvironmentFile=` at it before installing. Keep the gateway's provider-key environment separate. Existing installs must replace or edit their copied service, then run `systemctl --user daemon-reload`; updating the source template alone does not update the installed unit. The key must be a single token matching `^[A-Za-z0-9._-]+$`; any embedded or trailing newline is refused.
 
-Sign the selected vendor CLI in under the same user before enabling the timer. The job preserves `HOME`, `PATH`, stored sign-in state and unrelated authentication variables, but removes `GATEWAY_MASTER_KEY`, `LITELLM_MASTER_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `XAI_API_KEY`, and `OPENROUTER_API_KEY` from all child environments. An API-only lane dependent on a removed variable needs vendor-supported stored authentication, such as `hermes auth add <provider>`, before scheduling it. Those provider keys belong in the gateway launch environment.
+Sign the selected vendor CLI in under the same user before enabling the timer. Before its first external command, the script uses shell builtins to remove every export except the runtime settings below. It also removes exported shell functions and disables inherited tracing and automatic export. Collection commands and version probes receive this same allowed environment.
+
+| Purpose | Allowed names |
+|---|---|
+| User and executable lookup | `HOME`, `PATH`, `USER`, `LOGNAME`, `SHELL` |
+| Locale and time | `LANG`, `LANGUAGE`, `TZ`, `LC_ALL`, `LC_CTYPE`, `LC_COLLATE`, `LC_MESSAGES`, `LC_MONETARY`, `LC_NUMERIC`, `LC_TIME`, `LC_ADDRESS`, `LC_IDENTIFICATION`, `LC_MEASUREMENT`, `LC_NAME`, `LC_PAPER`, `LC_TELEPHONE` |
+| Temporary directories | `TMPDIR`, `TMP`, `TEMP` |
+| Stored configuration and sign-ins | `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME` |
+| User service and keyring session | `XDG_RUNTIME_DIR`, `DBUS_SESSION_BUS_ADDRESS` |
+| Windows shell runtime compatibility | `SystemRoot`, `SYSTEMROOT`, `WINDIR` |
+
+The report worker additionally receives `CODEX_HOME` when the selected worker is `codex`, or `HERMES_HOME` when it is `hermes`, if that name was set. These location overrides are absent from collection and version probes. The `agy`, `grok` and `qwen` workers use their stored sign-ins under the common user/configuration directories. No token or provider-key variable is allowed for any current worker; `CLAUDE_CODE_OAUTH_TOKEN` is also removed because Claude Code is not a supported cli-run worker in this catalog. Configure authentication with the selected vendor's sign-in flow, such as `codex login`, `grok login`, `hermes auth add <provider>`, `agy`, or Qwen's `/auth`.
+
+`GATEWAY_MASTER_KEY` stays in a private shell variable until the stdin probe finishes and is then removed. `PROBE_SECS` and `RUNNER_SECS` override the shell's deadlines without becoming child exports. Configure the allowed names and worker location overrides through the service's `Environment=` settings or its audit-only environment file. Keep that file limited to the gateway key and the documented runtime/location settings; keep provider credentials in the gateway launch environment. The script provides no arbitrary extra-variable override.
+
+### Migrate an existing job
+
+Preview your existing selection and paths with `--update-docs --dry-run`, then apply the update. Unchanged managed runtime files upgrade automatically; `--update-docs` refreshes unchanged documents. Review any edited files the installer preserves and merge the environment change into those copies, or use `--upgrade-runtime` when you intend to replace edited runtime files. Apply the new script and both environment documents to your installation, then replace or edit the copied service and run `systemctl --user daemon-reload`. Move sign-in setups that depend on other exported names to the vendor's stored sign-in flow under the service user. Reapply only the documented runtime/location overrides, confirm the selected CLI is on the service's explicit PATH, then perform the manual service check below. Changing `AUDIT_LANE` also requires matching that worker's runner configuration and flags.
+
+This boundary limits child environment inheritance. Files under `HOME` and XDG directories remain readable, including stored sign-ins, and Bash startup files run before the script can filter exports. Live vendor authentication must be verified in the service user's account.
 
 ## Invocation, dependencies, reads and writes
 
@@ -59,7 +78,7 @@ For a manual check, start `systemctl --user start weekly-audit.service`, then ru
 - **Previous report preserved:** output goes to a temp file and is renamed over `audit-<date>.md` only on a clean, non-empty run. A failed run leaves `failed-audit-<stamp>-rc<N>.md` beside it and the last good report untouched.
 - **Boundary:** the lane runs with the strongest restriction it offers ({{AUDIT_LANE_BOUNDARY_NOTE}}). The brief's denied-actions list is an instruction, not an enforcement, for lanes without a sandbox flag.
 - **Honest unknowns:** a probe that times out writes an `UNVERIFIED` line, which the brief tells the lane to treat as unknown, never clean.
-- **Credential separation:** the gateway bearer is never written to a temp file or passed on argv, and gateway/provider keys are absent from version probes and the report worker's environment. Stored vendor sign-ins remain available.
+- **Credential separation:** the gateway bearer is never written to a temp file or passed on argv. Only the named runtime environment reaches probes, and only the selected worker receives its documented location override. Stored vendor sign-ins remain available.
 
 A timer that has never been seen to fire is not known to work. Run `systemctl --user start weekly-audit.service` once by hand and read the journal before trusting the schedule.
 

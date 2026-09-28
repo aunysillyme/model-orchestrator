@@ -402,6 +402,7 @@ export const TOOLS = [
     role: 'exact arithmetic, code execution in 31 languages, SMT logic checks, complexity and equivalence proofs; offline, no key, no telemetry',
     get install() { return `uvx 'codecalc[full]==${this.pin}' setup --write`; },
     pin: '0.5.0',
+    advisory: { ecosystem: 'PyPI', package: 'codecalc', extras: ['full'] },
     mcpSnippets: { 'claude-code': 'mcp/mcpServers.json', codex: 'mcp/codex.config.toml', agy: 'mcp/agy.mcp_config.json', qwen: 'mcp/mcpServers.json' },
     requires: 'uv (https://docs.astral.sh/uv/) and Python 3.10+',
     autoClients: ['Claude Code', 'Claude Desktop', 'Cursor', 'VS Code', 'Zed'],
@@ -415,6 +416,7 @@ export const TOOLS = [
     role: 'durable memory and record for your agents: hybrid retrieval (BM25 + dense + link graph), backlinks, compare-and-swap writes with a confirmation gate, folder ACLs, a poison scan on inferred writes; 163 tools, local by default',
     get install() { return `npm install -g obsidian-tc@${this.pin} && obsidian-tc /path/to/your/vault`; },
     pin: '1.26.0',
+    advisory: { ecosystem: 'npm', package: 'obsidian-tc' },
     mcpSnippets: { 'claude-code': 'mcp/obsidian-tc.mcpServers.json', codex: 'mcp/obsidian-tc.codex.config.toml', agy: 'mcp/obsidian-tc.agy.mcp_config.json', qwen: 'mcp/obsidian-tc.mcpServers.json' },
     requires: 'an Obsidian vault folder (the Obsidian app itself is only needed for live plugin bridges); Node 24+ or Bun 1.1+ (stricter than this installer); Ollama with `nomic-embed-text` for local embeddings, or a cloud embeddings key; the Local REST API plugin only for bridge tools',
     autoClients: ['Cursor', 'VS Code'],
@@ -428,6 +430,7 @@ export const TOOLS = [
     role: 'up-to-date, version-specific documentation and code examples for libraries, SDKs, APIs and CLIs, pulled into the prompt; tells the agent what the code is SUPPOSED to do. Paired with codecalc, which runs the code and proves what it actually does: docs never stand as proof, and where they disagree the run wins',
     get install() { return `npx -y @upstash/context7-mcp@${this.pin}`; },
     pin: '4.1.1',
+    advisory: { ecosystem: 'npm', package: '@upstash/context7-mcp' },
     mcpSnippets: { 'claude-code': 'mcp/context7.claude-code.mcp.json', codex: 'mcp/context7.codex.config.toml', agy: 'mcp/context7.agy.mcp_config.json', qwen: 'mcp/context7.qwen.settings.json' },
     requires: 'Node.js 18+ for the local server or the ctx7 CLI; a free CONTEXT7_API_KEY is optional, for higher rate limits (it works anonymously at the base rate)',
     autoClients: [], // The pinned MCP server does not register itself; merge its snippets.
