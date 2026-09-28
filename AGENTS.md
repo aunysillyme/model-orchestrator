@@ -8,9 +8,9 @@ When configuring a project, run `npx model-orchestrator --list` to inspect suppo
 npx model-orchestrator --yes --level 2 --ais claude-code,codex --project <repo> --dir <repo>/ai-orchestrator --dry-run
 ```
 
-When the selection and target paths are correct, remove `--dry-run`. Read the generated `README.md` for activation and the smoke check. Use `--apply-snippets` for a backed-up Claude Code activation merge. When updating an existing install, use `--update-docs` to regenerate unchanged managed documents; edited files stay and are named.
+When the selection and target paths are correct, remove `--dry-run`. Interactive installs apply the main agent's catalog-supported project rules and settings with backups under the single confirmation; use `--no-apply` or the edit screen to keep activation manual. Headless `--yes` applies activation only with `--apply-snippets`. Every non-dry install runs the local presence health check automatically; live `--run` canaries stay opt-in. Read the generated `README.md` and the final "What's left for you" list for any remaining sign-in or paste steps. When updating an existing install, use `--update-docs` to regenerate unchanged managed documents; edited files stay and are named.
 
-When choosing tools, select companions explicitly with `--tools`. Defaults select none, including with `--yes`. The installer installs only its own files and prints third-party setup commands for the user.
+When choosing tools, select companions explicitly with `--tools`. Defaults select none, including with `--yes`. With activation enabled, supported project MCP configuration is merged with backups; global configuration remains a manual step. The installer runs no third-party installs or login flows. Uninstall removes unchanged recorded activation blocks and the hook or MCP entries it added, preserving surrounding content.
 
 When `aunx` is installed, use:
 

@@ -17,11 +17,15 @@ function fixture(binaries = []) {
   const marker = join(root, 'vendor-executed');
   for (const binary of binaries) {
     const file = join(bin, binary + (process.platform === 'win32' ? '.cmd' : ''));
-    writeFileSync(file, process.platform === 'win32' ? `@echo bad>${marker}\r\n` : `#!/bin/sh\nprintf bad > '${marker}'\n`, { mode: 0o755 });
+    const script = join(bin, binary + '.mjs');
+    writeFileSync(script, `import { appendFileSync } from 'node:fs';\nappendFileSync(${JSON.stringify(marker)}, JSON.stringify([${JSON.stringify(binary)}, ...process.argv.slice(2)]) + '\\n');\n`);
+    writeFileSync(file, process.platform === 'win32' ? `@ECHO off\r\n"%_prog%" "%dp0%\\${binary}.mjs" %*\r\n` : `#!${process.execPath}\nimport ${JSON.stringify('./' + binary + '.mjs')};\n`, { mode: 0o755 });
   }
   const env = { ...process.env };
   for (const key of Object.keys(env)) if (['PATH', 'HOME', 'USERPROFILE'].includes(key.toUpperCase())) delete env[key];
-  Object.assign(env, { PATH: bin, HOME: root, USERPROFILE: root });
+  const home = join(root, 'home');
+  mkdirSync(home);
+  Object.assign(env, { PATH: bin, HOME: home, USERPROFILE: home });
   const dir = join(root, 'ai');
   return {
     root, dir, marker,
@@ -33,7 +37,7 @@ function fixture(binaries = []) {
   };
 }
 
-test('default flow asks one question and detects without executing vendor binaries', () => {
+test('default flow asks one question and runs only the reliable read-only sign-in status', () => {
   const f = fixture(['claude', 'codex']);
   try {
     const r = f.run([], 'y\n');
@@ -42,7 +46,7 @@ test('default flow asks one question and detects without executing vendor binari
     assert.doesNotMatch(r.stdout, /\[y\/N\]|\[1\]|\[none\]|Which level\?|Which one is your main/);
     assert.match(r.stdout, /Looking for AI tools on your PATH/);
     assert.match(r.stdout, /Your stack: who does what/);
-    assert.equal(existsSync(f.marker), false);
+    assert.deepEqual(readFileSync(f.marker, 'utf8').trim().split('\n').map(JSON.parse), [['codex', 'login', 'status']]);
     const m = f.manifest();
     assert.deepEqual(m.ais, ['claude-code', 'codex']);
     assert.deepEqual(m.detected, ['claude-code', 'codex']);

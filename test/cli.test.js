@@ -212,9 +212,9 @@ test('non-interactive install writes a level 3 tree into a temp dir and refuses 
       assert.ok(existsSync(join(dir, f)), 'missing ' + f);
     }
     assert.ok(existsSync(join(project, '.claude', 'agents', 'bulk-worker.md')), 'subagents must land in --project');
-    assert.match(r.stdout, /To activate, in order:/);
+    assert.match(r.stdout, /What's left for you:/);
     assert.match(r.stdout, /1\. copy the block in .*CLAUDE\.snippet\.md into .*CLAUDE\.md/);
-    assert.match(r.stdout, /cli-run\.mjs' --doctor/);
+    assert.match(r.stdout, /Health check \(doctor/);
     assert.match(r.stdout, /api keys anthropic, openrouter/);
     rmSync(project, { recursive: true, force: true });
     const readme = readFileSync(join(dir, 'README.md'), 'utf8');
@@ -996,7 +996,7 @@ test('the tool block does not repeat the note label in the note', () => {
   try {
     const r = run(['--yes', '--level', '1', '--ais', 'claude-code', '--tools', 'codecalc', '--dir', dir, '--project', dir, '--no-install']);
     assert.equal(r.status, 0, r.stderr + r.stdout);
-    assert.match(r.stdout, /uvx 'codecalc\[full\]' setup --write/, 'the tool block must still print');
+    assert.match(r.stdout, /codecalc: merge .*mcpServers\.json.*CODECALC\.md/, 'manual registration guidance must still print');
     for (const line of r.stdout.split('\n')) {
       const m = line.match(/^\s*([A-Za-z]+):\s+([A-Za-z]+)/);
       if (m) assert.notEqual(m[1].toLowerCase(), m[2].toLowerCase(), `label repeats itself: ${line.trim()}`);

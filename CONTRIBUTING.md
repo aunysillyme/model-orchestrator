@@ -25,7 +25,7 @@ CI runs the same on Ubuntu, macOS and Windows across Node 18, 20 and 22, then pa
 
 ## Adding a companion tool
 
-An entry in `TOOLS` in `src/catalog.js`, a doc under `templates/tools/<id>/`, and registration snippets under `templates/tools/<id>/mcp/`. Say what the user needs first (`requires`) and how it behaves when absent. Every companion is opt-in, including with `--yes`. Selecting a tool writes docs and snippets; the installer never installs a third-party tool.
+An entry in `TOOLS` in `src/catalog.js`, a doc under `templates/tools/<id>/`, and registration snippets under `templates/tools/<id>/mcp/`. Say what the user needs first (`requires`) and how it behaves when absent. Every companion is opt-in, including with `--yes`. Selecting a tool writes docs and snippets. Catalog `mcpSnippets` maps each host to its snippet; a verified host `projectMcp` target enables a backed-up project merge when activation is enabled. Global config stays user-managed, and the installer never installs a third-party tool.
 
 ## Pull requests
 

@@ -19,11 +19,15 @@ Companion tools:
 
 This folder gives your agent routing instructions and, at level 2+, a runner for explicitly selected CLI lanes. The agent reads the rules and chooses the tier or lane; `aunx route` supplies a keyword suggestion and `aunx cli-run` runs the lane the caller selects.
 
-## Activate it
+## What's left for you
 
 These are the same steps, in the same order, that the installer printed in your terminal.{{CHAT_UPLOAD_NOTE}}
 
 {{ACTIVATION_STEPS}}
+
+Interactive installs apply the main agent's rules and supported project settings after the single confirmation. Choose automatic activation in the edit screen or use `--no-apply` to leave activation for later. With `--yes`, add `--apply-snippets` to apply it. Selected companions are registered when the main agent has a cataloged project MCP config; other hosts keep a manual setup step.
+
+The installer runs the doctor presence check automatically. Live canaries remain opt-in through `--doctor --run` at level 2 or above.
 
 ## Then prove it took
 
@@ -67,4 +71,4 @@ Level 2 adds `ROUTING.md`, `TIERS.md`, `DELEGATION_MATRIX.md`, `RESEARCH_TRIAGE.
 
 ## Uninstall
 
-When removing this installation, run the installer with `--uninstall` and the same `--dir` and `--project` paths. Use `--dry` first to inspect what would be removed. The manifest identifies managed files and their installed hashes; edited files are preserved and named. Never delete shared agent folders that may contain unrelated files. Review any rules or settings you merged by hand and remove only this installation's entries. The local log at `~/.ai-orchestrator/cli-run.log.jsonl` is shared across installations; preserve it while another installation uses it.
+When removing this installation, run the installer with `--uninstall` and the same `--dir` and `--project` paths. Use `--dry` first to inspect what would be removed. The manifest identifies managed files, applied rules blocks and added hook or MCP entries; edited entries are preserved and named. Backups stay beside changed files. Never delete shared agent folders that may contain unrelated files. Review any rules or settings you merged by hand and remove only this installation's entries. The local log at `~/.ai-orchestrator/cli-run.log.jsonl` is shared across installations; preserve it while another installation uses it.

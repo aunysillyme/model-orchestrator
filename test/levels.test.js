@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { planFiles, activationSteps } from '../src/install.js';
 import { byId } from '../src/catalog.js';
+import { installHealthCheck } from '../src/postinstall.js';
 
 const filesFor = (level, ids, primary = ids[0]) => planFiles({
   level, selected: ids.map(id => byId[id]), primary: byId[primary],
@@ -42,17 +43,16 @@ test('levels #2: independent review is relative to the main agent model family',
   assert.match(content(filesFor(2, ['claude-code', 'codex']), 'ROUTING.md'), /cli-run codex --audit[^\n]*different model family/);
 });
 
-test('levels #3: generated smoke command executes a runner path containing spaces', () => {
+test('levels #3: automatic doctor reads space-containing paths without executing a retained runner', async () => {
   const root = mkdtempSync(join(tmpdir(), 'orchestrator level smoke '));
   try {
     const dir = join(root, 'rules with spaces');
     mkdirSync(join(dir, 'bin'), { recursive: true });
-    writeFileSync(join(dir, 'bin', 'cli-run.mjs'), 'console.log(JSON.stringify(process.argv.slice(2)));\n');
-    const smoke = activationSteps({ level: 2, selected: [byId.codex], primary: byId.codex, dir, project: root }).find(step => step.startsWith('smoke test:'));
-    const command = smoke.slice('smoke test: '.length).split('   (or ')[0];
-    const run = spawnSync('bash', ['-c', command], { encoding: 'utf8' });
-    assert.equal(run.status, 0, run.stderr);
-    assert.deepEqual(JSON.parse(run.stdout), ['--doctor']);
+    writeFileSync(join(dir, 'bin', 'cli-run.mjs'), 'throw new Error("retained runner must not execute");\n');
+    writeFileSync(join(dir, 'bin', 'lanes.json'), JSON.stringify({ enabled: [], defaults: {} }));
+    const rc = await installHealthCheck({ level: 2, selected: [byId.codex], primary: byId.codex, dir });
+    assert.equal(rc, 13);
+    assert.equal(activationSteps({ level: 2, selected: [byId.codex], primary: byId.codex, dir, project: root }).some(step => step.startsWith('smoke test:')), false);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 

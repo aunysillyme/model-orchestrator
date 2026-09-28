@@ -1,11 +1,14 @@
 import { readFileSync, existsSync, mkdirSync, writeFileSync, chmodSync, readdirSync, statSync, lstatSync, unlinkSync, realpathSync, openSync, closeSync, fstatSync, constants } from 'node:fs';
-import { join, dirname, relative, resolve, sep, parse as parsePath, posix } from 'node:path';
+import { join, dirname, isAbsolute, relative, resolve, sep, parse as parsePath, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { homedir } from 'node:os';
 import { render } from './render.js';
+import { validateActivationOwnership } from './activation-ownership.js';
 import { createHash } from 'node:crypto';
 import { ROLE_SPECS, assignRoles, roleTable, roleRoute, manifestRoles, inferPrimary } from './roles.js';
 import { LANE_FLAGS } from '../bin/cli-run.mjs';
 import { AIS, LEVELS, TOOLS, PROVIDERS, IMAGES, byId, toolById, providerById, npmSpec, summaryWithEvidence } from './catalog.js';
+import { companionRegistrationSteps } from './apply-companions.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const GENERATOR_VERSION = JSON.parse(readFileSync(join(HERE, '..', 'package.json'), 'utf8')).version;
@@ -461,18 +464,20 @@ export function activationSteps(opts) {
   const projectAbs = resolve(opts.project || process.cwd());
   const snippet = snippetFor(primary);
   const steps = [];
-  if (opts.applySnippets) steps.push(`applied ${join(dirAbs, snippet)} to the model-orchestrator marked block in ${join(projectAbs, 'CLAUDE.md')}`);
-  else if (snippet && primary.rulesFile) steps.push(`copy the block in ${join(dirAbs, snippet)} into ${join(projectAbs, primary.rulesFile)} (create it if missing)`);
+  if (snippet && primary.rulesFile && !opts.applySnippets) steps.push(`copy the block in ${join(dirAbs, snippet)} into ${join(projectAbs, primary.rulesFile)} (create it if missing)`);
   // A chat app has no possessive that survives its catalog note: "Claude app or
   // claude.ai (chat only, no CLI)'s custom instructions" was the sentence this
   // replaces (#22).
-  else if (snippet) steps.push(`open ${primary.chatName || primary.name} and paste the block in ${join(dirAbs, snippet)} into its ${primary.chatSurface || 'custom instructions'}`);
-  if (primary && primary.facts.agentDefinitions) steps.push(`subagents are in ${join(projectAbs, primary.facts.agentDefinitions)}; run ${primary.bin} from ${projectAbs} to pick them up`);
+  else if (snippet && !primary.rulesFile) steps.push(`open ${primary.chatName || primary.name} and paste the block in ${join(dirAbs, snippet)} into its ${primary.chatSurface || 'custom instructions'}`);
   // Only claude-code ships hooks (route-gate, subagent-context): the wiring
   // lives in a snippet, applied only when the user opts in.
-  if (opts.applySnippets) steps.push(`applied hooks to ${join(projectAbs, '.claude', 'settings.json')}, preserving existing settings and hooks`);
-  else if (subagentsLoadRules(primary)) steps.push(`merge the hooks in ${join(dirAbs, 'settings.hooks.snippet.json')} into ${join(projectAbs, '.claude', 'settings.json')} (create it if missing) to wire the route-gate, subagent-context and route-metrics hooks`);
-  for (const a of selected.filter((a) => a.bin && a.facts.kind === 'agent-cli')) steps.push(`sign in to ${a.name}: ${a.auth}`);
+  if (!opts.applySnippets && subagentsLoadRules(primary)) steps.push(`merge the hooks in ${join(dirAbs, 'settings.hooks.snippet.json')} into ${join(projectAbs, '.claude', 'settings.json')} (create it if missing) to wire the route-gate, subagent-context and route-metrics hooks`);
+  for (const a of selected.filter((a) => a.bin && a.facts.kind === 'agent-cli')) {
+    if (opts.authStatuses?.[a.id] === true) continue;
+    steps.push(opts.authStatuses?.[a.id] === false
+      ? `sign in to ${a.name}: ${a.auth}`
+      : `${a.name}, if you have not signed in yet: ${a.auth}`);
+  }
   // A local runtime has a bin but no sign-in, so the agent-cli loop above skips it
   // and before this it appeared in no ordered list at any level (#26).
   for (const a of selected.filter((a) => a.bin && a.facts.kind === 'local-runtime')) {
@@ -480,8 +485,7 @@ export function activationSteps(opts) {
       ? `${a.name}: follow vm/README.md, then run \`bash setup-vm.sh --start-services\` in vm/ to pull the configured model into its Compose service and verify local-small`
       : `install ${a.name}: ${a.install.url}, then \`${a.bin} pull <model>\` before the local lane can answer`);
   }
-  for (const t of tools) steps.push(`${t.id}: ${t.install}`);
-  if (level >= 2) steps.push(`smoke test: node ${shellQuote(join(dirAbs, 'bin', 'cli-run.mjs'))} --doctor   (or aunx cli-run --dir ${shellQuote(dirAbs)} --doctor; add --run to send each lane one tiny prompt)`);
+  steps.push(...companionRegistrationSteps({ ...opts, tools, dir: dirAbs, project: projectAbs }));
   if (level >= 3) steps.push(`box: read ${join(dirAbs, 'vm', 'README.md')}; keys named in vm/ENVIRONMENT.md go in your secrets manager, never a file`);
   return steps;
 }
@@ -560,7 +564,7 @@ function vars(opts) {
     : '';
   const pinOf = (id) => (toolById[id] && toolById[id].pin) || 'latest';
   const snippet = snippetFor(primary);
-  const steps = activationSteps({ level, selected, primary, tools, dir: opts.dir, project: opts.project, applySnippets: opts.applySnippets });
+  const steps = activationSteps({ level, selected, primary, tools, dir: opts.dir, project: opts.project, applySnippets: opts.applySnippets, authStatuses: opts.authStatuses, registrations: opts.registrations });
   const proofs = proofSteps({ level, primary, selected });
   const routingFile = level >= 2 ? 'ROUTING.md' : 'ORCHESTRATOR.md';
   // The path route-gate.mjs and subagent-context.mjs resolve at runtime,
@@ -576,7 +580,7 @@ function vars(opts) {
   const readsProjectRules = !!(primary && primary.rulesFile);
   const whereThingsWent = [`- This folder: \`${dirAbs}\``];
   if (writesProject) whereThingsWent.push(`- Project root (where your agent reads rules and subagents): \`${projectAbs}\``, `- Subagent definitions: \`${join(projectAbs, primary.facts.agentDefinitions)}\``);
-  else if (readsProjectRules) whereThingsWent.push(`- Project root (where ${primary.name} reads \`${primary.rulesFile}\`): \`${projectAbs}\`` + (existsSync(projectAbs) ? '' : ' (this run wrote nothing there; create the folder before you copy the snippet in)'), '- Subagent definitions: none, this agent has no subagent folder');
+  else if (readsProjectRules) whereThingsWent.push(`- Project root (where ${primary.name} reads \`${primary.rulesFile}\`): \`${projectAbs}\`` + (opts.applySnippets || existsSync(projectAbs) ? '' : ' (this run wrote nothing there; create the folder before you copy the snippet in)'), '- Subagent definitions: none, this agent has no subagent folder');
   else whereThingsWent.push('- Project root: none. A chat app reads pasted instructions, not files, so this install wrote nothing to a project folder.', '- Subagent definitions: none');
   whereThingsWent.push(`- The rules path your snippets use: \`${rulesPath}\``);
   whereThingsWent.push(rulesPathNote
@@ -601,14 +605,14 @@ function vars(opts) {
     // Renders only when Qwen is actually selected: the sentence names a flag
     // that is a usage error on every other lane (C1).
     QWEN_SAFE_MODE_NOTE: selected.some(a => a.id === 'qwen') ? "When Qwen's safe mode is required, pass `--safe-mode` to that lane. " : '',
-    ACTIVATION_STEPS: steps.map((st, i) => `${i + 1}. ${st}`).join('\n'),
+    ACTIVATION_STEPS: steps.length ? steps.map((st, i) => `${i + 1}. ${st}`).join('\n') : 'Nothing left to do.',
     PROOF_STEPS: proofs.map((st, i) => `${i + 1}. ${st}`).join('\n'),
-    LOAD_IT: opts.applySnippets
-      ? 'The installer applied the generated rules to the model-orchestrator marked block in `CLAUDE.md` and merged the hooks into `.claude/settings.json`. Existing files changed by this run have timestamped backups beside them; their paths were printed in the terminal.'
+    LOAD_IT: opts.applySnippets && readsProjectRules
+      ? `The installer applied the generated rules to the model-orchestrator marked block in \`${primary.rulesFile}\`${subagentsLoadRules(primary) ? ' and merged the hooks into `.claude/settings.json`' : ''}. Existing files changed by this run have timestamped backups beside them; their paths were printed in the terminal.`
       : readsProjectRules
       ? `${primary.name} reads its rules from \`${primary.rulesFile}\` in the project root. The installer wrote \`${snippet}\` next to this README; copy its contents into \`${join(projectAbs, primary.rulesFile)}\`, creating that file if it does not exist. Nothing was appended to a file you already had.`
       : snippet
-        ? `${primary.name} has no project rules file, so the rules travel by paste. The installer wrote \`${snippet}\` next to this README; open ${primary.chatName || primary.name} and paste its contents into ${primary.chatSurface || 'custom instructions'}. Nothing was appended to a file you already had.`
+        ? `${primary.name} has no cataloged project rules file. Follow the paste step under "What's left for you" using \`${snippet}\` next to this README.`
         : 'No main agent was selected, so no activation file was written. Re-run the installer and pick one.',
     CLAUDE_SNIPPET_INTRO: opts.applySnippets
       ? '# Model orchestrator activation\n\nThe installer applied these rules to the marked block in `CLAUDE.md` at your project root.'
@@ -862,6 +866,28 @@ export function realRoot(dir) {
   return { root: missing.length ? join(real, ...missing) : real, exists: missing.length === 0 };
 }
 
+// Project activation must never become a machine-wide agent configuration.
+// Resolve the user's home as well as the requested root to cover system aliases.
+export function globalConfigProblem(path) {
+  const home = realRoot(homedir()).root;
+  const globalFolders = new Set(['.claude', '.codex', '.grok', '.qwen', '.gemini', '.agents', '.antigravity', '.hermes']);
+  for (const ai of AIS) {
+    if (ai.facts?.agentDefinitions) globalFolders.add(ai.facts.agentDefinitions.split('/')[0]);
+  }
+  const rules = new Set(AIS.map((ai) => ai.rulesFile).filter(Boolean));
+  rules.add('.mcp.json');
+  const relativePath = relative(home, path);
+  const globalFolder = [...globalFolders].some((folder) => {
+    const target = realRoot(join(home, folder)).root;
+    const rel = relative(target, path);
+    return rel === '' || rel !== '..' && !rel.startsWith('..' + sep) && !isAbsolute(rel);
+  });
+  if (rules.has(relativePath) || globalFolder) {
+    return `${path}: global agent configuration is outside the installer scope; choose a project folder below your home directory`;
+  }
+  return null;
+}
+
 export function preflight(files, dir) {
   const problems = dirProblems(dir);
   if (problems.length) return problems;
@@ -871,6 +897,11 @@ export function preflight(files, dir) {
     const abs = resolve(root, f.rel);
     if (abs === root || !abs.startsWith(root + sep)) {
       problems.push(`${f.rel}: resolves outside the target directory`);
+      continue;
+    }
+    const globalProblem = globalConfigProblem(abs);
+    if (globalProblem) {
+      problems.push(globalProblem);
       continue;
     }
     const parts = relative(root, abs).split(sep);
@@ -968,6 +999,37 @@ export function writeFiles(files, opts) {
   const belongsHere = (key) => typeof key === 'string' && sameRoots[key.startsWith('[project] ') ? 'project' : 'dir'];
   // A hash or directory from another project cannot establish ownership here.
   const prevHashes = previous?.files ? Object.fromEntries(Object.entries(previous.files).filter(([key]) => belongsHere(key))) : null;
+  if (sameRoots.project && previous?.activation !== undefined) {
+    if (!previous.activation || typeof previous.activation !== 'object' || Array.isArray(previous.activation)) {
+      throw Object.assign(new Error('invalid activation ownership in previous manifest'), { code: 'PREFLIGHT' });
+    }
+    for (const [key, ownership] of Object.entries(previous.activation)) {
+      const problem = validateActivationOwnership(key, ownership);
+      if (problem) throw Object.assign(new Error(problem), { code: 'PREFLIGHT' });
+    }
+  }
+  const activation = previous?.activation && typeof previous.activation === 'object' && !Array.isArray(previous.activation)
+    ? Object.fromEntries(Object.entries(previous.activation).filter(([key]) => belongsHere(key))) : {};
+  for (const file of files.filter((item) => item.activation)) {
+    const key = '[project] ' + toPosixRel(file.rel);
+    const prior = activation[key];
+    const next = { ...file.activation, created: file.original === null };
+    if (prior?.kind === next.kind) {
+      next.created = prior.created;
+      if (next.kind === 'rules') {
+        next.addedPrefix = prior.addedPrefix;
+        next.addedSuffix = prior.addedSuffix;
+      } else if (next.kind === 'hooks') {
+        next.hadHooks = prior.hadHooks;
+        next.originalEvents = prior.originalEvents;
+        next.hooks = [...new Map([...(prior.hooks || []), ...next.hooks].map((hook) => [JSON.stringify(hook), hook])).values()];
+      } else if (next.kind === 'mcp') {
+        next.servers = { ...prior.servers, ...next.servers };
+        next.hadKey = prior.hadKey;
+      }
+    }
+    activation[key] = next;
+  }
   const groups = { dir: files.filter((f) => (f.root || 'dir') === 'dir'), project: files.filter((f) => f.root === 'project') };
   const problems = [];
   for (const k of ['dir', 'project']) {
@@ -1124,6 +1186,7 @@ export function writeFiles(files, opts) {
           // formerly selected files, so uninstall still checks their original
           // installed hashes. New defaults do not erase a previous selection.
           m.files = { ...prevHashes, ...m.files };
+          if (Object.keys(activation).length) m.activation = activation;
           for (const removed of removedKeys) delete m.files[removed];
           for (const kk of Object.keys(m.files || {})) {
             if (!keptKeys.has(kk)) continue;
@@ -1132,7 +1195,7 @@ export function writeFiles(files, opts) {
           }
           content = JSON.stringify(m, null, 2) + '\n';
         }
-        if (exists && opts.backupExisting) {
+        if (exists && (opts.backupExisting || k === 'project')) {
           let stamp = Date.now();
           let backup;
           do {
