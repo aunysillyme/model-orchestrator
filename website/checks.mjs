@@ -45,6 +45,12 @@ function verifyHtml(html, route, documents) {
 const routes = ['/', ...[...pages.values()].map(slug => `/docs/${slug}/`)];
 const documents = new Map(routes.map(route => [route, inventory(readFileSync(path.join(out, route, 'index.html'), 'utf8'))]));
 
+test('documentation routes avoid the index segment canonicalized away by Vercel', () => {
+  assert.ok(![...pages.values()].includes('index'), 'Vercel redirects /docs/index/ to /docs/');
+  const config = JSON.parse(readFileSync(path.join(here, '..', 'vercel.json'), 'utf8'));
+  assert.ok(config.redirects.some(rule => rule.source === '/docs/' && rule.destination === '/docs/guides/' && rule.permanent));
+});
+
 test('all generated pages have one early Google tag, working local links and safe external links', () => {
   for (const route of routes) verifyHtml(readFileSync(path.join(out, route, 'index.html'), 'utf8'), route, documents);
   const notFound = readFileSync(path.join(out, '404.html'), 'utf8');

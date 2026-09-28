@@ -21,6 +21,8 @@ Publishing an npm version is a separate event. The landing page asks the public 
 5. The website checks validate generated pages and behavior. A failed build leaves the previous successful production deployment in place.
 6. Vercel serves `website/dist` at the custom domain. Cloudflare provides DNS for the subdomain.
 
+The documentation hub uses `/docs/guides/`; `/docs/` redirects there. Avoid an `index` route segment: Vercel normalizes it away before looking up the page.
+
 The root `vercel.json` is the source of the install, build and output settings. The project uses Node 24; local website development requires Node 22 or later. The package's Node 18 support remains separate.
 
 ## Dependencies
@@ -81,7 +83,7 @@ Open the local URL, check the desktop and mobile layouts, follow a documentation
 
 For production, open the custom domain and `/build-info.json`. Match its commit to the intended Git push and inspect the corresponding Vercel build's successful test output. Launch verified on 2026-09-28: Git push `ff74138b02c8ada3acf449ef95cdfae920bea2ec` automatically created production deployment `dpl_Esua8ytjsTdo8EBK9U6xYNuU28an` (source `git`, state `READY`). The public HTTPS `/build-info.json` returned that exact commit, npm version `1.0.1`, and 15 content pages. Vercel ran the package and website checks before promotion. GitHub website run `36380117546` also passed.
 
-Rollback uses Vercel's previous successful production deployment. Record its deployment identifier before promoting a replacement. The first known-good rollback target is `dpl_Esua8ytjsTdo8EBK9U6xYNuU28an` at commit `ff74138b02c8ada3acf449ef95cdfae920bea2ec`. The first launch has no prior product-site deployment to restore; its rollback is removal of the new subdomain assignment/DNS record without changing the portfolio's apex or www records.
+Rollback uses Vercel's previous successful production deployment. Record its deployment identifier before promoting a replacement. The initial launch deployment was `dpl_Esua8ytjsTdo8EBK9U6xYNuU28an` at commit `ff74138b02c8ada3acf449ef95cdfae920bea2ec`. That initial deployment predates the documentation-hub route correction. Select a later verified deployment when rolling back, and check `/docs/guides/` returns HTTP 200. The first launch had no prior product-site deployment to restore; its rollback is removal of the new subdomain assignment/DNS record without changing the portfolio's apex or www records.
 
 ## Source of truth
 
