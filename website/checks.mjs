@@ -173,3 +173,58 @@ test('sitemap includes every generated content page and build metadata identifie
   const info = JSON.parse(readFileSync(path.join(out, 'build-info.json'), 'utf8'));
   assert.match(info.commit, /^[a-f0-9]{40}$/); assert.ok(validRelease(info.published));
 });
+
+// Navigation regression: scroll position, not the last clicked link, owns the active tab.
+import {currentSection, setupNavigation} from './assets/navigation.js';
+test('navigation chooses each section in both directions and the last section at page end', () => {
+  const ids = ['overview','routing','trailer','quickstart','reference','proof','releases'];
+  for (const i of [0,1,2,3,4,5,6,5,4,3,2,1,0]) {
+    const sections = ids.map((id,j) => ({id,top:116+(j-i)*300}));
+    assert.equal(currentSection(sections,116,false),ids[i]);
+  }
+  assert.equal(currentSection(ids.map((id,i)=>({id,top:i*300})),116,true),'releases');
+});
+function navigationFixture() {
+  const ids=['overview','routing','trailer','quickstart','reference','proof','releases'];
+  const events={}, frames=[], observed=[];
+  const nav={clientHeight:80,scrollHeight:280,scrollTop:0,getBoundingClientRect:()=>({top:150,bottom:230})};
+  const link=(id,i,parent=nav)=>({hash:`#${id}`,parentElement:parent,attributes:{},classList:{toggle(_name,value){this.active=value;}},setAttribute(name,value){this.attributes[name]=value;},removeAttribute(name){delete this.attributes[name];},getBoundingClientRect:()=>({top:150+i*40-nav.scrollTop,bottom:190+i*40-nav.scrollTop})});
+  const desktop=ids.map((id,i)=>link(id,i)), mobile=ids.map((id,i)=>link(id,i));
+  const root={scrollHeight:3000}, main={}, header={getBoundingClientRect:()=>({bottom:74})};
+  const env={scrollY:0,innerHeight:600,getComputedStyle:()=>({scrollPaddingTop:'115px'}),requestAnimationFrame(fn){frames.push(fn);return frames.length;},addEventListener(name,fn){events[name]=fn;},ResizeObserver:class{constructor(fn){this.fn=fn;}observe(node){observed.push(node);}}};
+  const sections=ids.map((id,i)=>({id,getBoundingClientRect:()=>({top:i*350+120-env.scrollY})}));
+  const doc={documentElement:root,querySelectorAll:selector=>selector.startsWith('.side-links')?desktop:mobile,querySelector:selector=>selector==='main'?main:header,getElementById:id=>sections.find(s=>s.id===id)};
+  setupNavigation(doc,env);
+  const flush=()=>{while(frames.length)frames.shift()();};
+  return {ids,desktop,mobile,root,nav,env,events,frames,observed,flush};
+}
+test('manual scroll updates both menus and aria-current without clicks or document scrolling', () => {
+  const f=navigationFixture();
+  assert.equal(f.desktop[0].attributes['aria-current'],'location');
+  for(const index of [2,4,1,0]) {
+    f.env.scrollY=index*350+10; f.events.scroll(); f.flush();
+    for(const menu of [f.desktop,f.mobile]) {
+      assert.deepEqual(menu.filter(x=>x.classList.active).map(x=>x.hash),[`#${f.ids[index]}`]);
+      assert.deepEqual(menu.filter(x=>x.attributes['aria-current']).map(x=>x.hash),[`#${f.ids[index]}`]);
+    }
+    assert.equal(f.env.scrollY,index*350+10);
+  }
+});
+test('navigation batches events, follows deep-link/restore/resize positions and reveals clipped tabs', () => {
+  const f=navigationFixture(); f.env.scrollY=1410;
+  f.events.hashchange(); f.events.pageshow(); f.events.resize();
+  assert.equal(f.frames.length,1); f.flush();
+  assert.equal(f.desktop[4].attributes['aria-current'],'location');
+  assert.ok(f.nav.scrollTop>0); assert.equal(f.env.scrollY,1410);
+  f.env.scrollY=2400; f.events.scroll(); f.flush();
+  assert.equal(f.desktop[6].attributes['aria-current'],'location');
+  f.env.scrollY=0; f.events.scroll(); f.flush();
+  assert.equal(f.nav.scrollTop,0); assert.equal(f.desktop[0].attributes['aria-current'],'location');
+  assert.equal(f.observed.length,2);
+});
+test('landing breadcrumb is Home with the same portfolio destination', () => {
+  const html=readFileSync(path.join(out,'index.html'),'utf8');
+  assert.match(html,/<div class="crumb"><a href="https:\/\/aunysillyme.dev\/"[^>]*>Home<\/a>/);
+  assert.ok(existsSync(path.join(out,'assets/navigation.js')));
+  assert.match(readFileSync(path.join(out,'assets/site.js'),'utf8'),/setupNavigation\(\)/);
+});
