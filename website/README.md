@@ -85,6 +85,8 @@ For production, open the custom domain and `/build-info.json`. Match its commit 
 
 Rollback uses Vercel's previous successful production deployment. Record its deployment identifier before promoting a replacement. The initial launch deployment was `dpl_Esua8ytjsTdo8EBK9U6xYNuU28an` at commit `ff74138b02c8ada3acf449ef95cdfae920bea2ec`. That initial deployment predates the documentation-hub route correction. Select a later verified deployment when rolling back, and check `/docs/guides/` returns HTTP 200. The first launch had no prior product-site deployment to restore; its rollback is removal of the new subdomain assignment/DNS record without changing the portfolio's apex or www records.
 
+The shared Open Graph and Twitter thumbnail is `/assets/social-preview.png` (1200 × 630). Its editable source is `website/design/social-preview.svg`, adapted from the portfolio’s original template with its avatar, data background and three-tone green border. After editing the SVG, render locally with `rsvg-convert website/design/social-preview.svg -o website/assets/social-preview.png` (librsvg and the template’s Monaco/Helvetica Neue fonts are needed locally). Commit both files. Production uses the committed PNG and needs no image-rendering dependency. `website/content.mjs` assigns it to every generated page; it is separate from the trailer poster. Website checks verify the image size and metadata, and Vercel’s existing Git build publishes it. After deployment, verify the public image URL returns `image/png` and matches the committed bytes.
+
 ## Source of truth
 
 - Product behavior and documentation: this repository's README, public guides and CHANGELOG.

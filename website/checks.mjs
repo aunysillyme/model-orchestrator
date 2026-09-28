@@ -56,6 +56,25 @@ test('all generated pages have one early Google tag, working local links and saf
   const notFound = readFileSync(path.join(out, '404.html'), 'utf8');
   verifyHtml(notFound, '/', documents);
 });
+test('every generated page advertises the bundled social thumbnail with its real dimensions', () => {
+  const image = readFileSync(path.join(out, 'assets/social-preview.png'));
+  assert.deepEqual(image.subarray(0, 8), Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+  assert.equal(image.readUInt32BE(16), 1200);
+  assert.equal(image.readUInt32BE(20), 630);
+  const files = [...routes.map(route => path.join(out, route, 'index.html')), path.join(out, '404.html')];
+  for (const file of files) {
+    const {tags} = inventory(readFileSync(file, 'utf8'));
+    for (const [key, expected] of Object.entries({
+      'og:image': `${origin}/assets/social-preview.png`,
+      'og:image:type': 'image/png', 'og:image:width': '1200', 'og:image:height': '630',
+      'twitter:image': `${origin}/assets/social-preview.png`, 'twitter:card': 'summary_large_image',
+    })) {
+      const matches = tags.filter(({name, attrs}) => name === 'meta' && (attrs.property === key || attrs.name === key));
+      assert.equal(matches.length, 1, `${file}: exactly one ${key}`);
+      assert.equal(matches[0].attrs.content, expected, `${file}: ${key}`);
+    }
+  }
+});
 test('link and Google tag checks reject deliberately broken HTML', () => {
   const clean = documentHtml({title: 'Fixture', description: 'Fixture', route: '/', body: '<a href="#missing">Broken</a>'});
   assert.throws(() => verifyHtml(clean, '/', documents), /Missing anchor/);
