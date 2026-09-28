@@ -4,6 +4,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep, win32 } fr
 import { dirProblems, globalConfigProblem, realRoot } from './install.js';
 import { START, END } from './apply-snippets.js';
 import { validateActivationOwnership } from './activation-ownership.js';
+import { MANIFEST_BYTE_CAP, readBounded } from './bounded-file.js';
 
 const hash = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const object = (value) => value && typeof value === 'object' && !Array.isArray(value);
@@ -70,7 +71,7 @@ function readRegular(item) {
   try {
     const actual = fstatSync(fd);
     if (!actual.isFile() || actual.dev !== expected.dev || actual.ino !== expected.ino) throw refused(`file changed during inspection: ${item.abs}`);
-    return { bytes: readFileSync(fd), stat: actual };
+    return { bytes: item.maxBytes ? readBounded(fd, item.maxBytes) : readFileSync(fd), stat: actual };
   } finally { closeSync(fd); }
 }
 
@@ -176,7 +177,7 @@ function applyRemoval(item, plan) {
 // inventory, never authority to expand the two roots supplied by the caller.
 export function uninstallFiles({ dir, project, dry = false }) {
   const roots = { dir: targetRoot(dir), project: targetRoot(project) };
-  const manifest = entry('MANIFEST.json', roots);
+  const manifest = { ...entry('MANIFEST.json', roots), maxBytes: MANIFEST_BYTE_CAP };
   const saved = readRegular(manifest);
   if (!saved) throw refused(`missing manifest: ${join(resolve(dir), 'MANIFEST.json')}`);
   let data;

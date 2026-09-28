@@ -1,4 +1,4 @@
 # Merge into ~/.codex/config.toml
 [mcp_servers.codecalc]
 command = "uvx"
-args = ["codecalc[full]"]
+args = ["codecalc[full]=={{CODECALC_PIN}}"]

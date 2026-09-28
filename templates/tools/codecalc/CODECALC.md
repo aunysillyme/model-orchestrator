@@ -9,13 +9,13 @@ What it gives every agent in this folder: exact arithmetic (`evaluate_expression
 Needs `uv` (https://docs.astral.sh/uv/) and Python 3.10+.
 
 ```bash
-uvx 'codecalc[full]' setup            # prints what it would do, changes nothing
-uvx 'codecalc[full]' setup --write    # merges the codecalc entry into your client's config, copies the skill
+uvx 'codecalc[full]=={{CODECALC_PIN}}' setup            # prints what it would do, changes nothing
+uvx 'codecalc[full]=={{CODECALC_PIN}}' setup --write    # merges the codecalc entry into your client's config, copies the skill
 ```
 
-`setup` detects Claude Desktop, Claude Code, Cursor, VS Code and Zed (`--client=NAME` if several), runs two real canaries and ends in one verdict: `ready` / `degraded` / `not-ready`. It backs up the client config it touches. `uvx 'codecalc[full]' doctor` prints a config block with your absolute paths.
+`setup` detects Claude Desktop, Claude Code, Cursor, VS Code and Zed (`--client=NAME` if several), runs two real canaries and ends in one verdict: `ready` / `degraded` / `not-ready`. It backs up the client config it touches. `uvx 'codecalc[full]=={{CODECALC_PIN}}' doctor` prints a config block with your absolute paths.
 
-Pinned form, if you want the version this installer was released with: `uvx 'codecalc[full]=={{CODECALC_PIN}}' setup --write`. `[full]` is the edition that actually runs everything documented (about 120 MB). Base `codecalc` is execution only; symbolic tools then return a `dependency_missing` error naming the extra, never a silent failure.
+These commands and the shipped launch snippets use the catalog version this installer was released with. Review a newer release before changing that pin. `[full]` is the edition that actually runs everything documented (about 120 MB). Base `codecalc` is execution only; symbolic tools then return a `dependency_missing` error naming the extra, never a silent failure.
 
 ## Register more agents with `mcp/` snippets
 

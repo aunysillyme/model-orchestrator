@@ -29,7 +29,7 @@ A durable, searchable, governed store that the protocols can call by name:
 ## Install
 
 ```bash
-npm install -g obsidian-tc@{{OBSIDIAN_TC_PIN}}   # the version this installer was released with; drop the pin for latest
+npm install -g obsidian-tc@{{OBSIDIAN_TC_PIN}}   # reviewed catalog version; review an upgrade before changing the pin
 ollama pull nomic-embed-text
 obsidian-tc /path/to/your/vault          # zero-config: one vault named "main", local only
 obsidian-tc plugin install --vault /path/to/your/vault   # optional companion plugin, then enable it in Obsidian
@@ -68,7 +68,7 @@ Every snippet here spawns `npx`, and on Windows `npx` is a batch file (`npx.cmd`
 
 The SDK point covers more than these two clients: every published `@modelcontextprotocol/sdk` from 1.23.0 through 1.30.0 depends on `cross-spawn ^7.0.5` and uses it in the stdio client, so any client that connects through the stock TypeScript SDK inherits the same `PATHEXT` resolution. `shell: false` in that transport is not the whole story, and reading only that line is how a client gets mistaken for one that cannot start `npx`.
 
-One Windows case can still fail, and it is not about `.cmd`. Zed prefers PowerShell for the system shell (`get_windows_system_shell` in `crates/gpui_util/src/lib.rs` falls back to `cmd.exe` only when PowerShell is missing), and PowerShell resolves a bare `npx` to npm's `npx.ps1` shim when one is installed. Under the `Restricted` execution policy that is Windows' client default, running a `.ps1` is blocked. If Zed reports that the server would not start, check `Get-ExecutionPolicy` first, and if that is the cause, change the Zed entry by hand to `"command": "cmd"` with `"args": ["/d", "/c", "npx", "-y", "obsidian-tc"]`, keeping the rest of the block. `/d` is there on purpose: it skips any Command Processor `AutoRun` command, which would otherwise run first and can print non-JSON into the protocol stream.
+One Windows case can still fail, and it is not about `.cmd`. Zed prefers PowerShell for the system shell (`get_windows_system_shell` in `crates/gpui_util/src/lib.rs` falls back to `cmd.exe` only when PowerShell is missing), and PowerShell resolves a bare `npx` to npm's `npx.ps1` shim when one is installed. Under the `Restricted` execution policy that is Windows' client default, running a `.ps1` is blocked. If Zed reports that the server would not start, check `Get-ExecutionPolicy` first, and if that is the cause, change the Zed entry by hand to `"command": "cmd"` with `"args": ["/d", "/c", "npx", "-y", "obsidian-tc@{{OBSIDIAN_TC_PIN}}"]`, keeping the rest of the block. `/d` is there on purpose: it skips any Command Processor `AutoRun` command, which would otherwise run first and can print non-JSON into the protocol stream.
 
 None of this was run on a Windows machine by this project. The five verdicts are from each client's own shipped code; the PowerShell case is from Zed's shell choice plus documented `Restricted` behaviour, and is the one worth reporting back if you hit it.
 

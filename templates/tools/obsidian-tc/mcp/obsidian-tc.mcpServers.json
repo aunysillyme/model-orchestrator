@@ -2,7 +2,7 @@
   "mcpServers": {
     "obsidian-tc": {
       "command": "npx",
-      "args": ["-y", "obsidian-tc"],
+      "args": ["-y", "obsidian-tc@{{OBSIDIAN_TC_PIN}}"],
       "env": { "OBSIDIAN_TC_CONFIG": "/ABSOLUTE/PATH/TO/obsidian-tc.config.json" }
     }
   }

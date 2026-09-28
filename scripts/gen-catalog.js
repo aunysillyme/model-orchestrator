@@ -39,9 +39,12 @@ export function catalogMarkdown() {
     for (const [key, value] of Object.entries(a.facts)) md += `| \`${key}\` | ${factValue(value)}${a.factNotes?.[key] ? ` (${factValue(a.factNotes[key])})` : ''} |\n`;
     md += '\n';
   }
-  md += '## Companion tools\n\n';
+  md += '## Companion tools\n\nModel-orchestrator project activation merges supported MCP entries for selected companions when activation is enabled. The vendor command auto-registration field below describes what the listed vendor command does when you run it yourself. Global client configuration remains manual.\n\n';
   for (const t of TOOLS) {
-    md += `### \`${t.id}\` · ${t.name}\n\n- **Repo:** ${t.repo}\n- **Gives:** ${t.role}\n- **Install:** \`${t.install}\` (needs ${t.requires})\n- **Registers itself with:** ${t.autoClients.join(', ')}; snippets for the rest are written to \`mcp/\`\n- **Default:** ${t.recommended ? 'selected' : 'not selected'}\n\n`;
+    const registration = t.autoClients.length
+      ? `${t.autoClients.join(', ')}; snippets for the rest are written to \`mcp/\``
+      : 'none; use project activation or merge the supplied snippets in `mcp/` using the tool guide';
+    md += `### \`${t.id}\` · ${t.name}\n\n- **Repo:** ${t.repo}\n- **Gives:** ${t.role}\n- **Install:** \`${t.install}\` (needs ${t.requires})\n- **Vendor command auto-registration:** ${registration}\n- **Default:** ${t.recommended ? 'selected' : 'not selected'}\n\n`;
   }
   return md;
 }

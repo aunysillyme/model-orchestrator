@@ -9,6 +9,7 @@ import { ROLE_SPECS, assignRoles, roleTable, roleRoute, manifestRoles, inferPrim
 import { LANE_FLAGS } from '../bin/cli-run.mjs';
 import { AIS, LEVELS, TOOLS, PROVIDERS, IMAGES, byId, toolById, providerById, npmSpec, summaryWithEvidence } from './catalog.js';
 import { companionRegistrationSteps } from './apply-companions.js';
+import { MANIFEST_BYTE_CAP, readRegularFile } from './bounded-file.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const GENERATOR_VERSION = JSON.parse(readFileSync(join(HERE, '..', 'package.json'), 'utf8')).version;
@@ -1007,10 +1008,11 @@ export function fileClass(rel, separator = sep) {
 
 export function readManifest(dir) {
   try {
-    const j = JSON.parse(readFileSync(join(resolve(dir), 'MANIFEST.json'), 'utf8'));
+    const j = JSON.parse(readRegularFile(join(resolve(dir), 'MANIFEST.json'), MANIFEST_BYTE_CAP).toString('utf8'));
     return j && typeof j === 'object' ? j : null;
-  } catch {
-    return null;
+  } catch (error) {
+    if (error.code === 'ENOENT' || error instanceof SyntaxError) return null;
+    throw error;
   }
 }
 

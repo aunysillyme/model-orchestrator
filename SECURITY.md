@@ -1,8 +1,12 @@
 # Security policy
 
-This tool writes files into folders you name (`--dir` and `--project`) and, only after you say yes per package, runs `npm install -g <package>` for packages pinned in `src/catalog.js`. It never runs a vendor shell script, never writes a credential, and never overwrites a document without `--force`; the two stated exceptions (machine-owned config, hash-verified runtime files) are in the README. `bin/cli-run.mjs` spawns the agent CLI you name with the prompt you give it, in its own process group, and kills that group on timeout, overrun or signal. Nothing here makes a network call of its own; the vendor CLIs and `npm install` do.
+The installer writes files inside the folders you name (`--dir` and `--project`). It never installs third-party packages, runs vendor shell scripts or writes credentials. Companion tools are opt-in; their guides and launch snippets use the exact versions in `src/catalog.js`. You run any third-party installation yourself. Home-level agent configuration is outside the installer scope.
 
-Threat model and the audit rounds that shipped with each release: `docs/audit-brief.md` and `CHANGELOG.md`.
+Existing documents stay by default. `--force` explicitly replaces them; `--update-docs` replaces only unchanged managed documents. Machine-owned manifests and lane configuration refresh on every run, and unchanged managed runtime files upgrade automatically. `--upgrade-runtime` explicitly replaces runtime files. Project activation merges supported rules, hooks and companion entries with backups; interactive confirmation enables it by default, while `--yes` requires `--apply-snippets`. See [installation and ownership rules](docs/install.md).
+
+`bin/cli-run.mjs` spawns the agent CLI you name with your prompt in its own process group and kills that group on timeout, overrun or signal. Vendor CLIs and companion tools may access the network and local data under their own permissions. The separately invoked level 3 setup and weekly audit scripts have their own installation and network behavior; inspect their generated instructions before running them.
+
+Completed reviews and current guarantees: [security review history](docs/security-review-history.md), [guarantees](docs/guarantees.md) and [changelog](CHANGELOG.md).
 
 ## Reporting a vulnerability
 
@@ -14,4 +18,4 @@ Findings are reproduced before they are acted on; `CLEAN` is an acceptable outco
 
 ## Scope
 
-In scope: `bin/`, `src/`, `scripts/`, the templates, and the files the installer writes from them (the weekly audit job, compose file, gateway config and setup script included). Out of scope: the agent CLIs, models and companion tools this package installs or links to; report those to their own projects.
+In scope: `bin/`, `src/`, `scripts/`, the templates, and the files the installer writes from them (the weekly audit job, compose file, gateway config and setup script included). Out of scope: the agent CLIs, models and companion tools this package links to; report those to their own projects.
