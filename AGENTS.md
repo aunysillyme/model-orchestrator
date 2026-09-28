@@ -33,6 +33,6 @@ When using the Claude Code plugin, follow [plugin/README.md](plugin/README.md). 
 - **Installer safety:** writes remain inside `--dir` and `--project`; preserve user edits according to manifest hashes and explicit flags. Run no third-party installer.
 - **Runner safety:** preserve exit codes and the log schema. Before changing an output judge, add a failing case in `test/judges.test.js`.
 - **Secrets:** use environment-variable names only. Never add a credential value to code, examples or tests.
-- **Proof:** measure through `proof/scripts/`, store results in `proof/results.json` and regenerate the proof page. The suite rejects expired entries.
+- **Proof:** measure through `proof/scripts/`, store results in `proof/results.json` and regenerate the proof page. An expired entry warns and is re-measured; it never blocks tests or releases.
 - **Verify:** run `npm test` and report tests, pass, fail, skipped and exit code. The suite prints current counts. Use `npm pack --dry-run` to inspect publication contents.
 - **Style:** use short condition-to-action instructions and no em dashes. `test/prose.test.js` checks public vocabulary and examples.

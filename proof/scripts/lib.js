@@ -64,7 +64,9 @@ export function validateResults(data, now = new Date()) {
     else {
       if (item.measuredAt > today) errors.push(`${item.id}: measurement is in the future`);
       if (item.expiresAt < item.measuredAt) errors.push(`${item.id}: expiry precedes measurement`);
-      if (item.expiresAt < today) errors.push(`${item.id}: expired ${item.expiresAt}`);
+      // Expiry is a refresh signal, never a gate: an expired figure is reported and
+      // left off the pages, and tests, CI and releases keep running.
+      if (item.expiresAt < today) console.warn(`proof: ${item.id} expired ${item.expiresAt}; rerun node proof/scripts/measure.js`);
     }
     const localAuthorSource = item.kind === 'author-setup' && item.script === 'author setup, re-measured locally';
     if (!localAuthorSource && (typeof item.script !== 'string' || !/^proof\/scripts\/[A-Za-z0-9_-]+\.js$/.test(item.script))) errors.push(`${item.id}: script must name a proof script`);

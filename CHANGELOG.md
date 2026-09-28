@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [1.0.5] - 2026-09-28
+
+### Changed
+
+- The proof page keeps only figures that measure this package. The two browser token figures measured the author's own browser subagent, which model-orchestrator does not ship, and are removed from the proof data, the site and the trailer.
+- An expired proof figure is a signal to re-measure: it warns and never fails tests, CI or a release. The product site leaves expired figures off.
+
 ## [1.0.4] - 2026-09-28
 
 ### Security
@@ -550,7 +557,8 @@ First release.
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
-[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.4...HEAD
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.5...HEAD
+[1.0.5]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.4...v1.0.5
 [1.0.4]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.1...v1.0.2

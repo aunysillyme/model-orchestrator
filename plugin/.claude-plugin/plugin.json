@@ -1,6 +1,6 @@
 {
   "name": "model-orchestrator",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Model router for Claude Code: injects project routing rules on each prompt and provides 8 subagents for planning, working and cheap model tiers.",
   "author": {
     "name": "model-orchestrator maintainers",
