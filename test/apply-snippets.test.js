@@ -37,7 +37,9 @@ test('apply-snippets: create missing rules and settings with applied activation 
   assert.equal(r.status, 0, r.stderr);
   assert.ok(read(s.rules).includes(START));
   assert.ok(json(s.settings).hooks.UserPromptSubmit.length);
-  assert.match(r.stdout, /update .*CLAUDE\.md \(marked block, backup kept/);
+  // Q8: a rules file that did not exist before this run is created, not
+  // updated, and there is nothing to back up.
+  assert.match(r.stdout, /create .*CLAUDE\.md \(new file, marked block/);
   assert.doesNotMatch(r.stdout.split("What's left for you:")[1], /copy the block|merge the hooks/);
   assert.match(read(join(s.dir, 'README.md')), /applied the generated rules/);
   const manifest = json(join(s.dir, 'MANIFEST.json'));

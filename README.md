@@ -39,7 +39,7 @@ npx model-orchestrator --yes --level 2 --ais claude-code,codex --primary claude-
 
 The interactive installer applies the main agent's project rules and, for Claude Code, merges its hooks. The summary names these changes before the single confirmation; existing files get timestamped backups. A local health check runs automatically after installation.
 
-- **What's left for you:** follow the remaining sign-in or setup steps printed at the end. Codex sign-in is listed only when its reliable status check cannot confirm it; other CLIs get an "if you have not signed in yet" instruction. A chat-app main agent keeps one paste step.
+- **What's left for you:** follow the remaining sign-in or setup steps printed at the end. Codex sign-in is listed only when its reliable status check cannot confirm it; other CLIs get an "if you have not signed in yet" instruction. A chat-app main agent keeps one paste step. A CLI main agent with no cataloged project rules file (for example Grok or Hermes) gets a "load the block" instruction instead of a file to copy.
 - **Your agent:** start a fresh session in the project. `ai-orchestrator/README.md` (or the README in your chosen `--dir`) explains the installed rules and activation check.
 - **Control:** use `--no-apply` or the edit screen to keep activation manual. Headless `--yes` keeps project rules and settings untouched unless you add `--apply-snippets`. Use `--dry` to preview.
 

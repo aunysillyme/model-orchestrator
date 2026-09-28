@@ -1,7 +1,7 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
-import { preflight } from './install.js';
+import { preflight, ACTIVATION_JSON_BYTE_CAP } from './install.js';
 
 const object = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 const refuse = (message) => Object.assign(new Error(message), { code: 'PREFLIGHT' });
@@ -17,6 +17,11 @@ export function planCompanionApplication({ primary, tools = [], project, files, 
   const problems = preflight([{ rel: host.file }], project);
   if (problems.length) throw refuse(problems.join('; '));
   const path = join(project, host.file);
+  // R1: refuse an oversized pre-existing MCP config before it is read, the
+  // same way invalid JSON is refused today.
+  if (existsSync(path) && statSync(path).size > ACTIVATION_JSON_BYTE_CAP) {
+    throw refuse(`${path}: larger than the ${ACTIVATION_JSON_BYTE_CAP} byte (10 MB) cap on a pre-existing settings/MCP JSON file; nothing written`);
+  }
   const original = existsSync(path) ? readFileSync(path) : null;
   let settings = {};
   if (original) {

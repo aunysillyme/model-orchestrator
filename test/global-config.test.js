@@ -11,7 +11,12 @@ const cli = fileURLToPath(new URL('../bin/cli.js', import.meta.url));
 function setup(t) {
   const home = mkdtempSync(join(tmpdir(), 'mo-global-'));
   t.after(() => rmSync(home, { recursive: true, force: true }));
-  const run = (args) => spawnSync(process.execPath, [cli, ...args], { encoding: 'utf8', timeout: 10000, env: { ...process.env, HOME: home, USERPROFILE: home } });
+  // Q1: claude-code now carries a reliable sign-in status command too. An
+  // unstubbed PATH would let signInStatus resolve and run the real `claude`
+  // binary, which writes its own config under $HOME as a side effect
+  // unrelated to model-orchestrator; these tests check only OUR writes, so
+  // PATH is emptied to keep every vendor CLI unresolved.
+  const run = (args) => spawnSync(process.execPath, [cli, ...args], { encoding: 'utf8', timeout: 10000, env: { ...process.env, HOME: home, USERPROFILE: home, PATH: '' } });
   return { home, run };
 }
 

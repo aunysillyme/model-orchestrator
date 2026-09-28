@@ -12,6 +12,7 @@
     "src",
     "templates",
     "docs",
+    "!docs/router-trailer.gif",
     "README.md",
     "LICENSE",
     "CHANGELOG.md",

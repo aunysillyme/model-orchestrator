@@ -9,7 +9,7 @@ import { makeAsker } from '../src/prompt.js';
 import { resolve, join } from 'node:path';
 import { which } from '../src/detect.js';
 import { AIS, LEVELS, TOOLS, PROVIDERS, aisForLevel, agentCandidates, byId, npmSpec, summaryWithEvidence } from '../src/catalog.js';
-import { planFiles, writeFiles, resolveSelection, resolveTools, resolveApis, dirProblems, readManifest, activationSteps, MACHINE_OWNED, RUNTIME, toPosixRel, GENERATOR_VERSION } from '../src/install.js';
+import { planFiles, writeFiles, writePreflightProblems, resolveSelection, resolveTools, resolveApis, dirProblems, readManifest, activationSteps, MACHINE_OWNED, RUNTIME, toPosixRel, GENERATOR_VERSION } from '../src/install.js';
 import { uninstallFiles } from '../src/uninstall.js';
 import { assertSnippetPrimary, planSnippetApplication } from '../src/apply-snippets.js';
 import { assignRoles, inferPrimary, roleTable } from '../src/roles.js';
@@ -467,11 +467,23 @@ async function main() {
       + (effortAuto.length || sources.has('effort-auto') ? `\n  auto effort ${effortAuto.join(', ') || 'none eligible'}${from('effort-auto')}` : '')
       + `\n  folder   ${dir}${from('dir')}\n  project  ${project}${projectKinds ? ' (' + projectKinds + ' go here)' : ''}${from('project')}\n  files    ${files.length}`);
     if (plansKept) console.log('  plans kept from the previous run');
-    console.log(`  activation ${applySnippets ? 'automatic' : 'manual'}${from('apply-snippets')}${from('no-apply')}`);
+    // Q4: automatic activation only ever means a rules file gets written for
+    // the primary; a primary with none (a chat app, or a CLI the catalog has
+    // no rules file for, such as Grok or Hermes) always keeps a manual step,
+    // whatever --apply-snippets or the edit screen say.
+    console.log(`  activation ${applySnippets && assertSnippetPrimary(primary) ? 'automatic' : 'manual'}${from('apply-snippets')}${from('no-apply')}`);
     for (const file of agentFiles) {
       const path = join(project, file.rel);
-      const action = file.applySnippet ? file.rel === primary.rulesFile ? 'update' : file.rel === join('.claude', 'settings.json') ? 'merge hooks into' : 'merge config into' : 'write';
-      console.log(`    ${action} ${path} (${file.applySnippet && file.rel === primary.rulesFile ? 'marked block, ' : ''}backup kept if changed)`);
+      // Q8: a rules file that does not exist yet is created, not updated, and
+      // there is nothing to back up. file.original is null exactly when this
+      // run is the first to write it.
+      const rulesCreated = file.applySnippet && file.rel === primary.rulesFile && file.original === null;
+      const action = rulesCreated ? 'create'
+        : file.applySnippet ? file.rel === primary.rulesFile ? 'update' : file.rel === join('.claude', 'settings.json') ? 'merge hooks into' : 'merge config into'
+        : 'write';
+      const note = rulesCreated ? 'new file, marked block'
+        : `${file.applySnippet && file.rel === primary.rulesFile ? 'marked block, ' : ''}backup kept if changed`;
+      console.log(`    ${action} ${path} (${note})`);
     }
     if (primary.facts.agentDefinitions) console.log(`  subagent location: ${join(project, primary.facts.agentDefinitions)}; launch ${primary.bin} from ${project}`);
     if (agentFiles.length && !sources.has('project')) console.log(`\nNote: --project defaults to the current directory, so the ${projectKinds} go to the current directory (${project}). Pass --project to put them somewhere else.`);
@@ -515,6 +527,11 @@ async function main() {
     return;
   }
   const { level, selected, primary, dir, project, tools, apis, plans, effortAuto, applySnippets } = setup;
+  // Q1 safety: a doomed write (global agent config, path escape) must never
+  // first run a real vendor status command such as `claude auth status`.
+  // Check the same path safety writeFiles() will check, before any subprocess.
+  const earlyProblems = writePreflightProblems(files, { dir, project });
+  if (earlyProblems.length) bad('refusing to write:\n  ' + earlyProblems.join('\n  '));
   const authStatuses = signInStatus(selected);
   // Final remaining steps include the observed sign-in and MCP merge results.
   // Render before writing so README ownership and preservation stay unchanged.

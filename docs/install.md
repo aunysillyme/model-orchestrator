@@ -53,7 +53,7 @@ npx model-orchestrator --yes --level 2 --ais claude-code,codex --primary claude-
 
 Every non-dry install runs the existing runner's `--doctor` presence check automatically, with no network or prompt sent. A missing CLI is reported alongside its installation command; the installer never runs that command. `--doctor --run` remains an explicit live check through your own vendor sign-ins.
 
-Sign-in status is checked only when the catalog records a reliable command. Codex uses `codex login status`; a confirmed session removes its sign-in from **What's left for you**. Other CLIs get "if you have not signed in yet" followed by their sign-in instruction. The installer never runs a login flow.
+Sign-in status is checked only when the catalog records a reliable command. Codex uses `codex login status`; a confirmed session removes its sign-in from **What's left for you**, and a confirmed sign-out prints a direct "sign in to Codex" step. Claude Code uses `claude auth status` and trusts only a confirmed sign-in the same way, but never a confirmed sign-out: an author-machine probe found a working, signed-in session that still reports a JSON sign-out, so any result other than a confirmed sign-in keeps the conditional "if you have not signed in yet" step for Claude Code. Every other CLI gets that same conditional step followed by its sign-in instruction. The installer never runs a login flow.
 
 Start a fresh agent session in the displayed project to load the installed rules. For a later presence check, use `aunx cli-run --doctor`, or at level 2 and up `node ./ai-orchestrator/bin/cli-run.mjs --doctor` with your chosen rules path.
 

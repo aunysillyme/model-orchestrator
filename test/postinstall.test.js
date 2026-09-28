@@ -32,7 +32,9 @@ test('postinstall P1: one scripted confirmation applies rules and hooks and prev
   assert.match(readFileSync(join(f.root, 'CLAUDE.md'), 'utf8'), /<!-- model-orchestrator:start -->/);
   assert.match(readFileSync(join(f.root, '.claude/settings.json'), 'utf8'), /route-gate/);
   const preview = r.stdout.split('[Y/n/e]')[0];
-  assert.match(preview, /update .*CLAUDE\.md.*marked block.*backup/);
+  // Q8: a fresh CLAUDE.md (this fixture's project has none yet) is created,
+  // not updated, and there is nothing to back up.
+  assert.match(preview, /create .*CLAUDE\.md.*new file, marked block/);
   assert.match(preview, /merge hooks into .*settings\.json.*backup/);
   assert.equal(r.stdout.split('[Y/n/e]').length - 1, 1);
 });
@@ -106,15 +108,20 @@ test('postinstall: only reliable status commands run and their account output st
     detect: bin => '/fake/' + bin,
     spawn: (command, args, options) => {
       calls.push({ command, args, options });
+      // Q1: claude-code is now also reliable, but positive-only, so its stub
+      // reply is JSON with the sign-in field, same as the real CLI's shape.
+      if (args[0] === 'auth') return { status: 0, stdout: JSON.stringify({ loggedIn: true, account: 'secret@example.com' }), stderr: '' };
       return { status: 0, stdout: 'Logged in using ChatGPT: account details', stderr: '' };
     }
   });
-  assert.deepEqual(statuses, { codex: true });
-  assert.equal(calls.length, 1);
-  assert.deepEqual(calls[0].args, ['login', 'status']);
-  assert.equal(calls[0].options.shell, false);
-  assert.equal(calls[0].options.timeout, 2000);
-  assert.ok(!JSON.stringify(statuses).includes('account'));
+  assert.deepEqual(statuses, { 'claude-code': true, codex: true });
+  assert.equal(calls.length, 2);
+  assert.deepEqual(calls.map((c) => c.args), [['auth', 'status'], ['login', 'status']]);
+  for (const call of calls) {
+    assert.equal(call.options.shell, false);
+    assert.equal(call.options.timeout, 2000);
+  }
+  assert.ok(!JSON.stringify(statuses).includes('account') && !JSON.stringify(statuses).includes('secret'));
 });
 
 test('postinstall: missing or signed-out Codex gets login, failed status remains conditional', () => {
