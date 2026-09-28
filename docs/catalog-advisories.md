@@ -57,9 +57,9 @@ GitHub Actions is the watcher. A maintainer reviews every affected or unknown re
 | clean | Complete adapter response with no advisory match in stated coverage | 0 if every result is clean or excepted |
 | affected | At least one advisory match lacks a valid exception | 1 unless another result is unknown |
 | unknown | Missing, unavailable, unsupported or malformed evidence, or an invalid exception policy | 2 |
-
-A Go binary built without module version stamping lists its own main module with no version (Trivy marks it `Relationship: root`). Its dependencies are still listed and scanned, so that one entry is recorded by name in `unversionedRoots` and does not make the image unknown. Any other package without a version keeps the image unknown.
 | excepted | Every advisory match has an exact, reviewed, unexpired exception | 0 if every result is clean or excepted |
+
+A Go binary built without module version stamping lists its own main module with no version (Trivy marks it `Relationship: root` in a language-package result). Its dependencies are still listed and scanned, so that one entry is recorded by name in `unversionedRoots` and does not make the image unknown. Any other package without a version keeps the image unknown.
 
 Any unknown takes precedence over affected for the exit code. Known advisory IDs are still retained when a detail lookup fails. Empty results never pass. Read the exclusions alongside the status; exclusions are never counted as clean pins.
 

@@ -408,3 +408,9 @@ test('a Go binary root module without a version is recorded, and nothing else ve
   const npmRoot = trivyFixture(); npmRoot.Results[1].Packages.push({ Name: 'root-without-version', Relationship: 'root' });
   assert.throws(() => parseTrivyReport(npmRoot, image, resolved, TRIVY.version), /incomplete-container-package/);
 });
+
+test('an OS package result holding only an unversioned root never passes', () => {
+  const f = trivyFixture();
+  f.Results = [{ Class: 'os-pkgs', Type: 'gobinary', Packages: [{ Name: 'example/root', Relationship: 'root' }] }];
+  assert.throws(() => parseTrivyReport(f, image, resolved, TRIVY.version), /incomplete-container-package/);
+});
