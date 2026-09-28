@@ -19,7 +19,7 @@ function fixture(binaries = []) {
     const file = join(bin, binary + (process.platform === 'win32' ? '.cmd' : ''));
     const script = join(bin, binary + '.mjs');
     writeFileSync(script, `import { appendFileSync } from 'node:fs';\nappendFileSync(${JSON.stringify(marker)}, JSON.stringify([${JSON.stringify(binary)}, ...process.argv.slice(2)]) + '\\n');\n`);
-    writeFileSync(file, process.platform === 'win32' ? `@ECHO off\r\n"%_prog%" "%dp0%\\${binary}.mjs" %*\r\n` : `#!${process.execPath}\nimport ${JSON.stringify('./' + binary + '.mjs')};\n`, { mode: 0o755 });
+    writeFileSync(file, process.platform === 'win32' ? `@ECHO off\r\n"%_prog%" "%dp0%\\${binary}.mjs" %*\r\n` : `#!${process.execPath}\n// CommonJS on purpose: Node 18 runs an extensionless file as CommonJS.\nimport(require('node:url').pathToFileURL(require('node:path').join(__dirname, ${JSON.stringify(binary + '.mjs')})).href);\n`, { mode: 0o755 });
   }
   const env = { ...process.env };
   for (const key of Object.keys(env)) if (['PATH', 'HOME', 'USERPROFILE'].includes(key.toUpperCase())) delete env[key];
