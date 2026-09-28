@@ -64,7 +64,8 @@ export function renderMarkdown(markdown, source) {
 }
 
 export function documentHtml({title, description, route, body}) {
-  const poster = 'https://res.cloudinary.com/dvmejdq3j/video/upload/so_12.5/f_jpg/q_auto/v1790569976/aunysillyme.dev/model-orchestrator-trailer.jpg';
+  const socialImage = `${origin}/assets/social-preview.png`;
+  const socialAlt = 'Model-orchestrator: the right model for the right job. Dark green repository card with Auny’s avatar and a three-tone green border.';
   return `<!doctype html><html lang="en"><head><!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-HK1CE993HY"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-HK1CE993HY');</script>
@@ -72,8 +73,11 @@ export function documentHtml({title, description, route, body}) {
 <title>${escape(title)}</title><meta name="description" content="${escape(description)}">
 <link rel="canonical" href="${origin}${route}"><meta property="og:type" content="website">
 <meta property="og:title" content="${escape(title)}"><meta property="og:description" content="${escape(description)}">
-<meta property="og:url" content="${origin}${route}"><meta property="og:image" content="${poster}">
-<meta property="og:image:alt" content="Model-orchestrator: model routing for AI coding agents">
+<meta property="og:url" content="${origin}${route}"><meta property="og:image" content="${socialImage}">
+<meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="${escape(socialAlt)}">
+<meta name="twitter:title" content="${escape(title)}"><meta name="twitter:description" content="${escape(description)}">
+<meta name="twitter:image" content="${socialImage}"><meta name="twitter:image:alt" content="${escape(socialAlt)}">
 <meta name="twitter:card" content="summary_large_image"><meta name="theme-color" content="#050806">
 <link rel="icon" href="/assets/avatar.png"><link rel="apple-touch-icon" href="/assets/avatar.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
