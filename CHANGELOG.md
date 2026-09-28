@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-09-28
+
+### Security
+
+- Level 3 images move to `ghcr.io/berriai/litellm:v1.100.3` (from v1.99.1, 23 advisories to 9) and `ollama/ollama:0.34.4` (from 0.33.3). The advisories still inside those vendor images are recorded as reviewed exceptions that expire on 2026-10-28, so the check flags anything new and asks for a fresh review then.
+
+### Fixed
+
+- The container advisory check records a Go binary's own unversioned module by name instead of reporting the whole image as unknown; any other package without a version still makes the image unknown.
+
 ## [1.0.3] - 2026-09-28
 
 ### Security
@@ -540,7 +550,8 @@ First release.
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
-[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.3...HEAD
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.4...HEAD
+[1.0.4]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.0...v1.0.1
