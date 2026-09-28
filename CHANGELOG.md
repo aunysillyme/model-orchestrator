@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- Product website at `model-orchestrator.aunysillyme.dev`, with repository-generated documentation, changelog, and the model-orchestrator trailer. Main-branch pushes rebuild the site through Vercel; the published version is checked against npm.
+
 ## [1.0.1] - 2026-09-27
 
 ### Security

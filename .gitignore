@@ -5,3 +5,8 @@ tmp-dry-run/
 # Local build evidence and review notes.
 .release-work/
 AUDIT_BRIEF.md
+
+# Product website output and hosting link
+website/dist/
+.vercel/
+.env*
