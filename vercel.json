@@ -24,5 +24,12 @@
         }
       ]
     }
+  ],
+  "redirects": [
+    {
+      "source": "/docs/",
+      "destination": "/docs/guides/",
+      "permanent": true
+    }
   ]
 }

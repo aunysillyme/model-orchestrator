@@ -7,7 +7,7 @@ import {validVersion} from './assets/releases.js';
 export const origin = 'https://model-orchestrator.aunysillyme.dev';
 export const repository = 'https://github.com/aunysillyme/model-orchestrator';
 export const pages = new Map([
-  ['README.md', 'overview'], ['docs/README.md', 'index'], ['bin/README.md', 'commands'],
+  ['README.md', 'overview'], ['docs/README.md', 'guides'], ['bin/README.md', 'commands'],
   ['proof/README.md', 'proof'], ['CHANGELOG.md', 'changelog'],
   ...['install', 'how-it-routes', 'guarantees', 'companions', 'catalog', 'part-1-beginner',
     'part-2-intermediate', 'part-3-advanced', 'security-review-history'].map(name => [`docs/${name}.md`, name]),

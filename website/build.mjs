@@ -47,7 +47,7 @@ await mkdir(out, {recursive: true});
 await cp(path.join(here, 'assets'), path.join(out, 'assets'), {recursive: true});
 await writeFile(path.join(out, 'index.html'), documentHtml({title: 'Model-orchestrator | AunySillyMe', description: 'Routing rules, subagents and a CLI runner. Give your AI a playbook for choosing the model, effort and tools each task needs.', route: '/', body: landing}));
 
-const navItems = [...pages].map(([source, slug]) => `<a href="/docs/${slug}/">${escape(({overview: 'Overview', index: 'All guides', commands: 'Commands', proof: 'Measured proof', changelog: 'Changelog'})[slug] || slug.replaceAll('-', ' '))}</a>`).join('');
+const navItems = [...pages].map(([source, slug]) => `<a href="/docs/${slug}/">${escape(({overview: 'Overview', guides: 'All guides', commands: 'Commands', proof: 'Measured proof', changelog: 'Changelog'})[slug] || slug.replaceAll('-', ' '))}</a>`).join('');
 for (const [source, slug] of pages) {
   const markdown = await readFile(path.join(root, source), 'utf8');
   const title = markdown.match(/^# (.+)$/m)?.[1].replace(/[`*_]/g, '') || slug;
