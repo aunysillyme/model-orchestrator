@@ -18,7 +18,7 @@ function fixture(t) {
   const script = `import { appendFileSync } from 'node:fs';\nappendFileSync(${JSON.stringify(calls)}, JSON.stringify(process.argv.slice(2))+'\\n');\nif (process.argv.slice(2).join(' ') === 'login status') { console.log('Logged in using ChatGPT'); process.exit(0); }\nprocess.exit(99);\n`;
   writeFileSync(join(bin, 'codex.mjs'), script);
   if (process.platform === 'win32') writeFileSync(join(bin, 'codex.cmd'), '@ECHO off\r\n"%_prog%" "%dp0%\\codex.mjs" %*\r\n');
-  else writeFileSync(join(bin, 'codex'), '#!' + process.execPath + '\n' + script, { mode: 0o755 });
+  else writeFileSync(join(bin, 'codex'), '#!' + process.execPath + '\n// CommonJS on purpose: Node 18 runs an extensionless file as CommonJS.\nimport(require(\'node:url\').pathToFileURL(require(\'node:path\').join(__dirname, \'codex.mjs\')).href);\n', { mode: 0o755 });
   const run = (args = [], input = 'y\n') => spawnSync(process.execPath, ['bin/cli.js', '--ais', 'claude-code,codex', '--primary', 'claude-code', '--dir', dir, '--project', root, ...args], {
     encoding: 'utf8', input, timeout: 15000, env: { ...process.env, PATH: bin + delimiter + process.env.PATH }
   });
