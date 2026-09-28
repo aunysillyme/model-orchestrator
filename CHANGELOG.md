@@ -4,22 +4,6 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
-### Changed
-
-- **Automatic project activation:** interactive installs apply the main agent's catalog-supported rules block and Claude Code hooks under the existing single confirmation, with backups. The edit screen and `--no-apply` keep activation manual; headless `--yes` requires `--apply-snippets` as before.
-- **Remaining actions:** every non-dry install runs the local CLI presence check automatically. "What's left for you" omits completed activation and informational items, checks Codex's reliable sign-in status, and makes other sign-in instructions conditional. Live canaries remain opt-in.
-- **Companion registration and cleanup:** selected companions register in supported project MCP config when activation is enabled; global configuration stays manual. Activation ownership lets uninstall remove unchanged applied blocks and added hooks or MCP entries while preserving unrelated content and backups.
-- **Stack-dependent assignment:** planning, building, review, verification, research, bulk work, reading and private work are assigned from selected capability facts. Generated stack tables explain each choice; the manifest stores the current assignment and `aunx route` reads it. Independent review requires a known different model family, and private work requires local execution.
-- **Model tiers:** generated agent definitions use planning, working and cheap model tiers. Current plan-to-model mappings are unverified, so definitions leave the model to the user's tool configuration while preserving effort guidance.
-- **One-confirm installation:** interactive setup detects available AI tools and shows a proposed level, main agent, paths and role table before one confirmation. The edit menu changes individual settings; an empty detection asks for the user's AIs first. Headless `--yes` still requires explicit level and AI selection.
-- **Capability catalog:** AI entries carry `summary` and `facts`; role claims and duplicated capability fields are retired. The generated catalog marks unknown facts and inherited vendor claims as unverified.
-
-### Fixed
-
-- **Coherent level installs:** routing uses installed agents or available role fallbacks, review guidance accounts for the main agent's model family, smoke paths are quoted, and README first reads and output-contract checks match the level and selected workers.
-- **Level 3 setup:** initialize the configured local model inside Compose, verify `local-small`, and configure the scheduled service's executable search path.
-- **Accurate level descriptions:** qualify activation and agent sets by main agent, keep companions opt-in, and describe the weekly job's fixed lane, observed data and configurable budget and privacy policies.
-
 ## [1.0.0] - 2026-09-27
 
 ### Added
@@ -30,10 +14,24 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Changed
 
+- **Automatic project activation:** interactive installs apply the main agent's catalog-supported rules block and Claude Code hooks under the existing single confirmation, with backups. The edit screen and `--no-apply` keep activation manual; headless `--yes` requires `--apply-snippets` as before.
+- **Remaining actions:** every non-dry install runs the local CLI presence check automatically. "What's left for you" omits completed activation and informational items, checks Codex's reliable sign-in status, and makes other sign-in instructions conditional. Live canaries remain opt-in.
+- **Companion registration and cleanup:** selected companions register in supported project MCP config when activation is enabled; global configuration stays manual. Activation ownership lets uninstall remove unchanged applied blocks and added hooks or MCP entries while preserving unrelated content and backups.
+- **Stack-dependent assignment:** planning, building, review, verification, research, bulk work, reading and private work are assigned from selected capability facts. Generated stack tables explain each choice; the manifest stores the current assignment and `aunx route` reads it. Independent review requires a known different model family, and private work requires local execution.
+- **Model tiers:** generated agent definitions use planning, working and cheap model tiers. Current plan-to-model mappings are unverified, so definitions leave the model to the user's tool configuration while preserving effort guidance.
+- **One-confirm installation:** interactive setup detects available AI tools and shows a proposed level, main agent, paths and role table before one confirmation. The edit menu changes individual settings; an empty detection asks for the user's AIs first. Headless `--yes` still requires explicit level and AI selection.
+- **Capability catalog:** AI entries carry `summary` and `facts`; role claims and duplicated capability fields are retired. The generated catalog marks unknown facts and inherited vendor claims as unverified.
 - **Companions are opt-in.** Default and `--yes` installs select none. Missing tools appear together under "Install these yourself", with their official commands and links.
 - **Public terms match the work.** Task brief, context file, acceptance checks, subscription lanes, pay-per-token lanes, planning model, working model and cheap model.
 - **Documentation starts with the model router.** New command examples, search-phrased questions, a trailer hero, an install walkthrough and a concise security-review history with regression evidence.
 - **A smaller publication surface.** Development-only `scripts/` and the old raw audit brief are excluded; reproducible proof scripts remain available.
+
+### Fixed
+
+- **Coherent level installs:** routing uses installed agents or available role fallbacks, review guidance accounts for the main agent's model family, smoke paths are quoted, and README first reads and output-contract checks match the level and selected workers.
+- **Level 3 setup:** initialize the configured local model inside Compose, verify `local-small`, and configure the scheduled service's executable search path.
+- **Accurate level descriptions:** qualify activation and agent sets by main agent, keep companions opt-in, and describe the weekly job's fixed lane, observed data and configurable budget and privacy policies.
+- **Post-install review round:** oversized settings and MCP JSON files are refused before any write, the rules block keeps a CRLF file's line endings, Claude Code sign-in is hidden only when its status reports signed in, Ollama install text appears only when it is absent and names the configured model, CLI main agents without a rules file get accurate wording, and a new rules file is labelled "create".
 
 ### Removed
 

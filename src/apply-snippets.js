@@ -1,12 +1,23 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
-import { preflight, snippetFor } from './install.js';
+import { preflight, snippetFor, ACTIVATION_JSON_BYTE_CAP } from './install.js';
 
 export const START = '<!-- model-orchestrator:start -->';
 export const END = '<!-- model-orchestrator:end -->';
 const object = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 const refuse = (message) => Object.assign(new Error(message), { code: 'PREFLIGHT' });
+const CRLF = Buffer.from('\r\n');
+// R2: match the file's own line ending for the block this run inserts or
+// replaces, so a CRLF file stays CRLF instead of picking up a mixed file.
+const eolOf = (original) => (original.indexOf(CRLF) !== -1 ? '\r\n' : '\n');
+// R1: refuse a pre-existing JSON file over the stated cap before it is read,
+// the same way invalid JSON is refused today, without ever loading its bytes.
+function refuseIfOversized(path) {
+  if (existsSync(path) && statSync(path).size > ACTIVATION_JSON_BYTE_CAP) {
+    throw refuse(`${path}: larger than the ${ACTIVATION_JSON_BYTE_CAP} byte (10 MB) cap on a pre-existing settings/MCP JSON file; nothing written`);
+  }
+}
 
 function mergeHooks(settings, incoming, path) {
   if (!object(settings) || (settings.hooks !== undefined && !object(settings.hooks))) {
@@ -44,10 +55,12 @@ function mergeHooks(settings, incoming, path) {
 function markedContent(original, snippet, path) {
   const start = original.indexOf(START);
   const end = original.indexOf(END);
-  const block = Buffer.from(`${START}\n${snippet.trimEnd()}\n${END}`);
+  const nl = eolOf(original);
+  const body = snippet.trimEnd().split('\n').join(nl);
+  const block = Buffer.from(`${START}${nl}${body}${nl}${END}`);
   if (start === -1 && end === -1) {
-    const separator = original.length && original.at(-1) !== 10 ? '\n\n' : original.length ? '\n' : '';
-    return Buffer.concat([original, Buffer.from(separator), block, Buffer.from('\n')]);
+    const separator = original.length && original.at(-1) !== 10 ? nl + nl : original.length ? nl : '';
+    return Buffer.concat([original, Buffer.from(separator), block, Buffer.from(nl)]);
   }
   if (start < 0 || end < start || original.indexOf(START, start + START.length) !== -1 || original.indexOf(END, end + END.length) !== -1) {
     throw refuse(`${path}: expected one matching ${START} / ${END} block`);
@@ -82,6 +95,7 @@ export function planSnippetApplication({ primary, project, files }) {
   } }];
   if (primary.id === 'claude-code') {
     const settingsPath = join(project, targets[1]);
+    refuseIfOversized(settingsPath);
     const priorSettings = existsSync(settingsPath) ? readFileSync(settingsPath) : null;
     let settings = {};
     if (priorSettings) {

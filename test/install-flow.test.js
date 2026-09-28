@@ -46,7 +46,10 @@ test('default flow asks one question and runs only the reliable read-only sign-i
     assert.doesNotMatch(r.stdout, /\[y\/N\]|\[1\]|\[none\]|Which level\?|Which one is your main/);
     assert.match(r.stdout, /Looking for AI tools on your PATH/);
     assert.match(r.stdout, /Your stack: who does what/);
-    assert.deepEqual(readFileSync(f.marker, 'utf8').trim().split('\n').map(JSON.parse), [['codex', 'login', 'status']]);
+    // Q1: Claude Code also carries a reliable, catalogued status command now
+    // (`claude auth status`, positive-only trust), so it runs alongside
+    // Codex's; selected order is claude-code, codex.
+    assert.deepEqual(readFileSync(f.marker, 'utf8').trim().split('\n').map(JSON.parse), [['claude', 'auth', 'status'], ['codex', 'login', 'status']]);
     const m = f.manifest();
     assert.deepEqual(m.ais, ['claude-code', 'codex']);
     assert.deepEqual(m.detected, ['claude-code', 'codex']);

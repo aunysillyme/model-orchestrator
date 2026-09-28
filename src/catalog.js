@@ -13,7 +13,12 @@
 //              { script: url } for a vendor shell installer the installer only PRINTS, never runs,
 //              { url } for a download page
 //   auth       how you sign in, always the vendor's own flow, never a key typed into this tool
-//   authStatus optional reliable read-only status command; unlisted CLIs get conditional sign-in guidance
+//   authStatus optional reliable read-only status command; unlisted CLIs get conditional sign-in guidance.
+//              trust: 'positive-only' means only a reported success is
+//              believed; every other outcome (a reported failure, a parse
+//              error, a timeout, a missing binary) keeps the conditional step.
+//              jsonField names the boolean field read from the command's JSON
+//              stdout under positive-only trust; default 'loggedIn'.
 //   rulesFile  the instructions file that agent reads from a project root, if any
 //   projectMcp verified project-local MCP config: relative file and server-map key.
 //              Absent means setup remains a manual step; never infer a global path.
@@ -91,6 +96,10 @@ export const AIS = [
     install: { npm: '@anthropic-ai/claude-code', url: 'https://code.claude.com/docs/en/setup', pin: '2.1.226' },
     builtAgainst: '2.1.226',
     auth: 'run `claude` once and sign in with your Anthropic account',
+    // Positive-only (Q1): an author-machine probe of a working, authenticated
+    // session (2026-09-27) still returned {"loggedIn":false} with exit 1, so a
+    // reported failure is not trusted; only loggedIn:true skips the step.
+    authStatus: { args: ['auth', 'status'], reliable: true, trust: 'positive-only', jsonField: 'loggedIn', checked: '2026-09-27', source: 'author-machine probe: `claude auth status` (default JSON) returned {"loggedIn":false}, exit 1, inside a working authenticated session' },
     rulesFile: 'CLAUDE.md',
     // Project scope documented in templates/tools/context7/CONTEXT7.md.
     projectMcp: { file: '.mcp.json', key: 'mcpServers' },

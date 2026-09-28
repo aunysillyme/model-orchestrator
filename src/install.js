@@ -17,6 +17,10 @@ export const TEMPLATES = join(HERE, '..', 'templates');
 export const CLI_RUN_SRC = join(HERE, '..', 'bin', 'cli-run.mjs');
 // Compatibility with the 0.1.x filename; current docs use the public brief name.
 const LEGACY_BRIEF = ['TASK', 'BUN' + 'DLE.md'].join('_');
+// R1: a pre-existing settings or MCP JSON file larger than this is refused
+// before it is read or parsed, the same way invalid JSON is refused today.
+// Generous on purpose: real settings/MCP files are kilobytes, not megabytes.
+export const ACTIVATION_JSON_BYTE_CAP = 10 * 1024 * 1024; // 10 MB
 
 function readLegacyBrief(path, dir) {
   const problems = preflight([{ rel: LEGACY_BRIEF }], dir);
@@ -454,6 +458,29 @@ export function snippetFor(primary) {
   return primary.rulesFile ? primary.rulesFile.replace(/\.md$/, '.snippet.md') : 'PASTE-INTO-YOUR-AGENT.md';
 }
 
+// The one primary-instruction step: copy into a known rules file, paste into a
+// chat app's surface, or (Q3/Q5) load the block by hand for a CLI main agent
+// the catalog has no project rules file for (Grok, Hermes today). Read by the
+// terminal summary line, the activation list and the generated README's
+// "where things went" section, so the three surfaces cannot describe three
+// different things (#20).
+export function primaryActivationStep({ primary, dir, project }) {
+  const snippet = snippetFor(primary);
+  if (!primary || !snippet) return null;
+  const dirAbs = resolve(dir || 'ai-orchestrator');
+  const projectAbs = resolve(project || process.cwd());
+  if (primary.rulesFile) return `copy the block in ${join(dirAbs, snippet)} into ${join(projectAbs, primary.rulesFile)} (create it if missing)`;
+  // A chat app has no possessive that survives its catalog note: "Claude app or
+  // claude.ai (chat only, no CLI)'s custom instructions" was the sentence this
+  // replaces (#22).
+  if (primary.facts.kind === 'chat') return `open ${primary.chatName || primary.name} and paste the block in ${join(dirAbs, snippet)} into its ${primary.chatSurface || 'custom instructions'}`;
+  // A CLI with no cataloged project rules file: say plainly there is nothing
+  // to write automatically, and name the accurate fallback (Q3). No verified
+  // per-CLI loading convention is cataloged for Grok or Hermes, so this states
+  // the honest generic fallback rather than guessing a mechanism.
+  return `${primary.name} has no cataloged project rules file, so the installer has nothing to write for it; load the block in ${join(dirAbs, snippet)} at the start of a session with ${primary.name}`;
+}
+
 // The activation list, in order. The terminal prints this array at the end of a
 // run and the generated README renders the same array, so the page cannot
 // describe a different first step from the one the user just read (#20).
@@ -462,13 +489,13 @@ export function activationSteps(opts) {
   const tools = opts.tools || [];
   const dirAbs = resolve(opts.dir || 'ai-orchestrator');
   const projectAbs = resolve(opts.project || process.cwd());
-  const snippet = snippetFor(primary);
   const steps = [];
-  if (snippet && primary.rulesFile && !opts.applySnippets) steps.push(`copy the block in ${join(dirAbs, snippet)} into ${join(projectAbs, primary.rulesFile)} (create it if missing)`);
-  // A chat app has no possessive that survives its catalog note: "Claude app or
-  // claude.ai (chat only, no CLI)'s custom instructions" was the sentence this
-  // replaces (#22).
-  else if (snippet && !primary.rulesFile) steps.push(`open ${primary.chatName || primary.name} and paste the block in ${join(dirAbs, snippet)} into its ${primary.chatSurface || 'custom instructions'}`);
+  // Automatic application only ever covers a primary with a rulesFile; every
+  // other case (no rulesFile, or applySnippets off) keeps the manual step.
+  if (primary && !(primary.rulesFile && opts.applySnippets)) {
+    const step = primaryActivationStep({ primary, dir: opts.dir, project: opts.project });
+    if (step) steps.push(step);
+  }
   // Only claude-code ships hooks (route-gate, subagent-context): the wiring
   // lives in a snippet, applied only when the user opts in.
   if (!opts.applySnippets && subagentsLoadRules(primary)) steps.push(`merge the hooks in ${join(dirAbs, 'settings.hooks.snippet.json')} into ${join(projectAbs, '.claude', 'settings.json')} (create it if missing) to wire the route-gate, subagent-context and route-metrics hooks`);
@@ -481,9 +508,12 @@ export function activationSteps(opts) {
   // A local runtime has a bin but no sign-in, so the agent-cli loop above skips it
   // and before this it appeared in no ordered list at any level (#26).
   for (const a of selected.filter((a) => a.bin && a.facts.kind === 'local-runtime')) {
+    // Q2/Q6: only print the install step when the runtime is not already on
+    // PATH, and name the configured model instead of a placeholder.
+    if (level < 3 && opts.detected?.has(a.id)) continue;
     steps.push(level >= 3
       ? `${a.name}: follow vm/README.md, then run \`bash setup-vm.sh --start-services\` in vm/ to pull the configured model into its Compose service and verify local-small`
-      : `install ${a.name}: ${a.install.url}, then \`${a.bin} pull <model>\` before the local lane can answer`);
+      : `install ${a.name}: ${a.install.url}, then \`${a.bin} pull ${a.gatewayModel.replace(/^ollama\//, '')}\` before the local lane can answer`);
   }
   steps.push(...companionRegistrationSteps({ ...opts, tools, dir: dirAbs, project: projectAbs }));
   if (level >= 3) steps.push(`box: read ${join(dirAbs, 'vm', 'README.md')}; keys named in vm/ENVIRONMENT.md go in your secrets manager, never a file`);
@@ -564,7 +594,7 @@ function vars(opts) {
     : '';
   const pinOf = (id) => (toolById[id] && toolById[id].pin) || 'latest';
   const snippet = snippetFor(primary);
-  const steps = activationSteps({ level, selected, primary, tools, dir: opts.dir, project: opts.project, applySnippets: opts.applySnippets, authStatuses: opts.authStatuses, registrations: opts.registrations });
+  const steps = activationSteps({ level, selected, primary, tools, dir: opts.dir, project: opts.project, applySnippets: opts.applySnippets, authStatuses: opts.authStatuses, registrations: opts.registrations, detected: opts.detected });
   const proofs = proofSteps({ level, primary, selected });
   const routingFile = level >= 2 ? 'ROUTING.md' : 'ORCHESTRATOR.md';
   // The path route-gate.mjs and subagent-context.mjs resolve at runtime,
@@ -581,6 +611,9 @@ function vars(opts) {
   const whereThingsWent = [`- This folder: \`${dirAbs}\``];
   if (writesProject) whereThingsWent.push(`- Project root (where your agent reads rules and subagents): \`${projectAbs}\``, `- Subagent definitions: \`${join(projectAbs, primary.facts.agentDefinitions)}\``);
   else if (readsProjectRules) whereThingsWent.push(`- Project root (where ${primary.name} reads \`${primary.rulesFile}\`): \`${projectAbs}\`` + (opts.applySnippets || existsSync(projectAbs) ? '' : ' (this run wrote nothing there; create the folder before you copy the snippet in)'), '- Subagent definitions: none, this agent has no subagent folder');
+  // Q5: a CLI with no cataloged project rules file (Grok, Hermes) is not a
+  // chat app, so it gets its own accurate sentence instead of borrowing theirs.
+  else if (primary && primary.facts.kind !== 'chat') whereThingsWent.push(`- Project root: none. ${primary.name} has no cataloged project rules file, so this install wrote nothing to a project folder; load the block by hand each session.`, '- Subagent definitions: none');
   else whereThingsWent.push('- Project root: none. A chat app reads pasted instructions, not files, so this install wrote nothing to a project folder.', '- Subagent definitions: none');
   whereThingsWent.push(`- The rules path your snippets use: \`${rulesPath}\``);
   whereThingsWent.push(rulesPathNote
@@ -610,9 +643,9 @@ function vars(opts) {
     LOAD_IT: opts.applySnippets && readsProjectRules
       ? `The installer applied the generated rules to the model-orchestrator marked block in \`${primary.rulesFile}\`${subagentsLoadRules(primary) ? ' and merged the hooks into `.claude/settings.json`' : ''}. Existing files changed by this run have timestamped backups beside them; their paths were printed in the terminal.`
       : readsProjectRules
-      ? `${primary.name} reads its rules from \`${primary.rulesFile}\` in the project root. The installer wrote \`${snippet}\` next to this README; copy its contents into \`${join(projectAbs, primary.rulesFile)}\`, creating that file if it does not exist. Nothing was appended to a file you already had.`
+      ? `${primary.name} reads its rules from \`${primary.rulesFile}\` in the project root. The installer wrote \`${snippet}\` next to this README; copy its contents into \`${join(projectAbs, primary.rulesFile)}\`, creating that file if it does not exist. Nothing was appended to a file you already had.${subagentsLoadRules(primary) ? ` Also merge \`settings.hooks.snippet.json\`, written next to this README, into \`.claude/settings.json\` (create it if missing) to wire the route-gate, subagent-context and route-metrics hooks.` : ''}`
       : snippet
-        ? `${primary.name} has no cataloged project rules file. Follow the paste step under "What's left for you" using \`${snippet}\` next to this README.`
+        ? `${primary.name} has no cataloged project rules file. Follow the load step under "What's left for you" using \`${snippet}\` next to this README.`
         : 'No main agent was selected, so no activation file was written. Re-run the installer and pick one.',
     CLAUDE_SNIPPET_INTRO: opts.applySnippets
       ? '# Model orchestrator activation\n\nThe installer applied these rules to the marked block in `CLAUDE.md` at your project root.'
@@ -979,6 +1012,24 @@ export function readManifest(dir) {
   } catch {
     return null;
   }
+}
+
+// Path-safety-only preflight: global agent config, path escape, a non-directory
+// target. Read-only, no side effects, and independent of any previous
+// manifest. writeFiles() below runs the same check again before it writes
+// anything; bin/cli.js calls this copy earlier, so a doomed install (global
+// config, path escape) never reaches a step that can run a real vendor status
+// command as a side effect (Q1 safety: signInStatus can execute
+// `claude auth status` etc. before writeFiles is ever called).
+export function writePreflightProblems(files, { dir, project }) {
+  const roots = { dir, project: project || dir };
+  const groups = { dir: files.filter((f) => (f.root || 'dir') === 'dir'), project: files.filter((f) => f.root === 'project') };
+  const problems = [];
+  for (const k of ['dir', 'project']) {
+    if (!groups[k].length) continue;
+    problems.push(...preflight(groups[k], roots[k]).map((p) => (k === 'project' ? `[project] ${p}` : p)));
+  }
+  return problems;
 }
 
 // Files carry a root: 'dir' for the docs folder, 'project' for the agent

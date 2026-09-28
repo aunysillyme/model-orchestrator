@@ -260,14 +260,17 @@ function runWithOpenStdin(hookPath, env, killGuardMs = 5000) {
   });
 }
 
-test('route-metrics.mjs: an open, never-closed stdin pipe still exits within 1.5s with empty stdout', async () => {
+// T1: 1500ms flaked under full-suite load (1666ms observed, 16/16 passing
+// alone). The hang this guards against is unbounded (a stuck stdin read), so
+// 5000ms still catches it while leaving headroom CI contention cannot eat.
+test('route-metrics.mjs: an open, never-closed stdin pipe still exits within 5s with empty stdout', async () => {
   const home = newHome();
   const hookPath = writeHook(home);
   try {
     const { code, stdout, elapsedMs } = await runWithOpenStdin(hookPath, { HOME: home, USERPROFILE: home });
     assert.equal(code, 0);
     assert.equal(stdout, '');
-    assert.ok(elapsedMs < 1500, 'route-metrics.mjs took ' + elapsedMs + 'ms to exit with stdin left open; expected under 1.5s');
+    assert.ok(elapsedMs < 5000, 'route-metrics.mjs took ' + elapsedMs + 'ms to exit with stdin left open; expected under 5s');
   } finally {
     rmSync(home, { recursive: true, force: true });
   }
