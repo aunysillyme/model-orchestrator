@@ -4,6 +4,20 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-09-27
+
+### Security
+
+- `aunx route-metrics` always runs the packaged metrics implementation. A checkout can no longer substitute its own JavaScript when a user requests a summary.
+- Installer and uninstall manifests use bounded regular-file reads with symlink refusal. Acceptance-check and routing JSON reads share the same bounded reader.
+- Acceptance-check timeouts and interrupts clean up the command's process group or Windows process tree, including ordinary descendants.
+- Weekly gateway probes pass credentials through stdin instead of temporary files, reject multiline keys, and remove gateway/provider credentials from audit subprocesses. The service now reads a separate `weekly-audit.env`; see the generated jobs README when upgrading.
+- Newly generated companion launch commands use the catalog's exact versions, and npm publication uses a reviewed exact npm version. Existing client entries are preserved; follow the [companion upgrade steps](docs/install.md#upgrading-companion-launch-commands).
+
+### Fixed
+
+- Security and installation documentation now match current activation rules, model inheritance, companion setup and credential boundaries.
+
 ## [1.0.0] - 2026-09-27
 
 ### Added
@@ -499,7 +513,8 @@ First release.
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
-[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.35...v1.0.0
 [0.1.35]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.34...v0.1.35
 [0.1.34]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.33...v0.1.34

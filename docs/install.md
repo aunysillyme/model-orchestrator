@@ -2,6 +2,12 @@
 
 Everything the installer asks, writes and accepts as a flag. The short version is in the [README](../README.md).
 
+## Upgrading companion launch commands
+
+Version 1.0.1 pins newly generated companion launch commands. Existing MCP server entries remain yours and are not silently replaced. Preview your existing selection and paths with `--update-docs --dry`, then apply that update after checking the plan. Unchanged managed snippets in `mcp/` refresh; edited snippets are preserved and named. Compare the refreshed snippets with each client's configuration and manually replace any preserved floating package command with its catalog-pinned form. Keep unrelated server settings and credentials unchanged.
+
+For a level 3 weekly job, also follow the generated `vm/jobs/README.md` migration to the separate `weekly-audit.env` file and reload any copied systemd unit.
+
 ## Install walkthrough
 
 ![Terminal walkthrough of the installer](demo.gif)
@@ -71,7 +77,7 @@ An install has two targets, and a scripted run should set both.
 | `--dir` | `./ai-orchestrator` | the docs, protocols and (level 2+) `bin/cli-run.mjs`. Named after what it contains, not after this package, so a project can hold one without looking like a checkout of it. Pass `--dir ./model-orchestrator` if you prefer the package name. |
 | `--project` | the current directory | the main agent's supported subagent definitions: `.claude/agents/` for Claude Code or `.agents/agents/` for Antigravity; Claude Code's hook scripts in `.claude/hooks/`. With activation enabled, the catalog-supported rules file, Claude Code's `.claude/settings.json` and selected companion entries in its `.mcp.json` are merged with backups. |
 
-`--project` defaulting to the current directory is the one that surprises people: run the command from your home folder with Claude Code as the main agent and the subagent and hook files land in your home folder. The installer prints the resolved project path in the plan and says when you left it at the default. Set it.
+`--project` defaults to the current directory. Home-level agent configuration is refused: a Claude Code install targeting your home folder cannot write its subagents, hooks or project settings there. Choose a project folder below your home directory and set `--project` explicitly. The installer prints the resolved project path in the plan and says when you left it at the default.
 
 Rules inside the project use project-relative snippet paths, so moving the whole project preserves them. Rules outside the project use absolute paths and carry a relocation note. After moving those rules, re-run the installer or set `MODEL_ORCHESTRATOR_RULES_DIR` for the installed rule-reading hooks, and update your agent instruction paths. An absolute override names the new folder; a relative override is relative to `CLAUDE_PROJECT_DIR`. `route-metrics` reads no rules and keeps its home-directory log. The separately installed Claude Code plugin keeps its existing default-path lookup.
 

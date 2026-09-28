@@ -14,6 +14,20 @@ AUDIT_LANE="{{AUDIT_LANE}}"
 AUDIT_LANE_FLAGS="{{AUDIT_LANE_FLAGS}}"
 PROBE_SECS="${PROBE_SECS:-10}"      # per collection probe
 RUNNER_SECS="${RUNNER_SECS:-600}"   # the model call; TimeoutStartSec in the unit covers the whole job
+# Keep the probe credential in this shell only. Gateway provider keys belong to
+# Compose, not to collection tools or the scheduled vendor CLI. Stored vendor
+# sign-ins, HOME, PATH, and unrelated authentication variables remain available.
+KEY="${GATEWAY_MASTER_KEY:-}"
+export -n KEY
+unset GATEWAY_MASTER_KEY LITELLM_MASTER_KEY ANTHROPIC_API_KEY OPENAI_API_KEY GEMINI_API_KEY XAI_API_KEY OPENROUTER_API_KEY
+
+# A shell pattern checks the whole value, including embedded/trailing newlines.
+# Line-oriented grep accepts a valid line even when another line is malformed.
+case "$KEY" in
+  *[!A-Za-z0-9._-]*)
+    echo "weekly-audit: GATEWAY_MASTER_KEY must match ^[A-Za-z0-9._-]+$ (generate it with: openssl rand -hex 32)" >&2
+    exit 2 ;;
+esac
 {{AUDIT_LANE_GUARD}}
 cd "$INSTALL_DIR" || { echo "weekly-audit: $INSTALL_DIR missing" >&2; exit 2; }
 mkdir -p reports
@@ -47,7 +61,9 @@ killtree() {
 bounded() {
   local secs="$1"; shift
   local fired; fired="$(mktemp "${TMPDIR:-/tmp}/wa-fired.XXXXXX" 2>/dev/null)" && rm -f "$fired"
-  ( "$@" ) & local pid=$!
+  # Bash otherwise replaces stdin with /dev/null for asynchronous commands.
+  # Preserve the caller's pipe explicitly so curl can read its config on stdin.
+  ( "$@" ) <&0 & local pid=$!
   ( sleep "$secs"; [ -n "$fired" ] && : > "$fired"; killtree "$pid" ) >/dev/null 2>&1 & local wd=$!
   wait "$pid" 2>/dev/null; local rc=$?
   killtree "$wd" >/dev/null 2>&1; wait "$wd" 2>/dev/null
@@ -55,29 +71,19 @@ bounded() {
   return $rc
 }
 
-# The gateway key must be a single token: it is interpolated into curl's config
-# grammar, and a quote or newline in it would become a second directive.
-KEY="${GATEWAY_MASTER_KEY:-}"
-if [ -n "$KEY" ] && ! printf '%s' "$KEY" | grep -Eq '^[A-Za-z0-9._-]+$'; then
-  echo "weekly-audit: GATEWAY_MASTER_KEY must match ^[A-Za-z0-9._-]+$ (generate it with: openssl rand -hex 32)" >&2
-  exit 2
-fi
-
 DATE="$(date -u +%F)"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 {
   echo "# live state $DATE"; echo
   echo "## gateway lanes"
   if [ -n "$KEY" ]; then
-    # The key never enters argv: curl reads the header from a 0600 config file that
-    # exists only for this probe. curl's own timeouts AND the watchdog bound it.
-    CFG="$(umask 077 && mktemp "${TMPDIR:-/tmp}/audit-curl-XXXXXX")"
-    printf 'header = "Authorization: Bearer %s"\n' "$KEY" > "$CFG"
-    if ! bounded "$PROBE_SECS" curl -s --connect-timeout 5 --max-time "$PROBE_SECS" --max-filesize 1048576 --config "$CFG" http://127.0.0.1:4000/v1/models \
+    # No secret file or argv value: the builtin printf feeds curl through a pipe.
+    # curl's own timeouts AND the watchdog bound it, including a hung reader.
+    if ! printf 'header = "Authorization: Bearer %s"\n' "$KEY" \
+      | bounded "$PROBE_SECS" curl -s --connect-timeout 5 --max-time "$PROBE_SECS" --max-filesize 1048576 --config - http://127.0.0.1:4000/v1/models \
       | jq -r '.data[].id' 2>/dev/null; then
       echo "UNVERIFIED: gateway unreachable or timed out within ${PROBE_SECS}s"
     fi
-    rm -f "$CFG"
   else
     echo "UNVERIFIED: GATEWAY_MASTER_KEY not set; gateway not queried"
   fi
@@ -91,6 +97,7 @@ STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
     fi
   done
 } > "reports/live-state-$STAMP.md"
+unset KEY
 ln -sfn "live-state-$STAMP.md" reports/live-state.md
 
 # The brief the worker actually reads: the protocol, the intended configuration,

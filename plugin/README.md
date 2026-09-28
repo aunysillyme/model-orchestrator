@@ -1,6 +1,6 @@
 # model-orchestrator plugin for Claude Code
 
-Model router for Claude Code: routing hooks and subagents as a plugin. A hook reads your project's routing table and injects it on every prompt, so Claude picks a planning, working or cheap model tier for each task and fewer tokens go to the most expensive model. Eight subagents ship with it, one per job, each with its own model alias, effort level and an explicit tool list.
+Model router for Claude Code: routing hooks and subagents as a plugin. A hook reads your project's routing table and injects it on every prompt to guide task assignment. Eight subagents ship with it, one per job, each with an effort level and an explicit tool list. Their definitions omit `model:` and inherit your Claude Code model configuration; tier labels describe their intended jobs and do not select a model by themselves.
 
 This folder is generated from the same templates `npx model-orchestrator` installs (`npm run gen:plugin`), so the plugin and the npm install carry the same agents and hooks.
 
@@ -33,16 +33,18 @@ Until that file exists, the plugin tells you so once at session start, and tells
 | `hooks/route-gate.mjs --session-start` | SessionStart | Shows a one-line notice when neither rules file exists. Says nothing otherwise. |
 | `hooks/subagent-context.mjs` | SubagentStart | Gives each subagent a short, fixed reminder: where the rules live, the report contract, and not to route work further itself. |
 
-| Agent | Model alias | Tools | Job |
+| Agent | Intended tier | Tools | Job |
 |---|---|---|---|
-| `deep-planner` | opus | Read, Glob, Grep | plans and judges; never edits |
-| `builder` | sonnet | Read, Write, Edit, Glob, Grep, Bash | executes; the default for work that changes files |
-| `code-reviewer` | sonnet | Read, Glob, Grep, Bash | findings only; no file-editing tools |
-| `finding-verifier` | sonnet | Read, Glob, Grep, Bash | tries to disprove a finding before it causes a repair |
-| `live-researcher` | sonnet | WebSearch, WebFetch | fresh data from the web |
-| `bulk-worker` | haiku | Read, Glob, Grep, Write | mechanical volume |
-| `done-verifier` | haiku | Read, Glob, Grep, Bash | probes a stated definition of done before completion |
-| `reader` | haiku | Read, Glob, Grep | reads and digests many files; read-only |
+| `deep-planner` | planning | Read, Glob, Grep | plans and judges; never edits |
+| `builder` | working | Read, Write, Edit, Glob, Grep, Bash | executes; the default for work that changes files |
+| `code-reviewer` | working | Read, Glob, Grep, Bash | findings only; no file-editing tools |
+| `finding-verifier` | working | Read, Glob, Grep, Bash | tries to disprove a finding before it causes a repair |
+| `live-researcher` | working | WebSearch, WebFetch | fresh data from the web |
+| `bulk-worker` | cheap | Read, Glob, Grep, Write | mechanical volume |
+| `done-verifier` | cheap | Read, Glob, Grep, Bash | probes a stated definition of done before completion |
+| `reader` | cheap | Read, Glob, Grep | reads and digests many files; read-only |
+
+Probe the models your account can use before choosing one. Set `CLAUDE_CODE_SUBAGENT_MODEL` to override subagent inheritance, or add a verified `model:` choice to an agent definition you maintain. Subscription plans currently have no verified model mapping in this package.
 
 Plugin agents are namespaced: `builder` is `model-orchestrator:builder`. The hook adds that note under the table, so the bare names in your rules still resolve.
 

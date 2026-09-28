@@ -4,6 +4,7 @@
 - Scaffold a checks file with `aunx checks`. Replace the intentionally failing example with a real verifier before using the file.
 - Prefer an argv array for `command`, for example `["node", "--test", "test/example.test.js"]`. String commands run through the local shell, so review them as executable code before running a checks file.
 - Set `cwd` relative to the checks file. Keep checks inside the task's authorized scope.
+- Checks run sequentially with inherited terminal output. A timeout stops the command and its ordinary descendants; interrupts stop the run. A finished check must not leave a background service running. This lifecycle cleanup is not a sandbox for hostile programs that escape their process group.
 - Demonstrate a failing case for each new gate before trusting a passing result.
 - Include availability facts when later work depends on a tool, permission or service remaining accessible.
 - Run `aunx checks run ACCEPTANCE_CHECKS.json` against the final artifact. A failed command gives the gate exit code 1.

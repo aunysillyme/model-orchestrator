@@ -160,6 +160,9 @@ const SKIPS = [
   { file: 'install.test.js', marker: 'skip: SKIP_WATCHDOG_KILL_ON_WIN32', tests: 2, readme: "weekly-audit.sh" },
   { file: 'hooks.test.js', marker: "skip: process.platform === 'win32' ? 'no mkfifo on Windows'", tests: 1, readme: 'mkfifo' },
   { file: 'plans-auto.test.js', marker: "skip: process.platform === 'win32' ? 'no mkfifo on Windows'", tests: 1, readme: 'mkfifo' },
+  { file: 'security-cli.test.js', marker: "skip: process.platform === 'win32'", tests: 2, readme: 'project-hook symlink and manifest FIFO' },
+  { file: 'security-cli.test.js', marker: "skip: shell && process.platform === 'win32'", tests: 1, readme: 'POSIX shell descendant' },
+  { file: 'security-vm.test.js', marker: 'skip: SKIP_VM_RUNTIME_ON_WINDOWS', tests: 4, readme: 'four weekly credential and report lifecycle' },
 ];
 // Not a test skip: one assertion inside a test that otherwise runs everywhere. Listed so the README
 // sentence and this guard describe the same set, and asserted by its own shape below.

@@ -35,18 +35,14 @@ Two ways to connect, remote first (Context7's own documented default, and the on
 # (mcp.context7.com/mcp/oauth), as an alternative to an API key, not required either.
 
 # Local alternative: runs the MCP server on your machine over stdio.
-npx -y @upstash/context7-mcp
-
-# Or the one-command setup Context7 itself ships, which authenticates via OAuth,
-# writes an API key, and can install a CLI-based skill instead of MCP:
-npx ctx7 setup
+npx -y @upstash/context7-mcp@{{CONTEXT7_PIN}}
 ```
 
-Pinned form, if you want the version this installer was released against: `npx -y @upstash/context7-mcp@{{CONTEXT7_PIN}}`. Drop the pin for latest; `npx` always resolves fresh, so pinning only matters when you want a reproducible version rather than whatever shipped this week.
-
-`npx ctx7 setup` is upstream's own guided installer; it is not run by this installer, only documented here, the same way this project never runs a vendor script for you.
+The local command and shipped launch snippets use the catalog version this installer was released against. Review a newer release before changing that pin. The remote endpoint is operated by Upstash and cannot be version-pinned by this package. This installer runs neither connection nor a third-party setup command for you.
 
 ## Register it with your agent (snippets in `mcp/`)
+
+When Context7 is selected and project activation is enabled, model-orchestrator merges its entry into a supported project MCP configuration, including Claude Code's `.mcp.json`. Existing conflicting entries are kept for review. With activation disabled or a global client configuration, merge the relevant snippet manually.
 
 Every snippet below ships **keyless**: the remote ones point at the hosted endpoint with no `Authorization` header at all (Qwen Code's snippet keeps the non-credential `Accept` header upstream itself ships), and both Zed snippets run the local, version-pinned `npx` server with no key in its `env` block. That is deliberate, not an oversight: see "Higher rate limits" next for why a header is not shipped by default.
 
@@ -87,12 +83,12 @@ Anonymous works. If you hit the rate limit and want a key, add it the correct wa
 - **Codex CLI**: under the `[mcp_servers.context7]` table in `~/.codex/config.toml`, add a `bearer_token_env_var` entry naming the environment variable `CONTEXT7_API_KEY`. Codex reads the token from that variable at connect time and sends it as the `Authorization` header itself; the config file never holds the value ([Codex MCP docs](https://developers.openai.com/codex/mcp)).
 - **Claude Code** (`mcp/context7.claude-code.mcp.json`): add a `headers` object to the `context7` entry with an `Authorization` field whose value is `Bearer` followed by a `${CONTEXT7_API_KEY}` reference. Claude Code expands `${VAR}` references in a remote server's `headers` at load time, and `CONTEXT7_API_KEY` is not one of the credential names it deliberately reads as empty (those are Claude/Anthropic-specific). Set the variable in your environment before launching; an unset variable still loads with the literal, unexpanded reference sent as the header, and Context7 answers every call with "Invalid API key" instead of running anonymously ([Claude Code MCP docs](https://code.claude.com/docs/en/mcp)). That failure, not a missing feature, is why this snippet ships with no header at all.
 - **Claude Desktop**: the Connectors UI has its own key field; use it there rather than editing a file.
-- **Any local `npx` connection** (Zed, or the local alternative for any other client): export `CONTEXT7_API_KEY` in the shell that launches your editor or agent. A spawned stdio child process inherits its parent's environment by default, so `npx -y @upstash/context7-mcp` picks it up with no config edit; this is the same environment variable name Context7's own Docker MCP Toolkit config and its GitHub Copilot integration use to feed the server a key. If your client does not pass its environment through to the child (uncommon), either stay anonymous, or check whether that client's own config format has an `env` block that itself supports an environment-variable reference (Claude Code's does, described above; not every client's does) rather than typing the key in.
+- **Any local `npx` connection** (Zed, or the local alternative for any other client): export `CONTEXT7_API_KEY` in the shell that launches your editor or agent. A spawned stdio child process inherits its parent's environment by default, so `npx -y @upstash/context7-mcp@{{CONTEXT7_PIN}}` picks it up with no config edit; this is the same environment variable name Context7's own Docker MCP Toolkit config and its GitHub Copilot integration use to feed the server a key. If your client does not pass its environment through to the child (uncommon), either stay anonymous, or check whether that client's own config format has an `env` block that itself supports an environment-variable reference (Claude Code's does, described above; not every client's does) rather than typing the key in.
 - **Cursor, VS Code, Qwen Code, Antigravity `agy`, or any other client using the `mcpServers.json`/`vscode.mcp.json`/`qwen.settings.json`/`agy.mcp_config.json` snippet**: check that client's own docs for whether it expands an environment-variable reference inside a remote server's `headers` before adding one. This is not confirmed for any of them here. If it does not expand, the literal, unexpanded text becomes the header value and every call fails with "Invalid API key" instead of running anonymously, which is worse than shipping no header at all.
 
 ## Security posture, read before you send anything through it
 
-Only the library name and your query text reach Context7's API; your source code is never uploaded. It is still a third-party network call on every lookup, unlike codecalc (offline) and obsidian-tc (local by default): do not route a query that would leak a private project name, an internal library name, or anything else you would not put in a public search box. The docs it indexes are community-contributed, not vetted by Context7 or by this installer; a suspicious or malicious-looking result is reportable upstream from the project's page. An API key raises your rate limit; it is not a secret worth protecting the way a database credential is, but it still never belongs in a committed file, only in your environment.
+Library names and query text are sent to Context7's API. If an agent includes source code, credentials or private context in a query, that content leaves the machine too. Review what your agent sends and use public library names and non-sensitive queries. The local stdio server still calls the remote service; it does not make lookups private or offline. The docs it indexes are community-contributed, not vetted by this installer; report suspicious results upstream. Keep API keys in your environment or your client's supported credential store, never in committed files.
 
 ## Level 3
 

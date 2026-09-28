@@ -1,8 +1,9 @@
-import { spawn, spawnSync } from 'node:child_process';
-import { constants, closeSync, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, readSync, writeFileSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+import { lstatSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, parse, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { windowsSpawnPlan } from '../bin/cli-run.mjs';
+import { killTree, windowsSpawnPlan } from '../bin/cli-run.mjs';
+import { MANIFEST_BYTE_CAP, readRegularFile } from './bounded-file.js';
 import { byId } from './catalog.js';
 import { ROLE_SPECS } from './roles.js';
 
@@ -85,13 +86,7 @@ export function scaffold(template, target) {
 }
 
 function readChecks(path) {
-  const fd = openSync(path, constants.O_RDONLY | (constants.O_NOFOLLOW || 0) | (constants.O_NONBLOCK || 0));
-  let config;
-  try {
-    const stat = fstatSync(fd);
-    if (!stat.isFile() || stat.size > 1024 * 1024) throw new Error('checks file must be a regular JSON file of at most 1 MiB');
-    config = JSON.parse(readFileSync(fd, 'utf8'));
-  } finally { closeSync(fd); }
+  const config = JSON.parse(readRegularFile(path, MANIFEST_BYTE_CAP).toString('utf8'));
   if (!config || config.version !== 1 || !Array.isArray(config.checks) || !config.checks.length) throw new Error('expected version: 1 and a non-empty checks array');
   const ids = new Set();
   for (const check of config.checks) {
@@ -105,7 +100,39 @@ function readChecks(path) {
   return config.checks;
 }
 
-export function runChecks(file) {
+function runCheck(command, args, options, cwd, timeoutMs) {
+  return new Promise(resolveCheck => {
+    let child, timer, settled = false, timedOut = false, interrupted;
+    const stop = () => {
+      if (!child?.pid) return;
+      try { killTree(child.pid); }
+      catch { try { child.kill('SIGKILL'); } catch { /* already exited */ } }
+    };
+    const finish = (status, signal, error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      process.off('SIGINT', onInterrupt);
+      process.off('SIGTERM', onTerminate);
+      stop();
+      resolveCheck({ status, signal, error: timedOut ? { code: 'ETIMEDOUT' } : error, interrupted });
+    };
+    const onSignal = signal => { interrupted ||= signal; stop(); };
+    const onInterrupt = () => onSignal('SIGINT');
+    const onTerminate = () => onSignal('SIGTERM');
+    process.on('SIGINT', onInterrupt);
+    process.on('SIGTERM', onTerminate);
+    try {
+      child = spawn(command, args, { ...options, cwd, stdio: 'inherit', detached: process.platform !== 'win32' });
+      child.once('error', error => finish(null, null, error));
+      child.once('exit', (status, signal) => finish(status, signal));
+      timer = setTimeout(() => { timedOut = true; stop(); }, timeoutMs);
+      if (interrupted) stop();
+    } catch (error) { finish(null, null, error); }
+  });
+}
+
+export async function runChecks(file) {
   const path = resolve(file);
   // Validate the whole file before the first command can mutate anything.
   const checks = readChecks(path);
@@ -133,10 +160,11 @@ export function runChecks(file) {
       }
       ({ command, args, options = {} } = plan);
     }
-    const result = spawnSync(command, args, { ...options, cwd, stdio: 'inherit', timeout: check.timeoutMs || 30000, killSignal: 'SIGKILL' });
+    const result = await runCheck(command, args, options, cwd, check.timeoutMs || 30000);
     const pass = !result.error && result.status === 0;
     failed ||= !pass;
     console.log(`${pass ? 'PASS' : 'FAIL'} ${check.id}: ${result.error ? result.error.code : result.signal ? `signal ${result.signal}` : `exit ${result.status}`}`);
+    if (result.interrupted) return result.interrupted === 'SIGINT' ? 130 : 143;
   }
   return failed ? 1 : 0;
 }
@@ -149,25 +177,10 @@ export function readManifestRoles({ dir, cwd = process.cwd() } = {}) {
     join(cwd, 'ai-orchestrator', 'MANIFEST.json'),
     join(cwd, 'MANIFEST.json')
   ];
-  const maxBytes = 1024 * 1024;
   const roleIds = new Set(ROLE_SPECS.map(spec => spec.id));
   for (const path of new Set(candidates)) {
-    let fd;
     try {
-      const before = lstatSync(path);
-      if (!before.isFile() || before.isSymbolicLink() || before.size > maxBytes) continue;
-      fd = openSync(path, constants.O_RDONLY | (constants.O_NOFOLLOW || 0) | (constants.O_NONBLOCK || 0));
-      const after = fstatSync(fd);
-      if (!after.isFile() || after.size > maxBytes || after.dev !== before.dev || after.ino !== before.ino) continue;
-      const buffer = Buffer.alloc(maxBytes + 1);
-      let length = 0;
-      while (length < buffer.length) {
-        const count = readSync(fd, buffer, length, buffer.length - length, null);
-        if (!count) break;
-        length += count;
-      }
-      if (length > maxBytes) continue;
-      const manifest = JSON.parse(buffer.toString('utf8', 0, length));
+      const manifest = JSON.parse(readRegularFile(path, MANIFEST_BYTE_CAP).toString('utf8'));
       const roles = manifest?.roles;
       if (!roles || typeof roles !== 'object' || Array.isArray(roles) || !Object.keys(roles).length) continue;
       if (Object.entries(roles).some(([id, role]) => !roleIds.has(id) || !role || typeof role !== 'object' || Array.isArray(role)
@@ -177,8 +190,6 @@ export function readManifestRoles({ dir, cwd = process.cwd() } = {}) {
       return roles;
     } catch {
       // Missing, invalid, non-regular or unreadable JSON is an absent manifest.
-    } finally {
-      if (fd !== undefined) closeSync(fd);
     }
   }
   return null;
@@ -233,8 +244,7 @@ export async function main(args) {
     return runNode(join(ROOT, 'bin', 'cli-run.mjs'), parsed.rest);
   }
   if (command === 'route-metrics') {
-    const local = join(process.cwd(), '.claude', 'hooks', 'route-metrics.mjs');
-    return runNode(regular(local) ? local : join(ROOT, 'templates', 'agents', 'snippets', 'route-metrics.mjs'), rest.length ? rest : ['--summary']);
+    return runNode(join(ROOT, 'templates', 'agents', 'snippets', 'route-metrics.mjs'), rest.length ? rest : ['--summary']);
   }
   if (command === 'brief' && rest.length === 0) { process.stdout.write(readFileSync(join(COMMON, 'TASK_BRIEF.md'), 'utf8')); return 0; }
   if (['brief', 'context', 'checks'].includes(command)) {

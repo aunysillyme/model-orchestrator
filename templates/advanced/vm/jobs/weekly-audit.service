@@ -8,8 +8,10 @@ WorkingDirectory={{INSTALL_DIR_SYSTEMD}}
 # Add absolute Node and vendor CLI directories if they live outside these defaults.
 # systemd does not expand shell variables in Environment=.
 Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-# Names come from a file OUTSIDE this repo, mode 600. Edit the path.
-EnvironmentFile=%h/.config/ai-orchestrator/gateway.env
+# Audit-only file OUTSIDE this repo, mode 600: GATEWAY_MASTER_KEY only.
+# Provider credentials stay in the separate gateway/Compose environment.
+# Vendor CLIs use this user's stored sign-in state. Edit the path if needed.
+EnvironmentFile=%h/.config/ai-orchestrator/weekly-audit.env
 ExecStart=/bin/bash "{{INSTALL_DIR_SYSTEMD}}/vm/jobs/weekly-audit.sh"
 # Whole-job deadline: collection probes (6 x 10 s) + the 600 s model call + cleanup.
 # On expiry systemd kills the whole cgroup, so nothing the job spawned survives.

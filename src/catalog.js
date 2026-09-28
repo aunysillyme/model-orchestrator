@@ -400,7 +400,7 @@ export const TOOLS = [
     name: 'codecalc (calculator, code runner, logic checker for your agent)',
     repo: 'https://github.com/The-40-Thieves/codecalc',
     role: 'exact arithmetic, code execution in 31 languages, SMT logic checks, complexity and equivalence proofs; offline, no key, no telemetry',
-    install: "uvx 'codecalc[full]' setup --write",
+    get install() { return `uvx 'codecalc[full]==${this.pin}' setup --write`; },
     pin: '0.5.0',
     mcpSnippets: { 'claude-code': 'mcp/mcpServers.json', codex: 'mcp/codex.config.toml', agy: 'mcp/agy.mcp_config.json', qwen: 'mcp/mcpServers.json' },
     requires: 'uv (https://docs.astral.sh/uv/) and Python 3.10+',
@@ -413,7 +413,7 @@ export const TOOLS = [
     name: 'obsidian-tc (governed memory: an agent-ready MCP server over an Obsidian vault)',
     repo: 'https://github.com/The-40-Thieves/obsidian-tc',
     role: 'durable memory and record for your agents: hybrid retrieval (BM25 + dense + link graph), backlinks, compare-and-swap writes with a confirmation gate, folder ACLs, a poison scan on inferred writes; 163 tools, local by default',
-    install: 'npm install -g obsidian-tc && obsidian-tc /path/to/your/vault',
+    get install() { return `npm install -g obsidian-tc@${this.pin} && obsidian-tc /path/to/your/vault`; },
     pin: '1.26.0',
     mcpSnippets: { 'claude-code': 'mcp/obsidian-tc.mcpServers.json', codex: 'mcp/obsidian-tc.codex.config.toml', agy: 'mcp/obsidian-tc.agy.mcp_config.json', qwen: 'mcp/obsidian-tc.mcpServers.json' },
     requires: 'an Obsidian vault folder (the Obsidian app itself is only needed for live plugin bridges); Node 24+ or Bun 1.1+ (stricter than this installer); Ollama with `nomic-embed-text` for local embeddings, or a cloud embeddings key; the Local REST API plugin only for bridge tools',
@@ -426,11 +426,11 @@ export const TOOLS = [
     name: 'Context7 (Upstash: version-aware docs for the libraries your agent calls)',
     repo: 'https://github.com/upstash/context7',
     role: 'up-to-date, version-specific documentation and code examples for libraries, SDKs, APIs and CLIs, pulled into the prompt; tells the agent what the code is SUPPOSED to do. Paired with codecalc, which runs the code and proves what it actually does: docs never stand as proof, and where they disagree the run wins',
-    install: 'npx ctx7 setup',
+    get install() { return `npx -y @upstash/context7-mcp@${this.pin}`; },
     pin: '4.1.1',
     mcpSnippets: { 'claude-code': 'mcp/context7.claude-code.mcp.json', codex: 'mcp/context7.codex.config.toml', agy: 'mcp/context7.agy.mcp_config.json', qwen: 'mcp/context7.qwen.settings.json' },
     requires: 'Node.js 18+ for the local server or the ctx7 CLI; a free CONTEXT7_API_KEY is optional, for higher rate limits (it works anonymously at the base rate)',
-    autoClients: ['Claude Code', 'Cursor', 'Codex CLI', 'Qwen Code'],
+    autoClients: [], // The pinned MCP server does not register itself; merge its snippets.
     recommended: false,
     optionalNote: 'Optional, and from a different maintainer than codecalc and obsidian-tc (Upstash, not The-40-Thieves). Needs a network call even at the anonymous rate; skip it offline. MIT.'
   }

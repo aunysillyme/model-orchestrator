@@ -27,9 +27,9 @@ jobs:
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
-      - name: npm 11.5.1 or newer (trusted publishing needs it)
+      - name: npm 12.1.0 (reviewed trusted publishing version; needs Node 24.15.0+)
         run: |
-          npm install -g npm@latest
+          npm install -g npm@12.1.0
           npm --version
       - name: tag and package.json must name the same version
         run: |

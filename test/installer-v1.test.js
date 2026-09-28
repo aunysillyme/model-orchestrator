@@ -70,7 +70,7 @@ test('0.1.35 upgrade replaces an untouched brief, preserves companions, and reta
     assert.ok(existsSync(join(dir, 'TASK_BRIEF.md')));
     assert.equal(readFileSync(join(dir, 'CODECALC.md'), 'utf8'), fixture.files['CODECALC.md']);
     const manifest = readManifest(dir);
-    assert.equal(manifest.generatorVersion, '1.0.0');
+    assert.equal(manifest.generatorVersion, JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version);
     assert.equal(manifest.files[legacy], undefined);
     assert.equal(manifest.files['CODECALC.md'], fixture.hashes['CODECALC.md']);
     assert.ok(manifest.files['TASK_BRIEF.md']);
