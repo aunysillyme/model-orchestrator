@@ -398,3 +398,13 @@ test('advisory workflow keeps read-only permissions, immutable action pins and f
   assert.ok(workflow.includes('checker-produced-no-report'));
   assert.match(workflow, /if-no-files-found: error/);
 });
+
+test('a Go binary root module without a version is recorded, and nothing else versionless passes', () => {
+  const withRoot = (pkg) => { const f = trivyFixture(); f.Results.push({ Class: 'lang-pkgs', Type: 'gobinary', Target: 'usr/bin/tool', Packages: [pkg, { Name: 'golang.org/x/net', Version: 'v0.30.0' }] }); return f; };
+  const root = parseTrivyReport(withRoot({ Name: 'github.com/example/tool', Relationship: 'root' }), image, resolved, TRIVY.version);
+  assert.equal(root.status, 'clean');
+  assert.deepEqual(root.unversionedRoots, ['github.com/example/tool']);
+  assert.throws(() => parseTrivyReport(withRoot({ Name: 'github.com/example/dep', Relationship: 'direct' }), image, resolved, TRIVY.version), /incomplete-container-package/);
+  const npmRoot = trivyFixture(); npmRoot.Results[1].Packages.push({ Name: 'root-without-version', Relationship: 'root' });
+  assert.throws(() => parseTrivyReport(npmRoot, image, resolved, TRIVY.version), /incomplete-container-package/);
+});

@@ -207,7 +207,7 @@ Generated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrite
 - **What it is:** A local model runtime; work sent here stays on the machine
 - **Install:** https://ollama.com/download (or `brew install ollama`)
 - **Sign in:** none
-- **Built against:** 0.33.3
+- **Built against:** 0.34.4
 
 **Capability facts.** An unverified value needs a current capability check before use. Role assignments come from the selected stack, using these facts.
 
