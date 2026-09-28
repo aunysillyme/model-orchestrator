@@ -14,6 +14,9 @@ function fixture(t) {
   const dir = join(root, 'ai');
   const bin = join(root, 'stubs');
   mkdirSync(bin);
+  // Keep the fixture's unknown Claude sign-in state independent of the host account.
+  if (process.platform === 'win32') writeFileSync(join(bin, 'claude.cmd'), '@ECHO off\r\nexit /b 99\r\n');
+  else writeFileSync(join(bin, 'claude'), '#!' + process.execPath + '\nprocess.exit(99);\n', { mode: 0o755 });
   const calls = join(root, 'calls.jsonl');
   const script = `import { appendFileSync } from 'node:fs';\nappendFileSync(${JSON.stringify(calls)}, JSON.stringify(process.argv.slice(2))+'\\n');\nif (process.argv.slice(2).join(' ') === 'login status') { console.log('Logged in using ChatGPT'); process.exit(0); }\nprocess.exit(99);\n`;
   writeFileSync(join(bin, 'codex.mjs'), script);
