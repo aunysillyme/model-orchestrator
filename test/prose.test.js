@@ -163,6 +163,7 @@ const SKIPS = [
   { file: 'security-cli.test.js', marker: "skip: process.platform === 'win32'", tests: 2, readme: 'project-hook symlink and manifest FIFO' },
   { file: 'security-cli.test.js', marker: "skip: shell && process.platform === 'win32'", tests: 1, readme: 'POSIX shell descendant' },
   { file: 'security-vm.test.js', marker: 'skip: SKIP_VM_RUNTIME_ON_WINDOWS', tests: 4, readme: 'four weekly credential and report lifecycle' },
+  { file: 'security-messages.test.js', marker: "skip: process.platform === 'win32'", tests: 1, readme: 'symlinked-manifest refusal message' },
 ];
 // Not a test skip: one assertion inside a test that otherwise runs everywhere. Listed so the README
 // sentence and this guard describe the same set, and asserted by its own shape below.

@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-09-28
+
+### Fixed
+
+- A refused symlinked or changing file (such as `MANIFEST.json`) now names its path and the fix: replace the link with the file it points to. Since 1.0.1, rerunning the installer over a symlinked manifest stops instead of treating it as a fresh install.
+- A path shown in a refusal escapes control characters, so a crafted file name cannot write terminal escape sequences; a directory or other non-file gets "expected a regular file" without symlink advice.
+- The acceptance-check protocol states the timeout's reach: it stops the command's process group, and a descendant that starts its own session (for example with `setsid`) keeps running.
+
 ### Added
 
 - Product website at `model-orchestrator.aunysillyme.dev`, with repository-generated documentation, changelog, and the model-orchestrator trailer. Main-branch pushes rebuild the site through Vercel; the published version is checked against npm.
@@ -517,7 +525,8 @@ First release.
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
-[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.35...v1.0.0
 [0.1.35]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.34...v0.1.35
