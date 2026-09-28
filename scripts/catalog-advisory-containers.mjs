@@ -105,10 +105,19 @@ export function parseTrivyReport(data, target, resolved, scannerVersion) {
   const advisories = [];
   let packageCount = 0;
   let osPackages = false;
+  const unversionedRoots = [];
   for (const result of data.Results) {
     if (!['os-pkgs', 'lang-pkgs'].includes(result.Class) || typeof result.Type !== 'string' || !Array.isArray(result.Packages) || !result.Packages.length) throw new Error('incomplete-container-packages');
     if (result.Class === 'os-pkgs') osPackages = true;
-    for (const pkg of result.Packages) if (typeof pkg.Name !== 'string' || !pkg.Name || typeof pkg.Version !== 'string' || !pkg.Version) throw new Error('incomplete-container-package');
+    for (const pkg of result.Packages) {
+      if (typeof pkg.Name !== 'string' || !pkg.Name) throw new Error('incomplete-container-package');
+      if (typeof pkg.Version === 'string' && pkg.Version) continue;
+      // A Go binary built without module version stamping lists its own main module
+      // with no version. Its dependencies are still listed and scanned, so that one
+      // root entry is recorded by name; any other versionless package stays unknown.
+      if (result.Type === 'gobinary' && pkg.Relationship === 'root') { unversionedRoots.push(pkg.Name); continue; }
+      throw new Error('incomplete-container-package');
+    }
     packageCount += result.Packages.length;
     if ('Vulnerabilities' in result && !Array.isArray(result.Vulnerabilities)) throw new Error('invalid-container-vulnerabilities');
     for (const vuln of result.Vulnerabilities || []) {
@@ -120,7 +129,7 @@ export function parseTrivyReport(data, target, resolved, scannerVersion) {
     }
   }
   if (!packageCount || !osPackages) throw new Error('incomplete-container-coverage');
-  return { ...target, ...resolved, scannerVersion, packageCount, advisories,
+  return { ...target, ...resolved, scannerVersion, packageCount, ...(unversionedRoots.length ? { unversionedRoots } : {}), advisories,
     status: advisories.length ? 'affected' : 'clean', evidenceSource: 'Trivy vulnerability database' };
 }
 
