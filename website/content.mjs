@@ -63,7 +63,7 @@ export function renderMarkdown(markdown, source) {
   });
 }
 
-export function documentHtml({title, description, route, body}) {
+export function documentHtml({title, description, route, body, discovery = true}) {
   const socialImage = `${origin}/assets/social-preview.png`;
   const socialAlt = 'Model-orchestrator: the right model for the right job. Dark green repository card with Auny’s avatar and a three-tone green border.';
   return `<!doctype html><html lang="en"><head><!-- Google tag (gtag.js) -->
@@ -71,6 +71,7 @@ export function documentHtml({title, description, route, body}) {
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-HK1CE993HY');</script>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${escape(title)}</title><meta name="description" content="${escape(description)}">
+${discovery ? `<link rel="describedby" href="${origin}/llms.txt"><link rel="alternate" type="text/markdown" href="${origin}${route}index.md">` : '<meta name="robots" content="noindex">'}
 <link rel="canonical" href="${origin}${route}"><meta property="og:type" content="website">
 <meta property="og:title" content="${escape(title)}"><meta property="og:description" content="${escape(description)}">
 <meta property="og:url" content="${origin}${route}"><meta property="og:image" content="${socialImage}">

@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+- The product website generates public Markdown mirrors, llms discovery files and agent navigation guidance from its existing documentation allowlist on each Git build.
+
 ## [1.0.5] - 2026-09-28
 
 ### Changed

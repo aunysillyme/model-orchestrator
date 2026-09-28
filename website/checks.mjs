@@ -7,6 +7,7 @@ import {Parser, parseDocument, DomUtils} from 'htmlparser2';
 import {renderMarkdown, releaseEntries, documentHtml, pages, origin, populateLanding} from './content.mjs';
 import {setupTrailer} from './assets/trailer.js';
 import {validRelease, refreshRelease} from './assets/releases.js';
+import {sourceDocument, discoveryFiles, publicRoutes} from './discovery.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const out = path.join(here, 'dist');
@@ -27,7 +28,8 @@ function verifyHtml(html, route, documents) {
   assert.equal(info.google, 1, 'Exactly one Google tag');
   assert.equal(info.config, 1, 'Exactly one Google config');
   assert.match(html, /<head><!-- Google tag/);
-  assert.ok(!html.includes('DESIGN PREVIEW') && !html.includes('noindex'));
+  assert.ok(!html.includes('DESIGN PREVIEW'));
+  if (route !== '/404.html') assert.ok(!html.includes('noindex'));
   for (const link of info.links) {
     if (/^https?:/i.test(link.href)) {
       assert.equal(link.target, '_blank', `External target: ${link.href}`);
@@ -54,7 +56,8 @@ test('documentation routes avoid the index segment canonicalized away by Vercel'
 test('all generated pages have one early Google tag, working local links and safe external links', () => {
   for (const route of routes) verifyHtml(readFileSync(path.join(out, route, 'index.html'), 'utf8'), route, documents);
   const notFound = readFileSync(path.join(out, '404.html'), 'utf8');
-  verifyHtml(notFound, '/', documents);
+  verifyHtml(notFound, '/404.html', documents);
+  assert.match(notFound, /<meta name="robots" content="noindex">/);
 });
 test('every generated page advertises the bundled social thumbnail with its real dimensions', () => {
   const image = readFileSync(path.join(out, 'assets/social-preview.png'));
@@ -169,9 +172,57 @@ test('landing navigation is in section order and approved trailer is correct', (
 });
 test('sitemap includes every generated content page and build metadata identifies source', () => {
   const sitemap = readFileSync(path.join(out, 'sitemap.xml'), 'utf8');
-  for (const route of routes) assert.ok(sitemap.includes(`<loc>${origin}${route}</loc>`));
+  assert.deepEqual([...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match => match[1]), routes.map(route => origin + route));
   const info = JSON.parse(readFileSync(path.join(out, 'build-info.json'), 'utf8'));
   assert.match(info.commit, /^[a-f0-9]{40}$/); assert.ok(validRelease(info.published));
+});
+
+test('crawler policy allows all public pages and advertises the canonical sitemap', () => {
+  assert.equal(readFileSync(path.join(out, 'robots.txt'), 'utf8'), `User-agent: *\nAllow: /\nSitemap: ${origin}/sitemap.xml\n`);
+  assert.deepEqual(publicRoutes, routes);
+  const config = JSON.parse(readFileSync(path.join(here, '..', 'vercel.json'), 'utf8'));
+  assert.ok(config.headers.some(rule => rule.source === '/(.*\\.md)' && rule.headers.some(header => header.key === 'Content-Type' && header.value === 'text/markdown; charset=utf-8')));
+});
+
+test('every public HTML page has a real Markdown alternate and discovery link', () => {
+  for (const route of routes) {
+    const {tags} = inventory(readFileSync(path.join(out, route, 'index.html'), 'utf8'));
+    const alternates = tags.filter(({name, attrs}) => name === 'link' && attrs.rel === 'alternate' && attrs.type === 'text/markdown');
+    assert.equal(alternates.length, 1);
+    assert.equal(alternates[0].attrs.href, `${origin}${route}index.md`);
+    assert.ok(existsSync(path.join(out, route, 'index.md')));
+    assert.ok(tags.some(({name, attrs}) => name === 'link' && attrs.rel === 'describedby' && attrs.href === `${origin}/llms.txt`));
+  }
+});
+
+test('discovery publishes exactly the public allowlist and preserves source Markdown', () => {
+  const full = readFileSync(path.join(out, 'llms-full.txt'), 'utf8');
+  const index = readFileSync(path.join(out, 'llms.txt'), 'utf8');
+  for (const [source, slug] of pages) {
+    const original = readFileSync(path.join(here, '..', source), 'utf8');
+    const mirror = readFileSync(path.join(out, 'docs', slug, 'index.md'), 'utf8');
+    assert.ok(mirror.endsWith(original));
+    assert.ok(mirror.includes(`Canonical page: ${origin}/docs/${slug}/`));
+    assert.ok(full.includes(mirror));
+    assert.ok(index.includes(`${origin}/docs/${slug}/index.md`));
+  }
+  assert.deepEqual(readdirSync(path.join(out, 'docs')).sort(), [...pages.values()].sort());
+  assert.equal(readFileSync(path.join(out, 'AGENTS.md'), 'utf8'), readFileSync(path.join(out, 'agents.md'), 'utf8'));
+  assert.doesNotMatch(readFileSync(path.join(out, 'AGENTS.md'), 'utf8'), /## Change this repository|\/Users\/|calendar\.app\.google/);
+  for (const file of ['README.md', 'CLAUDE.md', '.env', 'website/README.md', 'docs/private.md']) assert.ok(!existsSync(path.join(out, file)));
+  assert.doesNotMatch(index, /404\.html|build-info\.json|website\/README/);
+});
+
+test('discovery rejects unlisted sources, incomplete sets, extra files and noindex content pages', () => {
+  const sha = 'a'.repeat(40);
+  assert.throws(() => sourceDocument('PRIVATE_FIXTURE', 'website/README.md', 'internal', sha), /not a public/);
+  assert.throws(() => sourceDocument('PRIVATE_FIXTURE', 'AGENTS.md', 'overview', sha), /not a public/);
+  assert.throws(() => discoveryFiles(new Map()), /allowlist/);
+  const docs = new Map([...pages.values()].map(slug => [slug, {title: slug, markdown: ''}]));
+  docs.set('private', {title: 'Private', markdown: 'PRIVATE_FIXTURE'});
+  assert.throws(() => discoveryFiles(docs), /allowlist/);
+  const noindex = documentHtml({title: 'Fixture', description: 'Fixture', route: '/', body: '', discovery: false});
+  assert.throws(() => verifyHtml(noindex, '/', documents));
 });
 
 // Navigation regression: scroll position, not the last clicked link, owns the active tab.

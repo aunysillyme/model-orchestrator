@@ -39,6 +39,10 @@ The root `vercel.json` is the source of the install, build and output settings. 
 
 `website/content.mjs` explicitly lists the public Markdown sources: the repository README, public guides in `docs`, command README, proof README and changelog. The build does not recursively publish repository files or operational instructions.
 
+`website/discovery.mjs` uses that same allowlist for AI-friendly discovery. Every public HTML page advertises `/llms.txt` through `rel="describedby"` and a sibling `index.md` through `rel="alternate" type="text/markdown"`. Documentation mirrors retain their exact public source text, including code examples, and begin with the canonical page and pinned GitHub source URL. Source-relative links resolve against that repository source location. The landing Markdown contains only the public product summary and navigation.
+
+`/llms.txt` provides a concise Markdown index; `/llms-full.txt` combines the landing summary and only the allowlisted documentation. `/AGENTS.md` and the byte-identical lowercase `/agents.md` are public website navigation guidance, generated independently of the repository's contributor AGENTS.md. They do not publish private agent configuration or grant permission to execute commands. All these files regenerate on the existing checked Git-push build, with no new dependency or scheduled job.
+
 `website/assets/navigation.js` keeps the landing page sidebar and mobile navigation synchronized with the current section. Passive scrolling, resize, deep-link navigation, page restoration and content resizing schedule a single animation-frame update. The reading boundary uses the sticky header and CSS scroll offset; reaching the bottom selects Changelog. An overflowing sidebar scrolls only its own navigation container to expose the active link, without moving page position or keyboard focus. The breadcrumb is Home and links to the portfolio. There is no network dependency for this behavior.
 
 `website/landing.html` owns the editorial introduction. `website/assets` owns the approved avatar, CSS and browser behavior. Changes to marketing copy or the trailer URL still require a source edit and push. The automation updates existing content; it does not invent new feature explanations or generate a new video.
@@ -47,13 +51,17 @@ The source commit comes from `VERCEL_GIT_COMMIT_SHA`, or the local Git HEAD. npm
 
 ## Writes
 
-`website/dist` contains the landing page, documentation pages, 404 page, static assets, robots file, sitemap and `build-info.json`. The latter records the source commit, build time and published-version verification state. It contains no credentials.
+`website/dist` contains the landing page, documentation pages, their Markdown mirrors, 404 page, static assets, robots file, sitemap, llms discovery files, public agent guidance and `build-info.json`. The latter records the source commit, build time and published-version verification state. It contains no credentials.
+
+`robots.txt` allows all public paths for all compliant crawlers, including AI crawlers, and names the canonical sitemap. The sitemap contains only the landing page and allowlisted canonical HTML docs, with no 404, metadata or duplicate Markdown URLs. The 404 template carries `noindex`. These files express crawling and discovery intent; Cloudflare/Vercel access controls and crawler choices still determine actual access and indexing. Search Console submission and edge bot settings are external deployment operations, not actions this builder performs.
 
 The builder deletes and recreates only that generated output directory. Generated output and installed website dependencies are Git-ignored.
 
 ## The closed loop
 
 Vercel build logs and the deployment status report build failures. The build executes the package suite and website checks before publication. The website checks are demonstrated capable of rejecting broken anchors and duplicate Analytics tags; sanitizer and playback checks exercise unsafe input and reduced-motion conditions.
+
+Discovery checks verify every advertised Markdown file, exact sitemap membership, wildcard crawl access, source preservation, and the uppercase/lowercase agent-guide equivalence. Negative fixtures reject private/unlisted source names, incomplete or expanded document sets, and `noindex` on content pages. The existing CI checks are the watcher for generated discovery drift; no independent crawl or Google-indexing monitor is installed here.
 
 `build-info.json` lets the deployment owner compare the live source commit with the expected Git commit. Confirm a successful Git-triggered deployment and fetch this file after a push to verify the full update path.
 
@@ -85,6 +93,8 @@ Open the local URL, check the desktop and mobile layouts, follow a documentation
 
 For production, open the custom domain and `/build-info.json`. Match its commit to the intended Git push and inspect the corresponding Vercel build's successful test output. Launch verified on 2026-09-28: Git push `ff74138b02c8ada3acf449ef95cdfae920bea2ec` automatically created production deployment `dpl_Esua8ytjsTdo8EBK9U6xYNuU28an` (source `git`, state `READY`). The public HTTPS `/build-info.json` returned that exact commit, npm version `1.0.1`, and 15 content pages. Vercel ran the package and website checks before promotion. GitHub website run `36380117546` also passed.
 
+After a discovery-file change, also fetch `/robots.txt`, `/sitemap.xml`, `/llms.txt`, `/llms-full.txt`, `/AGENTS.md`, `/agents.md`, `/index.md` and `/docs/install/index.md`. Check HTTP 200 and real text responses, not fallback HTML, with Googlebot and the intended AI crawler user agents as well as an ordinary request. Check a missing path returns HTTP 404. This confirms public serving, not that Google or an AI service has indexed the content. Discovery generation was verified locally on 2026-09-28; production verification is pending deployment.
+
 Rollback uses Vercel's previous successful production deployment. Record its deployment identifier before promoting a replacement. The initial launch deployment was `dpl_Esua8ytjsTdo8EBK9U6xYNuU28an` at commit `ff74138b02c8ada3acf449ef95cdfae920bea2ec`. That initial deployment predates the documentation-hub route correction. Select a later verified deployment when rolling back, and check `/docs/guides/` returns HTTP 200. The first launch had no prior product-site deployment to restore; its rollback is removal of the new subdomain assignment/DNS record without changing the portfolio's apex or www records.
 
 The shared Open Graph and Twitter thumbnail is `/assets/social-preview.png` (1200 × 630). Its editable source is `website/design/social-preview.svg`, adapted from the portfolio’s original template with its avatar, data background and three-tone green border. After editing the SVG, render locally with `rsvg-convert website/design/social-preview.svg -o website/assets/social-preview.png` (librsvg and the template’s Monaco/Helvetica Neue fonts are needed locally). Commit both files. Production uses the committed PNG and needs no image-rendering dependency. `website/content.mjs` assigns it to every generated page; it is separate from the trailer poster. Website checks verify the image size and metadata, and Vercel’s existing Git build publishes it. After deployment, verify the public image URL returns `image/png` and matches the committed bytes.
@@ -95,6 +105,7 @@ The shared Open Graph and Twitter thumbnail is `/assets/social-preview.png` (120
 - Published version: npm registry, not the package version in an unshipped checkout.
 - Layout and presentation: `website/landing.html`, `website/content.mjs` and `website/assets`.
 - Build and checks: `website/build.mjs`, `website/checks.mjs`, website lockfile and root `vercel.json`.
+- Public agent discovery: `website/discovery.mjs` and the public source allowlist in `website/content.mjs`. Format reference: [llms.txt proposal v2](https://llmstxt.org/), read on 2026-09-28; its discovery relations are implemented without adopting a new library.
 - Live deployment and DNS: Vercel project and Cloudflare zone configuration, verified by the deployment owner.
 
 Do not manually edit generated HTML. Change its source and push through the same checked build.
