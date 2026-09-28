@@ -29,6 +29,7 @@ Pick a model proxy (LiteLLM, Portkey, OpenRouter, claude-code-router) for per-re
 - [Claude Code plugin](https://github.com/aunysillyme/model-orchestrator/blob/main/plugin/README.md): installing read-only routing hooks and subagents through the plugin marketplace
 - [Proof](https://github.com/aunysillyme/model-orchestrator/blob/main/proof/README.md): dated measurements, methods, sample sizes, expiry and reproduction scripts
 - [Security review history](https://github.com/aunysillyme/model-orchestrator/blob/main/docs/security-review-history.md): completed review rounds, incident summaries and regression evidence
+- [Catalog advisory checks](https://github.com/aunysillyme/model-orchestrator/blob/main/docs/catalog-advisories.md): package and container inventory, coverage, report statuses, exceptions and manual verification
 - [Changelog](https://github.com/aunysillyme/model-orchestrator/blob/main/CHANGELOG.md): release changes and upgrade notes
 - [Agent instructions](https://github.com/aunysillyme/model-orchestrator/blob/main/AGENTS.md): headless setup and contributor checks
 

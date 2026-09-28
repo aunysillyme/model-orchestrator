@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-09-28
+
+### Security
+
+- Weekly audit jobs use an explicit child environment allowlist, keep selected worker configuration overrides out of probes, and preserve stored sign-in paths. See the generated jobs README for migration (#45).
+- Catalog package and container pins get advisory checks with explicit coverage, dated machine-readable results and expiring advisory-specific exceptions. See [catalog advisory checks](docs/catalog-advisories.md) for operation and limitations (#46).
+
 ### Added
 
 - `aunx route-metrics --summary` compares the route your agent named in each reply with the delegation that actually followed, from data the log already records: the share of sessions that match, sessions that named a route and dispatched nothing, and sessions that dispatched without naming one.
@@ -533,7 +540,8 @@ First release.
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
-[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.2...HEAD
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.3...HEAD
+[1.0.3]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/aunysillyme/model-orchestrator/compare/v0.1.35...v1.0.0

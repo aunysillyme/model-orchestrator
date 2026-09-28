@@ -35,18 +35,18 @@ echo "# orchestrator (stub)"          > "$INSTALL/ORCHESTRATOR.md"
 sed "s|^INSTALL_DIR=.*|INSTALL_DIR='$INSTALL'|" "$ROOT/weekly-audit.src" > "$INSTALL/vm-weekly-audit.sh"
 chmod +x "$INSTALL/vm-weekly-audit.sh"
 
-# Stub lane runner. MODE picks the behaviour; nothing here calls a vendor.
+# Stub lane runner. A fixture file picks the behaviour; nothing calls a vendor.
 cat > "$INSTALL/bin/cli-run.mjs" <<'STUB'
 import { spawn } from 'node:child_process';
-import { writeFileSync } from 'node:fs';
-const mode = process.env.STUB_MODE || 'ok';
+import { readFileSync, writeFileSync } from 'node:fs';
+const mode = readFileSync('stub-mode', 'utf8');
 if (mode === 'hang') {
   // A grandchild that deliberately outlives its parent. If the cgroup kill
   // works, systemd takes this too; if only the direct child were killed, this
   // would survive and the claim in the unit would be false.
   const c = spawn('sleep', ['600'], { detached: true, stdio: 'ignore' });
   c.unref();
-  writeFileSync(process.env.STUB_PIDFILE, String(c.pid));
+  writeFileSync('../grandchild.pid', String(c.pid));
   setInterval(() => {}, 1 << 30); // hang forever
 } else if (mode === 'fail') {
   process.stdout.write('PARTIAL OUTPUT, run did not finish\n');
@@ -58,14 +58,13 @@ if (mode === 'hang') {
 STUB
 
 write_unit(){ # $1 = TimeoutStartSec
+printf '%s' "${STUB_MODE:-ok}" > "$INSTALL/stub-mode"
 cat > "$UNIT_DIR/orch-audit-test.service" <<UNIT
 [Unit]
 Description=orchestrator generated weekly audit (test)
 [Service]
 Type=oneshot
 WorkingDirectory=$INSTALL
-Environment=STUB_MODE=${STUB_MODE:-ok}
-Environment=STUB_PIDFILE=$ROOT/grandchild.pid
 Environment=GATEWAY_MASTER_KEY=${GATEWAY_MASTER_KEY:-}
 ExecStart=/bin/bash $INSTALL/vm-weekly-audit.sh
 TimeoutStartSec=$1

@@ -8,18 +8,32 @@
 #     renamed into place only on a clean exit; failed output is kept beside it for diagnosis
 #   - the lane runs with the strongest boundary it offers ({{AUDIT_LANE_BOUNDARY_NOTE}})
 #   - any nonzero rc from cli-run (10 to 18) means no report was produced; the timer's journal shows it
+# Disable inherited tracing and automatic export before handling credentials.
+set +a +x +v
 set -uo pipefail
 INSTALL_DIR={{INSTALL_DIR_SH}}
 AUDIT_LANE="{{AUDIT_LANE}}"
 AUDIT_LANE_FLAGS="{{AUDIT_LANE_FLAGS}}"
 PROBE_SECS="${PROBE_SECS:-10}"      # per collection probe
 RUNNER_SECS="${RUNNER_SECS:-600}"   # the model call; TimeoutStartSec in the unit covers the whole job
-# Keep the probe credential in this shell only. Gateway provider keys belong to
-# Compose, not to collection tools or the scheduled vendor CLI. Stored vendor
-# sign-ins, HOME, PATH, and unrelated authentication variables remain available.
-KEY="${GATEWAY_MASTER_KEY:-}"
+# Builtins only until the exported environment is reduced to these named runtime
+# settings. De-exporting also handles shell-owned readonly variables. Keep home
+# overrides private until the selected worker runs; stored sign-ins stay on disk.
 export -n KEY
-unset GATEWAY_MASTER_KEY LITELLM_MASTER_KEY ANTHROPIC_API_KEY OPENAI_API_KEY GEMINI_API_KEY XAI_API_KEY OPENROUTER_API_KEY
+KEY="${GATEWAY_MASTER_KEY:-}"
+while IFS= read -r name; do
+  case "$name" in
+    HOME|PATH|USER|LOGNAME|SHELL|LANG|LANGUAGE|TZ|TMPDIR|TMP|TEMP|\
+    LC_ALL|LC_CTYPE|LC_COLLATE|LC_MESSAGES|LC_MONETARY|LC_NUMERIC|LC_TIME|\
+    LC_ADDRESS|LC_IDENTIFICATION|LC_MEASUREMENT|LC_NAME|LC_PAPER|LC_TELEPHONE|\
+    XDG_CONFIG_HOME|XDG_DATA_HOME|XDG_STATE_HOME|XDG_CACHE_HOME|\
+    XDG_RUNTIME_DIR|DBUS_SESSION_BUS_ADDRESS|SystemRoot|SYSTEMROOT|WINDIR) ;;
+    *) export -n "$name" ;;
+  esac
+done < <(compgen -e)
+# Exported shell functions are also outside the child environment contract.
+while IFS= read -r name; do export -nf "$name"; done < <(compgen -A function)
+unset name GATEWAY_MASTER_KEY LITELLM_MASTER_KEY ANTHROPIC_API_KEY OPENAI_API_KEY GEMINI_API_KEY XAI_API_KEY OPENROUTER_API_KEY
 
 # A shell pattern checks the whole value, including embedded/trailing newlines.
 # Line-oriented grep accepts a valid line even when another line is malformed.
@@ -118,8 +132,16 @@ BRIEF="reports/audit-brief-$STAMP.md"
 # Write to a temp file; the dated report is replaced only by a clean, non-empty run.
 FINAL="reports/audit-$DATE.md"
 TMP="$(mktemp "reports/.audit-$STAMP-XXXXXX")"
-# shellcheck disable=SC2086
-node bin/cli-run.mjs "$AUDIT_LANE" $AUDIT_LANE_FLAGS --brief "$BRIEF" --timeout "$RUNNER_SECS" --quiet < /dev/null > "$TMP"
+(
+  # These are configuration locations, not provider keys. All current scheduled
+  # lanes use stored sign-ins; no token variable is part of this contract.
+  case "$AUDIT_LANE" in
+    codex) if [ "${CODEX_HOME+x}" ]; then export CODEX_HOME; fi ;;
+    hermes) if [ "${HERMES_HOME+x}" ]; then export HERMES_HOME; fi ;;
+  esac
+  # shellcheck disable=SC2086
+  exec node bin/cli-run.mjs "$AUDIT_LANE" $AUDIT_LANE_FLAGS --brief "$BRIEF" --timeout "$RUNNER_SECS" --quiet
+) < /dev/null > "$TMP"
 rc=$?
 if [ "$rc" -eq 0 ] && [ -s "$TMP" ]; then
   mv -f "$TMP" "$FINAL"

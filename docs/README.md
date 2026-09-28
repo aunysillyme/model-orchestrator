@@ -12,6 +12,7 @@ Use these pages for setup, operation and evidence. The [front page](../README.md
 | [Intermediate](part-2-intermediate.md) | Delegation across several AI CLIs |
 | [Advanced](part-3-advanced.md) | Gateway templates and scheduled work on a Linux host |
 | [Catalog](catalog.md) | Supported tools, capability facts, unverified values, installation and sign-in notes |
+| [Catalog advisory checks](catalog-advisories.md) | Package and container coverage, report statuses, exceptions and manual verification |
 | [Security review history](security-review-history.md) | Review rounds, reproduced findings, fixes and regression tests |
 | [Proof](../proof/README.md) | Dated measurements, methods, sample sizes and reproduction scripts |
 | [Commands](../bin/README.md) | `aunx` subcommands and lane-runner exit codes |

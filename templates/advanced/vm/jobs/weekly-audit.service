@@ -8,7 +8,8 @@ WorkingDirectory={{INSTALL_DIR_SYSTEMD}}
 # Add absolute Node and vendor CLI directories if they live outside these defaults.
 # systemd does not expand shell variables in Environment=.
 Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-# Audit-only file OUTSIDE this repo, mode 600: GATEWAY_MASTER_KEY only.
+# Audit-only file OUTSIDE this repo, mode 600: GATEWAY_MASTER_KEY and optional
+# runtime/location settings from jobs/README.md. Other exports are removed.
 # Provider credentials stay in the separate gateway/Compose environment.
 # Vendor CLIs use this user's stored sign-in state. Edit the path if needed.
 EnvironmentFile=%h/.config/ai-orchestrator/weekly-audit.env

@@ -3,7 +3,7 @@
 | File | Job |
 |---|---|
 | `bounded-file.js` | shared regular-file reader for manifests and check configuration: no-follow/nonblocking open, identity checks and a fixed byte cap even if a file grows. Unsafe files are refused; callers decide how to handle missing or malformed data. |
-| `catalog.js` | the single list of levels and AIs. Add an AI here and the prompts, docs tables, delegation matrix, gateway config and installer all pick it up. Nothing else lists AIs. |
+| `catalog.js` | the single list of levels and AIs. Add an AI here and the prompts, docs tables, delegation matrix, gateway config and installer all pick it up. Nothing else lists AIs. Package pins, companion advisory metadata and image references also supply the repository's advisory inventory. |
 | `roles.js` | pure role assignment from selected catalog capability facts, billing and selection order. Renders the stack table and manifest roles, and infers the main agent from its supported surfaces. Unknown facts remain unverified; review requires a known different model family and private work requires local execution. |
 | `aunx.js` | command dispatch for briefs, context, checks, routing and runner calls. Route suggestions read manifest roles through a capped regular-file JSON reader; symlinks and malformed files are ignored. Route lookup executes no project code. A project's runner requires explicit `--dir`. |
 | `detect.js` | PATH lookup for a binary, plus the few places vendor installers drop binaries without touching PATH. No shell-outs. |

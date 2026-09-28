@@ -24,6 +24,8 @@ bash ~/orch-systemd-test/run.sh        # exits non-zero if any assertion fails
 
 It installs a **real** systemd user unit, runs the **real** generated script, and swaps in a stub lane runner so nothing calls a vendor and nothing costs money. It cleans its unit up afterwards.
 
+The stub reads its mode from `install/stub-mode` and writes the child PID to `grandchild.pid` beside the install. These are non-secret fixture files: arbitrary fixture environment variables are removed by the generated job's allowlist. The production script requires no test-only export exception.
+
 ## What it proves
 
 | | Claim | How it is proved |
