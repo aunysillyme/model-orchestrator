@@ -1,7 +1,9 @@
-import { closeSync, constants, fstatSync, lstatSync, openSync, readFileSync, readdirSync, rmdirSync, unlinkSync } from 'node:fs';
+import { closeSync, constants, existsSync, fstatSync, ftruncateSync, lstatSync, openSync, readFileSync, readdirSync, rmdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep, win32 } from 'node:path';
-import { dirProblems, realRoot } from './install.js';
+import { dirProblems, globalConfigProblem, realRoot } from './install.js';
+import { START, END } from './apply-snippets.js';
+import { validateActivationOwnership } from './activation-ownership.js';
 
 const hash = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const object = (value) => value && typeof value === 'object' && !Array.isArray(value);
@@ -38,6 +40,8 @@ function entry(key, roots, directory = false) {
   }
   const abs = resolve(root, rel);
   if (!isDirRoot && (abs === root || !abs.startsWith(root + sep))) throw refused(`path leaves its target root: ${key}`);
+  const globalProblem = globalConfigProblem(abs);
+  if (globalProblem) throw refused(globalProblem);
   return { key, root, abs, directory };
 }
 
@@ -79,6 +83,95 @@ function removeFile(item, expectedHash) {
   unlinkSync(item.abs);
 }
 
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+function activationEntry(key, ownership, roots) {
+  const problem = validateActivationOwnership(key, ownership);
+  if (problem) throw refused(problem);
+  const item = entry(key, roots);
+  return { ...item, ownership };
+}
+
+// Only the bytes/config entries recorded by activation belong to this install.
+// User content around a block and unrelated settings survive later edits.
+function removeActivation(item, bytes) {
+  const owned = item.ownership;
+  if (owned.kind === 'rules') {
+    let start = bytes.indexOf(START);
+    let end = bytes.indexOf(END);
+    if (start === -1 && end === -1) return { content: bytes, edited: false };
+    if (start < 0 || end < start || bytes.indexOf(START, start + START.length) !== -1 || bytes.indexOf(END, end + END.length) !== -1) return { content: bytes, edited: true };
+    end += Buffer.byteLength(END);
+    if (hash(bytes.subarray(start, end)) !== owned.blockHash) return { content: bytes, edited: true };
+    const prefix = Buffer.from(owned.addedPrefix);
+    const suffix = Buffer.from(owned.addedSuffix);
+    if (prefix.length && bytes.subarray(start - prefix.length, start).equals(prefix)) start -= prefix.length;
+    if (suffix.length && bytes.subarray(end, end + suffix.length).equals(suffix)) end += suffix.length;
+    const content = Buffer.concat([bytes.subarray(0, start), bytes.subarray(end)]);
+    return { content: owned.created && content.length === 0 ? null : content, edited: false };
+  }
+  let data;
+  try { data = JSON.parse(bytes.toString('utf8')); }
+  catch { return { content: bytes, edited: true }; }
+  if (!object(data)) return { content: bytes, edited: true };
+  let edited = false;
+  let changed = false;
+  if (owned.kind === 'hooks') {
+    if (data.hooks === undefined) return { content: bytes, edited: false };
+    if (!object(data.hooks)) return { content: bytes, edited: true };
+    for (const record of owned.hooks) {
+      const groups = data.hooks[record.event];
+      if (groups === undefined) continue;
+      if (!Array.isArray(groups) || groups.some((group) => !object(group) || !Array.isArray(group.hooks))) { edited = true; continue; }
+      let removed = false;
+      for (let index = 0; index < groups.length; index++) {
+        const group = groups[index];
+        const { hooks, ...attributes } = group;
+        if (!same(attributes, record.group)) continue;
+        const match = hooks.findIndex((hook) => same(hook, record.hook));
+        if (match === -1) continue;
+        hooks.splice(match, 1);
+        if (!hooks.length) groups.splice(index, 1);
+        changed = removed = true;
+        break;
+      }
+      if (!removed && groups.some((group) => group.hooks.some((hook) => object(hook) && hook.command === record.hook.command && same(hook.args || [], record.hook.args || [])))) edited = true;
+      if (!groups.length && !owned.originalEvents.includes(record.event)) delete data.hooks[record.event];
+    }
+    if (!owned.hadHooks && Object.keys(data.hooks).length === 0) delete data.hooks;
+  } else {
+    const servers = data[owned.key];
+    if (servers === undefined) return { content: bytes, edited: false };
+    if (!object(servers)) return { content: bytes, edited: true };
+    for (const [name, configuration] of Object.entries(owned.servers)) {
+      if (!Object.hasOwn(servers, name)) continue;
+      if (!same(servers[name], configuration)) { edited = true; continue; }
+      delete servers[name];
+      changed = true;
+    }
+    if (!owned.hadKey && Object.keys(servers).length === 0) delete data[owned.key];
+  }
+  return { content: !changed ? bytes : owned.created && Object.keys(data).length === 0 ? null : Buffer.from(JSON.stringify(data, null, 2) + '\n'), edited };
+}
+
+function applyRemoval(item, plan) {
+  const current = readRegular(item);
+  if (!current || !current.bytes.equals(plan.original)) throw refused(`file changed during uninstall: ${item.abs}`);
+  const backup = plan.backup;
+  writeFileSync(backup, current.bytes, { flag: 'wx', mode: current.stat.mode & 0o777 });
+  const last = inspect(item);
+  if (!last || last.dev !== current.stat.dev || last.ino !== current.stat.ino) throw refused(`file changed during uninstall: ${item.abs}`);
+  if (plan.content === null) unlinkSync(item.abs);
+  else {
+    const fd = openSync(item.abs, constants.O_WRONLY | (constants.O_NOFOLLOW || 0) | (constants.O_NONBLOCK || 0));
+    try {
+      const actual = fstatSync(fd);
+      if (!actual.isFile() || actual.dev !== current.stat.dev || actual.ino !== current.stat.ino) throw refused(`file changed during uninstall: ${item.abs}`);
+      ftruncateSync(fd, 0);
+      writeFileSync(fd, plan.content);
+    } finally { closeSync(fd); }
+  }
+}
+
 // Validate every path and type before removing anything. The manifest is an
 // inventory, never authority to expand the two roots supplied by the caller.
 export function uninstallFiles({ dir, project, dry = false }) {
@@ -96,6 +189,7 @@ export function uninstallFiles({ dir, project, dry = false }) {
     }
   }
   if (data.directories !== undefined && !Array.isArray(data.directories)) throw refused('manifest directories must be an array');
+  if (data.activation !== undefined && !object(data.activation)) throw refused('manifest activation must be an object');
 
   const files = Object.entries(data.files).map(([key, digest]) => {
     const item = entry(key, roots);
@@ -104,17 +198,18 @@ export function uninstallFiles({ dir, project, dry = false }) {
     return { ...item, digest };
   });
   const directories = (data.directories || []).map((key) => entry(key, roots, true));
+  const activation = Object.entries(data.activation || {}).map(([key, ownership]) => activationEntry(key, ownership, roots));
   const seen = new Set([manifest.abs]);
-  for (const item of [...files, ...directories]) {
+  for (const item of [...files, ...directories, ...activation]) {
     if (seen.has(item.abs)) throw refused(`duplicate manifest path: ${item.key}`);
     seen.add(item.abs);
     inspect(item);
   }
 
   const actions = [];
-  const backupTargets = [...files, manifest];
+  const backupTargets = [...files, manifest, ...activation];
   if (data.primary === 'claude-code') backupTargets.push(entry('[project] CLAUDE.md', roots), entry('[project] .claude/settings.json', roots));
-  for (const item of backupTargets) {
+  for (const item of new Map(backupTargets.map((target) => [target.abs, target])).values()) {
     const parent = dirname(item.abs);
     if (!inspect({ root: item.root, abs: parent, directory: true })) continue;
     const prefix = basename(item.abs) + '.bak-';
@@ -125,7 +220,27 @@ export function uninstallFiles({ dir, project, dry = false }) {
     }
   }
   const pending = [];
+  const changes = [];
   let edited = false;
+  for (const item of activation) {
+    const current = readRegular(item);
+    if (!current) { actions.push('  missing activation ' + item.abs); continue; }
+    const removal = removeActivation(item, current.bytes);
+    if (removal.edited) {
+      edited = true;
+      actions.push('  keep edited activation ' + item.abs);
+    }
+    if (removal.content !== null && removal.content.equals(current.bytes)) continue;
+    let stamp = Date.now();
+    let backup;
+    do {
+      backup = item.abs + '.bak-' + new Date(stamp).toISOString().replace(/[-:]/g, '').slice(0, 15);
+      stamp += 1000;
+    } while (existsSync(backup));
+    changes.push({ item, original: current.bytes, ...removal, backup });
+    actions.push('  backup ' + backup);
+    actions.push('  remove activation ' + item.abs);
+  }
   for (const item of files) {
     const current = readRegular(item);
     if (!current) actions.push('  missing file ' + item.abs);
@@ -142,13 +257,14 @@ export function uninstallFiles({ dir, project, dry = false }) {
 
   // Compute empty directories against the same plan used by the real run.
   // Foreign entries and kept edits prevent their parents from being removed.
-  const disappearing = new Set(pending.map((item) => item.abs));
+  const disappearing = new Set([...pending.map((item) => item.abs), ...changes.filter((plan) => plan.content === null).map((plan) => plan.item.abs)]);
+  const backupParents = new Set(changes.map((plan) => dirname(plan.backup)));
   if (!edited) disappearing.add(manifest.abs);
   const empty = [];
   directories.sort((a, b) => b.abs.split(sep).length - a.abs.split(sep).length || a.abs.localeCompare(b.abs));
   for (const item of directories) {
     if (!inspect(item)) continue;
-    if (readdirSync(item.abs).every((name) => disappearing.has(join(item.abs, name)))) {
+    if (!backupParents.has(item.abs) && readdirSync(item.abs).every((name) => disappearing.has(join(item.abs, name)))) {
       disappearing.add(item.abs);
       empty.push(item);
     }
@@ -156,7 +272,8 @@ export function uninstallFiles({ dir, project, dry = false }) {
 
   if (!dry) {
     // A changed type or symlink detected here still refuses the whole run.
-    for (const item of [...files, ...directories, manifest]) inspect(item);
+    for (const item of [...files, ...directories, ...activation, manifest]) inspect(item);
+    for (const plan of changes) applyRemoval(plan.item, plan);
     for (const item of pending) removeFile(item, item.digest);
     if (!edited) removeFile(manifest, hash(saved.bytes));
   }

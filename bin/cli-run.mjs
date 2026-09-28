@@ -1154,23 +1154,27 @@ function installedPrimary(here = dirname(fileURLToPath(import.meta.url))) {
 }
 
 // --doctor: the first thing to run after install.
-export async function doctor(run) {
-  const cfg = laneConfig();
+export async function doctor(run, { here = dirname(fileURLToPath(import.meta.url)), compact = false, config = laneConfig(here), primary = installedPrimary(here) } = {}) {
+  const cfg = config;
   if (cfg === null) {
     console.error('doctor: lanes.json exists but is malformed; fix it first');
     return USAGE;
   }
   const { enabled, defaults } = cfg;
   let bad = 0;
-  console.log(`doctor: ${enabled.length} enabled lane(s): ${enabled.join(', ') || 'none'}`);
-  const primary = installedPrimary();
-  if (primary && !enabled.includes(primary)) console.log(`  note: ${primary} is the main agent and is not an executable lane`);
+  if (!compact) console.log(`doctor: ${enabled.length} enabled lane(s): ${enabled.join(', ') || 'none'}`);
+  if (!compact && primary && !enabled.includes(primary)) console.log(`  note: ${primary} is the main agent and is not an executable lane`);
   if (!enabled.length) {
+    if (compact) {
+      console.log('doctor: no executable lanes enabled.');
+      return UNAVAILABLE;
+    }
     console.error('doctor: inactive: no executable lanes enabled. Use level 1 for a single-agent setup, or re-run the installer with a supported CLI selected.');
     return UNAVAILABLE;
   }
   for (const lane of LANES) {
     const on = enabled.includes(lane);
+    if (compact && !on) continue;
     const bin = which(lane);
     const d = defaults[lane] || {};
     // A disabled lane has no route worth reporting; saying "not pinned" there
@@ -1183,11 +1187,13 @@ export async function doctor(run) {
       line += rc === OK ? '  canary ok' : `  canary FAILED rc=${rc}`;
       if (rc !== OK) bad++;
     }
-    console.log(line);
+    console.log(compact ? `  ${lane}: ${bin ? 'present' : 'MISSING'}` : line);
   }
   console.log(bad ? `doctor: ${bad} problem(s)` : 'doctor: all enabled lanes ' + (run ? 'answered' : 'present'));
-  console.log('doctor checks presence and, with --run, a one-word canary. It does not check vendor versions.');
-  console.log('"route not pinned" means that lane runs on whatever its own config file says, which this tool cannot see. Pin it in lanes.json "defaults" if the route matters.');
+  if (!compact) {
+    console.log('doctor checks presence and, with --run, a one-word canary. It does not check vendor versions.');
+    console.log('"route not pinned" means that lane runs on whatever its own config file says, which this tool cannot see. Pin it in lanes.json "defaults" if the route matters.');
+  }
   return bad ? NO_DELIVERABLE : OK;
 }
 

@@ -82,7 +82,7 @@ Generated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrite
 - **Kind:** agent-cli · **Billing:** subscription · **Level:** 1+
 - **What it is:** Google's Antigravity terminal agent; one subagent call starts several children. fanOut: UNVERIFIED against a vendor doc; inherited from the 0.1.x catalog.
 - **Install:** vendor script (read it first): `https://antigravity.google/cli/install.sh`
-- **Sign in:** first run opens a device-code sign-in with your Google account
+- **Sign in:** run `agy`; the first run opens a device-code sign-in with your Google account
 - **Reads rules from:** `GEMINI.md` · subagents in `.agents/agents/`
 - **cli-run lane:** yes
 - **Plans:**
@@ -176,7 +176,7 @@ Generated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrite
 - **Kind:** agent-cli · **Billing:** pay-per-token · **Level:** 2+
 - **What it is:** A provider-agnostic terminal agent; you supply the API key, so its rate is your provider's rate
 - **Install:** `npm install -g @qwen-code/qwen-code@0.22.3`
-- **Sign in:** a provider key in an environment variable, named (not stored) in ~/.qwen/settings.json. There is no free Qwen cloud tier any more.
+- **Sign in:** run `qwen` and use `/auth` to configure your provider
 - **Reads rules from:** `QWEN.md`
 - **cli-run lane:** yes
 - **Built against:** 0.22.3 (the same number the npm pin uses)

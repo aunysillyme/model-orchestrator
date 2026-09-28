@@ -37,10 +37,12 @@ test('apply-snippets: create missing rules and settings with applied activation 
   assert.equal(r.status, 0, r.stderr);
   assert.ok(read(s.rules).includes(START));
   assert.ok(json(s.settings).hooks.UserPromptSubmit.length);
-  assert.match(r.stdout, /applied .*CLAUDE\.snippet\.md/);
-  assert.doesNotMatch(r.stdout, /copy the block|merge the hooks/);
+  assert.match(r.stdout, /update .*CLAUDE\.md \(marked block, backup kept/);
+  assert.doesNotMatch(r.stdout.split("What's left for you:")[1], /copy the block|merge the hooks/);
   assert.match(read(join(s.dir, 'README.md')), /applied the generated rules/);
-  assert.doesNotMatch(read(join(s.dir, 'MANIFEST.json')), /\[project\] CLAUDE\.md|\[project\] \.claude\/settings\.json/);
+  const manifest = json(join(s.dir, 'MANIFEST.json'));
+  assert.equal(manifest.activation['[project] CLAUDE.md'].kind, 'rules');
+  assert.equal(manifest.activation['[project] .claude/settings.json'].kind, 'hooks');
 });
 
 test('apply-snippets: append preserves outside bytes and replacement preserves prefix and suffix', (t) => {
@@ -144,16 +146,14 @@ test('apply-snippets: both dry aliases preview changes and backups without writi
   }
 });
 
-test('apply-snippets: non-Claude primary exits 2 and names its manual snippet', (t) => {
+test('apply-snippets: every catalog rules file receives its main agent marked block', (t) => {
   const s = setup(t);
-  for (const [id, snippet] of [['codex', 'AGENTS.snippet.md'], ['claude-app', 'PASTE-INTO-YOUR-AGENT.md']]) {
+  for (const [id, file] of [['codex', 'AGENTS.md'], ['agy', 'GEMINI.md'], ['qwen', 'QWEN.md']]) {
     const args = s.args.map((value) => value === 'claude-code' ? id : value);
-    const before = snapshot(s.base);
     const r = run([...args, '--apply-snippets']);
-    assert.equal(r.status, 2, r.stderr);
-    assert.ok(r.stderr.includes(snippet), r.stderr);
-    assert.match(r.stderr, /by hand/);
-    assert.deepEqual(snapshot(s.base), before);
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(read(join(s.project, file)), /<!-- model-orchestrator:start -->/);
+    assert.equal(existsSync(s.settings), false);
   }
 });
 
@@ -170,20 +170,18 @@ test('apply-snippets: flag absent keeps user files and manual activation unchang
   assert.deepEqual(backups(s.project), []);
 });
 
-test('apply-snippets: uninstall preserves applied files and names markers and backups', (t) => {
+test('apply-snippets: uninstall removes applied block and hooks while preserving user content and backups', (t) => {
   const s = setup(t);
   writeFileSync(s.rules, 'my rules');
+  writeFileSync(s.settings, JSON.stringify({ permissions: { allow: ['Bash(ls:*)'] }, hooks: { CustomEvent: [{ hooks: [{ type: 'command', command: 'echo own' }] }] } }));
   assert.equal(s.apply().status, 0);
   const rulesBefore = readFileSync(s.rules);
-  const settingsBefore = readFileSync(s.settings);
   const r = run(['--uninstall', '--dir', s.dir, '--project', s.project]);
   assert.equal(r.status, 0, r.stderr);
-  assert.deepEqual(readFileSync(s.rules), rulesBefore);
-  assert.deepEqual(readFileSync(s.settings), settingsBefore);
-  assert.ok(r.stdout.includes(START));
-  assert.ok(r.stdout.includes(END));
-  assert.match(r.stdout, /CLAUDE\.md\.bak-YYYYMMDDTHHMMSS/);
-  assert.equal(backups(s.project).length, 1);
+  assert.equal(read(s.rules), 'my rules');
+  assert.deepEqual(json(s.settings), { permissions: { allow: ['Bash(ls:*)'] }, hooks: { CustomEvent: [{ hooks: [{ type: 'command', command: 'echo own' }] }] } });
+  assert.equal(backups(s.project).length, 2);
+  assert.ok(backups(s.project).some((name) => readFileSync(join(s.project, name)).equals(rulesBefore)));
   assert.ok(r.stdout.includes('keep backup ' + join(s.project, backups(s.project)[0])));
 });
 
@@ -218,4 +216,118 @@ test('apply-snippets: a target changed after planning refuses before any write',
   const before = snapshot(s.base);
   assert.throws(() => writeFiles(files, { ...opts, backupExisting: true }), /changed since snippet planning/);
   assert.deepEqual(snapshot(s.base), before);
+});
+
+test('apply-snippets: ownership survives apply reruns and later --yes installs without activation', (t) => {
+  const s = setup(t);
+  writeFileSync(s.rules, 'existing rules');
+  const own = { type: 'command', command: 'node', args: ['${CLAUDE_PROJECT_DIR}/.claude/hooks/route-gate.mjs'] };
+  writeFileSync(s.settings, JSON.stringify({ hooks: { UserPromptSubmit: [{ matcher: '', hooks: [own] }] } }));
+  assert.equal(s.apply().status, 0);
+  assert.equal(s.apply().status, 0);
+  assert.equal(run(s.args).status, 0);
+  const manifest = json(join(s.dir, 'MANIFEST.json'));
+  assert.ok(manifest.activation['[project] .claude/settings.json'].hooks.length);
+  const r = run(['--uninstall', '--dir', s.dir, '--project', s.project]);
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(read(s.rules), 'existing rules');
+  assert.deepEqual(json(s.settings), { hooks: { UserPromptSubmit: [{ matcher: '', hooks: [own] }] } });
+});
+
+test('apply-snippets: uninstall preserves edited owned block and hook but removes untouched entries', (t) => {
+  const s = setup(t);
+  assert.equal(s.apply().status, 0);
+  const rules = read(s.rules).replace(START, START + '\nmy edit');
+  writeFileSync(s.rules, rules);
+  const settings = json(s.settings);
+  settings.hooks.UserPromptSubmit[0].hooks[0].timeout = 88;
+  writeFileSync(s.settings, JSON.stringify(settings));
+  const r = run(['--uninstall', '--dir', s.dir, '--project', s.project]);
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(read(s.rules), rules);
+  assert.deepEqual(Object.keys(json(s.settings).hooks), ['UserPromptSubmit']);
+  assert.equal(json(s.settings).hooks.UserPromptSubmit[0].hooks[0].timeout, 88);
+  assert.match(r.stdout, /keep edited activation/);
+  assert.ok(existsSync(join(s.dir, 'MANIFEST.json')));
+});
+
+test('apply-snippets: uninstall dry run writes nothing before removing auto-created activation', (t) => {
+  const s = setup(t);
+  assert.equal(s.apply().status, 0);
+  const before = snapshot(s.base);
+  const dry = run(['--uninstall', '--dry', '--dir', s.dir, '--project', s.project]);
+  assert.equal(dry.status, 0, dry.stderr);
+  assert.match(dry.stdout, /remove activation/);
+  assert.deepEqual(snapshot(s.base), before);
+  assert.equal(run(['--uninstall', '--dir', s.dir, '--project', s.project]).status, 0);
+  assert.equal(existsSync(s.rules), false);
+  assert.equal(existsSync(s.settings), false);
+  assert.equal(backups(s.project).length, 1);
+  assert.equal(backups(join(s.project, '.claude')).length, 1);
+});
+
+for (const kind of ['traversal', 'shape', 'symlink']) {
+  test(`apply-snippets: uninstall refuses activation ${kind} before removing files`, (t) => {
+    const s = setup(t);
+    assert.equal(s.apply().status, 0);
+    const manifestPath = join(s.dir, 'MANIFEST.json');
+    const manifest = json(manifestPath);
+    if (kind === 'traversal') manifest.activation['[project] ../foreign.md'] = manifest.activation['[project] CLAUDE.md'];
+    else if (kind === 'shape') manifest.activation['[project] .claude/settings.json'].hooks = 'invalid';
+    else {
+      const target = join(s.base, 'outside.md');
+      writeFileSync(target, read(s.rules));
+      rmSync(s.rules);
+      symlinkSync(target, s.rules);
+    }
+    writeFileSync(manifestPath, JSON.stringify(manifest));
+    const before = snapshot(s.base);
+    const r = run(['--uninstall', '--dir', s.dir, '--project', s.project]);
+    assert.equal(r.status, 2, r.stderr);
+    assert.deepEqual(snapshot(s.base), before);
+  });
+}
+
+test('apply-snippets: malformed previous activation ownership refuses before rerun writes', (t) => {
+  const s = setup(t);
+  assert.equal(s.apply().status, 0);
+  const path = join(s.dir, 'MANIFEST.json');
+  const manifest = json(path);
+  manifest.activation['[project] .claude/settings.json'].hooks = 'malformed';
+  writeFileSync(path, JSON.stringify(manifest));
+  const before = snapshot(s.base);
+  const r = s.apply();
+  assert.equal(r.status, 2, r.stderr);
+  assert.match(r.stderr, /ownership/);
+  assert.deepEqual(snapshot(s.base), before);
+});
+
+test('apply-snippets: reapplying an edited marked block backs up its exact bytes before replacing it', (t) => {
+  const s = setup(t);
+  assert.equal(s.apply().status, 0);
+  const edited = read(s.rules).replace(START, START + '\nuser edited this block');
+  writeFileSync(s.rules, edited);
+  assert.equal(s.apply().status, 0);
+  assert.doesNotMatch(read(s.rules), /user edited this block/);
+  assert.ok(backups(s.project).some((name) => read(join(s.project, name)) === edited));
+  assert.equal(run(['--uninstall', '--dir', s.dir, '--project', s.project]).status, 0);
+  assert.equal(existsSync(s.rules), false);
+  assert.ok(backups(s.project).some((name) => read(join(s.project, name)) === edited));
+});
+
+test('apply-snippets: backup name collisions preserve every original during apply and uninstall', (t) => {
+  const s = setup(t);
+  writeFileSync(s.rules, 'before first apply');
+  const protectedNames = [];
+  const now = Date.now();
+  for (let i = -1; i <= 10; i++) {
+    const name = s.rules + '.bak-' + new Date(now + i * 1000).toISOString().replace(/[-:]/g, '').slice(0, 15);
+    writeFileSync(name, 'existing backup');
+    protectedNames.push(name);
+  }
+  assert.equal(s.apply().status, 0);
+  assert.equal(run(['--uninstall', '--dir', s.dir, '--project', s.project]).status, 0);
+  for (const name of protectedNames) assert.equal(read(name), 'existing backup');
+  assert.ok(backups(s.project).some((name) => read(join(s.project, name)) === 'before first apply'));
+  assert.equal(read(s.rules), 'before first apply');
 });

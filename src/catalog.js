@@ -13,7 +13,10 @@
 //              { script: url } for a vendor shell installer the installer only PRINTS, never runs,
 //              { url } for a download page
 //   auth       how you sign in, always the vendor's own flow, never a key typed into this tool
+//   authStatus optional reliable read-only status command; unlisted CLIs get conditional sign-in guidance
 //   rulesFile  the instructions file that agent reads from a project root, if any
+//   projectMcp verified project-local MCP config: relative file and server-map key.
+//              Absent means setup remains a manual step; never infer a global path.
 //   builtAgainst  the vendor version this release's lane wiring and judges were
 //              exercised against. ONE number per lane: the README compatibility
 //              table is generated from it, and where install.npm exists the pin
@@ -89,6 +92,8 @@ export const AIS = [
     builtAgainst: '2.1.226',
     auth: 'run `claude` once and sign in with your Anthropic account',
     rulesFile: 'CLAUDE.md',
+    // Project scope documented in templates/tools/context7/CONTEXT7.md.
+    projectMcp: { file: '.mcp.json', key: 'mcpServers' },
     // tierModels is UNVERIFIED: no checked vendor source maps this plan to model aliases.
     plans: [
       { id: 'pro', name: 'Claude Pro', headroom: 'base', tierModels: null, source: 'https://claude.com/pricing', checked: '2026-09-12' },
@@ -122,6 +127,7 @@ export const AIS = [
     install: { npm: '@openai/codex', url: 'https://developers.openai.com/codex/cli', pin: '0.153.4' },
     builtAgainst: '0.153.4',
     auth: '`codex login` (add `--device-auth` on a machine with no browser)',
+    authStatus: { args: ['login', 'status'], reliable: true, checked: '2026-09-27', source: 'author-machine probe: Logged in using ChatGPT, exit 0' },
     rulesFile: 'AGENTS.md',
     // tierModels is UNVERIFIED: no checked vendor source maps this plan to model aliases.
     plans: [
@@ -156,7 +162,7 @@ export const AIS = [
     minLevel: 1,
     install: { script: 'https://antigravity.google/cli/install.sh' },
     builtAgainst: '1.1.27',
-    auth: 'first run opens a device-code sign-in with your Google account',
+    auth: 'run `agy`; the first run opens a device-code sign-in with your Google account',
     rulesFile: 'GEMINI.md',
     // tierModels is UNVERIFIED: no checked vendor source maps this plan to model aliases.
     plans: [
@@ -254,7 +260,7 @@ export const AIS = [
     minLevel: 2,
     install: { npm: '@qwen-code/qwen-code', url: 'https://qwenlm.github.io/qwen-code-docs/en/users/overview/', pin: '0.22.3' },
     builtAgainst: '0.22.3',
-    auth: 'a provider key in an environment variable, named (not stored) in ~/.qwen/settings.json. There is no free Qwen cloud tier any more.',
+    auth: 'run `qwen` and use `/auth` to configure your provider',
     rulesFile: 'QWEN.md',
     note: 'Its own success flags lie on API failures. cli-run checks the two honest signals for you.'
   },
@@ -387,6 +393,7 @@ export const TOOLS = [
     role: 'exact arithmetic, code execution in 31 languages, SMT logic checks, complexity and equivalence proofs; offline, no key, no telemetry',
     install: "uvx 'codecalc[full]' setup --write",
     pin: '0.5.0',
+    mcpSnippets: { 'claude-code': 'mcp/mcpServers.json', codex: 'mcp/codex.config.toml', agy: 'mcp/agy.mcp_config.json', qwen: 'mcp/mcpServers.json' },
     requires: 'uv (https://docs.astral.sh/uv/) and Python 3.10+',
     autoClients: ['Claude Code', 'Claude Desktop', 'Cursor', 'VS Code', 'Zed'],
     recommended: false,
@@ -399,6 +406,7 @@ export const TOOLS = [
     role: 'durable memory and record for your agents: hybrid retrieval (BM25 + dense + link graph), backlinks, compare-and-swap writes with a confirmation gate, folder ACLs, a poison scan on inferred writes; 163 tools, local by default',
     install: 'npm install -g obsidian-tc && obsidian-tc /path/to/your/vault',
     pin: '1.26.0',
+    mcpSnippets: { 'claude-code': 'mcp/obsidian-tc.mcpServers.json', codex: 'mcp/obsidian-tc.codex.config.toml', agy: 'mcp/obsidian-tc.agy.mcp_config.json', qwen: 'mcp/obsidian-tc.mcpServers.json' },
     requires: 'an Obsidian vault folder (the Obsidian app itself is only needed for live plugin bridges); Node 24+ or Bun 1.1+ (stricter than this installer); Ollama with `nomic-embed-text` for local embeddings, or a cloud embeddings key; the Local REST API plugin only for bridge tools',
     autoClients: ['Cursor', 'VS Code'],
     recommended: false,
@@ -411,6 +419,7 @@ export const TOOLS = [
     role: 'up-to-date, version-specific documentation and code examples for libraries, SDKs, APIs and CLIs, pulled into the prompt; tells the agent what the code is SUPPOSED to do. Paired with codecalc, which runs the code and proves what it actually does: docs never stand as proof, and where they disagree the run wins',
     install: 'npx ctx7 setup',
     pin: '4.1.1',
+    mcpSnippets: { 'claude-code': 'mcp/context7.claude-code.mcp.json', codex: 'mcp/context7.codex.config.toml', agy: 'mcp/context7.agy.mcp_config.json', qwen: 'mcp/context7.qwen.settings.json' },
     requires: 'Node.js 18+ for the local server or the ctx7 CLI; a free CONTEXT7_API_KEY is optional, for higher rate limits (it works anonymously at the base rate)',
     autoClients: ['Claude Code', 'Cursor', 'Codex CLI', 'Qwen Code'],
     recommended: false,

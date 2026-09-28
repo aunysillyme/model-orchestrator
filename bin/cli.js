@@ -13,13 +13,15 @@ import { planFiles, writeFiles, resolveSelection, resolveTools, resolveApis, dir
 import { uninstallFiles } from '../src/uninstall.js';
 import { assertSnippetPrimary, planSnippetApplication } from '../src/apply-snippets.js';
 import { assignRoles, inferPrimary, roleTable } from '../src/roles.js';
+import { installHealthCheck, signInStatus } from '../src/postinstall.js';
+import { planCompanionApplication } from '../src/apply-companions.js';
 
 // One strict parse. Unknown flags, missing values and duplicates are usage
 // errors (exit 2) before anything is planned, so a typo like --dryy can never
 // turn a dry run into a real one.
 const SPEC = {
   level: 'value', ais: 'value', primary: 'value', dir: 'value', project: 'value', tools: 'value', apis: 'value', plans: 'value',
-  'apply-snippets': 'bool', yes: 'bool', force: 'bool', dry: 'bool', 'dry-run': 'bool', uninstall: 'bool', 'no-install': 'bool', 'no-tools': 'bool', 'no-apis': 'bool', 'effort-auto': 'bool', 'upgrade-runtime': 'bool', 'update-docs': 'bool', list: 'bool', help: 'bool', h: 'bool', version: 'bool', v: 'bool'
+  'apply-snippets': 'bool', 'no-apply': 'bool', yes: 'bool', force: 'bool', dry: 'bool', 'dry-run': 'bool', uninstall: 'bool', 'no-install': 'bool', 'no-tools': 'bool', 'no-apis': 'bool', 'effort-auto': 'bool', 'upgrade-runtime': 'bool', 'update-docs': 'bool', list: 'bool', help: 'bool', h: 'bool', version: 'bool', v: 'bool'
 };
 export function parseArgs(argv) {
   const out = {};
@@ -98,16 +100,17 @@ Flags
   --ais a,b,c        catalog ids you have access to (see --list)
   --primary id       the main agent that runs the system and receives the subagents (any level). When several qualify
                      and --yes is set, the run picks one and says so in the plan; pass this to decide it yourself.
-  --tools a,b        companion docs and snippets to set up, all optional (default: none)
+  --tools a,b        companion guides and supported project registration, all optional (default: none)
   --apis a,b         level 3 only: metered API keys you HOLD (anthropic,openai,google,xai,openrouter); --no-apis for none.
                      Select these with --apis or the edit screen; a subscription is not an API key.
   --plans a=plan,b=plan  stated subscription plans for guidance; --plans none clears prior stated plans
   --effort-auto      consent to write auto effort defaults for selected high or max plan cli-run lanes
   --dir path         where to write the docs and protocols (default ./ai-orchestrator)
-  --project path     the project root your agent runs from; subagent definitions go here (default: current directory,
-                     so set it: a run from your home folder otherwise drops the subagent files there)
+  --project path     the project root your agent runs from (default: current directory);
+                     choose a project folder: global agent configuration is outside the installer scope
   --yes              skip confirmations; requires --level and --ais for a reproducible install
-  --apply-snippets   apply Claude Code rules and hooks with timestamped backups (opt-in)
+  --apply-snippets   apply main-agent rules and supported project config with backups; enables activation with --yes
+  --no-apply         leave project rules and settings for manual activation (interactive default: apply)
   --force            overwrite every file that already exists, documents included
   --upgrade-runtime  replace the runtime files (cli-run, the audit job, compose, gateway config, setup script) even
                      when they cannot be verified as untouched; documents are still kept
@@ -116,7 +119,7 @@ Flags
                      and reported, and nothing happens without a manifest
   --uninstall        remove unedited managed files recorded in MANIFEST.json; keep and list edited files
   --dry, --dry-run   print the plan, write nothing
-  --no-install       accepted for compatibility; installs always write only this package's files
+  --no-install       accepted for compatibility; the installer never runs third-party installations
   --no-tools         accepted for compatibility; companions default to none
   --list             print the catalog
   --version, -v      print the version and exit
@@ -260,7 +263,7 @@ function validateSetup(state) {
 // only a USAGE error raised while THIS function is running is caught locally.
 async function editSetup(state, sources) {
   while (true) {
-    console.log('\nChange what?\n  1 level (1, 2 or 3; 3 needs an always-on Linux machine)\n  2 which AIs\n  3 main agent\n  4 companion tools\n  5 where the files go (folder and project root)\n  6 subscription plans' + (state.level === 3 ? '\n  7 level 3 API keys' : '') + '\n  0 nothing, back to the summary');
+    console.log('\nChange what?\n  1 level (1, 2 or 3; 3 needs an always-on Linux machine)\n  2 which AIs\n  3 main agent\n  4 companion tools\n  5 where the files go (folder and project root)\n  6 subscription plans' + (state.level === 3 ? '\n  7 level 3 API keys' : '') + `\n  8 automatic activation (${state.applySnippets ? 'on; select to turn off' : 'off; select to turn on'})` + '\n  0 nothing, back to the summary');
     const choice = await ask('\nNumber [0]: ', '0');
     if (choice === '0') return;
     if (choice === '1') {
@@ -298,7 +301,7 @@ async function editSetup(state, sources) {
       state.primaryChosen = true;
       sources.delete('primary');
     } else if (choice === '4') {
-      console.log('Companion tools (optional): selecting one writes docs and config snippets. Install each project yourself.');
+      console.log('Companion tools (optional): selecting one writes guides and config snippets, and registers supported project config when activation is on. Install prerequisites yourself.');
       TOOLS.forEach((tool, i) => console.log(`  ${i + 1} ${tool.name}: ${tool.role}\n    ${tool.requires}\n    ${tool.optionalNote}`));
       const fallback = TOOLS.map((tool, i) => state.tools.includes(tool) ? i + 1 : null).filter(Boolean).join(',') || 'none';
       while (true) {
@@ -356,6 +359,10 @@ async function editSetup(state, sources) {
       }
       sources.delete('apis');
       sources.delete('no-apis');
+    } else if (choice === '8') {
+      state.applySnippets = !state.applySnippets;
+      sources.delete('apply-snippets');
+      sources.delete('no-apply');
     } else {
       console.log('Pick a listed edit number.');
       continue;
@@ -380,9 +387,7 @@ async function main() {
     const actions = uninstallFiles({ dir, project, dry });
     console.log(dry ? 'Uninstall preview (--dry): nothing changed.' : 'Uninstall complete.');
     for (const action of actions) console.log(action);
-    console.log('\nManual steps: remove the pasted model-orchestrator block from CLAUDE.md and its merged hook entries from .claude/settings.json. Keep your other rules and hooks.');
-    console.log(`Applied rules use <!-- model-orchestrator:start --> and <!-- model-orchestrator:end -->. Backups stay beside the originals: ${join(project, 'CLAUDE.md.bak-YYYYMMDDTHHMMSS')} and ${join(project, '.claude', 'settings.json.bak-YYYYMMDDTHHMMSS')}. Review backups before restoring them; later edits may need to be kept.`);
-    console.log('For another main agent, remove its pasted activation block from its rules file.');
+    console.log('\nRecorded activation entries are removed when unchanged. User edits and backups are kept. Remove any instructions you pasted by hand from their app or rules file.');
     return;
   }
   // Says what this generates, not what it guarantees. The old line promised
@@ -395,6 +400,7 @@ async function main() {
   if (yes && ![1, 2, 3].includes(Number(opt('level')))) bad('--level must be 1, 2 or 3 when --yes is set');
   if (yes && !opt('ais')) bad('--ais is required with --yes (comma-separated ids, see --list)');
   if (flag('no-apis') && opt('apis')) bad('--no-apis and --apis contradict each other');
+  if (flag('no-apply') && flag('apply-snippets')) bad('--no-apply and --apply-snippets contradict each other');
 
   console.log('Looking for AI tools on your PATH...');
   const setup = inferSetup({ selected: opt('ais') ? selectedFromIds(opt('ais')) : undefined });
@@ -412,6 +418,7 @@ async function main() {
   setup.effortChosen = flag('effort-auto');
   setup.dir = resolve(opt('dir') || './ai-orchestrator');
   setup.project = resolve(opt('project') || '.');
+  setup.applySnippets = flag('apply-snippets') || (!yes && !flag('no-apply'));
   if (opt('tools')) {
     const result = resolveTools(opt('tools').split(',').map((value) => value.trim()).filter(Boolean));
     if (result.unknown.length) bad('unknown tool id(s): ' + result.unknown.join(', ') + ' (see --list)');
@@ -431,16 +438,18 @@ async function main() {
   setup.effortAuto = flag('effort-auto') ? eligibleEffort(setup.selected, setup.plans)
     : Array.isArray(prev?.effortAuto) ? prev.effortAuto.filter((id) => setup.selected.some((ai) => ai.id === id && ai.facts.cliRun)) : [];
   const sources = new Set(Object.keys(parsed.out));
-  const applySnippets = flag('apply-snippets');
   let files;
   let plannedManifest;
+  let registrations = [];
   while (true) {
     validateSetup(setup);
-    const { level, selected, primary, dir, project, tools, apis, plans, effortAuto, detected } = setup;
+    const { level, selected, primary, dir, project, tools, apis, plans, effortAuto, detected, applySnippets } = setup;
     if (applySnippets) assertSnippetPrimary(primary);
     files = planFiles({ level, selected, primary, dir, project, tools, apis, plans, effortAuto, detected, applySnippets });
     plannedManifest = JSON.parse(files.find((file) => file.rel === 'MANIFEST.json').content);
     if (applySnippets) files.push(...planSnippetApplication({ primary, project, files }));
+    registrations = applySnippets ? planCompanionApplication({ primary, tools, project, files }) : [];
+    files.push(...registrations);
     const lvl = LEVELS.find((entry) => entry.id === level);
     const candidates = agentCandidates(selected);
     const agentFiles = files.filter((file) => file.root === 'project');
@@ -458,6 +467,13 @@ async function main() {
       + (effortAuto.length || sources.has('effort-auto') ? `\n  auto effort ${effortAuto.join(', ') || 'none eligible'}${from('effort-auto')}` : '')
       + `\n  folder   ${dir}${from('dir')}\n  project  ${project}${projectKinds ? ' (' + projectKinds + ' go here)' : ''}${from('project')}\n  files    ${files.length}`);
     if (plansKept) console.log('  plans kept from the previous run');
+    console.log(`  activation ${applySnippets ? 'automatic' : 'manual'}${from('apply-snippets')}${from('no-apply')}`);
+    for (const file of agentFiles) {
+      const path = join(project, file.rel);
+      const action = file.applySnippet ? file.rel === primary.rulesFile ? 'update' : file.rel === join('.claude', 'settings.json') ? 'merge hooks into' : 'merge config into' : 'write';
+      console.log(`    ${action} ${path} (${file.applySnippet && file.rel === primary.rulesFile ? 'marked block, ' : ''}backup kept if changed)`);
+    }
+    if (primary.facts.agentDefinitions) console.log(`  subagent location: ${join(project, primary.facts.agentDefinitions)}; launch ${primary.bin} from ${project}`);
     if (agentFiles.length && !sources.has('project')) console.log(`\nNote: --project defaults to the current directory, so the ${projectKinds} go to the current directory (${project}). Pass --project to put them somewhere else.`);
     const assignment = assignRoles({ selected, primary, detected, plans });
     const agents = Object.fromEntries(Object.entries(plannedManifest.roles || {}).filter(([, role]) => role.agent).map(([id, role]) => [id, role.agent]));
@@ -498,7 +514,13 @@ async function main() {
     rl && rl.close();
     return;
   }
-  const { level, selected, primary, dir, project, tools, apis, plans, effortAuto } = setup;
+  const { level, selected, primary, dir, project, tools, apis, plans, effortAuto, applySnippets } = setup;
+  const authStatuses = signInStatus(selected);
+  // Final remaining steps include the observed sign-in and MCP merge results.
+  // Render before writing so README ownership and preservation stay unchanged.
+  const applications = files.filter(file => file.applySnippet);
+  files = [...planFiles({ ...setup, authStatuses, registrations }), ...applications];
+  plannedManifest = JSON.parse(files.find(file => file.rel === 'MANIFEST.json').content);
 
   // Reconfiguration: compare what a previous run recorded with what was asked now.
   const changed = prev
@@ -553,30 +575,27 @@ async function main() {
     if (skipped.length && prev && changed.length && !flag('update-docs')) console.log('  documents kept: they may describe the old selection. --update-docs regenerates the ones you have not edited; --force regenerates all of them (this overwrites your edits).');
   }
 
-  // 6. Print manual setup commands for missing CLIs and selected companions.
+  // 6. Print manual installation commands for missing CLIs.
   const missing = selected.filter((a) => a.bin && !which(a.bin));
-  if (missing.length || tools.length) {
-    console.log('\nInstall these yourself (binary presence checked; versions and companion setup need your verification):');
+  if (missing.length) {
+    console.log('\nInstall these yourself (binary presence checked; versions need your verification):');
     for (const a of missing) {
       const command = a.install.npm
         ? 'npm install -g ' + npmSpec(a)
         : a.install.script
           ? `curl -fsSL ${a.install.script} -o /tmp/${a.id}-install.sh && less /tmp/${a.id}-install.sh && bash /tmp/${a.id}-install.sh`
           : a.install.brew ? `brew install ${a.install.brew}` : 'Follow the vendor setup guide';
-      console.log(`  ${a.name}: ${command}\n    official guide: ${a.install.url || a.install.script}\n    sign in: ${a.auth}`);
-    }
-    for (const t of tools) {
-      const doc = t.id.toUpperCase() + '.md';
-      console.log(`  ${t.name}: ${t.install}\n    official guide: ${t.repo}\n    needs: ${t.requires}\n    ${t.optionalNote}\n    setup verification and other agents: ${join(dir, doc)}`);
+      console.log(`  ${a.name}: ${command}\n    official guide: ${a.install.url || a.install.script}`);
     }
   }
 
-  // 7. Activation summary: writing the folder is half the job. Say exactly what
-  // turns it on, in order, with one command that proves it. The generated
-  // README renders this same array, so the two surfaces cannot disagree (#20).
-  const steps = activationSteps({ level, selected, primary, tools, dir, project, applySnippets });
-  console.log('\nTo activate, in order:');
+  // 7. Run the presence check, then print only the remaining actions. The
+  // generated README renders the same array for a fresh installation (#20).
+  await installHealthCheck({ level, selected, primary, dir });
+  const steps = activationSteps({ level, selected, primary, tools, dir, project, applySnippets, authStatuses, registrations });
+  console.log("\nWhat's left for you:");
   steps.forEach((st, i) => console.log(`  ${i + 1}. ${st}`));
+  if (!steps.length) console.log('  Nothing left to do.');
   console.log(`\nStart here: ${join(dir, 'README.md')} (written for level ${level} and the AIs you picked).`);
   console.log('\nIf this saved you time, a star helps people find it: https://github.com/aunysillyme/model-orchestrator\n');
   rl && rl.close();

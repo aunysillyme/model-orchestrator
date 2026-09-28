@@ -37,11 +37,13 @@ npx model-orchestrator --yes --level 2 --ais claude-code,codex --primary claude-
 
 ## After you install
 
-1. **Start:** open `ai-orchestrator/README.md` (or the README in your chosen `--dir`) for activation steps generated for your main agent and level.
-2. **Activate:** use the snippet named there. For Claude Code, copy `CLAUDE.snippet.md` into the project's `CLAUDE.md` and merge `settings.hooks.snippet.json` into `.claude/settings.json`.
-3. **Verify:** follow the generated activation check. At level 2 and up, also run `node ./ai-orchestrator/bin/cli-run.mjs --doctor`, or `aunx cli-run --doctor` when the command is installed.
+The interactive installer applies the main agent's project rules and, for Claude Code, merges its hooks. The summary names these changes before the single confirmation; existing files get timestamped backups. A local health check runs automatically after installation.
 
-For a Claude Code main agent, `--apply-snippets` applies the rules and hooks with timestamped backups and preserves surrounding rules and settings. Preview with `--apply-snippets --dry`. Follow the printed sign-in steps, then start a fresh session in your main agent. [Installation and upgrades](docs/install.md) cover every flag.
+- **What's left for you:** follow the remaining sign-in or setup steps printed at the end. Codex sign-in is listed only when its reliable status check cannot confirm it; other CLIs get an "if you have not signed in yet" instruction. A chat-app main agent keeps one paste step.
+- **Your agent:** start a fresh session in the project. `ai-orchestrator/README.md` (or the README in your chosen `--dir`) explains the installed rules and activation check.
+- **Control:** use `--no-apply` or the edit screen to keep activation manual. Headless `--yes` keeps project rules and settings untouched unless you add `--apply-snippets`. Use `--dry` to preview.
+
+Selected companions get project-scoped registration where the host supports it; global configuration remains a printed step. The health check checks CLI presence and sends no prompt. Live checks remain opt-in with `aunx cli-run --doctor --run`. [Installation and upgrades](docs/install.md) cover every flag.
 
 Install the command once to use the shorter forms below:
 
@@ -50,7 +52,7 @@ npm install -g model-orchestrator
 aunx --help
 ```
 
-`aunx` without a subcommand runs the same installer as `model-orchestrator`. The installer writes only its own files. Every companion is opt-in, including with `--yes`; missing tools appear together under **Install these yourself**, with official commands and links.
+`aunx` without a subcommand runs the same installer as `model-orchestrator`. The installer writes its files and the project activation changes shown in the summary. Every companion is opt-in, including with `--yes`; missing tools appear together under **Install these yourself**, with official commands and links.
 
 ## Part of a set
 
@@ -153,7 +155,7 @@ The plugin carries read-only routing hooks and the subagents. Generate your proj
 
 ## Works well with
 
-These are other authors' projects, maintained in their own repositories. All companions start unselected. Choosing one writes guidance and configuration snippets; you install and configure the tool yourself.
+These are other authors' projects, maintained in their own repositories. All companions start unselected. Choosing one writes guidance and configuration snippets. With activation enabled, supported project configuration is merged automatically; you install the tool and complete any printed setup steps yourself.
 
 | Project | Author | What it adds |
 |---|---|---|
@@ -191,7 +193,7 @@ Pass `--yes --level 2 --ais claude-code,codex --project . --dir ./ai-orchestrato
 
 ## Uninstall
 
-Run `npx model-orchestrator --uninstall --dir ./ai-orchestrator --project .` (add `--dry` to preview). The installer removes unedited managed files and names edits it keeps. Remove the pasted rules and merged hook entries using the printed manual steps. [Removal details](docs/install.md#uninstall).
+Run `npx model-orchestrator --uninstall --dir ./ai-orchestrator --project .` (add `--dry` to preview). The installer removes unedited managed files, its recorded activation block and the hook entries it added, preserving surrounding rules and settings. It names edited or manually pasted entries that need your attention; backups stay. [Removal details](docs/install.md#uninstall).
 
 ## Read next
 
@@ -243,7 +245,7 @@ Generated from `src/catalog.js` by `npm run gen:catalog`; `npm test` fails if th
 
 For npm-installed lanes, `builtAgainst` in the catalog supplies both the compatibility table and the install pin. Newer vendor versions may work or may change a flag the generated wiring uses. When a lane starts failing after a vendor upgrade, compare against this table first.
 
-**The live canary runs on your machine, with your credentials.** That is what `aunx cli-run --doctor --run` (direct form: `node bin/cli-run.mjs --doctor --run`) is: it sends every enabled lane one tiny prompt through your own sign-ins and reports `canary ok` or `canary FAILED rc=` per lane. Run it after install, and again after any vendor upgrade.
+**The live canary runs on your machine, with your credentials.** That is what `aunx cli-run --doctor --run` (direct form: `node bin/cli-run.mjs --doctor --run`) is: it sends every enabled lane one tiny prompt through your own sign-ins and reports `canary ok` or `canary FAILED rc=` per lane. Choose this optional live check after setup or a vendor upgrade when you want to verify actual responses.
 
 CI runs the full suite against stub lanes on Ubuntu, macOS and Windows, Node 18/20/22, plus a packaged install into a clean consumer. Run the live check locally to verify your own sign-ins, quota and vendor versions.
 

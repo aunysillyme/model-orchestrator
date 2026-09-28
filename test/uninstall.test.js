@@ -66,8 +66,7 @@ test('uninstall: removes unedited managed files, the manifest last, and created 
   assert.equal(existsSync(join(s.project, '.claude')), false, 'created project directories are empty');
   const removed = r.stdout.split('\n').filter((line) => line.startsWith('  remove file '));
   assert.equal(removed.at(-1), '  remove file ' + s.manifestPath, 'manifest is the last file removed');
-  assert.match(r.stdout, /CLAUDE\.md/);
-  assert.match(r.stdout, /settings\.json/);
+  assert.match(r.stdout, /Recorded activation entries are removed when unchanged/);
 });
 
 test('uninstall: keeps and names an edited managed file and retains its manifest for a retry', (t) => {

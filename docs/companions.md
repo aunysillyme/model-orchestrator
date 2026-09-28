@@ -6,7 +6,9 @@ Companions add calculation, searchable notes or current library documentation. T
 npx model-orchestrator --tools codecalc,obsidian-tc,context7
 ```
 
-Selecting a companion writes model-orchestrator's setup guide and configuration snippets. The installer installs only its own files, prints missing tools together under **Install these yourself**, and leaves third-party commands for you to run. `--no-tools` remains accepted for existing scripts.
+Selecting a companion writes model-orchestrator's setup guide and configuration snippets. With automatic activation enabled, a Claude Code main agent also gets the selected servers merged into the project's `.mcp.json`. The summary names this file before the single confirmation; an existing file gets a backup, and existing server entries stay intact. Other hosts keep a manual registration step when the catalog has no verified project-scoped config. `--no-apply` leaves registration manual; `--yes` applies it only with `--apply-snippets`.
+
+The installer writes its managed files and the project configuration changes named in the summary, prints missing tools together under **Install these yourself**, and leaves third-party commands for you to run. It never edits global user config. codecalc still needs uv and Python 3.10+; obsidian-tc still needs your vault configuration path. Context7's hosted connection needs no local package install. `--no-tools` remains accepted for existing scripts.
 
 ## Choose a companion
 
@@ -30,4 +32,4 @@ Every install includes `protocols/numbers-and-logic.md`, `protocols/memory-and-r
 
 ## Keep an existing setup
 
-Upgrading from 0.1.x preserves existing codecalc files. `--uninstall` removes a managed companion guide or snippet only when its content still matches the recorded hash; edited files stay and are listed. See [Upgrading from 0.1.x](install.md#upgrading-from-01x).
+Upgrading from 0.1.x preserves existing codecalc files. `--uninstall` removes a managed companion guide or snippet only when its content still matches the recorded hash; edited files stay and are listed. Automatically merged project MCP entries are recorded separately: uninstall removes only entries the installer added that still match their recorded configuration. Other servers, user edits and backups stay. See [Upgrading from 0.1.x](install.md#upgrading-from-01x).
