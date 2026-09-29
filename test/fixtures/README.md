@@ -45,4 +45,6 @@ These are keyed to a version. When a vendor upgrade changes a shape, capture aga
 
 Exactly one no-tools prompt was run through the native lane in an empty temporary directory with Claude Code 2.1.285: `Reply OK without using tools.` Existing authentication was confirmed by the CLI status command, but was unavailable under the isolated canary configuration. The worker returned `subtype: "success"`, `is_error: true`, and `Not logged in`; the runner correctly exited 14. This verifies authentication-failure handling only, not live successful completion.
 
+The canary command ran with approved execution outside the outer command sandbox, but with a deliberately reduced environment and settings. Its failure does not establish that the sandbox alone caused the authentication problem or that direct CLI invocation cannot work. This fixture also provides no live verification of an MCP worker.
+
 `claude-2.1.285-noauth.json` is the captured native stdout, reformatted as JSON with all UUIDs replaced by zero UUIDs. The manifest records the safety flags: tools, MCP, customizations, hooks and persistence were disabled. No software or authentication was changed, and no retry was made. The installer pin remains unchanged; this newer failure capture does not establish compatibility of a successful run at that pin.

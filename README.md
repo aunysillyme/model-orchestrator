@@ -175,7 +175,7 @@ It helps an agent match a task to a model, effort level and toolset. Run `npx mo
 
 Run `npx model-orchestrator --yes --level 2 --ais claude-code,codex --primary claude-code --project . --dir ./ai-orchestrator`, then follow the activation summary. Claude Code can dispatch scoped work through `aunx cli-run codex --brief TASK_BRIEF.md` and use a different model family for review.
 
-For Codex as the main agent, set `--primary codex`. Independent review then routes to `aunx cli-run claude --brief TASK_BRIEF.md`. The installer ID stays `claude-code`; the native worker lane is `claude`. Claude uses print-mode JSON and denies tool calls needing approval while preserving configured permission rules. It grants no additional permissions and does not provide Codex's read-only audit sandbox.
+For Codex as the main agent, set `--primary codex`. Independent review assigns Claude Code and prefers a compatible Claude worker MCP service already connected to the host. Follow that service's result and permission workflow; no MCP installation or server name is assumed. The standalone fallback is `aunx cli-run claude --brief TASK_BRIEF.md`, with installer ID `claude-code` and executable lane `claude`. That CLI adapter uses print-mode JSON and denies tool calls needing approval while preserving configured permission rules. It grants no additional permissions and does not provide Codex's read-only audit sandbox. `aunx route` reports the MCP preference; it does not invoke a server or turn the CLI runner into an MCP client.
 
 ### How do I reduce Claude Code token usage?
 

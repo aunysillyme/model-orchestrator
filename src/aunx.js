@@ -205,6 +205,9 @@ function stackSuggestion(assignment) {
   if (assignment.command) via = '`' + clean(assignment.command.startsWith('cli-run ') ? `aunx ${assignment.command}` : assignment.command) + '`';
   else if (assignment.agent) via = '`' + clean(assignment.agent) + '` on your main agent';
   else via = { 'main-agent': 'your main agent', local: 'your local runtime', manual: 'manual handoff', subagent: 'a subagent', 'cli-run': 'cli-run' }[assignment.via];
+  if (assignment.ai === 'claude-code' && assignment.via === 'cli-run' && assignment.command === 'cli-run claude' && assignment.preferredTransport === 'mcp') {
+    via = `connected Claude worker MCP when available; fallback ${via}`;
+  }
   return `Your stack: ${name}, via ${via || 'your selected tool'}${reason ? ` (${clean(reason)})` : ''}.`;
 }
 

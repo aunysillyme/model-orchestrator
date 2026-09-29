@@ -6,6 +6,14 @@ Enabled lanes (edit `bin/lanes.json`): {{CLI_RUN_LANES}}.
 
 ## Call a lane with a task brief
 
+When the assigned worker is Claude Code and your host exposes a connected Claude agent MCP service, prefer that service. Inspect the actual tool schema and server instructions; call its tools directly from the host. A subprocess of this runner cannot access the host's connected MCP tools. The manifest's `preferredTransport: "mcp"` records this conditional preference; its `command` remains the standalone CLI fallback. `aunx route` prints the preference but does not discover or invoke MCP servers.
+
+For a service exposing `claude_code`, `claude_code_check` and `claude_code_session`, start with the scoped brief and explicit project directory, retain the returned session ID, and poll with the returned cursor until completion. A start response or an idle session alone is not proof of success: inspect the final result and verify acceptance checks. Follow the server's polling guidance, handle errors and cancellation, and cancel the session on the task's deadline or user cancellation. No server name, URL or installation is assumed.
+
+Preserve the caller's permissions and project scope. Do not auto-approve tools, broaden paths, add credentials or change authentication to make the call work. Answer permission requests only within existing authorization; deny requests outside it. Review requests remain review-only. Leave the model unset unless the task or lane defaults explicitly select it; translate effort and other defaults only when the service supports them. MCP runs in its server's environment, which may differ from the command sandbox and must not grant broader access than the task permits.
+
+When no compatible service is connected, use the native CLI only in an authorized environment with its existing sign-in. After an MCP or CLI failure, report the cause before changing transport; do not automatically rerun the task through the other transport. The CLI doctor checks only CLI presence and optional CLI canaries, not MCP availability or authentication. Anthropic's built-in [`claude mcp serve`](https://code.claude.com/docs/en/mcp#use-claude-code-as-an-mcp-server) exposes tools; it does not by itself establish a Claude agent-review service.
+
 ```bash
 aunx cli-run {{EXAMPLE_LANE}} --brief TASK_BRIEF.md --timeout 900
 node bin/cli-run.mjs {{EXAMPLE_LANE}} --brief TASK_BRIEF.md --timeout 900
@@ -65,7 +73,7 @@ The runner supports these lanes whether or not you selected them.
 
 When Qwen's error telemetry is absent, the runner refuses the response. These checks distinguish response structure from successful task execution.
 
-Select Claude Code with installer ID `claude-code`; use `aunx cli-run claude` for its executable. The native adapter needs the Claude CLI and its existing authentication, independently of optional MCP companions. It uses [Anthropic's print-mode JSON result](https://code.claude.com/docs/en/headless) and [result completion states](https://code.claude.com/docs/en/agent-sdk/agent-loop).
+Select Claude Code with installer ID `claude-code`; use `aunx cli-run claude` for its executable fallback. The native adapter needs the Claude CLI and its existing authentication, independently of optional MCP companions. It uses [Anthropic's print-mode JSON result](https://code.claude.com/docs/en/headless) and [result completion states](https://code.claude.com/docs/en/agent-sdk/agent-loop).
 
 Claude runs with [the `dontAsk` permission mode](https://code.claude.com/docs/en/permissions): calls needing approval are denied, while existing allow rules and actions needing no approval still apply. The runner grants no additional tools or permissions. This is not a read-only filesystem sandbox; `--audit` remains Codex-only. Claude's `permission_denials` counts blocked tools; a non-empty completed answer with denials is accepted with a warning, while no answer with denials exits 17. Authentication or account-access errors exit 14. Error subtypes, malformed JSON and truncated responses exit 18 unless a more specific native error identifies the cause.
 

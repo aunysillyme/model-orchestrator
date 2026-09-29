@@ -715,6 +715,9 @@ function vars(opts) {
     PLAN_GUIDANCE: planGuidance(selected, plans),
     INSTALL_TABLE: installTable(selected),
     CLI_RUN_LANES: selected.filter((a) => a.facts.cliRun).map((a) => a.bin).join(', ') || 'none selected',
+    CLAUDE_WORKER_TRANSPORT: Object.values(assignment.roles).some(role => role.ai === 'claude-code' && role.via === 'cli-run')
+      ? '- When assigning a Claude Code worker, prefer a connected Claude worker MCP service exposed in the host tool catalog. Call its tools directly from the host, follow its session and permission workflow, and preserve the task scope. See `CLI-RUN.md` for dispatch and fallback boundaries.\n'
+      : '',
     GATEWAY_MODELS: gatewayModels(selected, apis),
     ENV_NAMES: envNames(selected, apis).map((n) => '- `' + n + '`').join('\n'),
     ENV_EXPORTS: envNames(selected, apis).map((n) => n + '=').join('\n'),

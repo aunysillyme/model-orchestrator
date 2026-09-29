@@ -6,6 +6,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Fixed
 
+- Prefer an already-connected Claude worker MCP service in host routing, with the native CLI retained as a standalone fallback. Route suggestions and generated instructions describe the session, result, permission and environment boundaries; no MCP installation or automatic transport retry is added.
 - Enable the native `claude` CLI worker with print-mode JSON completion checks, existing permission rules, model and effort overrides, failure classification and shared timeout/cancellation handling. Codex-primary stacks can assign independent review to Claude Code; Claude-primary stacks retain Codex review. Generated lanes use executable names while manifest AI identities retain installer IDs. Claude fixtures identify synthetic coverage and the captured authentication failure separately.
 
 ## [1.0.6] - 2026-09-29

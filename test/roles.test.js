@@ -18,7 +18,9 @@ test('Codex and Claude primary each route independent review to the other execut
     assert.equal(role.ai, reviewer);
     assert.equal(role.via, 'cli-run');
     assert.equal(role.command, command);
+    assert.equal(role.preferredTransport, main === 'codex' ? 'mcp' : undefined);
     assert.ok(roleTable(assignment, { selected, primary }).includes('aunx ' + command));
+    if (main === 'codex') assert.match(roleTable(assignment, { selected, primary }), /connected Claude worker MCP when available/);
   }
 });
 
