@@ -1,7 +1,9 @@
 # Publishes the package to npm when a version tag is pushed, with provenance, through npm
 # trusted publishing (OIDC): no npm token is stored anywhere. Requires, once, on npmjs.com:
 # package settings -> Trusted publisher -> GitHub Actions, owner aunysillyme, repository
-# model-orchestrator, workflow release.yml, environment left empty.
+# model-orchestrator, workflow release.yml, environment release.
+# The publish job runs in the GitHub environment `release`, which waits for the maintainer's
+# approval and accepts v* tags only, so a pushed tag alone cannot publish.
 # What it proves: the tag, package.json and the tests agree before anything is published.
 # What it does NOT do: create the GitHub release page (RELEASING.md step 5) or bump versions.
 name: release
@@ -21,6 +23,7 @@ concurrency:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    environment: release
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
