@@ -60,6 +60,8 @@ aunx cli-run --doctor
 # Direct form: node bin/cli-run.mjs --doctor
 ```
 
+Hermes also takes `--provider '<provider-id>'` (or `"provider"` in its `lanes.json` defaults), always together with a model, because one Hermes install can reach several providers and a model sent to the wrong one fails with HTTP 400. `--doctor` notes a Hermes model pinned without a provider.
+
 Explicit flags override defaults in `bin/lanes.json`. Without either, the vendor CLI uses its own configuration. The runner records what was requested and the source of each request: `flag`, `lanes.json` or `lane_default`. These fields describe requested settings; the vendor's own reporting is the place to verify the actual model used.
 
 ## Share facts once, then scope each worker

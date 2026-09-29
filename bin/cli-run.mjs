@@ -53,6 +53,7 @@
 // problem/fix lines go to your terminal only, redacted.
 //
 // ROUTE: which model and reasoning effort a lane ran with.
+// Hermes also accepts --provider to select the provider serving that model.
 // A lane with no --model and no lanes.json default inherits whatever its own
 // config file says, which is invisible from here and is how a documented route
 // silently stops being the route that runs. --model / --effort pin it per call,
@@ -199,7 +200,11 @@ export function judgeHermes(rc, out, err) {
     // hermes collapses every upstream failure into one exit code; its stderr
     // is the only place the cause is named.
     const blob = String(err || '').toLowerCase(); // stderr only: stdout is the agent's own prose
-    if (hermesQuotaText(blob)) why += ': upstream free tier degraded or limited, a retry is reasonable';
+    // A mismatch is checked first: a retry cannot fix it, and an unrelated
+    // "limit" warning on stderr must not turn it into a quota report.
+    if (hermesMismatchLine(err) || hermesMismatchLine(out, { vendorShape: true })) why += ': model/provider mismatch, the provider does not serve this model';
+    else if (hermesQuotaText(blob)) why += ': upstream free tier degraded or limited, a retry is reasonable';
+    else if (hermesArgError(blob)) why += ': hermes rejected its arguments, a caller bug and not a lane fault';
     else if (blob.includes('toolset')) why += ': invalid --toolsets value, a caller bug and not a lane fault';
     return fail('exit_nonzero', `hermes exit ${rc}: ${why}`);
   }
@@ -253,14 +258,18 @@ export function judgeQwen(rc, out) {
 //   grok    -m MODEL   --reasoning-effort EFFORT
 //   codex   -m MODEL   -c model_reasoning_effort="EFFORT"   (a TOML override, hence the quotes)
 //   agy     --model M  --effort EFFORT                      (low|medium|high)
-//   hermes  -m MODEL   --reasoning LEVEL                    (none|minimal|...)
+//   hermes  -m MODEL   --reasoning LEVEL   --provider ID    (none|minimal|...)
 //   qwen    -m MODEL   no reasoning flag
+// Only hermes takes a provider: one hermes install signs in to many providers,
+// and a model id sent to a provider that does not serve it is an HTTP 400
+// (grok-4.6 on openai-codex). `hermes -z --provider` without a model exits 2,
+// so cli-run refuses that pairing before the lane starts.
 export const LANE_FLAGS = {
-  grok: { model: (v) => ['-m', v], effort: (v) => ['--reasoning-effort', v] },
-  codex: { model: (v) => ['-m', v], effort: (v) => ['-c', `model_reasoning_effort="${v}"`] },
-  agy: { model: (v) => ['--model', v], effort: (v) => ['--effort', v] },
-  hermes: { model: (v) => ['-m', v], effort: (v) => ['--reasoning', v] },
-  qwen: { model: (v) => ['-m', v], effort: null }
+  grok: { model: (v) => ['-m', v], effort: (v) => ['--reasoning-effort', v], provider: null },
+  codex: { model: (v) => ['-m', v], effort: (v) => ['-c', `model_reasoning_effort="${v}"`], provider: null },
+  agy: { model: (v) => ['--model', v], effort: (v) => ['--effort', v], provider: null },
+  hermes: { model: (v) => ['-m', v], effort: (v) => ['--reasoning', v], provider: (v) => ['--provider', v] },
+  qwen: { model: (v) => ['-m', v], effort: null, provider: null }
 };
 
 // Auto is deliberately a small, static ladder. It is not a vendor capability
@@ -353,13 +362,16 @@ export function badRouteValue(kind, v) {
 }
 
 // --- adapters: build argv for a lane -------------------------------------
-// Route flags go in front of the prompt for every lane, because two lanes
-// (hermes, codex) take the prompt as a positional argument and a flag after it
-// is either ignored or read as part of it.
+// Route flags go in front of the prompt for every lane, because codex takes the
+// prompt as a positional argument and a flag after it is either ignored or read
+// as part of it. hermes needs them in front of -z itself: -z takes the prompt as
+// its own value, so `-z -m X prompt` is an argparse error ("argument -z/--oneshot:
+// expected one argument") and every pinned hermes route failed that way.
 function routeFlags(lane, opts) {
   const spec = LANE_FLAGS[lane];
   const out = [];
   if (!spec) return out;
+  if (opts.provider && spec.provider) out.push(...spec.provider(opts.provider));
   if (opts.model) out.push(...spec.model(opts.model));
   if (opts.effort && spec.effort) out.push(...spec.effort(opts.effort));
   return out;
@@ -384,7 +396,7 @@ export function buildArgv(lane, binary, prompt, opts, tmp) {
       return { argv: [binary, '--print-timeout', `${mins}m`, '--output-format', 'stream-json', ...route, '-p', prompt] };
     }
     case 'hermes':
-      return { argv: [binary, '-z', ...route, prompt, '--usage-file', join(tmp, 'usage.json')] };
+      return { argv: [binary, ...route, '-z', prompt, '--usage-file', join(tmp, 'usage.json')] };
     case 'qwen': {
       const argv = [binary, '-o', 'json', ...route];
       if (opts.safeMode) argv.push('--safe-mode');
@@ -527,6 +539,30 @@ function hermesQuotaText(lower) {
   return lower.includes('no usable content') || lower.includes('limit') || lower.includes('degraded');
 }
 
+// argparse's own refusal. Its usage dump always lists `-t TOOLSETS`, so this is
+// checked before the toolset match or every bad argument reads as a toolset error.
+function hermesArgError(lower) {
+  return lower.includes('hermes: error:');
+}
+
+// A model id the chosen provider does not serve. `hermes -z` prints a failed
+// turn's provider error on stdout and exits 2, so this reads both streams, but
+// returns only the matching line: the rest of stdout is the agent's own prose.
+// The wording is the upstream's own ("The 'grok-4.6' model is not supported
+// when using Codex with a ChatGPT account"; OpenAI's model_not_found code).
+export function hermesMismatchLine(text, { vendorShape = false } = {}) {
+  for (const line of String(text || '').split('\n')) {
+    const l = line.toLowerCase();
+    if (!(l.includes('model is not supported') || l.includes('model_not_found'))) continue;
+    // stdout is agent prose, so there only the vendor's own shape counts: an HTTP
+    // status, an error prefix, the Codex wording, or the OpenAI error code.
+    if (vendorShape && !(/^\s*(http [45]\d\d|error)\b/.test(l) || l.includes('model is not supported when using') || l.includes('model_not_found'))) continue;
+    // Terminal-safe: stdout can carry web-derived text, so no control characters.
+    return line.replace(/[\x00-\x08\x0b-\x1f\x7f]/g, '').trim().slice(0, 300);
+  }
+  return null;
+}
+
 // qwen: the terminal event's full error text, and a result that is an API error.
 // Never the display detail, which is clipped and can carry a model name.
 export function qwenErrorText(out) {
@@ -548,7 +584,7 @@ export function qwenErrorText(out) {
 function authoritativeBlob(lane, out, err, detail, rc) {
   if (lane === 'codex') return `${codexErrorEventsText(out)}\n${err || ''}`;
   if (lane === 'agy') return `${agyResultFieldsText(out)}\n${err || ''}`;
-  if (lane === 'hermes') return rc !== 0 ? String(err || '') : '';
+  if (lane === 'hermes') return rc !== 0 ? `${err || ''}\n${hermesMismatchLine(out, { vendorShape: true }) || ''}` : '';
   if (lane === 'qwen') return `${qwenErrorText(out)}\n${err || ''}`;
   return `${detail || ''}\n${err || ''}`; // grok: no auth, quota or rejected signal is defined
 }
@@ -572,7 +608,7 @@ export function sigRejected(lane, blob) {
   const b = blob.toLowerCase();
   if (lane === 'qwen') return b.includes('[api error: 400') || b.includes('no endpoints found') || b.includes('failed to parse grammar');
   if (lane === 'codex') return blob.includes('invalid_request_error');
-  if (lane === 'hermes') return b.includes('toolset');
+  if (lane === 'hermes') return hermesArgError(b) || b.includes('toolset') || hermesMismatchLine(blob) !== null;
   return false;
 }
 
@@ -752,6 +788,7 @@ const FIX = {
   auth: 'set the credential the message above names (its environment variable, or the lane\'s own login command), then rerun',
   quota: 'switch to another lane, or wait for the reset time if the message gave one',
   rejected: 'correct the model id, flag or request the upstream message names',
+  mismatch: 'pair the model with a provider that serves it: run `hermes model`, or pin both with --provider and --model (or "defaults": {"hermes": {"provider": ..., "model": ...}} in bin/lanes.json)',
   refused: 'adjust the hook or deny rule named above, or give this lane the tool it needs',
   cut_short: 'rerun once; if it recurs, run without --quiet and read the lane\'s stderr on the terminal',
   empty: 'rerun once, or use another lane',
@@ -769,7 +806,11 @@ export function problemAndFix(lane, cls, { out = '', err = '', detail = '', refu
   switch (cls) {
     case 'auth': return { problem: `${tag} auth: ${cause || d || 'missing or invalid credentials'}`, fix: FIX.auth };
     case 'quota': return { problem: `${tag} quota: ${cause || d || 'rate limit or credits exhausted'}`, fix: FIX.quota };
-    case 'rejected': return { problem: `${tag} rejected: ${cause || d || 'the upstream rejected the request'}`, fix: FIX.rejected };
+    case 'rejected': {
+      const mismatch = lane === 'hermes' ? hermesMismatchLine(err) || hermesMismatchLine(out, { vendorShape: true }) : null;
+      if (mismatch) return { problem: `${tag} rejected: model/provider mismatch: ${redact(mismatch)}`, fix: FIX.mismatch };
+      return { problem: `${tag} rejected: ${cause || d || 'the upstream rejected the request'}`, fix: FIX.rejected };
+    }
     case 'refused': return { problem: `${tag} refused: ${denial() || 'a hook or deny rule blocked the call'}`, fix: FIX.refused };
     case 'cut_short': return { problem: `${tag} cut short: ${d || 'no terminal success event, cause not identifiable'}`, fix: FIX.cut_short };
     case 'empty': return { problem: `${tag} empty: ${d || 'completed but delivered nothing'}`, fix: FIX.empty };
@@ -801,6 +842,7 @@ export function classifyRun(lane, { rc = 0, out = '', err = '', reason = '', det
     else {
       const blob = authoritativeBlob(lane, out, err, detail, rc);
       if (sigAuth(lane, blob)) cls = 'auth';
+      else if (lane === 'hermes' && hermesMismatchLine(blob) !== null) cls = 'rejected'; // before quota: see judgeHermes
       else if (sigQuota(lane, blob)) cls = 'quota';
       else if (sigRejected(lane, blob)) cls = 'rejected';
       else if (Number.isInteger(refused) && refused > 0) cls = 'refused';
@@ -1080,15 +1122,19 @@ export function laneConfig(here = dirname(fileURLToPath(import.meta.url))) {
       for (const [lane, d] of Object.entries(j.defaults)) {
         if (!LANES.includes(lane)) return null;
         if (!d || typeof d !== 'object' || Array.isArray(d)) return null;
-        const { model, effort, ...rest } = d;
+        const { model, effort, provider, ...rest } = d;
         if (Object.keys(rest).length) return null;
         if (model !== undefined && badRouteValue('model', model)) return null;
+        if (provider !== undefined) {
+          if (badRouteValue('provider', provider)) return null;
+          if (!LANE_FLAGS[lane] || !LANE_FLAGS[lane].provider) return null; // only hermes routes by provider
+        }
         if (effort !== undefined) {
           if (badRouteValue('effort', effort)) return null;
           if (effort.startsWith('auto') && effort !== 'auto') return null;
           if (!LANE_FLAGS[lane] || !LANE_FLAGS[lane].effort) return null; // a lane with no reasoning flag cannot have one pinned
         }
-        defaults[lane] = { model: model ?? null, effort: effort ?? null };
+        defaults[lane] = { model: model ?? null, effort: effort ?? null, provider: provider ?? null };
       }
     }
     return { enabled: j.enabled, defaults };
@@ -1109,20 +1155,22 @@ export function resolveRoute(lane, opts, defaults) {
   const d = (defaults && defaults[lane]) || {};
   const model = opts.model ?? d.model ?? null;
   const effort = opts.effort ?? d.effort ?? null;
+  const provider = opts.provider ?? d.provider ?? null;
   const src = (flag, def) => (flag != null ? 'flag' : def != null ? 'lanes.json' : 'lane_default');
-  return { model, effort, model_source: src(opts.model, d.model), effort_source: src(opts.effort, d.effort) };
+  return { model, effort, provider, model_source: src(opts.model, d.model), effort_source: src(opts.effort, d.effort), provider_source: src(opts.provider, d.provider) };
 }
 
 function usage(msg) {
   if (msg) console.error('cli-run: ' + msg);
   console.error(`usage: cli-run <${LANES.join('|')}> "<prompt>" [--brief FILE] [--timeout SECS] [--quiet]
-                [--model ID] [--effort LEVEL] [--expect-file PATH] [--expect-json]
+                [--model ID] [--effort LEVEL] [--provider ID] [--expect-file PATH] [--expect-json]
        cli-run codex --audit "<prompt>"          read-only sandbox (audit shape)
        cli-run qwen [--safe-mode] "<prompt>"     qwen-only flag
        cli-run --doctor [--run]                  enabled lanes, binaries, and the route each one is pinned to
 
   --model / --effort pin what a lane runs with, instead of letting it inherit its
   own config. Every lane takes --model; every lane except qwen takes --effort.
+  Hermes also takes --provider; it needs --model, a defaults model, or HERMES_INFERENCE_MODEL.
   Levels are the vendor's own (agy low|medium|high, hermes none|minimal|...): an
   unknown level is rejected by the lane, and reported by class (codex: rejected, 16).
   Exit codes: 0 ok, 10 empty, 11 no output, 12 timeout, 13 unavailable, 14 auth,
@@ -1179,7 +1227,8 @@ export async function doctor(run, { here = dirname(fileURLToPath(import.meta.url
     const d = defaults[lane] || {};
     // A disabled lane has no route worth reporting; saying "not pinned" there
     // reads as a finding about a lane that is not going to run.
-    const route = !on ? '' : d.effort === 'auto' ? `route ${d.model || 'lane default'}/auto (sized per call)` : d.model || d.effort ? `route ${d.model || 'lane default'}/${d.effort || 'lane default'}` : 'route not pinned (inherits the lane\'s own config)';
+    const model = `${d.provider ? d.provider + ':' : ''}${d.model || 'lane default'}`;
+    const route = !on ? '' : d.effort === 'auto' ? `route ${model}/auto (sized per call)` : d.model || d.effort || d.provider ? `route ${model}/${d.effort || 'lane default'}` : 'route not pinned (inherits the lane\'s own config)';
     let line = `  ${lane.padEnd(7)} ${on ? 'enabled ' : 'disabled'} ${bin ? 'binary ok' : 'binary MISSING'}${route ? '  ' + route : ''}`;
     if (on && !bin) bad++;
     if (on && bin && run) {
@@ -1188,6 +1237,8 @@ export async function doctor(run, { here = dirname(fileURLToPath(import.meta.url
       if (rc !== OK) bad++;
     }
     console.log(compact ? `  ${lane}: ${bin ? 'present' : 'MISSING'}` : line);
+    if (on && lane === 'hermes' && d.model && !d.provider) console.log('    note: model pinned with no provider: Hermes sends it to its default provider. A model that provider does not serve fails with HTTP 400; pin "provider" beside "model".');
+    if (on && lane === 'hermes' && d.provider && !d.model) console.log('    note: provider pinned with no model: every run without --model will be refused unless HERMES_INFERENCE_MODEL supplies a model; pin "model" beside "provider".');
   }
   console.log(bad ? `doctor: ${bad} problem(s)` : 'doctor: all enabled lanes ' + (run ? 'answered' : 'present'));
   if (!compact) {
@@ -1236,10 +1287,10 @@ export function checkContracts(opts, text, before) {
 }
 
 export async function main(argv) {
-  const VALUE = new Set(['--brief', '--timeout', '--model', '--effort', '--expect-file']);
+  const VALUE = new Set(['--brief', '--timeout', '--model', '--effort', '--provider', '--expect-file']);
   const BOOL = new Set(['--quiet', '--audit', '--safe-mode', '--doctor', '--run', '--expect-json']);
   const args = [...argv];
-  const opts = { timeout: 900, quiet: false, audit: false, model: null, effort: null, safeMode: false, brief: null, doctor: false, run: false, expectFile: null, expectJson: false };
+  const opts = { timeout: 900, quiet: false, audit: false, model: null, effort: null, provider: null, safeMode: false, brief: null, doctor: false, run: false, expectFile: null, expectJson: false };
   const positional = [];
   while (args.length) {
     const a = args.shift();
@@ -1250,6 +1301,7 @@ export async function main(argv) {
       else if (a === '--timeout') opts.timeout = Number(v);
       else if (a === '--expect-file') opts.expectFile = v;
       else if (a === '--effort') opts.effort = v;
+      else if (a === '--provider') opts.provider = v;
       else opts.model = v;
     } else if (BOOL.has(a)) {
       if (a === '--quiet') opts.quiet = true;
@@ -1283,7 +1335,7 @@ export async function main(argv) {
   if (!Number.isFinite(opts.timeout) || opts.timeout <= 0) return usage('--timeout must be a positive number of seconds');
   if (opts.audit && lane !== 'codex') return usage('--audit is codex-only');
   if (opts.safeMode && lane !== 'qwen') return usage('--safe-mode is qwen-only');
-  for (const [kind, v] of [['model', opts.model], ['effort', opts.effort]]) {
+  for (const [kind, v] of [['model', opts.model], ['effort', opts.effort], ['provider', opts.provider]]) {
     if (v == null) continue;
     const bad = badRouteValue(kind, v);
     if (bad) return usage(bad);
@@ -1292,6 +1344,7 @@ export async function main(argv) {
   // qwen has no reasoning flag. Dropping --effort silently would leave the caller
   // believing a route that never happened, which is the defect this feature fixes.
   if (opts.effort && !(LANE_FLAGS[lane] && LANE_FLAGS[lane].effort)) return usage(`${lane} has no reasoning-effort flag; --effort is not available on this lane`);
+  if (opts.provider && !LANE_FLAGS[lane].provider) return usage(`${lane} has no provider flag; --provider is hermes-only`);
 
   const digest = createHash('sha256').update(prompt).digest('hex').slice(0, 12);
   const base = { lane, prompt_sha256_12: digest, prompt_chars: prompt.length };
@@ -1301,11 +1354,15 @@ export async function main(argv) {
   // gap this feature exists to close. A malformed lanes.json has no usable
   // defaults, so the flags stand alone and say so.
   const route = resolveRoute(lane, opts, cfg === null ? {} : cfg.defaults);
+  if (route.provider && !route.model && !(process.env.HERMES_INFERENCE_MODEL || '').trim()) return usage('--provider <p> needs a model: pass --model, or set "model" beside "provider" in lanes.json "defaults"');
   const sizing = resolveAutoEffort(lane, route.effort, prompt, opts.audit);
   opts.model = route.model;
   opts.effort = sizing.resolved;
+  opts.provider = route.provider;
   Object.assign(base, {
     model_requested: route.model,
+    provider_requested: route.provider,
+    provider_source: route.provider_source,
     effort_requested: route.effort,
     model_source: route.model_source,
     effort_source: route.effort_source,
@@ -1384,7 +1441,7 @@ export async function main(argv) {
     }
     const code = cls === 'interrupted' ? 128 + (r.interrupted === 'SIGINT' ? 2 : 15) : CLASS_CODES[cls];
     if (text && code === OK) process.stdout.write(text + '\n');
-    const routeNote = route.model || route.effort ? `${route.model || 'lane default'}/${route.effort || 'lane default'}` : 'lane default';
+    const routeNote = (route.provider ? `${route.provider}:` : '') + (route.model || route.effort ? `${route.model || 'lane default'}/${route.effort || 'lane default'}` : 'lane default');
     if (!opts.quiet) {
       console.error(`cli-run[${lane}] ${verdict} rc=${code} class=${cls} refused=${refused === null ? 'null' : refused} ${r.seconds.toFixed(1)}s raw=${r.outBytes || 0}B route=${routeNote} :: ${redact(detail)}`);
       let authoritative = null;
