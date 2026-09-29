@@ -823,7 +823,7 @@ export function planFiles(opts) {
           enabled: selected.filter((a) => a.facts.cliRun).map((a) => a.id),
           defaults: Object.fromEntries((opts.effortAuto || []).map((lane) => [lane, { effort: 'auto' }])),
           note: 'Lanes cli-run may call. Edit to enable or disable a lane. A lane not listed here exits 13 (unavailable).',
-          defaultsNote: 'Pin what a lane runs with, so the route in your docs is the route that runs: "defaults": {"' + (selected.find(a => a.facts.cliRun)?.id || '<lane>') + '": ' + JSON.stringify({ model: '<model-id>', ...(LANE_FLAGS[selected.find(a => a.facts.cliRun)?.id]?.effort ? { effort: 'high' } : {}) }) + '}. Left empty, a lane inherits its own config file, which cli-run cannot see and does not guess. `--model` and `--effort` override this per call, and `--doctor` prints what each lane is pinned to. Every enabled lane takes a model; the runner reports which lanes support an effort flag.'
+          defaultsNote: 'Pin what a lane runs with, so the route in your docs is the route that runs: "defaults": {"' + (selected.find(a => a.facts.cliRun)?.id || '<lane>') + '": ' + JSON.stringify({ model: '<model-id>', ...(LANE_FLAGS[selected.find(a => a.facts.cliRun)?.id]?.effort ? { effort: 'high' } : {}) }) + '}. Left empty, a lane inherits its own config file, which cli-run cannot see and does not guess. `--model` and `--effort` override this per call, and `--doctor` prints what each lane is pinned to. Every enabled lane takes a model; the runner reports which lanes support an effort flag. Hermes also takes "provider" beside "model", so the model goes to a provider that serves it.'
         },
         null,
         2
