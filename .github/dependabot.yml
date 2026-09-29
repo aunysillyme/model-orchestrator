@@ -1,8 +1,14 @@
-# Keeps the GitHub Actions in .github/workflows current. There are no npm dependencies to update.
+# Keeps the GitHub Actions in .github/workflows and the website's build dependencies current.
+# The published package itself has no npm dependencies to update.
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
+    schedule:
+      interval: monthly
+    labels: [dependencies]
+  - package-ecosystem: npm
+    directory: /website
     schedule:
       interval: monthly
     labels: [dependencies]
