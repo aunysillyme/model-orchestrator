@@ -19,6 +19,7 @@ Generated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrite
 - **Install:** `npm install -g @anthropic-ai/claude-code@2.1.226`
 - **Sign in:** run `claude` once and sign in with your Anthropic account
 - **Reads rules from:** `CLAUDE.md` · subagents in `.claude/agents/`
+- **cli-run lane:** yes
 - **Plans:**
   - Claude Pro (base headroom, checked 2026-09-12; tier models: unverified): https://claude.com/pricing
   - Claude Max 5x (high headroom, checked 2026-09-12; tier models: unverified): https://claude.com/pricing
@@ -34,7 +35,7 @@ Generated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrite
 | `billing` | subscription |
 | `pricing` | unverified |
 | `headless` | yes |
-| `cliRun` | no |
+| `cliRun` | yes |
 | `writesFiles` | yes |
 | `readOnlyMode` | no |
 | `liveWeb` | yes |

@@ -1,0 +1,8 @@
+{
+  "type": "result",
+  "subtype": "success",
+  "is_error": false,
+  "result": "OK",
+  "stop_reason": "end_turn",
+  "permission_denials": []
+}

@@ -1,6 +1,6 @@
-# Real vendor fixtures
+# Vendor fixtures
 
-Raw output captured from **actual vendor CLI runs**, not written by hand. Every other judge test in this repository uses synthetic shapes; these prove the judges against what the vendors really emit, at versions this repository records.
+The original five fixtures contain raw output captured from actual vendor CLI runs. Claude has a synthetic success fixture from official documentation and a captured authentication failure, both labeled separately in the manifest. Synthetic fixtures establish only the shapes they exercise.
 
 Requested by [#11](https://github.com/aunysillyme/model-orchestrator/issues/11): *"Add versioned, sanitized fixtures captured from actual supported vendor versions... Record how fixtures were obtained and what flags/schema they cover."*
 
@@ -35,8 +35,14 @@ No credential, key or token appears in any of these files; the lanes authenticat
 
 ## Gap, stated rather than hidden
 
-**qwen's success shape is still synthetic.** No `OPENROUTER_API_KEY` was available in the capture environment (checked by presence, never printed), so only its failure path is real. `claude` and `ollama` have no judge of their own and so have no fixture.
+**qwen's success shape is still synthetic.** No `OPENROUTER_API_KEY` was available in the capture environment (checked by presence, never printed), so only its failure path is real. `claude-synthetic.json` is a minimal successful print-mode result based on [Anthropic headless documentation](https://code.claude.com/docs/en/headless) and [completion-state documentation](https://code.claude.com/docs/en/agent-sdk/agent-loop), read 2026-09-29. It was written by hand, has no captured vendor version, and does not belong to the 2026-09-06 capture. Claude failure shapes in judge and classifier tests are also synthetic. Ollama has no judge or fixture.
 
 ## Refreshing
 
 These are keyed to a version. When a vendor upgrade changes a shape, capture again with the same prompt and argv, bump the filename to the new version, and update `manifest.json` and the compatibility table in the root README together.
+
+## Claude canary on 2026-09-29
+
+Exactly one no-tools prompt was run through the native lane in an empty temporary directory with Claude Code 2.1.285: `Reply OK without using tools.` Existing authentication was confirmed by the CLI status command, but was unavailable under the isolated canary configuration. The worker returned `subtype: "success"`, `is_error: true`, and `Not logged in`; the runner correctly exited 14. This verifies authentication-failure handling only, not live successful completion.
+
+`claude-2.1.285-noauth.json` is the captured native stdout, reformatted as JSON with all UUIDs replaced by zero UUIDs. The manifest records the safety flags: tools, MCP, customizations, hooks and persistence were disabled. No software or authentication was changed, and no retry was made. The installer pin remains unchanged; this newer failure capture does not establish compatibility of a successful run at that pin.

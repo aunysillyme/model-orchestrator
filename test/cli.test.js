@@ -595,6 +595,124 @@ const runLane = (args, env) =>
     env: mergeEnv(process.env, { ...env, USERPROFILE: (env && (env.HOME ?? env.USERPROFILE)) ?? process.env.USERPROFILE })
   });
 
+test('claude: native adapter failures and contracts preserve exit classes and fixed logs', () => {
+  const d = mkdtempSync(join(tmpdir(), 'orch-claude-'));
+  const bin = join(d, 'bin');
+  mkdirSync(bin);
+  const result = (over = {}) => JSON.stringify({ type: 'result', subtype: 'success', is_error: false, result: 'OK', permission_denials: [], ...over });
+  const denied = [{ tool_name: 'Read', tool_use_id: 'synthetic', tool_input: { file_path: 'public-test' } }];
+  try {
+    for (const [out, err, cliRc, code, cls] of [
+      [result(), '', 0, 0, 'ok'], [result(), '', 7, 18, 'cut_short'],
+      ['malformed', '', 0, 18, 'cut_short'], ['', '', 0, 11, 'no_output'],
+      [result({ result: '' }), '', 0, 10, 'empty'],
+      [result({ is_error: true, result: 'Not logged in. Please run /login' }), '', 1, 14, 'auth'],
+      ['', '403 permission_error', 1, 14, 'auth'],
+      [result({ is_error: true, result: 'rate_limit_error: 429' }), '', 1, 15, 'quota'],
+      [result({ subtype: 'error_during_execution', is_error: true, errors: ['invalid_request_error: 400'] }), '', 1, 16, 'rejected'],
+      [result({ result: '', permission_denials: denied }), '', 0, 17, 'refused'],
+      [result({ permission_denials: denied }), '', 0, 0, 'ok'],
+      [result({ subtype: 'error_during_execution', is_error: true, errors: ['request cancelled'] }), '', 1, 18, 'cut_short']
+    ]) {
+      writeNodeStub(join(bin, 'claude'), `process.stdout.write(${JSON.stringify(out)}); process.stderr.write(${JSON.stringify(err)}); process.exit(${cliRc});`);
+      const r = runLane(['claude', 'public test', '--quiet'], { PATH: withNode(bin), HOME: d });
+      assert.equal(r.status, code, r.stderr);
+      assert.equal(r.stdout, code === 0 ? 'OK\n' : '', 'failures must not print a partial result');
+      const log = JSON.parse(readFileSync(join(d, '.ai-orchestrator', 'cli-run.log.jsonl'), 'utf8').trim().split('\n').pop());
+      assert.equal(log.class, cls);
+      assert.equal(log.cli_rc, cliRc);
+      assert.equal(log.refused, out.includes('public-test') ? 1 : out.startsWith('{') ? 0 : null);
+      assert.ok(!JSON.stringify(log).includes('public test'), 'prompt text stays out of the log');
+    }
+    assert.equal(runLane(['claude', 'public test', '--expect-json', '--quiet'], { PATH: withNode(bin), HOME: d }).status, 18);
+    writeNodeStub(join(bin, 'claude'), `process.stdout.write(${JSON.stringify(result())});`);
+    assert.equal(runLane(['claude', 'public test', '--expect-json', '--quiet'], { PATH: withNode(bin), HOME: d }).status, 10);
+  } finally { rmSync(d, { recursive: true, force: true }); }
+});
+
+test('claude: generated lanes and doctor work for either primary without invoking an unselected lane', () => {
+  const d = mkdtempSync(join(tmpdir(), 'orch-claude-doctor-'));
+  const bin = join(d, 'stubs');
+  mkdirSync(bin);
+  const marker = join(d, 'claude-called');
+  try {
+    writeNodeStub(join(bin, 'claude'), `if (process.argv[2] === 'auth') { console.log(JSON.stringify({loggedIn:true})); process.exit(0); } require('node:fs').writeFileSync(${JSON.stringify(marker)}, JSON.stringify(process.argv.slice(2))); process.stdout.write(JSON.stringify({type:'result', subtype:'success', is_error:false, result:'OK', permission_denials:[]}));`);
+    writeNodeStub(join(bin, 'codex'), `const fs = require('node:fs'); const args = process.argv.slice(2); if (args[0] === 'login') process.exit(0); fs.writeFileSync(args[args.indexOf('-o')+1], 'OK'); console.log(JSON.stringify({type:'turn.completed'}));`);
+    const env = winEnv(withNode(bin), d);
+    for (const [primary, reviewer, command] of [['codex', 'claude-code', 'cli-run claude'], ['claude-code', 'codex', 'cli-run codex --audit']]) {
+      const dir = join(d, primary, 'rules');
+      const project = join(d, primary, 'project');
+      const installed = run(['--yes', '--level', '2', '--ais', 'codex,claude-code', '--primary', primary, '--no-tools', '--dir', dir, '--project', project], { env });
+      assert.equal(installed.status, 0, installed.stderr);
+      assert.deepEqual(JSON.parse(readFileSync(join(dir, 'bin', 'lanes.json'), 'utf8')).enabled, ['codex', 'claude']);
+      const role = JSON.parse(readFileSync(join(dir, 'MANIFEST.json'), 'utf8')).roles.review;
+      assert.equal(role.ai, reviewer);
+      assert.equal(role.command, command);
+      assert.ok(readFileSync(join(dir, 'ROUTING.md'), 'utf8').includes(command));
+      const routed = spawnSync(process.execPath, [fileURLToPath(new URL('../bin/aunx.js', import.meta.url)), 'route', '--dir', dir, 'review this diff'], { env, encoding: 'utf8' });
+      assert.equal(routed.status, 0, routed.stderr);
+      assert.ok(routed.stdout.includes(command), routed.stdout);
+      assert.ok(!existsSync(marker), 'route suggestions must not launch a worker');
+      const runner = join(dir, 'bin', 'cli-run.mjs');
+      const doctor = spawnSync(process.execPath, [runner, '--doctor'], { env, encoding: 'utf8' });
+      assert.equal(doctor.status, 0, doctor.stderr);
+      assert.match(doctor.stdout, /claude\s+enabled\s+binary ok/);
+      assert.doesNotMatch(doctor.stdout, /main agent and is not an executable lane/);
+      assert.ok(!existsSync(marker), 'presence checks must send no prompt');
+      // All calls here are hermetic: restrict the live-check configuration to
+      // this synthetic CLI, never run doctor against installed vendor binaries.
+      writeFileSync(join(dir, 'bin', 'lanes.json'), JSON.stringify({ enabled: ['claude'], defaults: { claude: { model: 'chosen-model', effort: 'high' } } }));
+      const live = spawnSync(process.execPath, [runner, '--doctor', '--run'], { env, encoding: 'utf8' });
+      assert.equal(live.status, 0, live.stderr);
+      assert.match(live.stdout, /canary ok/);
+      const args = JSON.parse(readFileSync(marker, 'utf8'));
+      assert.ok(args.includes('chosen-model') && args.includes('high'));
+      rmSync(marker);
+      const missing = spawnSync(process.execPath, [runner, '--doctor'], { env: winEnv(join(d, 'missing-binaries'), d), encoding: 'utf8' });
+      assert.equal(missing.status, 10, 'doctor uses its existing problem exit for a missing enabled binary');
+      assert.match(missing.stdout, /claude\s+enabled\s+binary MISSING/);
+      assert.ok(!existsSync(marker));
+      writeFileSync(join(dir, 'bin', 'lanes.json'), JSON.stringify({ enabled: ['codex'] }));
+      const disabled = spawnSync(process.execPath, [runner, 'claude', 'public test'], { env, encoding: 'utf8' });
+      assert.equal(disabled.status, 13);
+      assert.ok(!existsSync(marker));
+    }
+  } finally { rmSync(d, { recursive: true, force: true }); }
+});
+
+test('claude: timeout and wrapper cancellation stop the lane', async () => {
+  const d = mkdtempSync(join(tmpdir(), 'orch-claude-stop-'));
+  const bin = join(d, 'bin');
+  mkdirSync(bin);
+  const ready = join(d, 'ready');
+  const marker = join(d, 'after-stop');
+  try {
+    writeNodeStub(join(bin, 'claude'), `const fs = require('node:fs'); fs.writeFileSync(${JSON.stringify(ready)}, 'ready'); setTimeout(() => fs.writeFileSync(${JSON.stringify(marker)}, 'survived'), 800);`);
+    const env = winEnv(withNode(bin), d);
+    const timed = runLane(['claude', 'public test', '--timeout', '0.3', '--quiet'], env);
+    assert.equal(timed.status, 12, timed.stderr);
+    await new Promise(r => setTimeout(r, 900));
+    assert.ok(!existsSync(marker), 'timed-out lane kept running');
+    for (const [signal, code] of [['SIGINT', 130], ['SIGTERM', 143]]) {
+      rmSync(ready, { force: true });
+      const child = spawn(process.execPath, [CLI_RUN, 'claude', 'public test', '--quiet'], { env, stdio: 'ignore' });
+      try {
+        for (let i = 0; i < 200 && !existsSync(ready); i++) await new Promise(r => setTimeout(r, 10));
+        assert.ok(existsSync(ready), 'Claude stub never started');
+        const ended = new Promise(r => child.once('exit', (status, sig) => r({ status, sig })));
+        child.kill(signal);
+        const exit = await ended;
+        if (process.platform === 'win32') assert.equal(exit.sig, signal);
+        else {
+          assert.equal(exit.status, code);
+          await new Promise(r => setTimeout(r, 900));
+          assert.ok(!existsSync(marker), 'cancelled lane kept running');
+        }
+      } finally { if (child.exitCode === null && child.signalCode === null) child.kill(); }
+    }
+  } finally { rmSync(d, { recursive: true, force: true }); }
+});
+
 test('#1: a background child of the lane does not survive the timeout', async () => {
   const d = mkdtempSync(join(tmpdir(), 'orch-pg-'));
   const marker = join(d, 'child-survived');
@@ -772,7 +890,7 @@ test('the interactive installer prints vendor setup and never spawns npm', () =>
   const r = run(['--level', '1', '--ais', 'codex', '--primary', 'codex', '--no-tools', '--dir', join(d, 'out'), '--project', join(d, 'proj')], {
     input: 'y\n',
     // PATH deliberately excludes /usr/bin: a machine with a real codex there would skip its missing-binary instruction.
-    env: winEnv(process.platform === 'win32' ? [bin, dirname(process.execPath), WIN_SH_DIR].filter(Boolean).join(delimiter) : [bin, dirname(process.execPath), '/bin'].join(delimiter), d)
+    env: winEnv(process.platform === 'win32' ? [bin, WIN_SH_DIR].filter(Boolean).join(delimiter) : [bin, '/bin'].join(delimiter), d)
   });
   assert.equal(r.status, 0, r.stderr + r.stdout);
   assert.equal(existsSync(captured), false, 'installer must never invoke a vendor package manager');

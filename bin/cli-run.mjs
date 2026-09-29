@@ -15,6 +15,7 @@
 // NATIVE terminal event and refuses to call an empty run a success.
 //
 //   grok    --output-format json        -> stopReason == "end_turn" and text non-empty
+//   claude  -p --output-format json     -> result subtype success, is_error false, result non-empty
 //   codex   exec --json --color never -o F -> terminal {"type":"turn.completed"} and F non-empty
 //   agy     --output-format stream-json -> terminal {"event":"result"} status SUCCESS, response non-empty
 //   hermes  -z                          -> its exit code is already honest (0 ok / 1 none / 2 bad args)
@@ -59,10 +60,8 @@
 // silently stops being the route that runs. --model / --effort pin it per call,
 // `defaults` in lanes.json pins it per lane, and every run logs the value that
 // was REQUESTED plus where the request came from (flag, lanes.json, or nothing
-// at all). It does not log an "actual". One lane of five (grok) does report a
-// model id in its own output; the other four report none, and a field present
-// for one lane, and absent for four, is worse than no field. It would also be a
-// provider-supplied string, which this log deliberately never holds.
+// at all). It does not log an "actual": model reporting varies by CLI and is
+// provider-supplied text, which this log deliberately never holds.
 
 import { spawn, spawnSync } from 'node:child_process';
 import { StringDecoder } from 'node:string_decoder';
@@ -72,7 +71,7 @@ import { join, dirname, delimiter, resolve, relative, isAbsolute, sep } from 'no
 import { tmpdir, homedir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-export const LANES = ['grok', 'codex', 'agy', 'hermes', 'qwen'];
+export const LANES = ['grok', 'codex', 'agy', 'hermes', 'qwen', 'claude'];
 export const OK = 0, NO_DELIVERABLE = 10, NO_OUTPUT = 11, TIMEOUT = 12, UNAVAILABLE = 13, USAGE = 2;
 export const AUTH = 14, QUOTA = 15, REJECTED = 16, REFUSED = 17, CUT_SHORT = 18;
 
@@ -160,6 +159,31 @@ function lastJsonLine(out, needle, want) {
 // never throws.
 const fail = (reason, detail) => ({ text: null, reason, detail });
 const pass = (text, detail) => ({ text, reason: 'ok', detail });
+
+// Print-mode JSON is one result object, not the stream-json event sequence.
+// Source: https://code.claude.com/docs/en/headless and /en/agent-sdk/agent-loop.
+function claudeResultObject(out) {
+  try {
+    const o = JSON.parse(out);
+    return isObj(o) && o.type === 'result' ? o : null;
+  } catch { return null; }
+}
+
+export function judgeClaude(rc, out) {
+  let o;
+  try { o = JSON.parse(out); } catch { return fail('not_json', 'stdout was not JSON'); }
+  if (!isObj(o) || o.type !== 'result') return fail('not_result', 'JSON was not a result object');
+  if (o.subtype !== 'success') return fail('bad_subtype', 'result did not report successful completion');
+  if (o.is_error !== false) return fail('is_error', 'result did not report is_error=false');
+  if (o.errors !== undefined) {
+    if (!Array.isArray(o.errors) || !o.errors.every(e => typeof e === 'string')) return fail('error_message_not_string', 'errors was not an array of strings');
+    if (o.errors.length) return fail('is_error', 'result carried execution errors');
+  }
+  if (o.stop_reason != null && !['end_turn', 'stop_sequence', 'refusal'].includes(o.stop_reason)) return fail('bad_stop_reason', 'result stopped before completing a response');
+  if (typeof o.result !== 'string') return fail('result_not_string', 'result was not a string');
+  const text = o.result.trim();
+  return text ? pass(text, 'subtype=success, is_error=false') : fail('empty_result', 'success but empty result');
+}
 
 export function judgeGrok(rc, out) {
   let o;
@@ -256,6 +280,7 @@ export function judgeQwen(rc, out) {
 // CLI's own --help, not remembered. A lane with `effort: null` has no reasoning
 // flag at all; asking for one there is a usage error, never a silent drop.
 //   grok    -m MODEL   --reasoning-effort EFFORT
+//   claude  --model M  --effort EFFORT
 //   codex   -m MODEL   -c model_reasoning_effort="EFFORT"   (a TOML override, hence the quotes)
 //   agy     --model M  --effort EFFORT                      (low|medium|high)
 //   hermes  -m MODEL   --reasoning LEVEL   --provider ID    (none|minimal|...)
@@ -265,6 +290,7 @@ export function judgeQwen(rc, out) {
 // (grok-4.6 on openai-codex). `hermes -z --provider` without a model exits 2,
 // so cli-run refuses that pairing before the lane starts.
 export const LANE_FLAGS = {
+  claude: { model: (v) => ['--model', v], effort: (v) => ['--effort', v], provider: null },
   grok: { model: (v) => ['-m', v], effort: (v) => ['--reasoning-effort', v], provider: null },
   codex: { model: (v) => ['-m', v], effort: (v) => ['-c', `model_reasoning_effort="${v}"`], provider: null },
   agy: { model: (v) => ['--model', v], effort: (v) => ['--effort', v], provider: null },
@@ -275,6 +301,7 @@ export const LANE_FLAGS = {
 // Auto is deliberately a small, static ladder. It is not a vendor capability
 // probe and it never chooses the top of a vendor's effort range.
 export const AUTO_EFFORT = {
+  claude: { small: 'medium', large: 'high' },
   codex: { small: 'medium', large: 'high' },
   grok: { small: 'medium', large: 'high' },
   agy: { small: 'medium', large: 'high' },
@@ -381,6 +408,11 @@ export function buildArgv(lane, binary, prompt, opts, tmp) {
   const timeout = opts.timeout;
   const route = routeFlags(lane, opts);
   switch (lane) {
+    case 'claude':
+      // dontAsk denies calls needing approval and retains configured allow/deny
+      // rules. It grants no new permissions and is not a filesystem sandbox.
+      // -- ends option parsing so even a brief starting with a dash is data.
+      return { argv: [binary, '-p', '--output-format', 'json', '--permission-mode', 'dontAsk', ...route, '--', prompt] };
     case 'grok':
       return { argv: [binary, '--output-format', 'json', ...route, '-p', prompt] };
     case 'codex': {
@@ -410,6 +442,8 @@ export function buildArgv(lane, binary, prompt, opts, tmp) {
 
 export function judge(lane, rc, out, err, outFile) {
   switch (lane) {
+    case 'claude':
+      return judgeClaude(rc, out);
     case 'grok':
       return judgeGrok(rc, out);
     case 'codex':
@@ -581,7 +615,18 @@ export function qwenErrorText(out) {
   return parts.join('\n');
 }
 
+// Only native failure fields are authoritative. A successful model answer
+// mentioning login, quota or permissions must never become an error signal.
+export function claudeErrorText(out) {
+  const o = claudeResultObject(out);
+  if (!o) return '';
+  const parts = Array.isArray(o.errors) ? o.errors.filter(e => typeof e === 'string') : [];
+  if (o.is_error === true && typeof o.result === 'string') parts.push(o.result);
+  return parts.join('\n');
+}
+
 function authoritativeBlob(lane, out, err, detail, rc) {
+  if (lane === 'claude') return `${claudeErrorText(out)}\n${err || ''}`;
   if (lane === 'codex') return `${codexErrorEventsText(out)}\n${err || ''}`;
   if (lane === 'agy') return `${agyResultFieldsText(out)}\n${err || ''}`;
   if (lane === 'hermes') return rc !== 0 ? `${err || ''}\n${hermesMismatchLine(out, { vendorShape: true }) || ''}` : '';
@@ -591,6 +636,7 @@ function authoritativeBlob(lane, out, err, detail, rc) {
 
 export function sigAuth(lane, blob) {
   const b = blob.toLowerCase();
+  if (lane === 'claude') return /authentication_error|permission_error|invalid api key|not logged in|please run \/login|oauth token.*expired|\b(?:401|403)\b/.test(b);
   if (lane === 'qwen') return b.includes('missing api key');
   if (lane === 'agy') return b.includes('you are not logged into antigravity') || b.includes('not authenticated');
   return false; // codex, grok, hermes: no documented native auth signal
@@ -598,6 +644,7 @@ export function sigAuth(lane, blob) {
 
 export function sigQuota(lane, blob) {
   const b = blob.toLowerCase();
+  if (lane === 'claude') return /rate_limit_error|rate limit|insufficient credits|credit balance|you['’]ve hit your limit|\b429\b/.test(b);
   if (lane === 'qwen') return b.includes('[api error: 402') || b.includes('requires more credits') || blob.includes(' 429') || b.includes('rate limit');
   if (lane === 'codex') return blob.includes('usage_limit_exceeded') || b.includes("you've hit your usage limit");
   if (lane === 'hermes') return hermesQuotaText(b);
@@ -606,6 +653,7 @@ export function sigQuota(lane, blob) {
 
 export function sigRejected(lane, blob) {
   const b = blob.toLowerCase();
+  if (lane === 'claude') return /invalid_request_error|unknown option|invalid (?:model|effort)|\b400\b/.test(b);
   if (lane === 'qwen') return b.includes('[api error: 400') || b.includes('no endpoints found') || b.includes('failed to parse grammar');
   if (lane === 'codex') return blob.includes('invalid_request_error');
   if (lane === 'hermes') return hermesArgError(b) || b.includes('toolset') || hermesMismatchLine(blob) !== null;
@@ -615,6 +663,7 @@ export function sigRejected(lane, blob) {
 // Which judge reasons mean the lane never reached a trustworthy finish, as
 // opposed to finishing cleanly with nothing in it (class empty).
 const CUT_SHORT_REASONS = {
+  claude: new Set(['not_json', 'not_result', 'bad_subtype', 'is_error', 'bad_stop_reason', 'result_not_string', 'error_message_not_string']),
   grok: new Set(['not_json', 'bad_stop_reason']),
   codex: new Set(['no_terminal_event']),
   agy: new Set(['no_terminal_event', 'bad_last_event']),
@@ -740,6 +789,10 @@ export function refusedGrok(out, { root = process.env.CLI_RUN_GROK_SESSIONS_ROOT
 
 export function countRefused(lane, out, err, opts) {
   try {
+    if (lane === 'claude') {
+      const pd = claudeResultObject(out)?.permission_denials;
+      return Array.isArray(pd) ? pd.length : null;
+    }
     if (lane === 'qwen') return refusedQwen(out);
     if (lane === 'agy') return refusedAgy(out);
     if (lane === 'codex') return refusedCodex(out, err);
@@ -1211,7 +1264,8 @@ export async function doctor(run, { here = dirname(fileURLToPath(import.meta.url
   const { enabled, defaults } = cfg;
   let bad = 0;
   if (!compact) console.log(`doctor: ${enabled.length} enabled lane(s): ${enabled.join(', ') || 'none'}`);
-  if (!compact && primary && !enabled.includes(primary)) console.log(`  note: ${primary} is the main agent and is not an executable lane`);
+  const primaryLane = primary === 'claude-code' ? 'claude' : primary;
+  if (!compact && primary && !enabled.includes(primaryLane)) console.log(`  note: ${primary} is the main agent and is not an executable lane`);
   if (!enabled.length) {
     if (compact) {
       console.log('doctor: no executable lanes enabled.');
@@ -1445,6 +1499,7 @@ export async function main(argv) {
     if (!opts.quiet) {
       console.error(`cli-run[${lane}] ${verdict} rc=${code} class=${cls} refused=${refused === null ? 'null' : refused} ${r.seconds.toFixed(1)}s raw=${r.outBytes || 0}B route=${routeNote} :: ${redact(detail)}`);
       let authoritative = null;
+      if (lane === 'claude' && ['auth', 'quota', 'rejected'].includes(cls)) authoritative = stderrHead(claudeErrorText(out) || err);
       if (lane === 'codex' && (cls === 'quota' || cls === 'rejected')) authoritative = codexPrimaryError(out);
       const pf = problemAndFix(lane, cls, { out, err, detail, refused, authoritative });
       if (pf.problem) console.error('cli-run problem: ' + redact(pf.problem).slice(0, 600));

@@ -61,12 +61,12 @@ export function fixtureManifest() {
 // against" and "pinned to" are the same number by construction (#23).
 export function vendorTableMarkdown() {
   const fx = fixtureManifest();
-  const byLane = Object.fromEntries(fx.fixtures.map((f) => [f.lane, f]));
   let md = VENDOR_TABLE_START + '\n\n| Lane | Vendor | Version this release was built against | Where that number is proved |\n|---|---|---|---|\n';
   for (const a of AIS) {
     if (!a.bin || !a.builtAgainst) continue;
-    const proof = byLane[a.id]
-      ? '`test/fixtures/' + byLane[a.id].file + '`, a recorded run'
+    const fixture = fx.fixtures.find(f => f.lane === a.bin && f.provenance !== 'synthetic' && f.vendorVersion.includes(a.builtAgainst));
+    const proof = fixture
+      ? '`test/fixtures/' + fixture.file + '`, a recorded run'
       : a.install.npm
         ? 'the npm pin the installer writes, `' + npmSpec(a) + '`'
         : a.id === 'ollama'
@@ -74,7 +74,7 @@ export function vendorTableMarkdown() {
           : "the maintainer's own install";
     md += `| \`${a.bin}\` | ${a.vendor} | ${a.builtAgainst} | ${proof} |\n`;
   }
-  md += `\nGenerated from \`src/catalog.js\` by \`npm run gen:catalog\`; \`npm test\` fails if this table and the catalog disagree. Fixtures were captured ${fx.capturedAt}.\n\n` + VENDOR_TABLE_END;
+  md += `\nGenerated from \`src/catalog.js\` by \`npm run gen:catalog\`; \`npm test\` fails if this table and the catalog disagree. Original vendor fixtures were captured ${fx.capturedAt}; [fixture provenance](test/fixtures/README.md) records later captures and synthetic coverage.\n\n` + VENDOR_TABLE_END;
   return md;
 }
 

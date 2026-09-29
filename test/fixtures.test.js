@@ -1,10 +1,10 @@
-// The judges, run against output real vendor CLIs actually produced.
+// The judges, run against captured output and explicitly labeled synthetic Claude output.
 //
 // judges.test.js proves the judges against shapes written by hand. Those shapes
 // are only as good as the author's memory of the vendor, and #11 asked for the
-// difference to be closed. These fixtures were captured from real runs at
-// recorded versions; test/fixtures/README.md says how, and manifest.json says
-// with which flags and what each one is for.
+// difference to be closed. The original fixtures were captured from real runs
+// at recorded versions; Claude adds synthetic success and captured auth failure.
+// test/fixtures/README.md and manifest.json record provenance, flags and scope.
 //
 // The point is not extra coverage. It is that a hand-written fixture cannot
 // surprise you, and a real one can: codex 0.153.4 emitted an `item.completed`
@@ -15,11 +15,21 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { judge } from '../bin/cli-run.mjs';
+import { judge, classifyRun } from '../bin/cli-run.mjs';
 
 const DIR = join(dirname(fileURLToPath(import.meta.url)), 'fixtures');
 const read = (f) => readFileSync(join(DIR, f), 'utf8');
 const manifest = JSON.parse(read('manifest.json'));
+
+test('claude: captured isolated canary auth failure is not a successful result', () => {
+  const out = read('claude-2.1.285-noauth.json');
+  const term = JSON.parse(out);
+  assert.equal(term.subtype, 'success');
+  assert.equal(term.is_error, true);
+  const j = judge('claude', 1, out, '');
+  assert.equal(j.text, null);
+  assert.equal(classifyRun('claude', { rc: 1, out, ...j }).cls, 'auth');
+});
 
 test('every fixture in the manifest is judged the way the manifest says', () => {
   assert.ok(manifest.fixtures.length >= 5, 'manifest should list every captured lane');
@@ -72,7 +82,11 @@ test('fixtures carry no session ids and no personal paths', () => {
 
 test('the manifest records a version and flags for every fixture, and states its gaps', () => {
   for (const f of manifest.fixtures) {
-    assert.ok(f.vendorVersion, `${f.lane} must record the vendor version it was captured from`);
+    assert.ok(f.vendorVersion, `${f.lane} must record its captured version or synthetic status`);
+    if (f.provenance === 'synthetic') {
+      assert.match(f.vendorVersion, /not captured/);
+      assert.ok(f.sources.length);
+    }
     assert.ok(Array.isArray(f.flags) && f.flags.length, `${f.lane} must record the flags used`);
     assert.ok(f.covers, `${f.lane} must say what the fixture is for`);
   }

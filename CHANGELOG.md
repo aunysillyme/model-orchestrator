@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Fixed
+
+- Enable the native `claude` CLI worker with print-mode JSON completion checks, existing permission rules, model and effort overrides, failure classification and shared timeout/cancellation handling. Codex-primary stacks can assign independent review to Claude Code; Claude-primary stacks retain Codex review. Generated lanes use executable names while manifest AI identities retain installer IDs. Claude fixtures identify synthetic coverage and the captured authentication failure separately.
+
 ## [1.0.6] - 2026-09-29
 
 ### Added

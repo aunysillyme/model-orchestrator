@@ -2,19 +2,32 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { AIS, byId, agentCandidates } from '../src/catalog.js';
 import * as catalog from '../src/catalog.js';
-import { ROLE_SPECS, costRank, assignRoles, roleTable, inferPrimary } from '../src/roles.js';
+import { ROLE_SPECS, costRank, assignRoles, roleTable, inferPrimary, manifestRoles } from '../src/roles.js';
 
 const select = (...ids) => ids.map((id) => byId[id]);
 const result = (ids, main = ids[0]) => assignRoles({ selected: select(...ids), primary: byId[main] });
 const picks = (assignment) => Object.fromEntries(Object.entries(assignment.roles).map(([id, role]) => [id, role.ai]));
 const mainRoles = (id) => ({ plan: id, build: id, review: null, verify: id, research: id, bulk: id, read: id, private: null });
 
+test('Codex and Claude primary each route independent review to the other executable', () => {
+  const selected = select('codex', 'claude-code');
+  for (const [main, reviewer, command] of [['codex', 'claude-code', 'cli-run claude'], ['claude-code', 'codex', 'cli-run codex --audit']]) {
+    const primary = byId[main];
+    const assignment = assignRoles({ selected, primary });
+    const role = manifestRoles(assignment, { selected, primary }).review;
+    assert.equal(role.ai, reviewer);
+    assert.equal(role.via, 'cli-run');
+    assert.equal(role.command, command);
+    assert.ok(roleTable(assignment, { selected, primary }).includes('aunx ' + command));
+  }
+});
+
 test('worked example (a): Claude Code only keeps main-agent work and honest gaps', () => {
   const assignment = result(['claude-code']);
   assert.deepEqual(picks(assignment), mainRoles('claude-code'));
   assert.deepEqual(assignment.unassigned, ['review', 'private']);
   assert.equal(assignment.roles.bulk.via, 'main-agent');
-  assert.match(assignment.roles.bulk.why, /no separate|no headless/i);
+  assert.match(assignment.roles.bulk.why, /headless, runs through cli-run/i);
 });
 
 test('worked example (b): Codex main has an unverified research fallback', () => {
@@ -28,7 +41,7 @@ test('worked example (c): formal preferences decide verify and tied research', (
   // Section 1's formal preferences outrank the contradictory example rows:
   // verify prefers a known different family; research ties use selection order.
   assert.deepEqual(picks(result(['claude-code', 'codex', 'grok'])), {
-    ...mainRoles('claude-code'), review: 'codex', verify: 'codex', research: 'claude-code', bulk: 'codex'
+    ...mainRoles('claude-code'), review: 'codex', verify: 'codex', research: 'claude-code', bulk: 'claude-code'
   });
 });
 

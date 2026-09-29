@@ -219,10 +219,10 @@ test('plans validate before writing and effort auto affects only eligible cli-ru
     const ok = run(['--yes', '--level', '2', '--ais', 'claude-code,codex,agy', '--plans', 'claude-code=max-20x,codex=pro-20x,agy=ai-pro', '--effort-auto', '--dir', dir, '--project', project, '--no-install']);
     assert.equal(ok.status, 0, ok.stderr);
     const lanes = JSON.parse(readFileSync(join(dir, 'bin', 'lanes.json'), 'utf8'));
-    assert.deepEqual(lanes.defaults, { codex: { effort: 'auto' } });
+    assert.deepEqual(lanes.defaults, { claude: { effort: 'auto' }, codex: { effort: 'auto' } });
     const manifest = JSON.parse(readFileSync(join(dir, 'MANIFEST.json'), 'utf8'));
     assert.deepEqual(manifest.plans, { agy: 'ai-pro', 'claude-code': 'max-20x', codex: 'pro-20x' });
-    assert.deepEqual(manifest.effortAuto, ['codex']);
+    assert.deepEqual(manifest.effortAuto, ['claude-code', 'codex']);
     const routing = readFileSync(join(dir, 'ROUTING.md'), 'utf8');
     assert.match(routing, /\| Plan \|/);
     assert.match(routing, /Plan guidance/);

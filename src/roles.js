@@ -136,7 +136,7 @@ export function roleRoute(roleId, assignment, { selected = [], primary = null, a
   if (role.ai === null) {
     out.reason = role.why;
   } else if (role.via === 'cli-run' && ai?.facts.cliRun === true) {
-    out.command = `cli-run ${ai.id}${['review', 'verify'].includes(roleId) && ai.facts.readOnlyMode === true ? ' --audit' : ''}`;
+    out.command = `cli-run ${ai.bin}${['review', 'verify'].includes(roleId) && ai.facts.readOnlyMode === true ? ' --audit' : ''}`;
   } else if (role.ai === primary?.id && primary.facts.agentDefinitions && agents[roleId]) {
     out.agent = agents[roleId];
   }

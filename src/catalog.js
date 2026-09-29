@@ -71,7 +71,7 @@ export const AIS = [
       billing: 'subscription',
       pricing: null, // UNVERIFIED: check your provider's current rate.
       headless: true,
-      cliRun: false,
+      cliRun: true,
       writesFiles: true,
       readOnlyMode: false,
       liveWeb: true, // Source: templates/agents/claude-code/live-researcher.md grants WebSearch and WebFetch.

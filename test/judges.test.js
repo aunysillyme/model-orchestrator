@@ -8,6 +8,31 @@ import { judgeGrok, judgeCodex, judgeAgy, judgeHermes, judgeQwen, judge, buildAr
 const ok = (r) => assert.ok(r.text, 'expected a deliverable, got: ' + r.detail);
 const no = (r, why) => assert.equal(r.text, null, 'expected refusal (' + why + '), got text: ' + JSON.stringify(r.text));
 
+// Synthetic Claude shapes from Anthropic's result-message documentation.
+const claudeResult = (over = {}) => JSON.stringify({ type: 'result', subtype: 'success', is_error: false, result: 'OK', permission_denials: [], ...over });
+test('claude: only a complete successful JSON result yields text', () => {
+  assert.equal(judge('claude', 0, claudeResult(), '').text, 'OK');
+  for (const payload of ['not json', 'null', '[]', '{}', claudeResult({ type: 'assistant' }),
+    claudeResult({ subtype: 'error_during_execution' }), claudeResult({ is_error: true }),
+    claudeResult({ is_error: undefined }), claudeResult({ is_error: 'false' }),
+    claudeResult({ result: 42 }), claudeResult({ result: '' }), claudeResult({ result: '   ' }),
+    claudeResult({ stop_reason: 'max_tokens' }), claudeResult({ errors: ['execution failed'] })]) {
+    const r = judge('claude', 0, payload, '');
+    no(r, payload);
+    assert.ok(REASONS.has(r.reason), r.reason);
+  }
+  // A model refusal is still a response, as with the other lanes.
+  ok(judge('claude', 0, claudeResult({ stop_reason: 'refusal', result: 'I cannot do that.' }), ''));
+  ok(judge('claude', 0, claudeResult({ stop_reason: 'stop_sequence' }), ''));
+});
+
+test('claude: argv preserves permissions and leaves the model unpinned', () => {
+  const plain = buildArgv('claude', 'claude', '-public prompt', { timeout: 60 }, '/tmp').argv;
+  assert.deepEqual(plain, ['claude', '-p', '--output-format', 'json', '--permission-mode', 'dontAsk', '--', '-public prompt']);
+  const pinned = buildArgv('claude', 'claude', 'PROMPT', { timeout: 60, model: 'chosen-model', effort: 'high' }, '/tmp').argv;
+  assert.deepEqual(pinned.slice(6), ['--model', 'chosen-model', '--effort', 'high', '--', 'PROMPT']);
+});
+
 // --- grok ---
 test('grok: end_turn with text is a deliverable', () => ok(judgeGrok(0, JSON.stringify({ stopReason: 'end_turn', text: 'hello' }))));
 test('grok: cancelled stopReason is refused', () => no(judgeGrok(0, JSON.stringify({ stopReason: 'cancelled', text: 'hello' })), 'cancelled'));

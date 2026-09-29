@@ -29,7 +29,7 @@ function runAudit({ keySuffix = '', workerRc = 0, lane = 'codex' } = {}) {
   const report = join(root, 'reports', `audit-${new Date().toISOString().slice(0, 10)}.md`);
   writeFileSync(report, 'previous good report\n');
   // A different primary makes every supported worker eligible for review/bulk.
-  const primary = byId[['codex', 'qwen'].includes(lane) ? 'claude-code' : 'codex'];
+  const primary = byId[lane === 'qwen' ? 'claude-app' : lane === 'codex' ? 'claude-code' : 'codex'];
   const files = planFiles({ level: 3, selected: [primary, byId[lane]], primary, dir: root, project: root });
   const script = join(root, 'weekly-audit.sh');
   const generated = files.find(f => f.rel.split('\\').join('/') === 'vm/jobs/weekly-audit.sh').content;

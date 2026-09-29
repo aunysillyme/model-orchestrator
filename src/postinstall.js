@@ -50,7 +50,7 @@ export async function installHealthCheck({ level, selected, primary, dir }) {
   // runner in the target directory. Only its data configuration is read.
   const rc = await doctor(false, {
     here: join(dir, 'bin'), primary: primary?.id, compact: true,
-    ...(level < 2 ? { config: { enabled: selected.filter(ai => ai.facts.cliRun).map(ai => ai.id), defaults: {} } } : {})
+    ...(level < 2 ? { config: { enabled: selected.filter(ai => ai.facts.cliRun).map(ai => ai.bin), defaults: {} } } : {})
   });
   if (rc && rc !== 10 && rc !== 13) console.log(`  doctor could not read the installed lane configuration (exit ${rc}).`);
   return rc;

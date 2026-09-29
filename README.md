@@ -175,6 +175,8 @@ It helps an agent match a task to a model, effort level and toolset. Run `npx mo
 
 Run `npx model-orchestrator --yes --level 2 --ais claude-code,codex --primary claude-code --project . --dir ./ai-orchestrator`, then follow the activation summary. Claude Code can dispatch scoped work through `aunx cli-run codex --brief TASK_BRIEF.md` and use a different model family for review.
 
+For Codex as the main agent, set `--primary codex`. Independent review then routes to `aunx cli-run claude --brief TASK_BRIEF.md`. The installer ID stays `claude-code`; the native worker lane is `claude`. Claude uses print-mode JSON and denies tool calls needing approval while preserving configured permission rules. It grants no additional permissions and does not provide Codex's read-only audit sandbox.
+
 ### How do I reduce Claude Code token usage?
 
 Install routing rules with `npx model-orchestrator`, so your agent has guidance for sending routine work to cheaper models and keeping reads scoped. Use `aunx route-metrics --summary` to measure where your work goes; savings depend on your tasks and model choices.
@@ -241,11 +243,13 @@ The lane wiring and the output judges were written against these versions, which
 | `qwen` | Alibaba | 0.22.3 | `test/fixtures/qwen-0.22.3-nokey.json`, a recorded run |
 | `ollama` | Ollama | 0.34.4 | the pinned image the level 3 box runs, `ollama/ollama:0.34.4` |
 
-Generated from `src/catalog.js` by `npm run gen:catalog`; `npm test` fails if this table and the catalog disagree. Fixtures were captured 2026-09-06.
+Generated from `src/catalog.js` by `npm run gen:catalog`; `npm test` fails if this table and the catalog disagree. Original vendor fixtures were captured 2026-09-06; [fixture provenance](test/fixtures/README.md) records later captures and synthetic coverage.
 
 <!-- vendor-table:end -->
 
 For npm-installed lanes, `builtAgainst` in the catalog supplies both the compatibility table and the install pin. Newer vendor versions may work or may change a flag the generated wiring uses. When a lane starts failing after a vendor upgrade, compare against this table first.
+
+Claude's existing installer pin is unchanged. Native worker success is covered by synthetic fixtures; the single captured canary at 2.1.285 returned an authentication error under its restricted configuration. This establishes failure handling, with successful live completion still unverified.
 
 **The live canary runs on your machine, with your credentials.** That is what `aunx cli-run --doctor --run` (direct form: `node bin/cli-run.mjs --doctor --run`) is: it sends every enabled lane one tiny prompt through your own sign-ins and reports `canary ok` or `canary FAILED rc=` per lane. Choose this optional live check after setup or a vendor upgrade when you want to verify actual responses.
 
