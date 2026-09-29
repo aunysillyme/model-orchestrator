@@ -97,13 +97,15 @@ Replace the placeholder with a current vendor model ID before using this example
 
 The runner supports these lanes whether or not you selected them.
 
-| Lane | Model flag | Effort flag |
-|---|---|---|
-| grok | `-m` | `--reasoning-effort` |
-| codex | `-m` | `-c model_reasoning_effort="LEVEL"` |
-| agy | `--model` | `--effort` |
-| hermes | `-m` | `--reasoning` |
-| qwen | `-m` | Unsupported; an effort request is a usage error |
+| Lane | Model flag | Effort flag | Provider flag |
+|---|---|---|---|
+| grok | `-m` | `--reasoning-effort` | Unsupported |
+| codex | `-m` | `-c model_reasoning_effort="LEVEL"` | Unsupported |
+| agy | `--model` | `--effort` | Unsupported |
+| hermes | `-m` | `--reasoning` | `--provider` |
+| qwen | `-m` | Unsupported; an effort request is a usage error | Unsupported |
+
+Hermes signs in to many providers, and a model sent to a provider that does not serve it fails with HTTP 400. Pin both with `--provider` and `--model`, or with `"provider"` beside `"model"` under `"hermes"` in `bin/lanes.json` defaults. A provider with no model is a usage error. That failure is reported as `rejected` (exit 16) with a model/provider mismatch line; `hermes model` repairs the pairing in Hermes itself.
 
 When using `--effort auto`, treat its medium/high selection as a bounded heuristic; an audit has a high floor. Use explicit high for builds and xhigh where supported for security-critical or irreversible work. The vendor validates its own effort names and reports unsupported values through the failure class.
 
