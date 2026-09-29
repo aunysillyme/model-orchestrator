@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { judgeGrok, judgeCodex, judgeAgy, judgeHermes, judgeQwen, judge, buildArgv, REASONS, checkContracts, snapshotFile, LANE_FLAGS, badRouteValue, resolveRoute, laneConfig, enabledLanes, LANES } from '../bin/cli-run.mjs';
+import { judgeGrok, judgeCodex, judgeAgy, judgeHermes, judgeQwen, judge, buildArgv, REASONS, checkContracts, snapshotFile, LANE_FLAGS, badRouteValue, resolveRoute, laneConfig, enabledLanes, LANES, hermesMismatchLine } from '../bin/cli-run.mjs';
 
 const ok = (r) => assert.ok(r.text, 'expected a deliverable, got: ' + r.detail);
 const no = (r, why) => assert.equal(r.text, null, 'expected refusal (' + why + '), got text: ' + JSON.stringify(r.text));
@@ -35,6 +35,26 @@ test('hermes: exit 0 with stdout is a deliverable', () => ok(judgeHermes(0, 'ans
 test('hermes: exit 1 is refused', () => no(judgeHermes(1, '', ''), 'exit 1'));
 test('hermes: exit 2 is refused', () => no(judgeHermes(2, '', 'bad args'), 'exit 2'));
 test('hermes: exit 0 with empty stdout is refused', () => no(judgeHermes(0, '  \n', ''), 'empty'));
+test('hermes: an unsupported model is refused with mismatch detail from either stream', () => {
+  const mismatch = `HTTP 400: {"detail":"The 'grok-4.6' model is not supported when using Codex with a ChatGPT account."}`;
+  for (const [out, err] of [[mismatch, ''], ['', mismatch]]) {
+    const r = judgeHermes(2, out, err);
+    no(r, 'model/provider mismatch');
+    assert.match(r.detail, /model\/provider mismatch/);
+    assert.equal(r.reason, 'exit_nonzero');
+  }
+  assert.doesNotMatch(judgeHermes(2, 'Here is the summary you asked for.', '').detail, /model\/provider mismatch/);
+});
+
+test('hermesMismatchLine: returns the first vendor mismatch line, never ordinary prose', () => {
+  const mismatch = `HTTP 400: {"detail":"The 'grok-4.6' model is not supported when using Codex with a ChatGPT account."}`;
+  assert.equal(hermesMismatchLine(mismatch), mismatch);
+  assert.equal(hermesMismatchLine(`Starting\n${mismatch}\nmodel_not_found`), mismatch);
+  assert.equal(hermesMismatchLine('MODEL_NOT_FOUND'), 'MODEL_NOT_FOUND');
+  assert.equal(hermesMismatchLine('MODEL IS NOT SUPPORTED'), 'MODEL IS NOT SUPPORTED');
+  assert.equal(hermesMismatchLine('all good'), null);
+  assert.equal(hermesMismatchLine('Here is the summary you asked for.'), null);
+});
 
 // --- qwen: the lane whose own success flags lie ---
 const qwenEvent = (over = {}) =>
@@ -378,6 +398,31 @@ test('route: flags go in front of a positional prompt', () => {
   assert.ok(c.indexOf('-m') < c.indexOf('PROMPT'), 'codex: route flags must precede the prompt');
 });
 
+test('route: only hermes passes provider before model and prompt', () => {
+  const h = argvOf('hermes', { provider: 'xai-oauth', model: 'grok-4.6' });
+  const at = h.indexOf('--provider');
+  assert.ok(at > 0);
+  assert.deepEqual(h.slice(at, at + 4), ['--provider', 'xai-oauth', '-m', 'grok-4.6']);
+  assert.ok(at + 3 < h.indexOf('PROMPT'));
+  for (const lane of ['codex', 'grok', 'agy', 'qwen']) {
+    assert.equal(LANE_FLAGS[lane].provider, null);
+    assert.deepEqual(argvOf(lane, { provider: 'x', model: 'm' }), argvOf(lane, { model: 'm' }));
+  }
+});
+
+test('route: provider flag beats defaults and an unpinned provider says lane_default', () => {
+  const defaults = { hermes: { provider: 'from-config' } };
+  const flag = resolveRoute('hermes', { provider: 'from-flag' }, defaults);
+  assert.equal(flag.provider, 'from-flag');
+  assert.equal(flag.provider_source, 'flag');
+  const config = resolveRoute('hermes', {}, defaults);
+  assert.equal(config.provider, 'from-config');
+  assert.equal(config.provider_source, 'lanes.json');
+  const unpinned = resolveRoute('hermes', {}, {});
+  assert.equal(unpinned.provider, null);
+  assert.equal(unpinned.provider_source, 'lane_default');
+});
+
 test('route: values that could become a flag or break out of TOML are refused', () => {
   for (const bad of ['-x', '--model', 'a b', 'a"b', "a'b", 'a\nb', '', 'x'.repeat(65), 'a;b', '$(id)']) {
     assert.ok(badRouteValue('model', bad), 'should reject ' + JSON.stringify(bad));
@@ -405,10 +450,14 @@ test('lanes.json: defaults parse, and anything malformed fails closed', () => {
   write({ enabled: ['codex'], defaults: { codex: { model: 'gpt-6-astra', effort: 'high' } } });
   const good = laneConfig(dir);
   assert.deepEqual(good.enabled, ['codex']);
-  assert.deepEqual(good.defaults.codex, { model: 'gpt-6-astra', effort: 'high' });
+  assert.deepEqual(good.defaults.codex, { model: 'gpt-6-astra', effort: 'high', provider: null });
+  write({ enabled: ['hermes'], defaults: { hermes: { model: 'grok-4.6', provider: 'xai-oauth' } } });
+  assert.deepEqual(laneConfig(dir).defaults.hermes, { model: 'grok-4.6', provider: 'xai-oauth', effort: null });
   write({ enabled: ['codex'] });
   assert.deepEqual(laneConfig(dir).defaults, {}, 'defaults are optional');
   for (const bad of [
+    { enabled: ['codex'], defaults: { codex: { provider: 'x' } } },
+    { enabled: ['hermes'], defaults: { hermes: { provider: '-bad' } } },
     { enabled: ['codex'], defaults: [] },
     { enabled: ['codex'], defaults: { nope: { model: 'x' } } },
     { enabled: ['codex'], defaults: { codex: { model: '-x' } } },
@@ -450,4 +499,22 @@ test('a run refused before the lane starts still records the route it asked for'
     assert.ok(at > 0, 'missing refusal path: ' + refusal);
     assert.ok(resolvedAt < at, `the route must be resolved before the ${refusal} log, or that record has no route`);
   }
+});
+
+test('hermes: route flags sit before -z, because -z takes the prompt as its value', () => {
+  // Real hermes 0.21.3: `hermes -z -m grok-4.6 hi` exits 2 with
+  // "argument -z/--oneshot: expected one argument". 1.0.5 built exactly that.
+  const { argv } = buildArgv('hermes', 'hermes', 'the prompt', { provider: 'xai-oauth', model: 'grok-4.6', effort: 'high', timeout: 60 }, '/tmp');
+  const z = argv.indexOf('-z');
+  assert.equal(argv[z + 1], 'the prompt', 'the value of -z must be the prompt: ' + JSON.stringify(argv));
+  assert.ok(argv.indexOf('--provider') < z && argv.indexOf('-m') < z && argv.indexOf('--reasoning') < z);
+});
+
+test('hermes: an argparse refusal is not reported as a toolsets error', () => {
+  const err = 'usage: hermes [-h] [-z PROMPT] [-m MODEL] [-t TOOLSETS]\nhermes: error: argument -z/--oneshot: expected one argument\n';
+  const r = judgeHermes(2, '', err);
+  assert.match(r.detail, /rejected its arguments/);
+  assert.doesNotMatch(r.detail, /toolsets/);
+  // red side: a real toolsets complaint still reads as one
+  assert.match(judgeHermes(2, '', 'hermes -z: ignoring unknown --toolsets entries: nope\n').detail, /toolsets/);
 });

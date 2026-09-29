@@ -250,6 +250,30 @@ test('grok: the transcript read is capped, so a denial past the cap is not count
 });
 
 // --- hermes ---
+test('hermes: stdout model/provider mismatch is rejected, exit 16, with a specific fix', () => {
+  const out = `HTTP 400: {"detail":"The 'grok-4.6' model is not supported when using Codex with a ChatGPT account."}`;
+  const r = classify('hermes', 2, out);
+  assert.equal(r.cls, 'rejected');
+  assert.equal(r.code, 16);
+  assert.equal(classifyRun('hermes', { rc: 2, out, err: '' }).cls, 'rejected');
+  const pf = problemAndFix('hermes', r.cls, { out, err: '', detail: r.j.detail });
+  assert.equal(pf.problem, `cli-run[hermes] rejected: model/provider mismatch: ${out}`);
+  assert.match(pf.fix, /hermes model/);
+  assert.match(pf.fix, /--provider and --model/);
+});
+
+test('hermes: ordinary stdout on exit 2 is not rejected or called a mismatch', () => {
+  const out = 'Here is the summary you asked for.';
+  const r = classify('hermes', 2, out);
+  assert.notEqual(r.cls, 'rejected');
+  assert.doesNotMatch(problemAndFix('hermes', r.cls, { out, detail: r.j.detail }).problem, /model\/provider mismatch/);
+});
+
+test('hermes: model_not_found is rejected, but successful mismatch prose remains ok', () => {
+  assert.equal(classify('hermes', 2, '', 'MODEL_NOT_FOUND').cls, 'rejected');
+  assert.equal(classify('hermes', 0, 'The model is not supported by every provider.').cls, 'ok');
+});
+
 test('hermes: a degraded free tier on stderr is quota, exit 15, refused unknown', () => {
   const r = classify('hermes', 1, '', 'upstream free tier degraded, no usable content returned\n');
   assert.equal(r.code, 15);
@@ -375,4 +399,17 @@ test('R7: a nonzero vendor exit with a recognised empty shape is still cut_short
 
 test('the redaction check can go red', () => {
   assert.ok(('x ' + fakeKey('sk-')).includes('sk-FAKE'));
+});
+
+test('hermes mismatch: audit round 1 cases (prose, quota shadowing, terminal control bytes)', () => {
+  const vendor = 'HTTP 400: {"detail":"The \'grok-4.6\' model is not supported when using Codex with a ChatGPT account."}';
+  // agent prose on stdout that merely mentions the phrase is not a mismatch
+  assert.notEqual(cliRun.classifyRun('hermes', { rc: 1, out: 'The docs say: this model is not supported here.\n', err: '' }).cls, 'rejected');
+  assert.notEqual(cliRun.classifyRun('hermes', { rc: 2, out: 'I tried; note the model is not supported on this tier, so I stopped.', err: '' }).cls, 'rejected');
+  // an unrelated "limit" warning on stderr must not turn the mismatch into quota
+  assert.equal(cliRun.classifyRun('hermes', { rc: 2, out: vendor, err: 'warn: context limit 128k\n' }).cls, 'rejected');
+  assert.match(cliRun.judgeHermes(2, vendor, 'warn: context limit\n').detail, /model\/provider mismatch/);
+  // stdout control bytes never reach the terminal problem line
+  const p = cliRun.problemAndFix('hermes', 'rejected', { out: 'Error: model is not supported \x1b]0;pwn\x07\x1b[2J', err: '' }).problem;
+  assert.doesNotMatch(p, /[\x00-\x08\x0b-\x1f\x7f]/);
 });

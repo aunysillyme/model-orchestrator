@@ -259,6 +259,18 @@ test('cli-run: usage errors and unavailable lanes exit with their documented cod
   assert.equal(r(['codex', 'p', '--model', '--sandbox']).status, 2, 'a route value may not be a flag');
   assert.equal(r(['codex', 'p', '--effort', 'hi gh']).status, 2, 'a route value may not contain a space');
   assert.equal(r(['codex', 'p', '--model', 'a"b']).status, 2, 'a route value may not contain a quote');
+  const providerLane = r(['codex', 'hi', '--provider', 'x']);
+  assert.equal(providerLane.status, 2);
+  assert.match(providerLane.stderr, /codex has no provider flag; --provider is hermes-only/);
+  const providerOnly = r(['hermes', 'hi', '--provider', 'xai-oauth'], { HERMES_INFERENCE_MODEL: undefined });
+  assert.equal(providerOnly.status, 2);
+  assert.match(providerOnly.stderr, /--provider <p> needs a model/);
+  const providerBlank = r(['hermes', 'hi', '--provider', 'xai-oauth'], { HERMES_INFERENCE_MODEL: '  ' });
+  assert.equal(providerBlank.status, 2);
+  assert.match(providerBlank.stderr, /--provider <p> needs a model/);
+  const providerBad = r(['hermes', 'hi', '--provider', '-bad']);
+  assert.equal(providerBad.status, 2);
+  assert.match(providerBad.stderr, /--provider must be 1 to 64 characters/);
   assert.equal(r(['grok', 'p', '--timeout', '0']).status, 2);
   // An empty PATH plus HOME pointed at an empty dir: the binary cannot be found.
   const home = mkdtempSync(join(tmpdir(), 'orch-home-'));
@@ -472,6 +484,85 @@ test('cli-run --doctor reports enabled lanes and binaries, refuses a lane argume
   assert.equal(spawnSync(process.execPath, [copy, '--doctor', 'grok'], { encoding: 'utf8', env: winEnv(withSh(bin), d) }).status, 2);
   assert.equal(spawnSync(process.execPath, [copy, 'grok', 'p', '--run'], { encoding: 'utf8', env: winEnv(withSh(bin), d) }).status, 2);
   rmSync(d, { recursive: true, force: true });
+});
+
+test('cli-run --doctor notes hermes provider gaps without changing its return code', () => {
+  const d = mkdtempSync(join(tmpdir(), 'orch-doc-provider-'));
+  try {
+    const bin = join(d, 'bin');
+    mkdirSync(bin);
+    writeNodeStub(join(bin, 'hermes'), 'throw new Error("doctor must not run this stub");');
+    const copy = join(d, 'cli-run.mjs');
+    writeFileSync(copy, readFileSync(CLI_RUN));
+    const check = (defaults, enabled = ['hermes'], path = bin) => {
+      writeFileSync(join(d, 'lanes.json'), JSON.stringify({ enabled, defaults }));
+      return spawnSync(process.execPath, [copy, '--doctor'], { encoding: 'utf8', env: winEnv(path, d) });
+    };
+    const baseline = check({});
+    assert.equal(baseline.status, 0, baseline.stderr);
+    const modelOnly = check({ hermes: { model: 'grok-4.6' } });
+    assert.equal(modelOnly.status, baseline.status);
+    assert.match(modelOnly.stdout, /model pinned with no provider.*default provider.*HTTP 400.*pin "provider" beside "model"/);
+    assert.match(modelOnly.stdout, /doctor: all enabled lanes present/);
+    const providerOnly = check({ hermes: { provider: 'xai-oauth' } });
+    assert.equal(providerOnly.status, baseline.status);
+    assert.match(providerOnly.stdout, /provider pinned with no model.*without --model will be refused.*HERMES_INFERENCE_MODEL/);
+    const paired = check({ hermes: { model: 'grok-4.6', provider: 'xai-oauth', effort: 'high' } });
+    assert.equal(paired.status, baseline.status);
+    assert.match(paired.stdout, /route xai-oauth:grok-4.6\/high/);
+    assert.doesNotMatch(paired.stdout, /note: .*pinned with no/);
+    const disabled = check({ hermes: { model: 'grok-4.6' } }, ['codex']);
+    assert.doesNotMatch(disabled.stdout, /model pinned with no provider/);
+    const missing = check({}, ['hermes'], '');
+    const missingPinned = check({ hermes: { model: 'grok-4.6' } }, ['hermes'], '');
+    assert.equal(missing.status, 10);
+    assert.equal(missingPinned.status, missing.status);
+  } finally {
+    rmSync(d, { recursive: true, force: true });
+  }
+});
+
+test('cli-run: hermes provider reaches argv and logs from flags, defaults and an environment model', () => {
+  const d = mkdtempSync(join(tmpdir(), 'orch-hermes-provider-'));
+  try {
+    const bin = join(d, 'bin');
+    mkdirSync(bin);
+    writeNodeStub(join(bin, 'hermes'), 'console.log(JSON.stringify(process.argv.slice(2)));');
+    const copy = join(d, 'cli-run.mjs');
+    writeFileSync(copy, readFileSync(CLI_RUN));
+    const runHermes = (defaults, flags = [], model = undefined) => {
+      writeFileSync(join(d, 'lanes.json'), JSON.stringify({ enabled: ['hermes'], defaults: { hermes: defaults } }));
+      return spawnSync(process.execPath, [copy, 'hermes', 'hi', '--quiet', ...flags], {
+        encoding: 'utf8', env: mergeEnv(winEnv(bin, d), { HERMES_INFERENCE_MODEL: model })
+      });
+    };
+    const lastLog = () => JSON.parse(readFileSync(join(d, '.ai-orchestrator', 'cli-run.log.jsonl'), 'utf8').trim().split('\n').at(-1));
+    const pinned = runHermes({ provider: 'xai-oauth', model: 'grok-4.6' });
+    assert.equal(pinned.status, 0, pinned.stderr);
+    const pinnedArgv = JSON.parse(pinned.stdout);
+    assert.deepEqual(pinnedArgv.slice(0, 6), ['--provider', 'xai-oauth', '-m', 'grok-4.6', '-z', 'hi']);
+    assert.equal(pinnedArgv[6], '--usage-file');
+    assert.equal(lastLog().provider_requested, 'xai-oauth');
+    assert.equal(lastLog().provider_source, 'lanes.json');
+    assert.equal(lastLog().model_requested, 'grok-4.6');
+    const flagged = runHermes({ provider: 'other', model: 'other-model' }, ['--provider', 'xai-oauth', '--model', 'grok-4.6']);
+    assert.equal(flagged.status, 0, flagged.stderr);
+    assert.deepEqual(JSON.parse(flagged.stdout).slice(0, 6), pinnedArgv.slice(0, 6));
+    assert.equal(lastLog().provider_requested, 'xai-oauth');
+    assert.equal(lastLog().provider_source, 'flag');
+    assert.equal(lastLog().model_source, 'flag');
+    const absent = runHermes({ provider: 'xai-oauth' });
+    assert.equal(absent.status, 2);
+    assert.match(absent.stderr, /needs a model/);
+    const inherited = runHermes({ provider: 'xai-oauth' }, [], 'grok-4.6');
+    assert.equal(inherited.status, 0, inherited.stderr);
+    assert.deepEqual(JSON.parse(inherited.stdout).slice(0, 4), ['--provider', 'xai-oauth', '-z', 'hi']);
+    assert.equal(lastLog().model_requested, null);
+    assert.equal(lastLog().model_source, 'lane_default');
+    assert.equal(lastLog().provider_requested, 'xai-oauth');
+  } finally {
+    rmSync(d, { recursive: true, force: true });
+  }
 });
 
 test('--list names the metered providers separately from the AIs', () => {

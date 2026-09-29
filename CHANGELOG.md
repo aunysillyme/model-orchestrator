@@ -4,6 +4,20 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [1.0.6] - 2026-09-29
+
+### Added
+
+- The hermes lane takes `--provider` and `"provider"` in `bin/lanes.json` defaults, so a pinned model goes to a provider that serves it. A provider needs a model with it (a flag, a default or `HERMES_INFERENCE_MODEL`); otherwise cli-run refuses before the lane starts. Runs log `provider_requested` and `provider_source`.
+- `--doctor` notes a hermes model pinned without a provider, and a provider pinned without a model. The terminal route line shows the provider.
+
+### Fixed
+
+- A hermes model/provider mismatch (an upstream "model is not supported" or `model_not_found`, for example `grok-4.6` sent to `openai-codex`) is now class `rejected`, exit 16, with a problem line naming the mismatch and a fix pointing at `hermes model`. It was reported as a vague nonzero exit.
+- A pinned hermes route (`--model` or `--effort`, by flag or `lanes.json` default) no longer fails every run. cli-run placed those flags between `-z` and the prompt, and `-z` takes the prompt as its value, so Hermes refused the arguments ("argument -z/--oneshot: expected one argument"). Route flags now come before `-z`, and a Hermes argument error is reported as such rather than as a toolsets error.
+
+### Changed
+
 - The product website generates public Markdown mirrors, llms discovery files and agent navigation guidance from its existing documentation allowlist on each Git build.
 
 ## [1.0.5] - 2026-09-28
