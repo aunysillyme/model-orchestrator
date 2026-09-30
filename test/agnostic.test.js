@@ -29,7 +29,7 @@ test('A3b: CLI-RUN examples use an enabled lane', () => {
   // Reference table rows deliberately describe every supported runner lane.
   const examples = text.split('\n').filter(line => !line.trimStart().startsWith('|')).join('\n');
   assert.doesNotMatch(examples, /cli-run(?:\.mjs)?\s+(?:codex|agy|hermes|qwen)\b/);
-  assert.match(examples, /cli-run(?:\.mjs)?\s+grok\b/);
+  assert.match(examples, /cli-run(?:\.mjs)?\s+claude\b/);
   assert.doesNotMatch(examples, /cli-run(?:\.mjs)?\s+grok\s+--audit/);
 });
 
@@ -104,6 +104,6 @@ test('runnable examples respect the selected runner model and effort flags', () 
 test('routing instructions use external role assignments as well as the stack table', () => {
   const routing = content(installed(['claude-code', 'codex', 'grok']), 'ROUTING.md');
   assert.match(routing, /3a\. \*\*A reviewer or scanner has returned findings:\*\* -> `cli-run codex --audit`/);
-  assert.match(routing, /\| Summarize similar notes into one index \| `cli-run codex`/);
+  assert.match(routing, /\| Summarize similar notes into one index \| bulk-worker, cheap model tier/);
   assert.match(routing, /\| Review this service for bugs \| `cli-run codex --audit`/);
 });

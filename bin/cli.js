@@ -498,6 +498,7 @@ async function main() {
         for (const path of preview.written) console.log('  would write ' + path);
         for (const path of [...preview.skipped, ...preview.conflicts, ...preview.unverifiable, ...preview.docsConflict, ...preview.docsUnverifiable]) console.log('  would keep ' + path);
         for (const path of preview.backups) console.log('  would back up ' + path);
+        if (preview.lanesWithheld.length) console.log(`  lanes withheld: ${preview.lanesWithheld.join(', ')} (the kept bin/cli-run.mjs predates them; re-run with --upgrade-runtime to enable)`);
       }
       console.log('\n--dry: nothing written.');
       rl && rl.close();
@@ -548,9 +549,9 @@ async function main() {
         .concat(JSON.stringify(prev.roles || {}) !== JSON.stringify(plannedManifest.roles || {}) ? ['roles'] : [])
     : [];
 
-  let written, skipped, upgraded, conflicts, unverifiable, docsUpdated, docsConflict, docsUnverifiable, docsRenamed;
+  let written, skipped, upgraded, conflicts, unverifiable, lanesWithheld, docsUpdated, docsConflict, docsUnverifiable, docsRenamed;
   try {
-    ({ written, skipped, upgraded, conflicts, unverifiable, docsUpdated, docsConflict, docsUnverifiable, docsRenamed } = writeFiles(files, { dir, project, force: flag('force'), upgradeRuntime: flag('upgrade-runtime'), updateDocs: flag('update-docs'), prevManifest: prev, backupExisting: applySnippets, onBackup: (path) => console.log('  backup ' + path) }));
+    ({ written, skipped, upgraded, conflicts, unverifiable, lanesWithheld, docsUpdated, docsConflict, docsUnverifiable, docsRenamed } = writeFiles(files, { dir, project, force: flag('force'), upgradeRuntime: flag('upgrade-runtime'), updateDocs: flag('update-docs'), prevManifest: prev, backupExisting: applySnippets, onBackup: (path) => console.log('  backup ' + path) }));
   } catch (e) {
     if (e && e.code === 'PREFLIGHT') bad(e.message);
     throw e;
@@ -564,10 +565,11 @@ async function main() {
     if (prev) {
       if (changed.length) {
         console.log(`  selection changed: ${changed.join(', ')}`);
-        console.log(`  applied: ${ownedWritten.join(', ') || 'nothing'} (machine-owned files are always rewritten, so the new lanes are live)`);
+        console.log(`  applied: ${ownedWritten.join(', ') || 'nothing'} (machine-owned files are always rewritten)`);
         if (changed.includes('roles')) console.log('  the role assignment changed; MANIFEST.json and aunx route are current. Any kept documents may still carry the previous assignment.');
       } else console.log('  selection identical.');
     }
+    if (lanesWithheld.length) console.log(`  lanes withheld: ${lanesWithheld.join(', ')} (the kept bin/cli-run.mjs predates them; re-run with --upgrade-runtime to enable)`);
     if (upgraded.length) console.log(`  runtime upgraded: ${upgraded.join(', ')} ${flag('upgrade-runtime') ? '(--upgrade-runtime: replaced whether or not you had edited them)' : '(each installed copy matched the hash of a previous run, so nobody had edited it)'}`);
     if (conflicts.length) {
       console.log(`  runtime CONFLICT, kept: ${conflicts.join(', ')}`);

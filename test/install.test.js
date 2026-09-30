@@ -4,6 +4,8 @@ import { mkdtempSync, readFileSync, existsSync, rmSync, writeFileSync, statSync,
 import { join, delimiter, resolve, sep } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
+import { createHash } from 'node:crypto';
+import { pathToFileURL } from 'node:url';
 import { planFiles, writeFiles, resolveSelection, resolveApis, gatewayModels, envNames, laneVars, activationSteps, proofSteps, snippetFor } from '../src/install.js';
 import { byId, toolById } from '../src/catalog.js';
 import { render } from '../src/render.js';
@@ -106,7 +108,73 @@ test('generated gateway config references keys by name only, and only for keys t
 test('lanes.json lists only selected cli-run lanes', () => {
   const p = planFiles({ level: 2, selected: sel('claude-code', 'codex', 'ollama'), primary: byId['claude-code'] });
   const lanes = JSON.parse(p.find((f) => f.rel === join('bin', 'lanes.json')).content);
-  assert.deepEqual(lanes.enabled, ['codex']);
+  assert.deepEqual(lanes.enabled, ['claude', 'codex']);
+});
+
+function olderRunnerSetup(dir) {
+  const files = planFiles({ level: 2, selected: sel('grok', 'codex', 'agy', 'hermes', 'qwen', 'claude-code'), primary: byId.codex, effortAuto: ['codex', 'claude-code'], dir, project: dir });
+  const runner = files.find(f => f.rel === join('bin', 'cli-run.mjs'));
+  assert.ok(files.indexOf(runner) < files.findIndex(f => f.rel === join('bin', 'lanes.json')), 'the runner keep decision must precede lanes.json');
+  const first = writeFiles(files, { dir, project: dir });
+  assert.deepEqual(first.lanesWithheld, [], 'a fresh runner supports every selected lane');
+  const prevManifest = JSON.parse(readFileSync(join(dir, 'MANIFEST.json'), 'utf8'));
+  const oldRunner = runner.content.replace(/^export const LANES = .*;$/m, "export const LANES = ['grok', 'codex', 'agy', 'hermes', 'qwen'];") + '\n// local edit\n';
+  writeFileSync(join(dir, runner.rel), oldRunner);
+  return { files, prevManifest, oldRunner };
+}
+
+test('kept older runner withholds unsupported lanes and defaults, including dry previews', async () => {
+  for (const hasManifest of [true, false]) {
+    const dir = mkdtempSync(join(tmpdir(), 'orch-kept-lanes-'));
+    try {
+      const { files, prevManifest, oldRunner } = olderRunnerSetup(dir);
+      if (!hasManifest) rmSync(join(dir, 'MANIFEST.json'));
+      const opts = { dir, project: dir, prevManifest: hasManifest ? prevManifest : undefined };
+      const preview = writeFiles(files, { ...opts, dry: true });
+      assert.ok(JSON.parse(readFileSync(join(dir, 'bin', 'lanes.json'), 'utf8')).enabled.includes('claude'), 'dry preview must leave lanes.json unchanged');
+      const result = writeFiles(files, opts);
+      assert.ok((hasManifest ? result.conflicts : result.unverifiable).includes('bin/cli-run.mjs'));
+      assert.equal(readFileSync(join(dir, 'bin', 'cli-run.mjs'), 'utf8'), oldRunner);
+      const content = readFileSync(join(dir, 'bin', 'lanes.json'), 'utf8');
+      const lanes = JSON.parse(content);
+      assert.deepEqual(lanes.enabled, ['grok', 'codex', 'agy', 'hermes', 'qwen']);
+      assert.deepEqual(result.lanesWithheld, ['claude']);
+      assert.deepEqual(preview.lanesWithheld, ['claude']);
+      assert.deepEqual(lanes.defaults, { codex: { effort: 'auto' } });
+      assert.deepEqual(Object.keys(lanes).sort(), ['defaults', 'defaultsNote', 'enabled', 'note']);
+      const keptRunner = await import(pathToFileURL(join(dir, 'bin', 'cli-run.mjs')).href);
+      assert.deepEqual(keptRunner.laneConfig(join(dir, 'bin')), { enabled: lanes.enabled, defaults: { codex: { model: null, effort: 'auto', provider: null } } }, 'the kept runner must accept the whole configuration');
+      const manifest = JSON.parse(readFileSync(join(dir, 'MANIFEST.json'), 'utf8'));
+      assert.equal(manifest.files['bin/lanes.json'], createHash('sha256').update(content).digest('hex'));
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }
+});
+
+test('--upgrade-runtime replaces an older runner and enables all selected lanes', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'orch-upgrade-lanes-'));
+  try {
+    const { files, prevManifest } = olderRunnerSetup(dir);
+    const result = writeFiles(files, { dir, project: dir, prevManifest, upgradeRuntime: true });
+    assert.deepEqual(result.lanesWithheld, []);
+    assert.ok(result.upgraded.includes('bin/cli-run.mjs'));
+    const lanes = JSON.parse(readFileSync(join(dir, 'bin', 'lanes.json'), 'utf8'));
+    assert.deepEqual(lanes.enabled, ['grok', 'codex', 'agy', 'hermes', 'qwen', 'claude']);
+    assert.deepEqual(lanes.defaults, { codex: { effort: 'auto' }, claude: { effort: 'auto' } });
+    assert.equal(readFileSync(join(dir, 'bin', 'cli-run.mjs'), 'utf8'), files.find(f => f.rel === join('bin', 'cli-run.mjs')).content);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('kept runner with an unparseable LANES declaration leaves lanes.json unfiltered', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'orch-unknown-lanes-'));
+  try {
+    const { files, prevManifest } = olderRunnerSetup(dir);
+    for (const declaration of ["export const LANES = getLanes();", "export const LANES = ['codex' 'claude'];"]) {
+      writeFileSync(join(dir, 'bin', 'cli-run.mjs'), declaration);
+      const result = writeFiles(files, { dir, project: dir, prevManifest });
+      assert.deepEqual(result.lanesWithheld, []);
+      assert.equal(readFileSync(join(dir, 'bin', 'lanes.json'), 'utf8'), files.find(f => f.rel === join('bin', 'lanes.json')).content);
+    }
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('writing to a temp dir produces the plan; a second run keeps existing files unless force; dry writes nothing', () => {
@@ -202,7 +270,7 @@ test('a conflicting parent is caught before any write, so nothing is left behind
 test('the weekly audit is rendered for an enabled lane, the install dir, and refuses when no lane exists', () => {
   assert.equal(auditLane(sel('claude-code', 'codex', 'ollama')), 'codex');
   assert.equal(auditLane(sel('claude-code', 'hermes', 'codex')), 'codex');
-  assert.equal(auditLane(sel('claude-code', 'ollama')), null);
+  assert.equal(auditLane(sel('claude-code', 'ollama')), 'claude');
   const withLane = planFiles({ level: 3, selected: sel('codex'), primary: byId.codex, dir: '/opt/custom-orch' });
   const sh = withLane.find((f) => f.rel === join('vm', 'jobs', 'weekly-audit.sh')).content;
   assert.match(sh, /AUDIT_LANE="codex"/);
@@ -213,7 +281,7 @@ test('the weekly audit is rendered for an enabled lane, the install dir, and ref
   const svc = withLane.find((f) => f.rel === join('vm', 'jobs', 'weekly-audit.service')).content;
   assert.match(svc, /WorkingDirectory=\/opt\/custom-orch/);
   assert.match(svc, /ExecStart=\/bin\/bash "\/opt\/custom-orch\/vm\/jobs\/weekly-audit\.sh"/);
-  const noLane = planFiles({ level: 3, selected: sel('claude-code', 'ollama'), primary: byId['claude-code'], dir: '/x' });
+  const noLane = planFiles({ level: 3, selected: sel('claude-app', 'ollama'), primary: byId['claude-app'], dir: '/x' });
   const sh2 = noLane.find((f) => f.rel === join('vm', 'jobs', 'weekly-audit.sh')).content;
   assert.match(sh2, /AUDIT_LANE="none"/);
   assert.match(sh2, /exit 13/);
@@ -546,7 +614,7 @@ test('lane sections render from the selection: a claude-code-only install names 
   assert.match(rt, /1 research engine/);
   const lv = laneVars(sel('claude-code', 'grok', 'qwen'));
   assert.match(lv.LIVE_LANE, /live-researcher/);
-  assert.match(lv.BULK_LANE, /cli-run grok/);
+  assert.match(lv.BULK_LANE, /bulk-worker/);
   assert.match(lv.ATTACK_LANE, /cli-run grok.*different model family/, 'review should use a selected family different from the main agent');
 });
 
@@ -916,7 +984,7 @@ test('a selected local runtime gets host setup at level 2 and container setup at
 test('generated lanes.json carries an empty defaults block and explains it', () => {
   const p = planFiles({ level: 2, selected: [byId['claude-code'], byId['codex']], primary: byId['claude-code'], dir: 'x', project: 'y' });
   const lanes = JSON.parse(p.find((f) => f.rel === join('bin', 'lanes.json')).content);
-  assert.deepEqual(lanes.enabled, ['codex'], 'only cli-run lanes are enabled');
+  assert.deepEqual(lanes.enabled, ['claude', 'codex'], 'only cli-run lanes are enabled');
   assert.deepEqual(lanes.defaults, {}, 'the installer pins nothing it was not told');
   assert.match(lanes.defaultsNote, /inherits its own config file|inherit/, 'the file must say what an unpinned lane does');
 });
@@ -1029,9 +1097,9 @@ test('routeGateTable renders assigned roles and eligible independent review', ()
   assert.match(base, /bulk-worker/);
   assert.match(base, /finding-verifier/);
   assert.match(base, /reader/);
-  assert.doesNotMatch(base, /cli-run/, 'no cli-run lane was selected');
+  assert.doesNotMatch(base, /cli-run/, 'main-agent assignments retain their installed subagent routes');
   const withCodex = routeGateTable(sel('claude-code', 'codex'));
-  assert.match(withCodex, /`cli-run codex`/);
+  assert.match(withCodex, /`cli-run codex --audit`/);
 });
 
 // ---- pre-release audit finding 2, generalized: any claude-code agent whose tools include

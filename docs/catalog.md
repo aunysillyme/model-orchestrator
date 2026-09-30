@@ -16,14 +16,15 @@ Generated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrite
 
 - **Kind:** agent-cli · **Billing:** subscription · **Level:** 1+
 - **What it is:** Anthropic's terminal coding agent; its subagents load the project rules file
-- **Install:** `npm install -g @anthropic-ai/claude-code@2.1.226`
+- **Install:** `npm install -g @anthropic-ai/claude-code@2.1.285`
 - **Sign in:** run `claude` once and sign in with your Anthropic account
 - **Reads rules from:** `CLAUDE.md` · subagents in `.claude/agents/`
+- **cli-run lane:** yes
 - **Plans:**
   - Claude Pro (base headroom, checked 2026-09-12; tier models: unverified): https://claude.com/pricing
   - Claude Max 5x (high headroom, checked 2026-09-12; tier models: unverified): https://claude.com/pricing
   - Claude Max 20x (max headroom, checked 2026-09-12; tier models: unverified): https://claude.com/pricing
-- **Built against:** 2.1.226 (the same number the npm pin uses)
+- **Built against:** 2.1.285 (the same number the npm pin uses)
 
 **Capability facts.** An unverified value needs a current capability check before use. Role assignments come from the selected stack, using these facts.
 
@@ -34,7 +35,7 @@ Generated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrite
 | `billing` | subscription |
 | `pricing` | unverified |
 | `headless` | yes |
-| `cliRun` | no |
+| `cliRun` | yes |
 | `writesFiles` | yes |
 | `readOnlyMode` | no |
 | `liveWeb` | yes |

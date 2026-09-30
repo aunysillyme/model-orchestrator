@@ -6,6 +6,14 @@ Enabled lanes (edit `bin/lanes.json`): {{CLI_RUN_LANES}}.
 
 ## Call a lane with a task brief
 
+- When Claude Code is assigned and a Claude worker MCP service is connected, prefer it. Inspect its schema and instructions, then call its tools from the host. Runner subprocesses cannot access the host's connected tools. The manifest's `preferredTransport: "mcp"` records the preference and `command` gives the CLI fallback; `aunx route` reports it without discovering or invoking servers.
+- When starting an MCP session, send the scoped brief and project directory, keep the session ID and cursor, and poll as the service directs until the final result. Verify acceptance checks, handle errors and cancel on the task deadline or user cancellation. A start response or idle session alone is not proof of success.
+- For either transport, preserve the caller's permissions and project scope. Do not auto-approve tools, broaden paths, add credentials or change authentication. Answer permission requests within existing authorization and deny requests outside it; keep review requests review-only. Check the MCP server's environment against the task's access limits, even when it differs from the command sandbox.
+- When selecting MCP options, leave the model unset unless the task or lane defaults select it; translate effort and other defaults only when the service supports them.
+- When a compatible service is absent, use the native CLI in an authorized environment with its existing sign-in. After either transport fails, report the cause before switching; do not retry automatically through the other transport. Use CLI doctor for CLI presence and optional canaries only; check MCP availability and authentication through the host.
+
+Anthropic's built-in [`claude mcp serve`](https://code.claude.com/docs/en/mcp#use-claude-code-as-an-mcp-server) exposes tools; it does not by itself establish a Claude agent-review service.
+
 ```bash
 aunx cli-run {{EXAMPLE_LANE}} --brief TASK_BRIEF.md --timeout 900
 node bin/cli-run.mjs {{EXAMPLE_LANE}} --brief TASK_BRIEF.md --timeout 900
@@ -56,6 +64,7 @@ The runner supports these lanes whether or not you selected them.
 
 | Lane | Invocation built | Accepted response |
 |---|---|---|
+| claude | `-p --output-format json --permission-mode dontAsk` | result object, `subtype == "success"`, `is_error == false`, non-empty `result`, no execution errors or truncated stop reason |
 | grok | `--output-format json -p` | `stopReason == "end_turn"` and non-empty `text` |
 | codex | `exec --json --color never --skip-git-repo-check -o FILE` | terminal `turn.completed` event and non-empty output file |
 | agy | `--print-timeout Nm --output-format stream-json -p` | terminal `result` event, `status == "SUCCESS"`, non-empty `response` |
@@ -63,6 +72,10 @@ The runner supports these lanes whether or not you selected them.
 | qwen | `-o json`, optional model and safe-mode flags, `-p` | successful terminal result, no error flag or API-error result, non-empty text and every model's `api.totalErrors == 0` |
 
 When Qwen's error telemetry is absent, the runner refuses the response. These checks distinguish response structure from successful task execution.
+
+Select Claude Code with installer ID `claude-code`; use `aunx cli-run claude` for its executable fallback. The native adapter needs the Claude CLI and its existing authentication, independently of optional MCP companions. It uses [Anthropic's print-mode JSON result](https://code.claude.com/docs/en/headless) and [result completion states](https://code.claude.com/docs/en/agent-sdk/agent-loop).
+
+Claude runs with [the `dontAsk` permission mode](https://code.claude.com/docs/en/permissions): calls needing approval are denied, while existing allow rules and actions needing no approval still apply. The runner grants no additional tools or permissions. This is not a read-only filesystem sandbox; `--audit` remains Codex-only. Claude's `permission_denials` counts blocked tools; a non-empty completed answer with denials is accepted with a warning, while no answer with denials exits 17. Authentication or account-access errors exit 14. Error subtypes, malformed JSON and truncated responses exit 18 unless a more specific native error identifies the cause.
 
 ## Respond to the exit class
 
@@ -99,6 +112,7 @@ The runner supports these lanes whether or not you selected them.
 
 | Lane | Model flag | Effort flag | Provider flag |
 |---|---|---|---|
+| claude | `--model` | `--effort` | Unsupported |
 | grok | `-m` | `--reasoning-effort` | Unsupported |
 | codex | `-m` | `-c model_reasoning_effort="LEVEL"` | Unsupported |
 | agy | `--model` | `--effort` | Unsupported |
@@ -111,7 +125,7 @@ When using `--effort auto`, treat its medium/high selection as a bounded heurist
 
 ## Preserve permissions and secrets
 
-The runner never adds permission flags. Keep each vendor's permissions in its own configuration and route work within the task's granted scope. A denied write becomes a handoff to an authorized writer.
+The runner grants no additional permissions. Claude uses `dontAsk` to deny calls needing approval; Codex `--audit` requests a read-only filesystem sandbox. Keep each vendor's permissions in its own configuration and route work within the task's granted scope. A denied write becomes a handoff to an authorized writer.
 
 Prompts travel in argv, which other processes may inspect. Never put secrets in a prompt. For large task inputs, give the worker a brief with authorized source paths instead of exceeding the operating system's argument-size limit.
 

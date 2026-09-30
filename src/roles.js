@@ -136,7 +136,10 @@ export function roleRoute(roleId, assignment, { selected = [], primary = null, a
   if (role.ai === null) {
     out.reason = role.why;
   } else if (role.via === 'cli-run' && ai?.facts.cliRun === true) {
-    out.command = `cli-run ${ai.id}${['review', 'verify'].includes(roleId) && ai.facts.readOnlyMode === true ? ' --audit' : ''}`;
+    out.command = `cli-run ${ai.bin}${['review', 'verify'].includes(roleId) && ai.facts.readOnlyMode === true ? ' --audit' : ''}`;
+    // The host knows its connected tools. The standalone CLI command remains
+    // usable without an MCP installation; it cannot call host-owned tools.
+    if (ai.id === 'claude-code') out.preferredTransport = 'mcp';
   } else if (role.ai === primary?.id && primary.facts.agentDefinitions && agents[roleId]) {
     out.agent = agents[roleId];
   }
@@ -151,6 +154,7 @@ export function roleHow(role, { selected = [], primary = null } = {}) {
   if (role.ai === null) return role.reason?.startsWith('Nothing in your stack') ? 'keep it off every lane here' : 'fresh-context self-check on your main agent';
   const ai = selected.find((item) => item.id === role.ai);
   const tier = `${role.tier} tier`;
+  if (role.preferredTransport === 'mcp') return `connected Claude worker MCP when available; fallback \`aunx ${role.command}\`, ${tier}`;
   if (role.command) return `\`aunx ${role.command}\`, ${tier}`;
   if (role.via === 'local') return `${ai?.bin ? `\`${ai.bin}\`` : 'local runtime'} on your machine, ${tier}`;
   if (ai?.facts.kind === 'chat') return `paste the work into your ${role.ai === primary?.id ? 'main agent' : 'chat app'}, ${tier}`;

@@ -1,7 +1,7 @@
 // Failure classes: WHY a lane failed, so an auth or quota failure is never
 // misread as a model fault. Pure functions of lane output; nothing here
-// spawns a CLI, needs a key, or costs anything. Every fixture is trimmed from
-// a captured vendor shape. Secret-shaped strings are assembled at run time so
+// spawns a CLI, needs a key, or costs anything. Tests use captured vendor output
+// and hand-written error shapes. Secret-shaped strings are assembled at run time so
 // no credential-looking literal lives in this repository.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -28,6 +28,75 @@ function classify(lane, rc, out, err = '', { fileText = '', refusedOpts } = {}) 
 const qwenError = (message, extra = {}) =>
   JSON.stringify([{ type: 'result', subtype: 'error_during_execution', is_error: true, result: null, error: { message }, ...extra }]);
 const fakeKey = (prefix) => prefix + 'FAKE' + 'X'.repeat(20) + '1234';
+
+test('claude: synthetic native errors classify without reading successful model prose', () => {
+  const event = (over = {}) => JSON.stringify({ type: 'result', subtype: 'success', is_error: false, result: 'OK', permission_denials: [], ...over });
+  for (const [message, cls] of [
+    ['Not logged in. Please run /login', 'auth'], ['authentication_error: invalid credentials', 'auth'],
+    ['403 permission_error: account lacks access', 'auth'], ['rate_limit_error: 429', 'quota'],
+    ["You've hit your limit", 'quota'], ['credit balance is too low', 'quota'],
+    ['400 invalid_request_error: unknown model', 'rejected']
+  ]) {
+    for (const out of [event({ is_error: true, result: message }), event({ subtype: 'error_during_execution', is_error: true, result: undefined, errors: [message] })]) {
+      assert.equal(classify('claude', 1, out).cls, cls, message);
+    }
+    assert.equal(classify('claude', 0, event({ result: message })).cls, 'ok');
+    assert.equal(classify('claude', 1, event({ result: message })).cls, 'cut_short', 'a nonzero exit still must not search the successful answer');
+  }
+  assert.equal(classify('claude', 1, '', 'Invalid API key').cls, 'auth');
+  assert.equal(classify('claude', 1, '', "error: unknown option '--effort'").cls, 'rejected');
+  assert.equal(classify('claude', 0, 'broken JSON').cls, 'cut_short');
+  assert.equal(classify('claude', 0, event({ result: '' })).cls, 'empty');
+  assert.equal(classify('claude', 1, '').cls, 'no_output');
+  assert.equal(classify('claude', 0, event({ subtype: 'error_during_execution', is_error: true, errors: ['request cancelled'] })).cls, 'cut_short');
+  const denied = [{ tool_name: 'Bash', tool_use_id: 'synthetic', tool_input: { command: 'public-test' } }];
+  const noResult = event({ result: '', permission_denials: denied });
+  assert.deepEqual(classify('claude', 0, noResult).cls, 'refused');
+  const delivered = classify('claude', 0, event({ permission_denials: denied }));
+  assert.equal(delivered.cls, 'ok');
+  assert.equal(delivered.refused, 1);
+  assert.equal(classify('claude', 1, event({ is_error: true, result: 'authentication_error', permission_denials: denied })).cls, 'auth', 'auth precedes tool denial');
+  assert.equal(countRefused('claude', event({ permission_denials: undefined })), null, 'missing denial telemetry is unknown');
+});
+
+const claudeEvent = (over = {}) => JSON.stringify({ type: 'result', subtype: 'success', is_error: false, result: 'OK', permission_denials: [], ...over });
+
+test('claude: captured OAuth-expired session classifies auth, exit 14', () => {
+  const out = readFileSync(new URL('./fixtures/claude-2.1.285-oauth-expired.json', import.meta.url), 'utf8');
+  const r = classify('claude', 1, out);
+  assert.equal(r.cls, 'auth');
+  assert.equal(r.code, 14);
+});
+
+test('claude: successful OAuth-expired prose stays ok', () => {
+  const r = classify('claude', 0, claudeEvent({ result: 'Failed to authenticate: OAuth session expired' }));
+  assert.equal(r.cls, 'ok');
+  assert.equal(r.code, 0);
+});
+
+test('claude: API Error 400 mentioning 429 tokens classifies rejected, exit 16', () => {
+  const r = classify('claude', 1, claudeEvent({ is_error: true, result: 'API Error: 400 invalid_request_error: requested 429 tokens' }));
+  assert.equal(r.cls, 'rejected');
+  assert.equal(r.code, 16);
+});
+
+test('claude: api_error_status 429 with neutral text classifies quota, exit 15', () => {
+  const r = classify('claude', 1, claudeEvent({ is_error: true, result: 'Request failed', api_error_status: 429 }));
+  assert.equal(r.cls, 'quota');
+  assert.equal(r.code, 15);
+});
+
+test('claude: api_error_status 401 with neutral text classifies auth, exit 14', () => {
+  const r = classify('claude', 1, claudeEvent({ is_error: true, result: 'Request failed', api_error_status: 401 }));
+  assert.equal(r.cls, 'auth');
+  assert.equal(r.code, 14);
+});
+
+test('claude: bare HTTP numbers in native errors stay cut_short', () => {
+  for (const status of [400, 401, 403, 429]) {
+    assert.equal(classify('claude', 1, claudeEvent({ is_error: true, result: `Request failed after ${status} tokens` })).cls, 'cut_short');
+  }
+});
 
 test('class codes are the documented closed set', () => {
   assert.deepEqual(CLASS_CODES, { ok: 0, empty: 10, no_output: 11, timeout: 12, unavailable: 13, auth: 14, quota: 15, rejected: 16, refused: 17, cut_short: 18 });

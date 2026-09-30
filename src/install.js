@@ -70,7 +70,7 @@ export function lanesTable(selected, plans = {}, primary = inferPrimary(selected
     a.facts.billing,
     summaryWithEvidence(a),
     Object.entries(roles).filter(([, role]) => role.ai === a.id).map(([id]) => id).join(', ') || 'none',
-    a.facts.cliRun ? '`cli-run ' + a.id + '`' : a.bin ? '`' + a.bin + '`' : 'the app',
+    a.facts.cliRun ? '`cli-run ' + a.bin + '`' : a.bin ? '`' + a.bin + '`' : 'the app',
     plans[a.id] ? `${plans[a.id].name} (${plans[a.id].headroom} headroom)` : 'not stated'
   ]);
   return table(rows, ['AI', 'Lane', 'What it is', 'Assigned roles', 'Call it with', 'Plan']);
@@ -180,7 +180,7 @@ export function dirProblems(dir) {
 export function auditLane(selected, primary = selected[0]) {
   const { roles } = assignRoles({ selected, primary });
   const id = roles.review.ai ?? roles.bulk.ai ?? null;
-  return selected.some(a => a.id === id && a.facts.cliRun) ? id : null;
+  return selected.find(a => a.id === id && a.facts.cliRun)?.bin || null;
 }
 
 function stackContext(selected, primary, detected = new Set()) {
@@ -558,7 +558,7 @@ function vars(opts) {
   const assignment = assignRoles({ selected, primary, detected: opts.detected, plans });
   const stack = stackContext(selected, primary, opts.detected);
   const enabled = selected.filter(a => a.facts.cliRun);
-  const exampleLane = enabled[0]?.id || '<lane>';
+  const exampleLane = enabled[0]?.bin || '<lane>';
   const exampleDefaults = { model: '<model-id>', ...(LANE_FLAGS[exampleLane]?.effort ? { effort: 'high' } : {}) };
   const auditExample = enabled.find(a => a.facts.readOnlyMode);
   const fallbackNote = 'When no separate lane qualifies, your main agent carries the job at its stated tier. Independent review and local-only work require an eligible lane.';
@@ -634,8 +634,8 @@ function vars(opts) {
     EXAMPLE_LANE: exampleLane,
     EXAMPLE_EFFORT_FLAGS: LANE_FLAGS[exampleLane]?.effort ? ' --effort high' : '',
     EXAMPLE_AUDIT_LANE: auditExample?.id || '',
-    EXAMPLE_AUDIT_BLOCK: auditExample ? `When reviewing with an available read-only mode, select its audit shape:\n\n\x60\x60\x60bash\naunx cli-run ${auditExample.id} --audit --brief REVIEW.md\nnode bin/cli-run.mjs ${auditExample.id} --audit --brief REVIEW.md\n\x60\x60\x60` : 'When reviewing, verify the chosen lane permissions and request review-only work.',
-    EXAMPLE_LANES_JSON: JSON.stringify({ enabled: enabled.map(a => a.id), defaults: { [exampleLane]: exampleDefaults } }, null, 2),
+    EXAMPLE_AUDIT_BLOCK: auditExample ? `When reviewing with an available read-only mode, select its audit shape:\n\n\x60\x60\x60bash\naunx cli-run ${auditExample.bin} --audit --brief REVIEW.md\nnode bin/cli-run.mjs ${auditExample.bin} --audit --brief REVIEW.md\n\x60\x60\x60` : 'When reviewing, verify the chosen lane permissions and request review-only work.',
+    EXAMPLE_LANES_JSON: JSON.stringify({ enabled: enabled.map(a => a.bin), defaults: { [exampleLane]: exampleDefaults } }, null, 2),
     // Renders only when Qwen is actually selected: the sentence names a flag
     // that is a usage error on every other lane (C1).
     QWEN_SAFE_MODE_NOTE: selected.some(a => a.id === 'qwen') ? "When Qwen's safe mode is required, pass `--safe-mode` to that lane. " : '',
@@ -686,8 +686,8 @@ function vars(opts) {
     AUDIT_LANE: lane || 'none',
     // Enforced boundary per lane: codex has a read-only sandbox flag; the others
     // run with whatever their own config allows, and the script says so.
-    AUDIT_LANE_FLAGS: selected.find(a => a.id === lane)?.facts.readOnlyMode ? '--audit' : '',
-    AUDIT_LANE_BOUNDARY_NOTE: selected.find(a => a.id === lane)?.facts.readOnlyMode
+    AUDIT_LANE_FLAGS: selected.find(a => a.bin === lane)?.facts.readOnlyMode ? '--audit' : '',
+    AUDIT_LANE_BOUNDARY_NOTE: selected.find(a => a.bin === lane)?.facts.readOnlyMode
       ? `${lane} --audit, a read-only filesystem sandbox; commands and network follow the ${lane} config`
       : lane
         ? `${lane} offers no sandbox flag cli-run can pass, so the denied-actions list is instruction-level only and enforcement is whatever ${lane}'s own permission config allows`
@@ -714,7 +714,10 @@ function vars(opts) {
     LANES_TABLE: lanesTable(selected, plans, primary),
     PLAN_GUIDANCE: planGuidance(selected, plans),
     INSTALL_TABLE: installTable(selected),
-    CLI_RUN_LANES: selected.filter((a) => a.facts.cliRun).map((a) => a.id).join(', ') || 'none selected',
+    CLI_RUN_LANES: selected.filter((a) => a.facts.cliRun).map((a) => a.bin).join(', ') || 'none selected',
+    CLAUDE_WORKER_TRANSPORT: Object.values(assignment.roles).some(role => role.ai === 'claude-code' && role.via === 'cli-run')
+      ? '- When assigning a Claude Code worker, prefer a connected Claude worker MCP service exposed in the host tool catalog. Call its tools directly from the host, follow its session and permission workflow, and preserve the task scope. See `CLI-RUN.md` for dispatch and fallback boundaries.\n'
+      : '',
     GATEWAY_MODELS: gatewayModels(selected, apis),
     ENV_NAMES: envNames(selected, apis).map((n) => '- `' + n + '`').join('\n'),
     ENV_EXPORTS: envNames(selected, apis).map((n) => n + '=').join('\n'),
@@ -820,10 +823,10 @@ export function planFiles(opts) {
       join('bin', 'lanes.json'),
       JSON.stringify(
         {
-          enabled: selected.filter((a) => a.facts.cliRun).map((a) => a.id),
-          defaults: Object.fromEntries((opts.effortAuto || []).map((lane) => [lane, { effort: 'auto' }])),
+          enabled: selected.filter((a) => a.facts.cliRun).map((a) => a.bin),
+          defaults: Object.fromEntries((opts.effortAuto || []).map((id) => [selected.find(a => a.id === id)?.bin || id, { effort: 'auto' }])),
           note: 'Lanes cli-run may call. Edit to enable or disable a lane. A lane not listed here exits 13 (unavailable).',
-          defaultsNote: 'Pin what a lane runs with, so the route in your docs is the route that runs: "defaults": {"' + (selected.find(a => a.facts.cliRun)?.id || '<lane>') + '": ' + JSON.stringify({ model: '<model-id>', ...(LANE_FLAGS[selected.find(a => a.facts.cliRun)?.id]?.effort ? { effort: 'high' } : {}) }) + '}. Left empty, a lane inherits its own config file, which cli-run cannot see and does not guess. `--model` and `--effort` override this per call, and `--doctor` prints what each lane is pinned to. Every enabled lane takes a model; the runner reports which lanes support an effort flag. Hermes also takes "provider" beside "model", so the model goes to a provider that serves it.'
+          defaultsNote: 'Pin what a lane runs with, so the route in your docs is the route that runs: "defaults": {"' + (selected.find(a => a.facts.cliRun)?.bin || '<lane>') + '": ' + JSON.stringify({ model: '<model-id>', ...(LANE_FLAGS[selected.find(a => a.facts.cliRun)?.bin]?.effort ? { effort: 'high' } : {}) }) + '}. Left empty, a lane inherits its own config file, which cli-run cannot see and does not guess. `--model` and `--effort` override this per call, and `--doctor` prints what each lane is pinned to. Every enabled lane takes a model; the runner reports which lanes support an effort flag. Hermes also takes "provider" beside "model", so the model goes to a provider that serves it.'
         },
         null,
         2
@@ -1117,6 +1120,8 @@ export function writeFiles(files, opts) {
   const upgraded = [];      // runtime files replaced because the installed copy was an untouched generated one
   const conflicts = [];     // runtime files kept because the installed copy differs from what we generated
   const unverifiable = [];  // runtime files kept because there is no manifest to compare against
+  const lanesWithheld = []; // selected lanes the kept runner does not support
+  let lanesHash;
   const docsUpdated = [];   // --update-docs: documents regenerated because the installed copy was an untouched generated one
   const docsConflict = [];  // --update-docs: documents kept because you edited them
   const docsUnverifiable = []; // --update-docs: documents kept because there is no manifest to compare against
@@ -1206,6 +1211,24 @@ export function writeFiles(files, opts) {
           }
         }
         let content = f.content;
+        if (k === 'dir' && key === 'bin/lanes.json' && keptKeys.has('bin/cli-run.mjs')) {
+          // planFiles puts the runner first, so its keep decision is known here.
+          let supported;
+          try {
+            const match = readFileSync(join(root, 'bin', 'cli-run.mjs'), 'utf8').match(/^\s*export const LANES = \[([\s\S]*?)\];/m);
+            if (match && /^\s*(?:(?:'[^'\\]*'|"[^"\\]*")\s*(?:,\s*(?:'[^'\\]*'|"[^"\\]*")\s*)*,?\s*)?$/.test(match[1])) {
+              supported = [...match[1].matchAll(/'([^'\\]*)'|"([^"\\]*)"/g)].map(m => m[1] ?? m[2]);
+            }
+          } catch { /* unknown runner contents are not evidence of unsupported lanes */ }
+          if (supported) {
+            const lanes = JSON.parse(content);
+            lanesWithheld.push(...new Set([...lanes.enabled, ...Object.keys(lanes.defaults || {})].filter(lane => !supported.includes(lane))));
+            lanes.enabled = lanes.enabled.filter(lane => supported.includes(lane));
+            if (lanes.defaults) lanes.defaults = Object.fromEntries(Object.entries(lanes.defaults).filter(([lane]) => supported.includes(lane)));
+            content = JSON.stringify(lanes, null, 2) + '\n';
+            lanesHash = sha256(content);
+          }
+        }
         if (f.rel === 'MANIFEST.json') {
           if (hasLegacy) {
             const previousHash = prevHashes?.[LEGACY_BRIEF];
@@ -1239,6 +1262,7 @@ export function writeFiles(files, opts) {
           // formerly selected files, so uninstall still checks their original
           // installed hashes. New defaults do not erase a previous selection.
           m.files = { ...prevHashes, ...m.files };
+          if (lanesHash) m.files['bin/lanes.json'] = lanesHash;
           if (Object.keys(activation).length) m.activation = activation;
           for (const removed of removedKeys) delete m.files[removed];
           for (const kk of Object.keys(m.files || {})) {
@@ -1304,7 +1328,7 @@ export function writeFiles(files, opts) {
     }
     throw e;
   }
-  return { written, skipped, upgraded, conflicts, unverifiable, docsUpdated, docsConflict, docsUnverifiable, docsRenamed, backups };
+  return { written, skipped, upgraded, conflicts, unverifiable, lanesWithheld, docsUpdated, docsConflict, docsUnverifiable, docsRenamed, backups };
 }
 
 export function resolveSelection(ids) {

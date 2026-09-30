@@ -71,7 +71,7 @@ export const AIS = [
       billing: 'subscription',
       pricing: null, // UNVERIFIED: check your provider's current rate.
       headless: true,
-      cliRun: false,
+      cliRun: true,
       writesFiles: true,
       readOnlyMode: false,
       liveWeb: true, // Source: templates/agents/claude-code/live-researcher.md grants WebSearch and WebFetch.
@@ -93,8 +93,8 @@ export const AIS = [
     bin: 'claude',
     summary: 'Anthropic\'s terminal coding agent; its subagents load the project rules file',
     minLevel: 1,
-    install: { npm: '@anthropic-ai/claude-code', url: 'https://code.claude.com/docs/en/setup', pin: '2.1.226' },
-    builtAgainst: '2.1.226',
+    install: { npm: '@anthropic-ai/claude-code', url: 'https://code.claude.com/docs/en/setup', pin: '2.1.285' },
+    builtAgainst: '2.1.285',
     auth: 'run `claude` once and sign in with your Anthropic account',
     // Positive-only (Q1): an author-machine probe of a working, authenticated
     // session (2026-09-27) still returned {"loggedIn":false} with exit 1, so a

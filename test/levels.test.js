@@ -66,7 +66,7 @@ test('levels #13: the first-read README row matches the installed level', () => 
 });
 
 test('levels #14: inactive delegation defers the output-contract test', () => {
-  const inactive = content(filesFor(2, ['claude-code']), 'README.md');
+  const inactive = content(filesFor(2, ['claude-app']), 'README.md');
   assert.match(inactive, /delegation is inactive[^\n]*exit 13/i);
   assert.match(inactive, /defer the output-contract test until[^\n]*supported CLI lane/i);
   assert.doesNotMatch(inactive, /--expect-json/);
