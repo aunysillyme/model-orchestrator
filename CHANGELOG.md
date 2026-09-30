@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [1.0.7] - 2026-09-30
+
 ### Fixed
 
 - Prefer an already-connected Claude worker MCP service in host routing, with the native CLI retained as a standalone fallback. Route suggestions and generated instructions describe the session, result, permission and environment boundaries; no MCP installation or automatic transport retry is added.
@@ -585,7 +587,9 @@ First release.
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
-[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.5...HEAD
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.7...HEAD
+[1.0.7]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.6...v1.0.7
+[1.0.6]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.5...v1.0.6
 [1.0.5]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.4...v1.0.5
 [1.0.4]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.2...v1.0.3
