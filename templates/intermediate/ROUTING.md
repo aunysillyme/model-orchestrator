@@ -58,6 +58,7 @@ When work runs in the background, check liveness and output growth every five mi
 
 ## Tools and fallbacks
 
+{{CLAUDE_WORKER_TRANSPORT}}
 - When reporting consequential arithmetic or code equivalence, use a computing tool (`protocols/numbers-and-logic.md`). codecalc: {{CODECALC_STATUS}}. When absent, use the local runtime, test suite or spreadsheet.{{METERED_CITATION_NOTE}}
 - When writing durable records, search first, update the index and keep one writer (`protocols/memory-and-record.md`). obsidian-tc: {{OBSIDIAN_TC_STATUS}}. When absent, use project files, search and version control.
 - When using a changing library or API, read current documentation and verify behavior (`protocols/docs-then-prove.md`). Context7: {{CONTEXT7_STATUS}}. When absent, read official docs or installed source; use the local runtime when codecalc is absent.

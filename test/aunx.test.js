@@ -158,6 +158,30 @@ test('aunx route looks in --dir, the default rules folder and the current folder
   assert.match(run(['--help'], cwd).stdout, /route \[--dir PATH\]/);
 });
 
+test('aunx route prefers host-connected Claude MCP and retains the CLI fallback', t => {
+  const cwd = temp(t);
+  for (const primary of ['codex', 'claude-code']) {
+    const dir = join(cwd, primary);
+    mkdirSync(dir);
+    const files = planFiles({ level: 2, selected: [byId.codex, byId['claude-code']], primary: byId[primary], dir, project: cwd });
+    const manifest = files.find(f => f.rel === 'MANIFEST.json');
+    writeFileSync(join(dir, 'MANIFEST.json'), manifest.content);
+    const result = run(['route', '--dir', dir, 'review this diff'], cwd);
+    assert.equal(result.status, 0, result.stderr);
+    if (primary === 'codex') {
+      assert.match(result.stdout, /connected Claude worker MCP when available/);
+      assert.match(result.stdout, /fallback.*aunx cli-run claude/);
+      const routing = files.find(f => f.rel === 'ROUTING.md').content;
+      assert.match(routing, /prefer a connected Claude worker MCP/);
+      assert.match(routing, /host.*tool/);
+      assert.doesNotMatch(routing, /bypassPermissions/);
+    } else {
+      assert.match(result.stdout, /aunx cli-run codex --audit/);
+      assert.doesNotMatch(result.stdout, /connected Claude worker MCP/);
+    }
+  }
+});
+
 test('aunx route with no manifest keeps today\'s output and adds the install notice', t => {
   const cwd = temp(t);
   const result = run(['route', 'rename this file'], cwd);

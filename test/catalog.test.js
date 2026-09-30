@@ -1,3 +1,4 @@
+import { LANES } from '../bin/cli-run.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -24,7 +25,7 @@ test('every AI has the fields the installer relies on, and ids are unique', () =
     assert.ok(shapes.length >= 1, a.id + ' has no install method');
     if (a.facts.kind === 'agent-cli' || a.facts.kind === 'local-runtime') assert.ok(a.bin, a.id + ' needs a bin');
     if (a.facts.kind === 'chat') assert.equal(a.bin, null, a.id + ' chat apps have no bin');
-    if (a.facts.cliRun) assert.ok(['grok', 'codex', 'agy', 'hermes', 'qwen'].includes(a.id), a.id + ' claims a cli-run lane that has no judge');
+    if (a.facts.cliRun) assert.ok(LANES.includes(a.bin), a.id + ' claims a cli-run lane that has no judge');
   }
 });
 
@@ -124,7 +125,7 @@ test('a recorded fixture is the evidence for its lane builtAgainst version', () 
   const fx = fixtureManifest();
   assert.ok(fx.fixtures.length >= 4, 'expected recorded vendor fixtures');
   for (const f of fx.fixtures) {
-    const a = byId[f.lane];
+    const a = AIS.find(a => a.bin === f.lane);
     assert.ok(a, 'fixture for an unknown lane: ' + f.lane);
     assert.ok(f.vendorVersion.includes(a.builtAgainst), `${f.lane}: fixture says "${f.vendorVersion}" but the catalog says ${a.builtAgainst}`);
     assert.ok(f.file.includes(a.builtAgainst), `${f.lane}: fixture filename ${f.file} does not carry ${a.builtAgainst}`);
