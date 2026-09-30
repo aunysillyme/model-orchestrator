@@ -4,6 +4,8 @@ import { mkdtempSync, readFileSync, existsSync, rmSync, writeFileSync, statSync,
 import { join, delimiter, resolve, sep } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
+import { createHash } from 'node:crypto';
+import { pathToFileURL } from 'node:url';
 import { planFiles, writeFiles, resolveSelection, resolveApis, gatewayModels, envNames, laneVars, activationSteps, proofSteps, snippetFor } from '../src/install.js';
 import { byId, toolById } from '../src/catalog.js';
 import { render } from '../src/render.js';
@@ -107,6 +109,72 @@ test('lanes.json lists only selected cli-run lanes', () => {
   const p = planFiles({ level: 2, selected: sel('claude-code', 'codex', 'ollama'), primary: byId['claude-code'] });
   const lanes = JSON.parse(p.find((f) => f.rel === join('bin', 'lanes.json')).content);
   assert.deepEqual(lanes.enabled, ['claude', 'codex']);
+});
+
+function olderRunnerSetup(dir) {
+  const files = planFiles({ level: 2, selected: sel('grok', 'codex', 'agy', 'hermes', 'qwen', 'claude-code'), primary: byId.codex, effortAuto: ['codex', 'claude-code'], dir, project: dir });
+  const runner = files.find(f => f.rel === join('bin', 'cli-run.mjs'));
+  assert.ok(files.indexOf(runner) < files.findIndex(f => f.rel === join('bin', 'lanes.json')), 'the runner keep decision must precede lanes.json');
+  const first = writeFiles(files, { dir, project: dir });
+  assert.deepEqual(first.lanesWithheld, [], 'a fresh runner supports every selected lane');
+  const prevManifest = JSON.parse(readFileSync(join(dir, 'MANIFEST.json'), 'utf8'));
+  const oldRunner = runner.content.replace(/^export const LANES = .*;$/m, "export const LANES = ['grok', 'codex', 'agy', 'hermes', 'qwen'];") + '\n// local edit\n';
+  writeFileSync(join(dir, runner.rel), oldRunner);
+  return { files, prevManifest, oldRunner };
+}
+
+test('kept older runner withholds unsupported lanes and defaults, including dry previews', async () => {
+  for (const hasManifest of [true, false]) {
+    const dir = mkdtempSync(join(tmpdir(), 'orch-kept-lanes-'));
+    try {
+      const { files, prevManifest, oldRunner } = olderRunnerSetup(dir);
+      if (!hasManifest) rmSync(join(dir, 'MANIFEST.json'));
+      const opts = { dir, project: dir, prevManifest: hasManifest ? prevManifest : undefined };
+      const preview = writeFiles(files, { ...opts, dry: true });
+      assert.ok(JSON.parse(readFileSync(join(dir, 'bin', 'lanes.json'), 'utf8')).enabled.includes('claude'), 'dry preview must leave lanes.json unchanged');
+      const result = writeFiles(files, opts);
+      assert.ok((hasManifest ? result.conflicts : result.unverifiable).includes('bin/cli-run.mjs'));
+      assert.equal(readFileSync(join(dir, 'bin', 'cli-run.mjs'), 'utf8'), oldRunner);
+      const content = readFileSync(join(dir, 'bin', 'lanes.json'), 'utf8');
+      const lanes = JSON.parse(content);
+      assert.deepEqual(lanes.enabled, ['grok', 'codex', 'agy', 'hermes', 'qwen']);
+      assert.deepEqual(result.lanesWithheld, ['claude']);
+      assert.deepEqual(preview.lanesWithheld, ['claude']);
+      assert.deepEqual(lanes.defaults, { codex: { effort: 'auto' } });
+      assert.deepEqual(Object.keys(lanes).sort(), ['defaults', 'defaultsNote', 'enabled', 'note']);
+      const keptRunner = await import(pathToFileURL(join(dir, 'bin', 'cli-run.mjs')).href);
+      assert.deepEqual(keptRunner.laneConfig(join(dir, 'bin')), { enabled: lanes.enabled, defaults: { codex: { model: null, effort: 'auto', provider: null } } }, 'the kept runner must accept the whole configuration');
+      const manifest = JSON.parse(readFileSync(join(dir, 'MANIFEST.json'), 'utf8'));
+      assert.equal(manifest.files['bin/lanes.json'], createHash('sha256').update(content).digest('hex'));
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }
+});
+
+test('--upgrade-runtime replaces an older runner and enables all selected lanes', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'orch-upgrade-lanes-'));
+  try {
+    const { files, prevManifest } = olderRunnerSetup(dir);
+    const result = writeFiles(files, { dir, project: dir, prevManifest, upgradeRuntime: true });
+    assert.deepEqual(result.lanesWithheld, []);
+    assert.ok(result.upgraded.includes('bin/cli-run.mjs'));
+    const lanes = JSON.parse(readFileSync(join(dir, 'bin', 'lanes.json'), 'utf8'));
+    assert.deepEqual(lanes.enabled, ['grok', 'codex', 'agy', 'hermes', 'qwen', 'claude']);
+    assert.deepEqual(lanes.defaults, { codex: { effort: 'auto' }, claude: { effort: 'auto' } });
+    assert.equal(readFileSync(join(dir, 'bin', 'cli-run.mjs'), 'utf8'), files.find(f => f.rel === join('bin', 'cli-run.mjs')).content);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('kept runner with an unparseable LANES declaration leaves lanes.json unfiltered', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'orch-unknown-lanes-'));
+  try {
+    const { files, prevManifest } = olderRunnerSetup(dir);
+    for (const declaration of ["export const LANES = getLanes();", "export const LANES = ['codex' 'claude'];"]) {
+      writeFileSync(join(dir, 'bin', 'cli-run.mjs'), declaration);
+      const result = writeFiles(files, { dir, project: dir, prevManifest });
+      assert.deepEqual(result.lanesWithheld, []);
+      assert.equal(readFileSync(join(dir, 'bin', 'lanes.json'), 'utf8'), files.find(f => f.rel === join('bin', 'lanes.json')).content);
+    }
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('writing to a temp dir produces the plan; a second run keeps existing files unless force; dry writes nothing', () => {

@@ -1,9 +1,9 @@
-// The judges, run against captured output and explicitly labeled synthetic Claude output.
+// The judges, run against captured vendor output.
 //
 // judges.test.js proves the judges against shapes written by hand. Those shapes
 // are only as good as the author's memory of the vendor, and #11 asked for the
 // difference to be closed. The original fixtures were captured from real runs
-// at recorded versions; Claude adds synthetic success and captured auth failure.
+// at recorded versions; Claude adds captured success and authentication failures.
 // test/fixtures/README.md and manifest.json record provenance, flags and scope.
 //
 // The point is not extra coverage. It is that a hand-written fixture cannot
@@ -82,10 +82,10 @@ test('fixtures carry no session ids and no personal paths', () => {
 
 test('the manifest records a version and flags for every fixture, and states its gaps', () => {
   for (const f of manifest.fixtures) {
-    assert.ok(f.vendorVersion, `${f.lane} must record its captured version or synthetic status`);
-    if (f.provenance === 'synthetic') {
-      assert.match(f.vendorVersion, /not captured/);
-      assert.ok(f.sources.length);
+    assert.ok(f.vendorVersion, `${f.lane} must record its captured version`);
+    if (f.lane === 'claude') {
+      assert.equal(f.provenance, 'captured');
+      assert.match(f.capturedAt, /^\d{4}-\d{2}-\d{2}$/);
     }
     assert.ok(Array.isArray(f.flags) && f.flags.length, `${f.lane} must record the flags used`);
     assert.ok(f.covers, `${f.lane} must say what the fixture is for`);

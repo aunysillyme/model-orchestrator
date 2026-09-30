@@ -1120,6 +1120,8 @@ export function writeFiles(files, opts) {
   const upgraded = [];      // runtime files replaced because the installed copy was an untouched generated one
   const conflicts = [];     // runtime files kept because the installed copy differs from what we generated
   const unverifiable = [];  // runtime files kept because there is no manifest to compare against
+  const lanesWithheld = []; // selected lanes the kept runner does not support
+  let lanesHash;
   const docsUpdated = [];   // --update-docs: documents regenerated because the installed copy was an untouched generated one
   const docsConflict = [];  // --update-docs: documents kept because you edited them
   const docsUnverifiable = []; // --update-docs: documents kept because there is no manifest to compare against
@@ -1209,6 +1211,24 @@ export function writeFiles(files, opts) {
           }
         }
         let content = f.content;
+        if (k === 'dir' && key === 'bin/lanes.json' && keptKeys.has('bin/cli-run.mjs')) {
+          // planFiles puts the runner first, so its keep decision is known here.
+          let supported;
+          try {
+            const match = readFileSync(join(root, 'bin', 'cli-run.mjs'), 'utf8').match(/^\s*export const LANES = \[([\s\S]*?)\];/m);
+            if (match && /^\s*(?:(?:'[^'\\]*'|"[^"\\]*")\s*(?:,\s*(?:'[^'\\]*'|"[^"\\]*")\s*)*,?\s*)?$/.test(match[1])) {
+              supported = [...match[1].matchAll(/'([^'\\]*)'|"([^"\\]*)"/g)].map(m => m[1] ?? m[2]);
+            }
+          } catch { /* unknown runner contents are not evidence of unsupported lanes */ }
+          if (supported) {
+            const lanes = JSON.parse(content);
+            lanesWithheld.push(...new Set([...lanes.enabled, ...Object.keys(lanes.defaults || {})].filter(lane => !supported.includes(lane))));
+            lanes.enabled = lanes.enabled.filter(lane => supported.includes(lane));
+            if (lanes.defaults) lanes.defaults = Object.fromEntries(Object.entries(lanes.defaults).filter(([lane]) => supported.includes(lane)));
+            content = JSON.stringify(lanes, null, 2) + '\n';
+            lanesHash = sha256(content);
+          }
+        }
         if (f.rel === 'MANIFEST.json') {
           if (hasLegacy) {
             const previousHash = prevHashes?.[LEGACY_BRIEF];
@@ -1242,6 +1262,7 @@ export function writeFiles(files, opts) {
           // formerly selected files, so uninstall still checks their original
           // installed hashes. New defaults do not erase a previous selection.
           m.files = { ...prevHashes, ...m.files };
+          if (lanesHash) m.files['bin/lanes.json'] = lanesHash;
           if (Object.keys(activation).length) m.activation = activation;
           for (const removed of removedKeys) delete m.files[removed];
           for (const kk of Object.keys(m.files || {})) {
@@ -1307,7 +1328,7 @@ export function writeFiles(files, opts) {
     }
     throw e;
   }
-  return { written, skipped, upgraded, conflicts, unverifiable, docsUpdated, docsConflict, docsUnverifiable, docsRenamed, backups };
+  return { written, skipped, upgraded, conflicts, unverifiable, lanesWithheld, docsUpdated, docsConflict, docsUnverifiable, docsRenamed, backups };
 }
 
 export function resolveSelection(ids) {

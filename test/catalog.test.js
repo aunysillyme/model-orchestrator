@@ -125,16 +125,6 @@ test('a recorded fixture is the evidence for its lane builtAgainst version', () 
   const fx = fixtureManifest();
   assert.ok(fx.fixtures.length >= 4, 'expected recorded vendor fixtures');
   for (const f of fx.fixtures) {
-    if (f.lane === 'claude') {
-      assert.ok(AIS.find(a => a.bin === f.lane));
-      if (f.provenance === 'synthetic') assert.match(f.vendorVersion, /not captured/);
-      else {
-        assert.equal(f.provenance, 'captured');
-        assert.equal(f.expect, 'refusal');
-        assert.ok(f.file.includes(f.vendorVersion.split(' ')[0]));
-      }
-      continue; // Claude has no captured success evidence for its existing installer pin.
-    }
     const a = AIS.find(a => a.bin === f.lane);
     assert.ok(a, 'fixture for an unknown lane: ' + f.lane);
     assert.ok(f.vendorVersion.includes(a.builtAgainst), `${f.lane}: fixture says "${f.vendorVersion}" but the catalog says ${a.builtAgainst}`);

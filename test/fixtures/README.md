@@ -1,12 +1,12 @@
 # Vendor fixtures
 
-The original five fixtures contain raw output captured from actual vendor CLI runs. Claude has a synthetic success fixture from official documentation and a captured authentication failure, both labeled separately in the manifest. Synthetic fixtures establish only the shapes they exercise.
+These fixtures contain output captured from actual vendor CLI runs. Claude Code 2.1.285 has a restricted live success, a sign-in failure and an expired-session failure; the manifest records each capture's flags and date.
 
 Requested by [#11](https://github.com/aunysillyme/model-orchestrator/issues/11): *"Add versioned, sanitized fixtures captured from actual supported vendor versions... Record how fixtures were obtained and what flags/schema they cover."*
 
 ## How they were obtained
 
-Captured 2026-09-06 on macOS (Darwin 25.6.0, Node 22.22.3) by running each lane's real binary with **the exact argv `buildArgv()` builds**, and redirecting stdout to a file. One prompt for every lane:
+The original five fixtures were captured 2026-09-06 on macOS (Darwin 25.6.0, Node 22.22.3) by running each lane's real binary with **the exact argv `buildArgv()` builds**, and redirecting stdout to a file. One prompt for those lanes:
 
 ```
 Reply with exactly the word OK and nothing else. Task bundle: none (one-line lookup, read-only, no artifact)
@@ -16,7 +16,7 @@ Reply with exactly the word OK and nothing else. Task bundle: none (one-line loo
 
 ## Sanitization
 
-Two substitutions, and nothing else. The output is otherwise byte-for-byte what the vendor produced:
+Two substitutions preserve the vendor fields and result text. Claude captures are also formatted as JSON:
 
 - Every UUID → `00000000-0000-0000-0000-000000000000`. These were session, conversation and request ids.
 - `/Users/auny` → `/home/user`. Vendors echo the working directory.
@@ -32,19 +32,24 @@ No credential, key or token appears in any of these files; the lanes authenticat
 | `agy-1.1.27.jsonl` | agy 1.1.27 | 0 | Four events, the `result` event last. `response` is `"OK\n"` with a trailing newline, so the judge must not equality-check the text. The `init` event carries a ~1.5 KB tool list the judge has to skip. |
 | `codex-0.153.4.jsonl` + `.out.txt` | codex-cli 0.153.4 | 0 | **The find.** Real codex emitted an `item.completed` whose item is `type:"error"` (a skills-budget warning) *before* `turn.completed`. A judge that treated any error item as failure would refuse a perfectly good run. The synthetic fixtures never contained one. |
 | `qwen-0.22.3-nokey.json` | qwen 0.22.3 | 1 | A genuine vendor failure, not an invented one: `error_during_execution` with `is_error: true` because no `OPENROUTER_API_KEY` was set. Proves the judge refuses a real refusal. |
+| `claude-2.1.285-success.json` | Claude Code 2.1.285 | 0 | Restricted live success: `subtype: "success"`, `is_error: false`, `result: "OK"`. |
+| `claude-2.1.285-noauth.json` | Claude Code 2.1.285 | 1 | Sign-in failure with `subtype: "success"` and `is_error: true`; the classifier returns auth. |
+| `claude-2.1.285-oauth-expired.json` | Claude Code 2.1.285 | 1 | Expired OAuth session with `subtype: "success"`, `is_error: true` and `Failed to authenticate`; the classifier returns auth. |
 
 ## Gap, stated rather than hidden
 
-**qwen's success shape is still synthetic.** No `OPENROUTER_API_KEY` was available in the capture environment (checked by presence, never printed), so only its failure path is real. `claude-synthetic.json` is a minimal successful print-mode result based on [Anthropic headless documentation](https://code.claude.com/docs/en/headless) and [completion-state documentation](https://code.claude.com/docs/en/agent-sdk/agent-loop), read 2026-09-29. It was written by hand, has no captured vendor version, and does not belong to the 2026-09-06 capture. Claude failure shapes in judge and classifier tests are also synthetic. Ollama has no judge or fixture.
+**qwen's success shape is still synthetic.** No `OPENROUTER_API_KEY` was available in the capture environment (checked by presence, never printed), so only its failure path is real. Claude's other error shapes in judge and classifier tests are hand-written. Ollama has no judge or fixture.
 
 ## Refreshing
 
 These are keyed to a version. When a vendor upgrade changes a shape, capture again with the same prompt and argv, bump the filename to the new version, and update `manifest.json` and the compatibility table in the root README together.
 
-## Claude canary on 2026-09-29
+## Claude captures on 2026-09-29 and 2026-09-30
 
-Exactly one no-tools prompt was run through the native lane in an empty temporary directory with Claude Code 2.1.285: `Reply OK without using tools.` Existing authentication was confirmed by the CLI status command, but was unavailable under the isolated canary configuration. The worker returned `subtype: "success"`, `is_error: true`, and `Not logged in`; the runner correctly exited 14. This verifies authentication-failure handling only, not live successful completion.
+On 2026-09-29, a no-tools prompt was run through the native lane in an empty temporary directory with Claude Code 2.1.285: `Reply OK without using tools.` Existing authentication was confirmed by the CLI status command, but was unavailable under the isolated canary configuration. The worker returned `subtype: "success"`, `is_error: true`, and `Not logged in`; the runner correctly exited 14.
 
 The canary command ran with approved execution outside the outer command sandbox, but with a deliberately reduced environment and settings. Its failure does not establish that the sandbox alone caused the authentication problem or that direct CLI invocation cannot work. This fixture also provides no live verification of an MCP worker.
 
-`claude-2.1.285-noauth.json` is the captured native stdout, reformatted as JSON with all UUIDs replaced by zero UUIDs. The manifest records the safety flags: tools, MCP, customizations, hooks and persistence were disabled. No software or authentication was changed, and no retry was made. The installer pin remains unchanged; this newer failure capture does not establish compatibility of a successful run at that pin.
+On 2026-09-30, the same restricted flag set and prompt produced the captured `result: "OK"` success with exit 0. A separate run with plain `-p --output-format json --permission-mode dontAsk -- <prompt>` flags captured `Failed to authenticate: OAuth session expired and could not be refreshed` with exit 1.
+
+The manifest records the full flags for all three captures. The restricted runs disabled tools, MCP, customizations, hooks and persistence. Together these captures check native success and authentication-failure handling at 2.1.285; MCP worker behavior remains unverified by these fixtures.

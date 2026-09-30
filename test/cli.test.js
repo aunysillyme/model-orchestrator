@@ -991,6 +991,34 @@ test('#13: repeated runs do not accumulate signal listeners', async () => {
 });
 
 // ---- #12: upgrade path ----
+test('installer reports lanes withheld from a kept runner in writes and dry previews', () => {
+  const d = mkdtempSync(join(tmpdir(), 'orch-withheld-report-'));
+  try {
+    const dir = join(d, 'i');
+    const project = join(d, 'p');
+    const args = ['--yes', '--level', '2', '--ais', 'codex,claude-code', '--primary', 'codex', '--no-tools', '--no-apis', '--dir', dir, '--project', project, '--apply-snippets'];
+    const env = winEnv(join(d, 'no-vendor-binaries'), d);
+    const first = run(args, { env });
+    assert.equal(first.status, 0, first.stderr);
+    const runner = join(dir, 'bin', 'cli-run.mjs');
+    const old = readFileSync(runner, 'utf8').replace(/^export const LANES = .*;$/m, "export const LANES = ['grok', 'codex', 'agy', 'hermes', 'qwen'];") + '\n// local edit\n';
+    writeFileSync(runner, old);
+    const expected = '  lanes withheld: claude (the kept bin/cli-run.mjs predates them; re-run with --upgrade-runtime to enable)';
+    const preview = run([...args, '--dry-run'], { env });
+    assert.equal(preview.status, 0, preview.stderr);
+    assert.ok(preview.stdout.includes(expected), preview.stdout);
+    assert.ok(JSON.parse(readFileSync(join(dir, 'bin', 'lanes.json'), 'utf8')).enabled.includes('claude'));
+    const kept = run(args, { env });
+    assert.equal(kept.status, 0, kept.stderr);
+    assert.ok(kept.stdout.includes(expected), kept.stdout);
+    assert.deepEqual(JSON.parse(readFileSync(join(dir, 'bin', 'lanes.json'), 'utf8')).enabled, ['codex']);
+    const upgraded = run([...args, '--upgrade-runtime'], { env });
+    assert.equal(upgraded.status, 0, upgraded.stderr);
+    assert.equal(upgraded.stdout.includes(expected), false);
+    assert.deepEqual(JSON.parse(readFileSync(join(dir, 'bin', 'lanes.json'), 'utf8')).enabled, ['codex', 'claude']);
+  } finally { rmSync(d, { recursive: true, force: true }); }
+});
+
 test('#12: an install without a manifest keeps runtime files and says executable fixes were not applied; --upgrade-runtime replaces runtime only', () => {
   const d = mkdtempSync(join(tmpdir(), 'orch-legacy-'));
   const dir = join(d, 'i');

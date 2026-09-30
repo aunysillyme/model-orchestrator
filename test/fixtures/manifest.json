@@ -30,22 +30,29 @@
       "covers": "a genuine vendor failure: error_during_execution / is_error true, no OPENROUTER_API_KEY set"
     },
     {
-      "lane": "claude", "vendorVersion": "not captured (synthetic)", "file": "claude-synthetic.json",
-      "provenance": "synthetic", "documentedAt": "2026-09-29",
-      "sources": ["https://code.claude.com/docs/en/headless", "https://code.claude.com/docs/en/agent-sdk/agent-loop"],
-      "flags": ["-p", "--output-format", "json", "--permission-mode", "dontAsk", "--", "<prompt>"], "rc": 0, "expect": "deliverable",
-      "covers": "Synthetic successful print-mode result; judge, classifier and stub tests cover failure shapes separately."
+      "lane": "claude", "vendorVersion": "2.1.285 (Claude Code)", "file": "claude-2.1.285-success.json",
+      "provenance": "captured", "capturedAt": "2026-09-30", "prompt": "Reply OK without using tools.",
+      "flags": ["-p", "--output-format", "json", "--permission-mode", "dontAsk", "--safe-mode", "--tools", "", "--disallowedTools", "*", "--disable-slash-commands", "--setting-sources", "", "--settings", "{\"disableAllHooks\": true}", "--strict-mcp-config", "--mcp-config", "{\"mcpServers\": {}}", "--no-session-persistence", "--", "<prompt>"],
+      "rc": 0, "expect": "deliverable",
+      "covers": "Restricted live success with success subtype, is_error=false and result OK; UUIDs replaced with zero UUIDs."
     },
     {
       "lane": "claude", "vendorVersion": "2.1.285 (Claude Code)", "file": "claude-2.1.285-noauth.json",
       "provenance": "captured", "capturedAt": "2026-09-29", "prompt": "Reply OK without using tools.",
       "flags": ["-p", "--output-format", "json", "--permission-mode", "dontAsk", "--safe-mode", "--tools", "", "--disallowedTools", "*", "--disable-slash-commands", "--setting-sources", "", "--settings", "{\"disableAllHooks\": true}", "--strict-mcp-config", "--mcp-config", "{\"mcpServers\": {}}", "--no-session-persistence", "--", "<prompt>"],
       "rc": 1, "expect": "refusal",
-      "covers": "One restricted no-tools canary returned success subtype with is_error=true and a native authentication error; this is not live success evidence. UUIDs replaced with zero UUIDs."
+      "covers": "Restricted sign-in failure with success subtype, is_error=true and a native authentication error; UUIDs replaced with zero UUIDs."
+    },
+    {
+      "lane": "claude", "vendorVersion": "2.1.285 (Claude Code)", "file": "claude-2.1.285-oauth-expired.json",
+      "provenance": "captured", "capturedAt": "2026-09-30",
+      "flags": ["-p", "--output-format", "json", "--permission-mode", "dontAsk", "--", "<prompt>"],
+      "rc": 1, "expect": "refusal",
+      "covers": "Expired OAuth session with success subtype, is_error=true and Failed to authenticate text; UUIDs replaced with zero UUIDs."
     }
   ],
   "gaps": [
     "qwen success shape is still synthetic: no OPENROUTER_API_KEY was available in the capture environment",
-    "Claude success and most error coverage are synthetic. One restricted canary captured only an authentication failure at 2.1.285; the installer pin remains 2.1.226. Ollama has no judge."
+    "Claude has a restricted live success and two authentication-failure captures at 2.1.285. Other error shapes remain hand-written in tests. Ollama has no judge."
   ]
 }

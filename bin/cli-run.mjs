@@ -622,6 +622,7 @@ export function claudeErrorText(out) {
   if (!o) return '';
   const parts = Array.isArray(o.errors) ? o.errors.filter(e => typeof e === 'string') : [];
   if (o.is_error === true && typeof o.result === 'string') parts.push(o.result);
+  if (Number.isInteger(o.api_error_status)) parts.push(`api_error_status=${o.api_error_status}`);
   return parts.join('\n');
 }
 
@@ -636,7 +637,7 @@ function authoritativeBlob(lane, out, err, detail, rc) {
 
 export function sigAuth(lane, blob) {
   const b = blob.toLowerCase();
-  if (lane === 'claude') return /authentication_error|permission_error|invalid api key|not logged in|please run \/login|oauth token.*expired|\b(?:401|403)\b/.test(b);
+  if (lane === 'claude') return /authentication_error|permission_error|invalid api key|not logged in|please run \/login|failed to authenticate|oauth (?:token|session).*expired|api_error_status=(?:401|403)|api error: (?:401|403)\b/.test(b);
   if (lane === 'qwen') return b.includes('missing api key');
   if (lane === 'agy') return b.includes('you are not logged into antigravity') || b.includes('not authenticated');
   return false; // codex, grok, hermes: no documented native auth signal
@@ -644,7 +645,7 @@ export function sigAuth(lane, blob) {
 
 export function sigQuota(lane, blob) {
   const b = blob.toLowerCase();
-  if (lane === 'claude') return /rate_limit_error|rate limit|insufficient credits|credit balance|you['’]ve hit your limit|\b429\b/.test(b);
+  if (lane === 'claude') return /rate_limit_error|rate limit|insufficient credits|credit balance|you['’]ve hit your limit|api_error_status=429|api error: 429\b/.test(b);
   if (lane === 'qwen') return b.includes('[api error: 402') || b.includes('requires more credits') || blob.includes(' 429') || b.includes('rate limit');
   if (lane === 'codex') return blob.includes('usage_limit_exceeded') || b.includes("you've hit your usage limit");
   if (lane === 'hermes') return hermesQuotaText(b);
@@ -653,7 +654,7 @@ export function sigQuota(lane, blob) {
 
 export function sigRejected(lane, blob) {
   const b = blob.toLowerCase();
-  if (lane === 'claude') return /invalid_request_error|unknown option|invalid (?:model|effort)|\b400\b/.test(b);
+  if (lane === 'claude') return /invalid_request_error|unknown option|invalid (?:model|effort)|api_error_status=400|api error: 400\b/.test(b);
   if (lane === 'qwen') return b.includes('[api error: 400') || b.includes('no endpoints found') || b.includes('failed to parse grammar');
   if (lane === 'codex') return blob.includes('invalid_request_error');
   if (lane === 'hermes') return hermesArgError(b) || b.includes('toolset') || hermesMismatchLine(blob) !== null;

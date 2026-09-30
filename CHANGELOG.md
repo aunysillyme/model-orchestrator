@@ -7,7 +7,14 @@ All notable changes to this project are documented here. The format follows [Kee
 ### Fixed
 
 - Prefer an already-connected Claude worker MCP service in host routing, with the native CLI retained as a standalone fallback. Route suggestions and generated instructions describe the session, result, permission and environment boundaries; no MCP installation or automatic transport retry is added.
-- Enable the native `claude` CLI worker with print-mode JSON completion checks, existing permission rules, model and effort overrides, failure classification and shared timeout/cancellation handling. Codex-primary stacks can assign independent review to Claude Code; Claude-primary stacks retain Codex review. Generated lanes use executable names while manifest AI identities retain installer IDs. Claude fixtures identify synthetic coverage and the captured authentication failure separately.
+- Enable the native `claude` CLI worker with print-mode JSON completion checks, existing permission rules, model and effort overrides, failure classification and shared timeout/cancellation handling. Codex-primary stacks can assign independent review to Claude Code; Claude-primary stacks retain Codex review. Generated lanes use executable names while manifest AI identities retain installer IDs. Claude fixtures record native success and authentication failures.
+- Keep supported lanes usable when an edited or unverifiable older runner is kept during an upgrade. Withhold unsupported lanes and their defaults from `lanes.json`, and report how to enable them with `--upgrade-runtime`.
+- Classify Claude's expired OAuth session and `Failed to authenticate` errors as auth (exit 14).
+- Match Claude HTTP codes only in API status fields or `API Error:` prefixes, so a 400 error mentioning 429 tokens stays rejected (exit 16).
+
+### Changed
+
+- Check and pin the Claude lane at 2.1.285, and replace its hand-written success fixture with a captured restricted live success at that version.
 
 ## [1.0.6] - 2026-09-29
 
