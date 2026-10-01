@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Changed
+
+- LICENSE names Auny LLC as copyright holder; outside contributions now require the CLA in CLA.md.
+
 ## [1.0.8] - 2026-09-30
 
 ### Changed

@@ -35,6 +35,10 @@ An entry in `TOOLS` in `src/catalog.js`, a doc under `templates/tools/<id>/`, an
 - No em dashes in prose you add. It is a house rule and `test/prose.test.js` checks it.
 - Add a line under `[Unreleased]` in `CHANGELOG.md`.
 
+## Contributor License Agreement
+
+Outside contributors tick the Contributor License Agreement box in the PR description. You keep the copyright in what you wrote and grant Auny LLC the licenses in [CLA.md](CLA.md). The `cla` check passes once the box is ticked.
+
 ## Published evidence
 
 When changing a measured claim, update its script under `proof/scripts/`, rerun it and regenerate `proof/README.md` from `proof/results.json`. Every figure needs a method, sample size, measurement date and expiry. Use `<model-id>` in examples; dated catalog fields hold vendor identifiers.
