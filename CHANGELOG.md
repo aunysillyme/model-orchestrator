@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [1.0.8] - 2026-09-30
+
+### Changed
+
+- AGENTS.md is the single source of agent instructions. CLAUDE.md imports it so Claude Code loads the same rules as every other agent.
+- Merge the contributor rules that had diverged between AGENTS.md and CLAUDE.md.
+- The feature request form asks for an observable success check.
+
 ## [1.0.7] - 2026-09-30
 
 ### Fixed
@@ -587,7 +595,8 @@ First release.
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
-[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.7...HEAD
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.8...HEAD
+[1.0.8]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.7...v1.0.8
 [1.0.7]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.6...v1.0.7
 [1.0.6]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.5...v1.0.6
 [1.0.5]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.4...v1.0.5
