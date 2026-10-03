@@ -16,7 +16,7 @@ const RETIRED = /task bundle|TASK_BUNDLE|Lane A|Lane B|done-signal|\bdeliverable
 const FIXED_MODEL = /\b(?:gpt-\d[\w.-]*|xai\/grok-\d[\w.-]*|claude-(?:opus|sonnet|haiku)-\d[\w.-]*|gemini-\d[\w.-]*|qwen\d[\w.-]*)\b/i;
 function publicFiles() {
   // Historical release notes and test fixtures preserve the contracts they reproduce.
-  const roots = [...readdirSync(ROOT).filter(f => f.endsWith('.md') && !['CHANGELOG.md', 'AUDIT_BRIEF.md'].includes(f)), 'llms.txt', 'docs', 'templates', 'src', 'bin', 'plugin', 'scripts', '.claude-plugin', 'proof'];
+  const roots = [...readdirSync(ROOT).filter(f => f.endsWith('.md') && !['CHANGELOG.md', 'AUDIT_BRIEF.md'].includes(f)), 'llms.txt', 'docs', 'templates', 'src', 'bin', 'plugin', 'agensi', 'scripts', '.claude-plugin', 'proof'];
   return roots.flatMap(root => {
     const p = join(ROOT, root);
     return statSync(p).isDirectory() ? [...walk(p)] : [p];
@@ -115,6 +115,7 @@ function inAlarmScope(p) {
   const rel = p.slice(ROOT.length + 1);
   if (rel.startsWith('docs' + sep)) return rel !== join('docs', 'security-review-history.md');
   if (rel.startsWith('templates' + sep)) return true;
+  if (rel.startsWith('agensi' + sep)) return p.endsWith('.md');
   return false;
 }
 
