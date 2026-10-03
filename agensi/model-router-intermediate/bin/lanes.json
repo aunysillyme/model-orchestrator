@@ -1,0 +1,14 @@
+{
+  "enabled": [],
+  "defaults": {},
+  "available": [
+    "claude",
+    "codex",
+    "agy",
+    "grok",
+    "hermes",
+    "qwen"
+  ],
+  "note": "Fill at setup: add only verified installed CLI names from available to enabled. Every lane starts disabled. An unlisted lane exits 13.",
+  "defaultsNote": "Unpinned: inherit each CLI configuration. Verify its current model and effort before a call. Flags override defaults. Qwen has no effort flag. Hermes provider selection requires a matching model. Doctor exits 13 until a lane is enabled."
+}
