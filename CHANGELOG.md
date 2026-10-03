@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+- Generate standalone beginner and intermediate Agensi skill packs from shared templates, with setup guidance, the bundled intermediate runner, zip packaging and drift checks.
+
 ## [1.0.8] - 2026-09-30
 
 ### Changed

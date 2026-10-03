@@ -29,6 +29,7 @@ When using the Claude Code plugin, follow [plugin/README.md](plugin/README.md). 
 - **Catalog:** when adding an AI or companion, edit `src/catalog.js`; keep templates free of logic.
 - **Templates:** when changing installed instructions, edit `templates/`. Use public terms: task brief, context file, acceptance checks, definition of done and result.
 - **Generated files:** run `npm run gen:catalog` after catalog changes and `npm run gen:plugin` after plugin-template changes. `plugin/` is generated from `templates/`; only `plugin/README.md` and `plugin/hooks/hooks.json` are hand-owned. `test/plugin.test.js` fails on drift. Before a release, `claude plugin validate --strict plugin` must pass.
+  Run `npm run gen:agensi` after template changes; `agensi/` is generated, only `templates/agensi/` is hand-owned.
 - **Plugin safety:** hooks may only read and emit context. No network, file writes, subprocesses or credential access.
 - **Installer safety:** `bin/cli.js` writes only inside `--dir` and `--project`, refuses home-level agent configuration and runs no third-party installer or vendor script.
 - **Installer ownership:** existing documents stay unless `--force` replaces them or `--update-docs` verifies their recorded hash. Machine-owned configuration refreshes, unchanged managed runtime files upgrade, and `--upgrade-runtime` explicitly replaces runtime files. Project activation merges supported entries with backups. Preserve these rules; `test/install.test.js` and `test/cli.test.js` check them.
