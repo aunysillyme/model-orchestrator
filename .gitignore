@@ -10,3 +10,6 @@ AUDIT_BRIEF.md
 website/dist/
 .vercel/
 .env*
+
+# Standalone skill archives
+dist/
