@@ -11,6 +11,7 @@
     "bin",
     "src",
     "templates",
+    "!templates/agensi",
     "docs",
     "!docs/router-trailer.gif",
     "README.md",
@@ -31,7 +32,9 @@
     "gen:plugin": "node scripts/gen-plugin.js",
     "proof:measure": "node proof/scripts/measure.js",
     "proof:render": "node proof/scripts/render.js",
-    "proof:demo": "node proof/scripts/record-gate.js"
+    "proof:demo": "node proof/scripts/record-gate.js",
+    "gen:agensi": "node scripts/gen-agensi.js",
+    "pack:agensi": "node scripts/pack-agensi.js"
   },
   "engines": {
     "node": ">=18"
