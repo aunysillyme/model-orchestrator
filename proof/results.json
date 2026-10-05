@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "environment": {
-    "node": "v22.23.2",
+    "node": "v22.23.3",
     "platform": "linux",
     "arch": "x64"
   },
@@ -10,69 +10,69 @@
       "id": "install-dry-ms",
       "label": "Dry install wall time",
       "kind": "reproducible",
-      "value": 61.594306,
+      "value": 68.443595,
       "unit": "ms median",
-      "measuredAt": "2026-09-28",
+      "measuredAt": "2026-10-05",
       "method": "Spawn a fresh Node installer process per sample; level 2, Claude Code + Codex, no companions, --dry. Includes Node startup and planning; writes no install files. Isolated home and PATH, no real vendors.",
       "sampleSize": 7,
       "script": "proof/scripts/install-time.js",
-      "expiresAt": "2026-10-12",
+      "expiresAt": "2026-10-19",
       "samples": [
-        72.998866,
-        61.594306,
-        63.307248,
-        60.59507,
-        61.218156,
-        66.993599,
-        61.070192
+        84.604404,
+        75.417905,
+        67.75918,
+        67.160579,
+        67.887969,
+        69.463302,
+        68.443595
       ]
     },
     {
       "id": "runner-overhead-ms",
       "label": "Lane runner overhead",
       "kind": "reproducible",
-      "value": 60.27329300000001,
+      "value": 64.98437,
       "unit": "ms median difference",
-      "measuredAt": "2026-09-28",
+      "measuredAt": "2026-10-05",
       "method": "Paired fresh processes: direct Node stub versus cli-run hermes with the same stub. Alternates pair order. Includes wrapper startup, validation and local log writes; excludes vendor/network/model time.",
       "sampleSize": 7,
       "script": "proof/scripts/runner-overhead.js",
-      "expiresAt": "2026-10-12",
+      "expiresAt": "2026-10-19",
       "pairs": [
         {
-          "directMs": 27.602021,
-          "wrappedMs": 89.562129,
-          "overheadMs": 61.960108
+          "directMs": 28.549766,
+          "wrappedMs": 97.180116,
+          "overheadMs": 68.63034999999999
         },
         {
-          "directMs": 26.453384,
-          "wrappedMs": 85.145791,
-          "overheadMs": 58.692407
+          "directMs": 27.328325,
+          "wrappedMs": 92.240721,
+          "overheadMs": 64.912396
         },
         {
-          "directMs": 26.104555,
-          "wrappedMs": 91.019659,
-          "overheadMs": 64.915104
+          "directMs": 26.623119,
+          "wrappedMs": 91.152136,
+          "overheadMs": 64.529017
         },
         {
-          "directMs": 24.351936,
-          "wrappedMs": 84.625229,
-          "overheadMs": 60.27329300000001
+          "directMs": 25.372975,
+          "wrappedMs": 91.805014,
+          "overheadMs": 66.432039
         },
         {
-          "directMs": 27.307321,
-          "wrappedMs": 86.025276,
-          "overheadMs": 58.717955
+          "directMs": 26.279985,
+          "wrappedMs": 87.634062,
+          "overheadMs": 61.354077000000004
         },
         {
-          "directMs": 26.203506,
-          "wrappedMs": 84.365333,
-          "overheadMs": 58.161827
+          "directMs": 27.999515,
+          "wrappedMs": 92.983885,
+          "overheadMs": 64.98437
         },
         {
-          "directMs": 26.328261,
-          "wrappedMs": 86.629325,
-          "overheadMs": 60.301064
+          "directMs": 26.135268,
+          "wrappedMs": 105.589477,
+          "overheadMs": 79.454209
         }
       ]
     },
@@ -82,11 +82,11 @@
       "kind": "reproducible",
       "value": 10,
       "unit": "fixtures rejected",
-      "measuredAt": "2026-09-28",
+      "measuredAt": "2026-10-05",
       "method": "Run cli-run against an exit-0 stub for every supported lane, once with empty stdout and once with an empty native final result. Count exit 10/11 only. A successful Hermes response is the positive control. Synthetic fixtures measure these shapes only.",
       "sampleSize": 10,
       "script": "proof/scripts/missing-results.js",
-      "expiresAt": "2026-10-12",
+      "expiresAt": "2026-10-19",
       "outcomes": [
         {
           "lane": "grok",
@@ -146,11 +146,11 @@
       "kind": "reproducible",
       "value": 4,
       "unit": "fixtures rejected",
-      "measuredAt": "2026-09-28",
+      "measuredAt": "2026-10-05",
       "method": "Run aunx checks run against nonzero, manual, missing-program and timeout fixtures. Each must exit 1; a passing command must exit 0. This is a local command gate, activated by the user in their release sequence.",
       "sampleSize": 4,
       "script": "proof/scripts/check-gate.js",
-      "expiresAt": "2026-10-12",
+      "expiresAt": "2026-10-19",
       "outcomes": [
         {
           "fixture": "nonzero",
