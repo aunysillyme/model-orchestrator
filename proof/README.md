@@ -2,14 +2,14 @@
 
 Generated from [results.json](results.json). Each figure has a method, sample size, measurement date and expiry. Run the scripts on your own machine to compare.
 
-Environment: Node v22.23.2, linux x64. Timing varies with startup caches and other work on the machine. Synthetic cases show what those fixtures exercise.
+Environment: Node v22.23.3, linux x64. Timing varies with startup caches and other work on the machine. Synthetic cases show what those fixtures exercise.
 
 | Measurement | Result | Sample size | Measured | Expires | Reproduce |
 |---|---|---|---|---|---|
-| Dry install wall time | 61.59 ms median | 7 | 2026-09-28 | 2026-10-12 | [script](../proof/scripts/install-time.js) |
-| Lane runner overhead | 60.27 ms median difference | 7 | 2026-09-28 | 2026-10-12 | [script](../proof/scripts/runner-overhead.js) |
-| Empty results flagged | 10 fixtures rejected | 10 | 2026-09-28 | 2026-10-12 | [script](../proof/scripts/missing-results.js) |
-| Acceptance failures blocked | 4 fixtures rejected | 4 | 2026-09-28 | 2026-10-12 | [script](../proof/scripts/check-gate.js) |
+| Dry install wall time | 68.44 ms median | 7 | 2026-10-05 | 2026-10-19 | [script](../proof/scripts/install-time.js) |
+| Lane runner overhead | 64.98 ms median difference | 7 | 2026-10-05 | 2026-10-19 | [script](../proof/scripts/runner-overhead.js) |
+| Empty results flagged | 10 fixtures rejected | 10 | 2026-10-05 | 2026-10-19 | [script](../proof/scripts/missing-results.js) |
+| Acceptance failures blocked | 4 fixtures rejected | 4 | 2026-10-05 | 2026-10-19 | [script](../proof/scripts/check-gate.js) |
 
 ## Run the proof scripts
 
@@ -40,7 +40,7 @@ The [recording script](scripts/record-gate.js) captures real command output into
 
 Spawn a fresh Node installer process per sample; level 2, Claude Code + Codex, no companions, --dry. Includes Node startup and planning; writes no install files. Isolated home and PATH, no real vendors.
 
-Kind: reproducible local measurement. Sample size: 7. Measured: 2026-09-28. Expires: 2026-10-12.
+Kind: reproducible local measurement. Sample size: 7. Measured: 2026-10-05. Expires: 2026-10-19.
 
 Source: [proof/scripts/install-time.js](../proof/scripts/install-time.js).
 
@@ -48,7 +48,7 @@ Source: [proof/scripts/install-time.js](../proof/scripts/install-time.js).
 
 Paired fresh processes: direct Node stub versus cli-run hermes with the same stub. Alternates pair order. Includes wrapper startup, validation and local log writes; excludes vendor/network/model time.
 
-Kind: reproducible local measurement. Sample size: 7. Measured: 2026-09-28. Expires: 2026-10-12.
+Kind: reproducible local measurement. Sample size: 7. Measured: 2026-10-05. Expires: 2026-10-19.
 
 Source: [proof/scripts/runner-overhead.js](../proof/scripts/runner-overhead.js).
 
@@ -56,7 +56,7 @@ Source: [proof/scripts/runner-overhead.js](../proof/scripts/runner-overhead.js).
 
 Run cli-run against an exit-0 stub for every supported lane, once with empty stdout and once with an empty native final result. Count exit 10/11 only. A successful Hermes response is the positive control. Synthetic fixtures measure these shapes only.
 
-Kind: reproducible local measurement. Sample size: 10. Measured: 2026-09-28. Expires: 2026-10-12.
+Kind: reproducible local measurement. Sample size: 10. Measured: 2026-10-05. Expires: 2026-10-19.
 
 Source: [proof/scripts/missing-results.js](../proof/scripts/missing-results.js).
 
@@ -64,7 +64,7 @@ Source: [proof/scripts/missing-results.js](../proof/scripts/missing-results.js).
 
 Run aunx checks run against nonzero, manual, missing-program and timeout fixtures. Each must exit 1; a passing command must exit 0. This is a local command gate, activated by the user in their release sequence.
 
-Kind: reproducible local measurement. Sample size: 4. Measured: 2026-09-28. Expires: 2026-10-12.
+Kind: reproducible local measurement. Sample size: 4. Measured: 2026-10-05. Expires: 2026-10-19.
 
 Source: [proof/scripts/check-gate.js](../proof/scripts/check-gate.js).
 
