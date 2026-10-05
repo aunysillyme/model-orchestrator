@@ -1,0 +1,32 @@
+# Runs on pull request description changes and new commits, using only the event payload.
+# What it proves: outside contributors tick the box agreeing to CLA.md before this check passes.
+# Owners, members, collaborators and bots skip the job. PR text reaches the script through env;
+# no checkout, actions, network calls, credentials or writes are needed.
+name: cla
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions: {}
+
+jobs:
+  cla:
+    if: ${{ !contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association) && github.event.pull_request.user.type != 'Bot' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Contributor License Agreement
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          node <<'NODE'
+          const checkedLine = '- [x] I agree to the Contributor License Agreement in CLA.md';
+          // Hidden HTML comments (closed or left open) never count as agreement.
+          const visible = (process.env.PR_BODY || '').replace(/<!--[\s\S]*?(?:-->|$)/g, '');
+          const agreed = visible.split(/\r?\n/).some(line =>
+            line.trim().replace(/^[-*] \[[xX]\] /, '- [x] ') === checkedLine);
+          if (!agreed) {
+            console.error('::error::Please tick the Contributor License Agreement box in the PR description to agree to [CLA.md](CLA.md).');
+            process.exit(1);
+          }
+          NODE
