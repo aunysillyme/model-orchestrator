@@ -4,7 +4,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
 - Generate standalone beginner and intermediate Agensi skill packs from shared templates, with setup guidance, the bundled intermediate runner, zip packaging and drift checks.
+
+### Changed
+
+- LICENSE names Auny LLC as copyright holder; outside contributions now require the CLA in CLA.md.
 
 ## [1.0.8] - 2026-09-30
 
