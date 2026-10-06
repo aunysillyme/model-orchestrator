@@ -241,7 +241,7 @@ The lane wiring and the output judges were written against these versions, which
 | `grok` | xAI | 1.0.5 | `test/fixtures/grok-1.0.5.json`, a recorded run |
 | `hermes` | Nous Research | 0.20.0 | `test/fixtures/hermes-0.20.0.txt`, a recorded run |
 | `qwen` | Alibaba | 0.22.3 | `test/fixtures/qwen-0.22.3-nokey.json`, a recorded run |
-| `ollama` | Ollama | 0.34.4 | the pinned image the level 3 box runs, `ollama/ollama:0.34.4` |
+| `ollama` | Ollama | 0.35.1 | the pinned image the level 3 box runs, `ollama/ollama:0.35.1` |
 
 Generated from `src/catalog.js` by `npm run gen:catalog`; `npm test` fails if this table and the catalog disagree. Original vendor fixtures were captured 2026-09-06; [fixture provenance](test/fixtures/README.md) records later captures and remaining gaps.
 
