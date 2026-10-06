@@ -457,8 +457,8 @@ export const providerById = Object.fromEntries(PROVIDERS.map((p) => [p.id, p]));
 // Container image pins for the level 3 templates. Bump deliberately; a
 // reviewed box should not change underneath the user on a restart.
 export const IMAGES = {
-  litellm: 'ghcr.io/berriai/litellm:v1.100.3',
-  ollama: 'ollama/ollama:0.34.4'
+  litellm: 'ghcr.io/berriai/litellm:v1.104.0',
+  ollama: 'ollama/ollama:0.35.1'
 };
 
 export const byId = Object.fromEntries(AIS.map((a) => [a.id, a]));
