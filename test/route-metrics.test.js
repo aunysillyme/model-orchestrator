@@ -195,7 +195,7 @@ test('route-metrics.mjs: repeated incomplete route markers finish within the hoo
   const home = newHome();
   const hookPath = writeHook(home);
   try {
-    for (const message of ['x'.repeat(1024 * 1024), '<!--route:'.repeat(110000), '<!--route:' + ' '.repeat(1024 * 1024)]) {
+    for (const message of ['x'.repeat(1024 * 1024), '<!--route:'.repeat(110000), '<!--route:' + ' '.repeat(1024 * 1024), '<!--route:a'.repeat(100000) + '-->']) {
       const r = spawnSync('node', [hookPath], {
         input: JSON.stringify({ hook_event_name: 'Stop', session_id: 's', last_assistant_message: message }),
         encoding: 'utf8', timeout: 5000,
@@ -221,13 +221,50 @@ test('route-metrics.mjs: known lanes survive and incomplete or unrelated trailin
       ['<!-- route: builder | completed --> <!-- unrelated comment -->', ['builder']],
       ['<!-- route: builder | first --> <!-- route: codex | last --> <!-- ignored -->', ['codex']],
       ['<!-- \n route: main | whitespace -->', ['main']],
-      ['<!-- route: | empty -->', ['missing']]
+      ['<!-- route: | empty -->', ['missing']],
+      ['<!-- route: codex | checking syntax <!-- nested comment --> -->', ['codex']]
     ];
     for (const [message, expected] of cases) {
       const r = run(hookPath, home, { hook_event_name: 'Stop', session_id: 's', last_assistant_message: message });
       assert.equal(r.status, 0, r.stderr);
       assert.deepEqual(readLog(home).at(-1).lane, expected);
     }
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test('route-metrics.mjs: custom subagents in .claude/agents/ are allowed', () => {
+  const home = newHome();
+  const hookPath = writeHook(home);
+  try {
+    const projectDir = join(home, 'project');
+    mkdirSync(join(projectDir, '.claude', 'agents'), { recursive: true });
+    writeFileSync(join(projectDir, '.claude', 'agents', 'python-expert.md'), 'test');
+    
+    const r = spawnSync('node', [hookPath], {
+      input: JSON.stringify({
+        hook_event_name: 'Stop',
+        session_id: 's',
+        last_assistant_message: '<!-- route: python-expert | generated unit tests -->'
+      }),
+      encoding: 'utf8',
+      env: { ...process.env, HOME: home, USERPROFILE: home, CLAUDE_PROJECT_DIR: projectDir }
+    });
+    assert.equal(r.status, 0, r.stderr);
+    assert.deepEqual(readLog(home).at(-1).lane, ['python-expert']);
+    
+    const r2 = spawnSync('node', [hookPath], {
+      input: JSON.stringify({
+        hook_event_name: 'Stop',
+        session_id: 's',
+        last_assistant_message: '<!-- route: unknown-token | generated unit tests -->'
+      }),
+      encoding: 'utf8',
+      env: { ...process.env, HOME: home, USERPROFILE: home, CLAUDE_PROJECT_DIR: projectDir }
+    });
+    assert.equal(r2.status, 0, r2.stderr);
+    assert.deepEqual(readLog(home).at(-1).lane, ['invalid']);
   } finally {
     rmSync(home, { recursive: true, force: true });
   }
