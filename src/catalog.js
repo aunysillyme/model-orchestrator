@@ -300,7 +300,7 @@ export const AIS = [
     summary: 'A local model runtime; work sent here stays on the machine',
     minLevel: 2,
     install: { url: 'https://ollama.com/download', brew: 'ollama' },
-    builtAgainst: '0.34.4',
+    builtAgainst: '0.35.1',
     auth: 'none',
     rulesFile: null,
   },
