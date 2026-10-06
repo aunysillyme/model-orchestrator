@@ -153,6 +153,17 @@ On Claude Code installs, the routing hook records turns, route markers and subag
 
 The plugin carries read-only routing hooks and the subagents. Generate your project's routing rules with `npx model-orchestrator`. The npm installer also supplies the local metrics hook. [Plugin setup](plugin/README.md).
 
+## Skill packs on Agensi
+
+The beginner and intermediate setups are also standalone skill packs on Agensi, a marketplace for agent skills. Each pack is a SKILL.md your AI follows to set itself up, built from the same templates as the installer. No npm needed.
+
+| Pack | What you get |
+|---|---|
+| [Beginner](https://www.agensi.io/skills/model-router-beginner-right-model-for-every-task) | Routing rules, task briefs and protocols for one main agent |
+| [Intermediate](https://www.agensi.io/skills/model-router-intermediate-delegate-across-your-ai-clis) | Adds the CLI runner and lanes file for worker AIs |
+
+`npx model-orchestrator` is free and adds project activation, hooks, health check and uninstall.
+
 ## Works well with
 
 These are other authors' projects, maintained in their own repositories. All companions start unselected. Choosing one writes guidance and configuration snippets. With activation enabled, supported project configuration is merged automatically; you install the tool and complete any printed setup steps yourself.
