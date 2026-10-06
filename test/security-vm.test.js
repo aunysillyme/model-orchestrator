@@ -169,3 +169,40 @@ test('weekly audit service uses its own credential file separate from gateway pr
   assert.match(service, /^EnvironmentFile=%h\/\.config\/ai-orchestrator\/weekly-audit\.env$/m);
   assert.doesNotMatch(service, /^EnvironmentFile=.*\/gateway\.env$/m);
 });
+
+test('weekly audit timeout marker cannot recreate an unlinked path through a symlink', { skip: SKIP_VM_RUNTIME_ON_WINDOWS }, () => {
+  const root = mkdtempSync(join(tmpdir(), 'audit-marker-'));
+  try {
+    const bin = join(root, 'stubs');
+    mkdirSync(bin);
+    const target = join(root, 'unrelated-file');
+    writeFileSync(target, 'original unrelated bytes\n');
+    // Reproduce an attacker taking the name immediately after its unlink.
+    // The watchdog then reaches its ordinary redirect against real files.
+    writeFileSync(join(bin, 'rm'), `#!/usr/bin/env bash
+for name in "$@"; do
+  case "$name" in
+    *wa-fired.*)
+      /bin/rm "$@"
+      /bin/ln -s ${shellQuote(target)} "$name"
+      exit 0 ;;
+  esac
+done
+exec /bin/rm "$@"
+`, { mode: 0o755 });
+    const files = planFiles({ level: 3, selected: [byId['claude-code'], byId.codex], primary: byId['claude-code'], dir: root, project: root });
+    const generated = files.find(f => f.rel.split('\\').join('/') === 'vm/jobs/weekly-audit.sh').content;
+    const watchdog = generated.slice(generated.indexOf('killtree() {'), generated.indexOf('\nDATE='));
+    assert.match(watchdog, /bounded\(\)/, 'generated watchdog functions were not found');
+    const script = join(root, 'watchdog.sh');
+    writeFileSync(script, '#!/usr/bin/env bash\nset -uo pipefail\n' + watchdog + '\nbounded 0.05 sleep 5\n');
+    const r = spawnSync('bash', [script], {
+      encoding: 'utf8', timeout: 5000,
+      env: { ...process.env, PATH: bin + delimiter + process.env.PATH, TMPDIR: root }
+    });
+    assert.equal(r.status, 124, r.stderr);
+    assert.equal(readFileSync(target, 'utf8'), 'original unrelated bytes\n', 'timeout marker followed the replacement symlink');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

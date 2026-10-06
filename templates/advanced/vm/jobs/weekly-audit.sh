@@ -78,10 +78,15 @@ bounded() {
   # Bash otherwise replaces stdin with /dev/null for asynchronous commands.
   # Preserve the caller's pipe explicitly so curl can read its config on stdin.
   ( "$@" ) <&0 & local pid=$!
-  ( sleep "$secs"; [ -n "$fired" ] && : > "$fired"; killtree "$pid" ) >/dev/null 2>&1 & local wd=$!
+  # mkdir creates the marker atomically and refuses an occupied path, including
+  # a symlink. A redirect here could truncate the symlink's unrelated target.
+  ( sleep "$secs"; [ -n "$fired" ] && mkdir "$fired"; killtree "$pid" ) >/dev/null 2>&1 & local wd=$!
   wait "$pid" 2>/dev/null; local rc=$?
   killtree "$wd" >/dev/null 2>&1; wait "$wd" 2>/dev/null
-  if [ -n "$fired" ] && [ -e "$fired" ]; then rm -f "$fired"; return 124; fi
+  if [ -n "$fired" ] && { [ -e "$fired" ] || [ -L "$fired" ]; }; then
+    rmdir "$fired" 2>/dev/null || rm -f "$fired"
+    return 124
+  fi
   return $rc
 }
 

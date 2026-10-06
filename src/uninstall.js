@@ -1,10 +1,11 @@
-import { closeSync, constants, existsSync, fstatSync, ftruncateSync, lstatSync, openSync, readFileSync, readdirSync, rmdirSync, unlinkSync, writeFileSync } from 'node:fs';
+import { closeSync, constants, existsSync, fstatSync, lstatSync, openSync, readFileSync, readdirSync, rmdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep, win32 } from 'node:path';
-import { dirProblems, globalConfigProblem, realRoot } from './install.js';
+import { ACTIVATION_JSON_BYTE_CAP, atomicWriteFile, backupStamp, dirProblems, globalConfigProblem, realRoot } from './install.js';
 import { START, END } from './apply-snippets.js';
 import { validateActivationOwnership } from './activation-ownership.js';
 import { MANIFEST_BYTE_CAP, readBounded } from './bounded-file.js';
+import { isDeepStrictEqual } from 'node:util';
 
 const hash = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const object = (value) => value && typeof value === 'object' && !Array.isArray(value);
@@ -162,15 +163,24 @@ function applyRemoval(item, plan) {
   const last = inspect(item);
   if (!last || last.dev !== current.stat.dev || last.ino !== current.stat.ino) throw refused(`file changed during uninstall: ${item.abs}`);
   if (plan.content === null) unlinkSync(item.abs);
-  else {
-    const fd = openSync(item.abs, constants.O_WRONLY | (constants.O_NOFOLLOW || 0) | (constants.O_NONBLOCK || 0));
+  else atomicWriteFile(item.abs, plan.content, current.stat.mode & 0o777);
+}
+
+// Restore formatting only after the remaining settings match a saved original
+// semantically. Older installs did not record a backup path in their manifest.
+function originalSettingsBytes(item, content) {
+  if (item.ownership.kind !== 'hooks' || item.ownership.created || content === null) return content;
+  let remaining;
+  try { remaining = JSON.parse(content.toString('utf8')); } catch { return content; }
+  const prefix = basename(item.abs) + '.bak-';
+  for (const name of readdirSync(dirname(item.abs)).sort()) {
+    if (!name.startsWith(prefix) || !/^\d{8}T\d{6}Z?$/.test(name.slice(prefix.length))) continue;
     try {
-      const actual = fstatSync(fd);
-      if (!actual.isFile() || actual.dev !== current.stat.dev || actual.ino !== current.stat.ino) throw refused(`file changed during uninstall: ${item.abs}`);
-      ftruncateSync(fd, 0);
-      writeFileSync(fd, plan.content);
-    } finally { closeSync(fd); }
+      const saved = readRegular({ root: item.root, abs: join(dirname(item.abs), name), maxBytes: ACTIVATION_JSON_BYTE_CAP });
+      if (saved && isDeepStrictEqual(JSON.parse(saved.bytes.toString('utf8')), remaining)) return saved.bytes;
+    } catch { /* unsafe, oversized or malformed backups cannot supply original bytes */ }
   }
+  return content;
 }
 
 // Validate every path and type before removing anything. The manifest is an
@@ -215,7 +225,7 @@ export function uninstallFiles({ dir, project, dry = false }) {
     if (!inspect({ root: item.root, abs: parent, directory: true })) continue;
     const prefix = basename(item.abs) + '.bak-';
     for (const name of readdirSync(parent).sort()) {
-      if (name.startsWith(prefix) && /^\d{8}T\d{6}$/.test(name.slice(prefix.length))) {
+      if (name.startsWith(prefix) && /^\d{8}T\d{6}Z?$/.test(name.slice(prefix.length))) {
         actions.push('  keep backup ' + join(parent, name));
       }
     }
@@ -227,6 +237,7 @@ export function uninstallFiles({ dir, project, dry = false }) {
     const current = readRegular(item);
     if (!current) { actions.push('  missing activation ' + item.abs); continue; }
     const removal = removeActivation(item, current.bytes);
+    if (!removal.edited) removal.content = originalSettingsBytes(item, removal.content);
     if (removal.edited) {
       edited = true;
       actions.push('  keep edited activation ' + item.abs);
@@ -235,7 +246,7 @@ export function uninstallFiles({ dir, project, dry = false }) {
     let stamp = Date.now();
     let backup;
     do {
-      backup = item.abs + '.bak-' + new Date(stamp).toISOString().replace(/[-:]/g, '').slice(0, 15);
+      backup = item.abs + '.bak-' + backupStamp(stamp);
       stamp += 1000;
     } while (existsSync(backup));
     changes.push({ item, original: current.bytes, ...removal, backup });

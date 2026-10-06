@@ -29,7 +29,15 @@ test('worked example (a): Claude Code only keeps main-agent work and honest gaps
   assert.deepEqual(picks(assignment), mainRoles('claude-code'));
   assert.deepEqual(assignment.unassigned, ['review', 'private']);
   assert.equal(assignment.roles.bulk.via, 'main-agent');
-  assert.match(assignment.roles.bulk.why, /headless, runs through cli-run/i);
+  assert.doesNotMatch(assignment.roles.bulk.why, /runs through cli-run/i);
+});
+
+test('bulk runner reason is present only for external cli-run lanes at level 2 or higher', () => {
+  const selected = select('claude-code', 'hermes');
+  const primary = byId['claude-code'];
+  assert.doesNotMatch(assignRoles({selected, primary, level: 1}).roles.bulk.why, /runs through cli-run/);
+  assert.match(assignRoles({selected, primary, level: 2}).roles.bulk.why, /runs through cli-run/);
+  assert.match(assignRoles({selected, primary, level: 3}).roles.bulk.why, /runs through cli-run/);
 });
 
 test('worked example (b): Codex main has an unverified research fallback', () => {

@@ -73,7 +73,7 @@ test('auto effort stays bounded at the prompt boundary and audits hold high', ()
   }
 });
 
-test('audit auto effort uses the larger prompt or git scope in a clean committed repo', () => {
+test('audit auto effort records prompt scope at its fixed high floor', () => {
   const dir = committedRepo();
   try {
     const sized = resolveAutoEffort('codex', 'auto', 'x'.repeat(100000), true, dir);

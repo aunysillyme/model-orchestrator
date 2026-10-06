@@ -1,10 +1,10 @@
-import { readFileSync, existsSync, mkdirSync, writeFileSync, chmodSync, readdirSync, statSync, lstatSync, unlinkSync, realpathSync, openSync, closeSync, fstatSync, constants } from 'node:fs';
+import { readFileSync, existsSync, mkdirSync, writeFileSync, chmodSync, readdirSync, statSync, lstatSync, unlinkSync, realpathSync, openSync, closeSync, fstatSync, constants, renameSync, linkSync } from 'node:fs';
 import { join, dirname, isAbsolute, relative, resolve, sep, parse as parsePath, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
 import { render } from './render.js';
 import { validateActivationOwnership } from './activation-ownership.js';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { ROLE_SPECS, assignRoles, roleTable, roleRoute, manifestRoles, inferPrimary } from './roles.js';
 import { LANE_FLAGS } from '../bin/cli-run.mjs';
 import { AIS, LEVELS, TOOLS, PROVIDERS, IMAGES, byId, toolById, providerById, npmSpec, summaryWithEvidence } from './catalog.js';
@@ -171,6 +171,7 @@ export function dirProblems(dir) {
   const abs = resolve(dir);
   const problems = [];
   if (/[\x00-\x1f\x7f]/.test(abs)) problems.push('the target path contains control characters or a newline');
+  if (abs.includes('"')) problems.push('the target path contains a double quote; choose a folder without double quotes');
   if (abs === parsePath(abs).root) problems.push('the target is the filesystem root; pick a folder');
   return problems;
 }
@@ -555,7 +556,7 @@ function vars(opts) {
   const apis = opts.apis || [];
   const lvl = LEVELS.find((l) => l.id === level);
   const lane = auditLane(selected, primary);
-  const assignment = assignRoles({ selected, primary, detected: opts.detected, plans });
+  const assignment = assignRoles({ selected, primary, detected: opts.detected, plans, level });
   const stack = stackContext(selected, primary, opts.detected);
   const enabled = selected.filter(a => a.facts.cliRun);
   const exampleLane = enabled[0]?.bin || '<lane>';
@@ -622,6 +623,7 @@ function vars(opts) {
     : '- Rules location: project-relative, so moving the project and its rules folder together preserves the paths.');
   return {
     ...laneVars(selected, primary),
+    METRICS_LANE_NAMES_JSON: JSON.stringify([...new Set(['inline', 'main', ...claudeAgentIds(), ...AIS.flatMap((ai) => [ai.id, ai.bin]).filter(Boolean)])]),
     STACK_TABLE: roleTable(assignment, stack),
     STACK_FALLBACK_NOTE: fallbackNote,
     STACK_GAPS: gaps,
@@ -648,12 +650,8 @@ function vars(opts) {
       : snippet
         ? `${primary.name} has no cataloged project rules file. Follow the load step under "What's left for you" using \`${snippet}\` next to this README.`
         : 'No main agent was selected, so no activation file was written. Re-run the installer and pick one.',
-    CLAUDE_SNIPPET_INTRO: opts.applySnippets
-      ? '# Model orchestrator activation\n\nThe installer applied these rules to the marked block in `CLAUDE.md` at your project root.'
-      : "# Add this to your project's CLAUDE.md\n\nCopy the block below into `CLAUDE.md` at your project root (create the file if it does not exist). The installer did not modify any file you already had.",
-    CLAUDE_HOOKS_ACTIVATION: opts.applySnippets
-      ? 'The installer merged the hook entries into `.claude/settings.json` to wire all three in.'
-      : 'Merge `settings.hooks.snippet.json`, written next to this file, into `.claude/settings.json` to wire all three in.',
+    CLAUDE_SNIPPET_INTRO: "# Add this to your project's CLAUDE.md\n\nCopy the block below into `CLAUDE.md` at your project root (create the file if it does not exist). The installer did not modify any file you already had.",
+    CLAUDE_HOOKS_ACTIVATION: 'Merge `settings.hooks.snippet.json`, written next to this file, into `.claude/settings.json` to wire all three in.',
     CHAT_UPLOAD_NOTE: primary && primary.facts.kind === 'chat' ? ' A chat app cannot open a local path: upload or paste any protocol file you want it to read.' : '',
     WHERE_THINGS_WENT: whereThingsWent.join('\n'),
     RULES_PATH: rulesPath,
@@ -841,7 +839,7 @@ export function planFiles(opts) {
   // MANIFEST.json records the choices this run was generated from, the
   // generator version, and a hash of every file as generated, so a later run
   // can tell an untouched generated file (safe to upgrade) from one the user
-  // edited (kept, reported as a conflict). Machine-owned: rewritten every run.
+  // edited (kept, reported as a conflict). Machine-owned: planned every run.
   const fileHashes = {};
   for (const f of files) fileHashes[(f.root === 'project' ? '[project] ' : '') + f.rel.split(sep).join('/')] = sha256(f.content);
   files.push({
@@ -858,7 +856,7 @@ export function planFiles(opts) {
           ais: selected.map((a) => a.id),
           primary: primary ? primary.id : null,
           detected: selected.filter(a => opts.detected?.has(a.id)).map(a => a.id),
-          roles: manifestRoles(assignRoles({ selected, primary, detected: opts.detected, plans: opts.plans }), stackContext(selected, primary, opts.detected)),
+          roles: manifestRoles(assignRoles({ selected, primary, detected: opts.detected, plans: opts.plans, level }), stackContext(selected, primary, opts.detected)),
           tools: (opts.tools || []).map((t) => t.id),
           apis: (opts.apis || []).map((p) => p.id),
           ...(Object.keys(opts.plans || {}).length ? { plans: Object.fromEntries(Object.entries(opts.plans).sort(([a], [b]) => a.localeCompare(b)).map(([id, p]) => [id, p.id])) } : {}),
@@ -866,7 +864,7 @@ export function planFiles(opts) {
           dir: resolve(opts.dir || 'ai-orchestrator'),
           project: resolve(opts.project || process.cwd()),
           files: fileHashes,
-          note: 'Machine-owned. Rewritten on every run together with bin/lanes.json. Edit the docs, not this.'
+          note: 'Machine-owned. Refreshed on every run; unchanged bytes are kept. Edit the docs, not this.'
         },
         null,
         2
@@ -920,7 +918,7 @@ export function globalConfigProblem(path) {
     return rel === '' || rel !== '..' && !rel.startsWith('..' + sep) && !isAbsolute(rel);
   });
   if (rules.has(relativePath) || globalFolder) {
-    return `${path}: global agent configuration is outside the installer scope; choose a project folder below your home directory`;
+    return `${home}: global agent configuration is outside the installer scope; choose a project folder below your home directory`;
   }
   return null;
 }
@@ -938,7 +936,7 @@ export function preflight(files, dir) {
     }
     const globalProblem = globalConfigProblem(abs);
     if (globalProblem) {
-      problems.push(globalProblem);
+      if (!problems.includes(globalProblem)) problems.push(globalProblem);
       continue;
     }
     const parts = relative(root, abs).split(sep);
@@ -970,8 +968,8 @@ export function preflight(files, dir) {
 }
 
 // Three classes of generated file.
-//   MACHINE_OWNED  structured configuration: rewritten on every run so a new
-//                  selection applies (MANIFEST.json, bin/lanes.json).
+//   MACHINE_OWNED  structured configuration: refreshed when its bytes change so
+//                  a new selection applies (MANIFEST.json, bin/lanes.json).
 //   RUNTIME        executables and units: rewritten when the installed copy is
 //                  byte-identical to what a previous run generated (the manifest
 //                  hash proves nobody edited it), kept and reported as a conflict
@@ -980,6 +978,9 @@ export function preflight(files, dir) {
 //   documents      everything else: the user may have edited them; kept unless --force.
 export const MACHINE_OWNED = new Set(['MANIFEST.json', 'bin/lanes.json']);
 export const RUNTIME = new Set([
+  '.claude/hooks/route-gate.mjs',
+  '.claude/hooks/subagent-context.mjs',
+  '.claude/hooks/route-metrics.mjs',
   'bin/cli-run.mjs',
   'vm/setup-vm.sh',
   'vm/docker-compose.yml',
@@ -1019,6 +1020,31 @@ export function readManifest(dir) {
   }
 }
 
+// Replace a file without writing through any existing hard link. New targets
+// publish exclusively so a file created during installation is not overwritten.
+export function atomicWriteFile(path, content, mode, exists = existsSync(path)) {
+  const temporary = join(dirname(path), '.' + randomUUID() + '.tmp');
+  let fd;
+  let created = false;
+  try {
+    fd = openSync(temporary, 'wx', mode);
+    created = true;
+    writeFileSync(fd, content);
+    closeSync(fd);
+    fd = undefined;
+    chmodSync(temporary, mode);
+    if (exists) renameSync(temporary, path);
+    else linkSync(temporary, path);
+  } finally {
+    if (fd !== undefined) closeSync(fd);
+    if (created) {
+      try { unlinkSync(temporary); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+    }
+  }
+}
+
+export const backupStamp = (stamp) => new Date(stamp).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+
 // Path-safety-only preflight: global agent config, path escape, a non-directory
 // target. Read-only, no side effects, and independent of any previous
 // manifest. writeFiles() below runs the same check again before it writes
@@ -1040,7 +1066,7 @@ export function writePreflightProblems(files, { dir, project }) {
 // Files carry a root: 'dir' for the docs folder, 'project' for the agent
 // definitions the user's CLI reads from the project root. Each root gets its
 // own preflight; one failure anywhere rolls back everything this run touched.
-// Machine-owned files are always rewritten (they carry the selection); other
+// Machine-owned files refresh when their bytes change (they carry the selection); other
 // existing documents are kept unless --force, or --update-docs for the ones a previous run wrote and nobody edited.
 export function writeFiles(files, opts) {
   const { dir, force = false, dry = false, upgradeRuntime = false, updateDocs = false } = opts;
@@ -1109,6 +1135,17 @@ export function writeFiles(files, opts) {
         problems.push(`${abs}: changed since snippet planning; re-run the installer`);
       }
     }
+    // Register only the generated hook bytes, or an owned version that this
+    // transaction can safely upgrade. Kept unverified code must not be wired.
+    if (files.some((file) => file.activation?.kind === 'hooks')) {
+      for (const file of files.filter((file) => file.root === 'project' && RUNTIME.has(toPosixRel(file.rel)))) {
+        const abs = resolve(roots.project, file.rel);
+        if (!existsSync(abs) || force || upgradeRuntime) continue;
+        const currentHash = sha256(readFileSync(abs));
+        if (currentHash === sha256(file.content) || currentHash === prevHashes?.['[project] ' + toPosixRel(file.rel)]) continue;
+        problems.push(`${abs}: refusing to activate an edited or unverified hook; inspect it, then re-run with --upgrade-runtime to replace it`);
+      }
+    }
   }
   if (problems.length) {
     const e = new Error('refusing to write:\n  ' + problems.join('\n  '));
@@ -1155,7 +1192,7 @@ export function writeFiles(files, opts) {
         // else in this tool (docs, other path prose) uses forward slashes.
         const label = (k === 'project' ? '[project] ' : '') + f.rel.split(sep).join('/');
         const key = label;
-        const cls = k === 'dir' ? fileClass(f.rel) : 'document';
+        const cls = k === 'dir' || RUNTIME.has(toPosixRel(f.rel)) ? fileClass(f.rel) : 'document';
         if (exists && f.applySnippet && Buffer.from(f.content).equals(readFileSync(abs))) {
           skipped.push(label);
           continue;
@@ -1272,11 +1309,15 @@ export function writeFiles(files, opts) {
           }
           content = JSON.stringify(m, null, 2) + '\n';
         }
-        if (exists && (opts.backupExisting || k === 'project')) {
+        if (exists && Buffer.from(content).equals(readFileSync(abs))) {
+          skipped.push(label);
+          continue;
+        }
+        if (exists && cls !== 'owned' && (opts.backupExisting || k === 'project')) {
           let stamp = Date.now();
           let backup;
           do {
-            backup = abs + '.bak-' + new Date(stamp).toISOString().replace(/[-:]/g, '').slice(0, 15);
+            backup = abs + '.bak-' + backupStamp(stamp);
             stamp += 1000;
           } while (existsSync(backup));
           if (!dry) writeFileSync(backup, readFileSync(abs), { flag: 'wx', mode: statSync(abs).mode & 0o777 });
@@ -1303,7 +1344,8 @@ export function writeFiles(files, opts) {
             m.directories = [...createdDirectories].sort();
             content = JSON.stringify(m, null, 2) + '\n';
           }
-          writeFileSync(abs, content, { flag: exists ? 'w' : 'wx' });
+          const mode = exists && f.applySnippet ? statSync(abs).mode & 0o777 : f.mode;
+          atomicWriteFile(abs, content, mode, exists);
           if (!exists) created.push(abs);
           if (!exists || !f.applySnippet) chmodSync(abs, f.mode);
         }
@@ -1320,8 +1362,7 @@ export function writeFiles(files, opts) {
     }
     for (const [abs, o] of originals) {
       try {
-        writeFileSync(abs, o.content);
-        chmodSync(abs, o.mode);
+        atomicWriteFile(abs, o.content, o.mode, existsSync(abs));
       } catch {
         /* best effort */
       }

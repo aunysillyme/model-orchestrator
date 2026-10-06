@@ -29,8 +29,8 @@ function fixture(binaries = []) {
   const dir = join(root, 'ai');
   return {
     root, dir, marker,
-    run(args = [], input = '') {
-      return spawnSync(process.execPath, [CLI, '--dir', dir, '--project', root, ...args], { cwd: root, env, input, encoding: 'utf8', timeout: 15000 });
+    run(args = [], input = '', project = root) {
+      return spawnSync(process.execPath, [CLI, '--dir', dir, '--project', project, ...args], { cwd: root, env, input, encoding: 'utf8', timeout: 15000 });
     },
     manifest() { return JSON.parse(readFileSync(join(dir, 'MANIFEST.json'), 'utf8')); },
     close() { rmSync(root, { recursive: true, force: true }); }
@@ -72,6 +72,66 @@ test('no detection asks two questions: access and confirmation', () => {
     assert.doesNotMatch(r.stdout, /\[y\/N\]|\[1\]|\[none\]|Which level\?|Main agent \[/);
     assert.deepEqual(f.manifest().ais, ['claude-code']);
     assert.equal(f.manifest().level, 1);
+  } finally { f.close(); }
+});
+
+test('interactive AI picks accept catalog IDs mixed with numbers', () => {
+  const f = fixture();
+  try {
+    const r = f.run([], 'claude-code,2\ny\n');
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    assert.deepEqual(f.manifest().ais, ['claude-code', 'codex']);
+  } finally { f.close(); }
+});
+
+test('interactive AI picks retry once after invalid input', () => {
+  const f = fixture();
+  try {
+    const r = f.run([], 'not-an-ai\nclaude-code\ny\n');
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    assert.equal((r.stdout.match(/Your picks/g) || []).length, 2);
+    assert.deepEqual(f.manifest().ais, ['claude-code']);
+    const refused = fixture();
+    try {
+      assert.equal(refused.run([], 'wrong\nalso-wrong\n').status, 2);
+      assert.equal(existsSync(refused.dir), false);
+    } finally { refused.close(); }
+  } finally { f.close(); }
+});
+
+test('dry and real installs refuse home-level configuration with one matching message', () => {
+  const f = fixture();
+  try {
+    const home = join(f.root, 'home');
+    const args = ['--yes', '--level', '2', '--ais', 'claude-code'];
+    const preview = f.run([...args, '--dry'], '', home);
+    const actual = f.run(args, '', home);
+    assert.equal(preview.status, 2, preview.stdout + preview.stderr);
+    assert.equal(actual.status, 2, actual.stdout + actual.stderr);
+    assert.equal(preview.stderr, actual.stderr);
+    assert.equal((actual.stderr.match(/global agent configuration/g) || []).length, 1);
+    assert.ok(actual.stderr.includes(home));
+    assert.equal(existsSync(f.dir), false);
+  } finally { f.close(); }
+});
+
+test('level requirement grammar follows the number of selected AIs', () => {
+  const f = fixture();
+  try {
+    const one = f.run(['--yes', '--level', '1', '--ais', 'hermes']);
+    assert.match(one.stderr, /hermes needs level 2 or higher/);
+    const many = f.run(['--yes', '--level', '1', '--ais', 'hermes,ollama']);
+    assert.match(many.stderr, /hermes, ollama need level/);
+  } finally { f.close(); }
+});
+
+test('vendor script fallback is labelled as an install script', () => {
+  const f = fixture();
+  try {
+    const r = f.run(['--yes', '--level', '2', '--ais', 'agy,grok']);
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    assert.match(r.stdout, /install script: https:\/\//);
+    assert.doesNotMatch(r.stdout, /official guide: .*install\.sh/);
   } finally { f.close(); }
 });
 

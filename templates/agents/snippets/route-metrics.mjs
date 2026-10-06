@@ -22,7 +22,8 @@
 //
 // The durable log holds no provider-supplied string: prompt text, tool
 // descriptions, and the "why" half of the route marker are never read into a
-// field, only the named, charset-bounded values below. See docs/security-review-history.md.
+// field; lanes must match the generated allowlist and other tokens are charset-bounded.
+// See docs/security-review-history.md.
 //
 // Second entry point: `node route-metrics.mjs --summary [--since <ISO date>]`
 // prints a plain-text report from the log and exits 0 without touching stdin.
@@ -44,9 +45,13 @@ const STDIN_MAX_BYTES = 8 * 1024 * 1024; // size cap: a giant or runaway payload
 const STDIN_DRAIN_MS = 1000; // hard cap: never let an open, never-closed stdin pipe hold this hook open
 const LOG_ROTATE_BYTES = 5 * 1024 * 1024; // rotate to .1 above this size
 const STATE_MAX_AGE_MS = 24 * 60 * 60 * 1000; // prune state files older than 24h
-const TOKEN_CHARSET = /[^A-Za-z0-9_.+-]/g; // session_id, subagent_type, agent_type, lane tokens
+const TOKEN_CHARSET = /[^A-Za-z0-9_.+-]/g; // session_id, subagent_type, agent_type
 const TOKEN_MAX_LEN = 64;
 const SESSION_ID_MAX_LEN = 128;
+// The packaged summary entry point runs this source before template rendering;
+// it reads existing records and never needs to accept a new lane marker.
+const LANE_NAMES_JSON = '{{METRICS_LANE_NAMES_JSON}}';
+const LANE_NAMES = new Set(LANE_NAMES_JSON.startsWith('[') ? JSON.parse(LANE_NAMES_JSON) : []);
 
 // Strip anything outside the allowed charset and cap length, so no field in
 // the durable log can carry an arbitrary provider- or model-supplied string
@@ -140,16 +145,23 @@ function appendLog(record) {
 }
 
 // Parses the LAST <!-- route: <lane> | <why> --> marker out of text. The
-// "why" half is captured only to be discarded: it is never read into a
-// variable that reaches the log. Returns an array of lane tokens (split on
-// "+", the documented way to log more than one lane from a single marker),
-// or ["missing"] when there is no marker at all.
+// "why" half never reaches the log. Scan backwards over disjoint comment
+// segments: even repeated unfinished markers take linear work. Anchoring
+// each match also prevents retrying the pattern at every byte of a segment.
+// Returns known lanes split on "+", "invalid" for any unrecognized token,
+// or ["missing"] when there is no complete marker.
 export function extractLane(text) {
   if (typeof text !== 'string' || text.length === 0) return ['missing'];
-  const re = /<!--\s*route:\s*([^|>]*)\|[^>]*-->/g;
-  let match;
-  let last = null;
-  while ((match = re.exec(text)) !== null) last = match;
+  const re = /^<!--\s*route:([^|>]*)\|[^>]*-->/;
+  let end = text.length;
+  let last;
+  while (end > 0) {
+    const start = text.lastIndexOf('<!--', end - 1);
+    if (start === -1) break;
+    last = re.exec(text.slice(start, end));
+    if (last) break;
+    end = start;
+  }
   if (!last) return ['missing'];
   // A token carrying any character outside the charset is logged as
   // "invalid", never stripped into a plausible-looking lane: stripping
@@ -158,7 +170,7 @@ export function extractLane(text) {
     .split('+')
     .map((s) => s.trim())
     .filter(Boolean)
-    .map((t) => (t.length > TOKEN_MAX_LEN || /[^A-Za-z0-9_.-]/.test(t) ? 'invalid' : t));
+    .map((t) => (LANE_NAMES.has(t) ? t : 'invalid'));
   return parts.length ? parts : ['missing'];
 }
 
@@ -275,8 +287,8 @@ async function runHook() {
   process.exit(0); // fail-open, always: a miss here is a missing log line, never a blocked turn
 }
 
-// Lane names that mean "the main session did it itself". Defaults only: the lane
-// vocabulary belongs to the user's own ROUTING.md, and --inline overrides this.
+// Lane names that mean "the main session did it itself". --inline can classify
+// other known lanes, or names already present in older logs, as inline.
 const INLINE_LANE_NAMES = ['inline', 'main', 'main inline'];
 
 // ---- --summary: a plain-text report, no stdin involved ----
@@ -323,8 +335,8 @@ function runSummary(args) {
   // session?". Derived only from lane names the marker already carries: no price
   // table, no token count, nothing this log does not hold. A covered turn counts as
   // sent off when its marker names any lane that is not one of the inline names.
-  // The inline names are overridable because the lane vocabulary is the user's own
-  // ROUTING.md, not a list this package gets to fix.
+  // The inline names are overridable so a report can classify existing logged
+  // lanes differently without changing the durable records.
   const inlineIdx = args.indexOf('--inline');
   const inlineNames = new Set(
     (inlineIdx !== -1 && args[inlineIdx + 1] ? args[inlineIdx + 1].split(',') : INLINE_LANE_NAMES)

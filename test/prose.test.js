@@ -14,6 +14,13 @@ const TEXT = new Set(['.md', '.js', '.mjs', '.json', '.yml', '.yaml', '.sh', '.t
 
 const RETIRED = /task bundle|TASK_BUNDLE|Lane A|Lane B|done-signal|\bdeliverables?\b/i;
 const FIXED_MODEL = /\b(?:gpt-\d[\w.-]*|xai\/grok-\d[\w.-]*|claude-(?:opus|sonnet|haiku)-\d[\w.-]*|gemini-\d[\w.-]*|qwen\d[\w.-]*)\b/i;
+
+test('README preserves the proof-expiry and contributor agreement wording', () => {
+  const readme = readFileSync(join(ROOT, 'README.md'), 'utf8');
+  assert.ok(readme.includes('[Measured results and reproduction scripts](proof/README.md) show dated figures with methods and sample sizes. An expired entry is a signal to re-measure; the test suite rejects future-dated or incomplete entries.'));
+  assert.ok(readme.includes('Pull requests are accepted under the [contributor license agreement](CLA.md); the checkbox in the pull request template records your agreement.'));
+  assert.doesNotMatch(readme, /expired entries fail the test suite/);
+});
 function publicFiles() {
   // Historical release notes and test fixtures preserve the contracts they reproduce.
   const roots = [...readdirSync(ROOT).filter(f => f.endsWith('.md') && !['CHANGELOG.md', 'AUDIT_BRIEF.md'].includes(f)), 'llms.txt', 'docs', 'templates', 'src', 'bin', 'plugin', 'agensi', 'scripts', '.claude-plugin', 'proof'];
@@ -159,12 +166,13 @@ test('the alarming-wording check can go red', () => {
 const SKIPS = [
   { file: 'cli.test.js', marker: 'skip: SKIP_LANE_SIGNAL_DEATH_ON_WIN32', tests: 1, readme: 'cannot die "by signal"' },
   { file: 'install.test.js', marker: 'skip: SKIP_WATCHDOG_KILL_ON_WIN32', tests: 2, readme: "weekly-audit.sh" },
-  { file: 'hooks.test.js', marker: "skip: process.platform === 'win32' ? 'no mkfifo on Windows'", tests: 1, readme: 'mkfifo' },
+  { file: 'hooks.test.js', marker: "skip: process.platform === 'win32' ? 'no mkfifo on Windows'", tests: 2, readme: 'mkfifo' },
   { file: 'plans-auto.test.js', marker: "skip: process.platform === 'win32' ? 'no mkfifo on Windows'", tests: 1, readme: 'mkfifo' },
   { file: 'security-cli.test.js', marker: "skip: process.platform === 'win32'", tests: 2, readme: 'project-hook symlink and manifest FIFO' },
   { file: 'security-cli.test.js', marker: "skip: shell && process.platform === 'win32'", tests: 1, readme: 'POSIX shell descendant' },
-  { file: 'security-vm.test.js', marker: 'skip: SKIP_VM_RUNTIME_ON_WINDOWS', tests: 4, readme: 'four weekly credential and report lifecycle' },
+  { file: 'security-vm.test.js', marker: 'skip: SKIP_VM_RUNTIME_ON_WINDOWS', tests: 5, readme: 'five weekly credential, report lifecycle and timeout marker' },
   { file: 'security-messages.test.js', marker: "skip: process.platform === 'win32'", tests: 1, readme: 'symlinked-manifest refusal message' },
+  { file: 'security-runner.test.js', marker: 'skip: !POSIX &&', tests: 2, readme: 'fsmonitor helper and runner lanes FIFO' },
 ];
 // Not a test skip: one assertion inside a test that otherwise runs everywhere. Listed so the README
 // sentence and this guard describe the same set, and asserted by its own shape below.

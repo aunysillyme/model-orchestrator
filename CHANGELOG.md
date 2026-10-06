@@ -4,6 +4,43 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Fixed
+
+- Apply plain routing rules for every supported main agent, preserve manual copy snippets, replace older applied blocks and retain uninstall compatibility (#51, #52).
+- Refuse home-level configuration before dry-run output, with one message naming the refused root (#53).
+- Print runner usage successfully for `--help` and `-h`, including through `aunx cli-run` (#54).
+- Skip writes and backups for identical files, never back up machine-owned configuration, and remove the rules folder after a clean uninstall (#55).
+- Correct the release workflow comment and README proof-expiry wording (#57).
+- Restore the 0.1.14 changelog heading from its tagged release history (#58).
+- Keep each release's notes separate on the website and display angle-bracket placeholders and HTML examples literally (#58).
+- Keep the UTC `Z` in backup names and document the timezone (#58).
+- Read installed lane selection as data for `aunx cli-run --doctor`, with guidance for custom rules folders (#58).
+- Restore the original settings bytes on uninstall when remaining JSON matches the pre-install backup (#58).
+- Accept catalog IDs and numbers in interactive AI picks and retry once after an invalid answer (#58).
+- Keep existing task briefs with a friendly message and list commands for unknown `aunx` subcommands (#58).
+- Show route roles consistently, with agent names in a separate field (#58).
+- Pluralize level requirements and label vendor install-script links accurately (#58).
+- Describe bulk work as running through cli-run only for an assigned runner lane at level 2 or higher (#58).
+
+### Security
+
+- Skip Git probes for the audit effort floor and disable repository-configured helpers for remaining effort probes.
+- Verify installed hook executables before registering them, upgrade unchanged owned hooks and refuse unverified activation.
+- Refuse double quotes in install paths before rendering systemd commands.
+- Replace generated files through same-directory temporary files and rename, so hard links cannot redirect writes.
+- Make failure lines terminal-safe for every provider lane.
+- Parse repeated route markers with a bounded linear scan.
+- Refuse non-regular or oversized lanes configuration before reading it.
+- Log route lane names only from the known catalog and agent names, recording other values as invalid.
+- Open rules files without blocking and verify their identity after opening to prevent a replacement-file race.
+- Create watchdog timeout markers as directories so an unlinked marker cannot truncate a symlink target.
+
+### Changed
+
+- Exclude the source-only skill-pack generator from npm packages and check for `zip` before packaging, with an installation hint (#57).
+- Print provider, model and effort as separate route fields while preserving the run log schema (#58).
+- Limit the contributor license agreement to work intentionally submitted through pull requests and name that agreement in the README (#58).
+
 ## [1.0.9] - 2026-10-04
 
 ### Added
@@ -393,6 +430,8 @@ The portable parts of a live routing revision, delegate by default, gated on one
 ### Fixed
 
 - **Both new hooks could hang, and `route-gate.mjs` could read an unbounded or blocking file (pre-release audit finding, never shipped).** `readFileSync(0)` in both `route-gate.mjs` and `subagent-context.mjs` blocked until stdin reached EOF, so a caller that piped input in without closing its end (or ran the hook from a bare TTY) left the process running indefinitely; reproduced with `sleep 3 | CLAUDE_PROJECT_DIR=... node route-gate.mjs` still running past 1.5s. Separately, `route-gate.mjs` read the whole rules file into memory before bounding it (`readFileSync(path).slice(0, MAX_READ)`), so a FIFO planted at the rules path blocked forever on open, and a very large file was read in full before being truncated. Fixed in both hooks: stdin is now drained asynchronously against a 250ms hard cap, never blocking past it. `route-gate.mjs` additionally `statSync`s the resolved path and refuses anything that is not `isFile()` (a FIFO, socket, device or directory, symlink target included) before ever calling open, then reads through a single fixed 64 KB buffer via `openSync`/`readSync`, closed in a `finally`, so neither the read time nor the memory used depends on the file's on-disk size. Tests: an open, never-closed stdin pipe now exits within 1s for both hooks; a FIFO at the rules path returns the fallback instead of hanging; a 200 MB sparse rules file completes in well under a second with output still capped.
+
+## [0.1.14] - 2026-09-09
 
 Three refinements to the routing model, from a review by [@shawnwows](https://x.com/shawnwows). The theme is the same in all three: a routing decision that was implied, inherited or asserted is now stated, pinned or checked.
 

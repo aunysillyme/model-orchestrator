@@ -30,6 +30,8 @@ When using Codex for an authorized read-only review, use `node <skill-dir>/bin/c
 
 For Qwen, omit --effort; when required use its --safe-mode flag. `--quiet` suppresses human-readable status lines. `--timeout SECS` bounds each call.
 
+The terminal status prints separate route fields: `route=provider:<provider-id> model:<model-id> effort:<effort>`. An unpinned field reads `default`; model IDs containing `/` remain unambiguous. The JSON run log retains its documented fields.
+
 ## Check availability before work depends on it
 
 ```bash

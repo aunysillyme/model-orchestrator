@@ -5,7 +5,7 @@
 // would otherwise only surface once a user actually ran Claude Code.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, chmodSync, openSync, writeSync, ftruncateSync, closeSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, chmodSync, openSync, writeSync, ftruncateSync, closeSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawn, spawnSync, execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
@@ -224,6 +224,43 @@ test('route-gate.mjs: a FIFO at the rules path gives a fallback without hanging'
     assert.equal(r.status, 0);
     const out = JSON.parse(r.stdout);
     assert.match(out.hookSpecificOutput.additionalContext, /not a regular file/);
+  } finally {
+    rmSync(scratch, { recursive: true, force: true });
+    rmSync(project, { recursive: true, force: true });
+  }
+});
+
+test('route-gate.mjs: replacing the inspected rules file with a FIFO cannot block open', { skip: process.platform === 'win32' ? 'no mkfifo on Windows' : false }, () => {
+  const scratch = mkdtempSync(join(tmpdir(), 'orch-hook-'));
+  const project = mkdtempSync(join(tmpdir(), 'orch-proj-'));
+  try {
+    const hookPath = writeHook(scratch, 'route-gate.mjs', renderedHook('route-gate.mjs'));
+    writeRules(project, '<!-- route-gate:start -->\ntable\n<!-- route-gate:end -->\n');
+    const rulesPath = join(realpathSync(project), RULES_SUBDIR, 'ROUTING.md');
+    const fifoPath = join(scratch, 'replacement.fifo');
+    execFileSync('mkfifo', [fifoPath]);
+    const preload = join(scratch, 'replace-after-stat.cjs');
+    // The real stat completes before this interleaving replaces the path.
+    // Node's built-in export sync lets the rendered hook use the same seam.
+    writeFileSync(preload, `
+const fs = require('node:fs');
+const { syncBuiltinESMExports } = require('node:module');
+const stat = fs.statSync;
+fs.statSync = function(path, options) {
+  const result = stat.call(fs, path, options);
+  if (path === ${JSON.stringify(rulesPath)}) fs.renameSync(${JSON.stringify(fifoPath)}, path);
+  return result;
+};
+syncBuiltinESMExports();
+`);
+    const r = spawnSync('node', ['--require', preload, hookPath], {
+      input: '', encoding: 'utf8', timeout: 3000,
+      env: { ...process.env, CLAUDE_PROJECT_DIR: project }
+    });
+    assert.equal(r.error, undefined, 'rules-file replacement blocked the hook: ' + r.error?.code);
+    assert.equal(r.status, 0, r.stderr);
+    const out = JSON.parse(r.stdout);
+    assert.match(out.hookSpecificOutput.additionalContext, /not a regular file|changed during inspection/);
   } finally {
     rmSync(scratch, { recursive: true, force: true });
     rmSync(project, { recursive: true, force: true });

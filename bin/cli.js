@@ -220,22 +220,29 @@ function selectedFromIds(raw) {
   return selected;
 }
 
-function numberedPicks(answer, available, noun) {
+function numberedPicks(answer, available, noun, allowIds = false) {
   if (answer.toLowerCase() === 'none') return [];
   const picked = answer.split(',').map((s) => s.trim()).filter(Boolean).map((number) => {
     const index = Number(number);
-    const item = Number.isInteger(index) && index > 0 ? available[index - 1] : null;
-    if (!item) bad(`no ${noun} numbered ${number}`);
+    const item = Number.isInteger(index) && index > 0 ? available[index - 1] : allowIds ? available.find(item => item.id === number) : null;
+    if (!item) bad(allowIds ? `unknown ${noun} pick ${number}; use a catalog ID or number` : `no ${noun} numbered ${number}`);
     return item;
   });
   return [...new Set(picked)];
 }
 
 async function askAis(available, detected, selected = []) {
-  console.log('\nWhich AIs do you have access to? (numbers, comma-separated; detected ones are marked)');
+  console.log('\nWhich AIs do you have access to? (numbers or catalog IDs, comma-separated; detected ones are marked)');
   available.forEach((ai, i) => console.log(`  ${String(i + 1).padStart(2)} ${detected.has(ai.id) ? '*' : ' '} ${ai.name}`));
   const fallback = available.map((ai, i) => selected.includes(ai) ? i + 1 : null).filter(Boolean).join(',');
-  return numberedPicks(await ask(`\nYour picks${fallback ? ' [' + fallback + ']' : ''}: `, fallback), available, 'AI');
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      return numberedPicks(await ask(`\nYour picks${fallback ? ' [' + fallback + ']' : ''}: `, fallback), available, 'AI', true);
+    } catch (error) {
+      if (error?.code !== 'USAGE' || attempt === 1) throw error;
+      console.log(error.message);
+    }
+  }
 }
 
 function eligibleEffort(selected, plans) {
@@ -246,7 +253,7 @@ function validateSetup(state) {
   if (![1, 2, 3].includes(state.level)) bad('level must be 1, 2 or 3');
   if (!state.selected.length) bad('pick at least one AI');
   const tooHigh = state.selected.filter((ai) => ai.minLevel > state.level);
-  if (tooHigh.length) bad(`${tooHigh.map((ai) => ai.id).join(', ')} need level ${Math.max(...tooHigh.map((ai) => ai.minLevel))} or higher`);
+  if (tooHigh.length) bad(`${tooHigh.map((ai) => ai.id).join(', ')} ${tooHigh.length === 1 ? 'needs' : 'need'} level ${Math.max(...tooHigh.map((ai) => ai.minLevel))} or higher`);
   const candidates = agentCandidates(state.selected);
   if (!candidates.length) bad('pick at least one agent or chat app to be the orchestrator; a local model runtime on its own cannot run the system');
   if (!candidates.includes(state.primary)) bad('--primary must be one of: ' + candidates.map((ai) => ai.id).join(', '));
@@ -487,10 +494,12 @@ async function main() {
     }
     if (primary.facts.agentDefinitions) console.log(`  subagent location: ${join(project, primary.facts.agentDefinitions)}; launch ${primary.bin} from ${project}`);
     if (agentFiles.length && !sources.has('project')) console.log(`\nNote: --project defaults to the current directory, so the ${projectKinds} go to the current directory (${project}). Pass --project to put them somewhere else.`);
-    const assignment = assignRoles({ selected, primary, detected, plans });
+    const assignment = assignRoles({ selected, primary, detected, plans, level });
     const agents = Object.fromEntries(Object.entries(plannedManifest.roles || {}).filter(([, role]) => role.agent).map(([id, role]) => [id, role.agent]));
     console.log('\n' + roleTable(assignment, { selected, primary, detected, agents }));
     if (level >= 2 && !selected.some((ai) => ai.facts.cliRun)) console.log('\nWarning: no executable lanes selected; delegation is inactive. Use level 1 for a single-agent setup, or add a supported CLI. Doctor will exit 13 until a lane is enabled.');
+    const earlyProblems = writePreflightProblems(files, { dir, project });
+    if (earlyProblems.length) bad('refusing to write:\n  ' + earlyProblems.join('\n  '));
     if (flag('dry') || flag('dry-run')) {
       for (const file of files) console.log('  - ' + (file.root === 'project' ? '[project] ' : '') + file.rel);
       if (applySnippets) {
@@ -565,7 +574,7 @@ async function main() {
     if (prev) {
       if (changed.length) {
         console.log(`  selection changed: ${changed.join(', ')}`);
-        console.log(`  applied: ${ownedWritten.join(', ') || 'nothing'} (machine-owned files are always rewritten)`);
+        console.log(`  applied: ${ownedWritten.join(', ') || 'nothing'} (machine-owned files refresh when changed)`);
         if (changed.includes('roles')) console.log('  the role assignment changed; MANIFEST.json and aunx route are current. Any kept documents may still carry the previous assignment.');
       } else console.log('  selection identical.');
     }
@@ -604,7 +613,7 @@ async function main() {
         : a.install.script
           ? `curl -fsSL ${a.install.script} -o /tmp/${a.id}-install.sh && less /tmp/${a.id}-install.sh && bash /tmp/${a.id}-install.sh`
           : a.install.brew ? `brew install ${a.install.brew}` : 'Follow the vendor setup guide';
-      console.log(`  ${a.name}: ${command}\n    official guide: ${a.install.url || a.install.script}`);
+      console.log(`  ${a.name}: ${command}\n    ${a.install.url ? 'official guide' : 'install script'}: ${a.install.url || a.install.script}`);
     }
   }
 

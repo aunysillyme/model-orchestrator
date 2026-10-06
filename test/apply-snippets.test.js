@@ -1,10 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
+import { byId } from '../src/catalog.js';
+import { planFiles, readManifest, snippetFor, writeFiles } from '../src/install.js';
+import { planSnippetApplication } from '../src/apply-snippets.js';
 
 const cli = fileURLToPath(new URL('../bin/cli.js', import.meta.url));
 const START = '<!-- model-orchestrator:start -->';
@@ -127,7 +131,7 @@ test('apply-snippets: backups contain original bytes only for pre-existing chang
   for (const [folder, name, before] of [[s.project, 'CLAUDE.md', rulesBefore], [join(s.project, '.claude'), 'settings.json', settingsBefore]]) {
     const saved = backups(folder);
     assert.equal(saved.length, 1);
-    assert.match(saved[0], new RegExp('^' + name.replaceAll('.', '\\.') + '\\.bak-\\d{8}T\\d{6}$'));
+    assert.match(saved[0], new RegExp('^' + name.replaceAll('.', '\\.') + '\\.bak-\\d{8}T\\d{6}Z$'));
     const path = join(folder, saved[0]);
     assert.deepEqual(readFileSync(path), before);
     assert.ok(r.stdout.includes('backup ' + path));
@@ -157,6 +161,71 @@ test('apply-snippets: every catalog rules file receives its main agent marked bl
     assert.match(read(join(s.project, file)), /<!-- model-orchestrator:start -->/);
     assert.equal(existsSync(s.settings), false);
   }
+});
+
+test('apply-snippets: every primary applies only plain project-relative rules and preserves its manual snippet', (t) => {
+  for (const primary of Object.values(byId).filter((ai) => ai.rulesFile)) {
+    const s = setup(t);
+    for (const dir of [s.dir, join(s.base, 'outside-rules')]) {
+      const opts = { ...s, dir, level: 2, selected: [primary], primary };
+      const manual = planFiles(opts).find((file) => file.rel === snippetFor(primary)).content;
+      const files = planFiles({ ...opts, applySnippets: true });
+      assert.equal(files.find((file) => file.rel === snippetFor(primary)).content, manual, 'manual snippet remains the copy guide');
+      const applied = planSnippetApplication({ ...opts, files }).find((file) => file.activation.kind === 'rules').content.toString('utf8');
+      assert.match(applied, /^<!-- model-orchestrator:start -->\n## Model router/);
+      assert.doesNotMatch(applied, /```|^# |copy the block|installer applied|Subagents were written|Three hooks were written/m);
+      assert.ok(!applied.includes(s.project), primary.id + ': no absolute project path');
+      assert.ok(!applied.includes(dir), primary.id + ': no absolute rules path');
+    }
+  }
+});
+
+for (const upgrade of [false, true]) {
+  test(`apply-snippets: ${upgrade ? 'upgrade replaces' : 'uninstall removes'} an unchanged 1.0.9 block`, (t) => {
+    const s = setup(t);
+    const opts = { ...s, level: 2, selected: [byId['claude-code']], primary: byId['claude-code'] };
+    const files = planFiles(opts);
+    writeFiles(files, opts);
+    const legacy = Buffer.from(`${START}\n# Model orchestrator activation\n\nThe installer applied these rules to the marked block in CLAUDE.md.\n\n${files.find((file) => file.rel === 'CLAUDE.snippet.md').content.trimEnd()}\n${END}`);
+    writeFileSync(s.rules, Buffer.concat([Buffer.from('project rules\n\n'), legacy, Buffer.from('\n')]));
+    const manifestPath = join(s.dir, 'MANIFEST.json');
+    const manifest = readManifest(s.dir);
+    manifest.generatorVersion = '1.0.9';
+    manifest.activation = { '[project] CLAUDE.md': { kind: 'rules', blockHash: createHash('sha256').update(legacy).digest('hex'), created: false, addedPrefix: '\n', addedSuffix: '\n' } };
+    writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
+    if (upgrade) {
+      assert.equal(s.apply().status, 0);
+      assert.doesNotMatch(read(s.rules), /```|^# |installer applied/m);
+      assert.equal(read(s.rules).split(START).length - 1, 1);
+    }
+    const result = run(['--uninstall', '--dir', s.dir, '--project', s.project]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(read(s.rules), 'project rules\n');
+  });
+}
+
+test('apply-snippets: uninstall restores exact original settings bytes when remaining JSON deep-equals its backup', (t) => {
+  const s = setup(t);
+  const original = '{\r\n "custom": {"two":2, "one":1}, "permissions":{"allow":["Bash(ls:*)"]}\r\n}\r\n';
+  writeFileSync(s.settings, original);
+  assert.equal(s.apply().status, 0);
+  const saved = join(s.project, '.claude', backups(join(s.project, '.claude'))[0]);
+  renameSync(saved, saved.slice(0, -1)); // Older installs omitted the UTC suffix.
+  assert.equal(s.apply().status, 0);
+  const result = run(['--uninstall', '--dir', s.dir, '--project', s.project]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(read(s.settings), original, 'original whitespace, key order and line endings are restored');
+});
+
+test('apply-snippets: uninstall preserves added settings instead of restoring an older backup', (t) => {
+  const s = setup(t);
+  writeFileSync(s.settings, '{"custom":true}');
+  assert.equal(s.apply().status, 0);
+  const current = json(s.settings);
+  current.newSetting = { keep: true };
+  writeFileSync(s.settings, JSON.stringify(current));
+  assert.equal(run(['--uninstall', '--dir', s.dir, '--project', s.project]).status, 0);
+  assert.deepEqual(json(s.settings), { custom: true, newSetting: { keep: true } });
 });
 
 test('apply-snippets: flag absent keeps user files and manual activation unchanged', (t) => {
@@ -323,7 +392,7 @@ test('apply-snippets: backup name collisions preserve every original during appl
   const protectedNames = [];
   const now = Date.now();
   for (let i = -1; i <= 10; i++) {
-    const name = s.rules + '.bak-' + new Date(now + i * 1000).toISOString().replace(/[-:]/g, '').slice(0, 15);
+    const name = s.rules + '.bak-' + new Date(now + i * 1000).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
     writeFileSync(name, 'existing backup');
     protectedNames.push(name);
   }

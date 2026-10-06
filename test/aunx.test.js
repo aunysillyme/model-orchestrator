@@ -16,6 +16,11 @@ function temp(t) {
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   return dir;
 }
+function noBinaries(cwd) {
+  const env = { ...process.env };
+  for (const key of Object.keys(env)) if (['PATH', 'HOME', 'USERPROFILE'].includes(key.toUpperCase())) delete env[key];
+  return { ...env, PATH: join(cwd, 'no-binaries'), HOME: cwd, USERPROFILE: cwd };
+}
 
 test('aunx help lists the installer and every public command', () => {
   const result = run(['--help']);
@@ -55,8 +60,9 @@ test('aunx cli-run honors custom --dir and uses package fallback', t => {
   }
   assert.equal(run(['cli-run', '--dir', custom, '--dir', custom], cwd).status, 2);
   const fallback = run(['cli-run', '--dir', join(cwd, 'absent'), '--help'], cwd);
-  assert.equal(fallback.status, 2); // The existing runner reports its usage with exit 2.
-  assert.match(fallback.stderr, /cli-run/);
+  assert.equal(fallback.status, 0);
+  assert.match(fallback.stdout, /usage: cli-run/);
+  assert.equal(fallback.stderr, '');
 });
 
 test('aunx brief prints the package template and scaffold never overwrites', t => {
@@ -67,7 +73,9 @@ test('aunx brief prints the package template and scaffold never overwrites', t =
   for (const [command, filename] of [['brief', 'TASK_BRIEF.md'], ['context', 'CONTEXT.md'], ['checks', 'ACCEPTANCE_CHECKS.json']]) {
     assert.equal(run([command, 'new', filename], cwd).status, 0);
     const before = readFileSync(join(cwd, filename), 'utf8');
-    assert.equal(run([command, 'new', filename], cwd).status, 2);
+    const kept = run([command, 'new', filename], cwd);
+    assert.equal(kept.status, 0);
+    assert.equal(kept.stdout, `${filename} already exists; kept it\n`);
     assert.equal(readFileSync(join(cwd, filename), 'utf8'), before);
   }
   assert.equal(run(['checks', 'run'], cwd).status, 1, 'the placeholder check must start red');
@@ -100,7 +108,7 @@ test('aunx route covers the decision tree and explicitly labels suggestions', ()
   assert.equal(suggestRoute('hello there'), null);
   const r = run(['route', 'rename this file']);
   assert.equal(r.status, 0);
-  assert.match(r.stdout, /Suggestion: bulk-worker.*cheap model.*low/);
+  assert.match(r.stdout, /Suggestion: bulk.*cheap model.*low\nAgent: bulk-worker/);
   assert.match(run(['route', 'hello there']).stdout, /unknown.*ROUTING.md/);
   assert.equal(run(['route']).status, 2);
 });
@@ -182,11 +190,51 @@ test('aunx route prefers host-connected Claude MCP and retains the CLI fallback'
   }
 });
 
-test('aunx route with no manifest keeps today\'s output and adds the install notice', t => {
+test('aunx route with no manifest prints the role, agent and install notice', t => {
   const cwd = temp(t);
   const result = run(['route', 'rename this file'], cwd);
   assert.equal(result.status, 0);
-  assert.equal(result.stdout, 'Suggestion: bulk-worker | tier: cheap model | effort: low\nApply a repeatable mechanical change. Confirm against your ROUTING.md.\nNo install found; run the installer or pass --dir to see who your stack assigns.\n');
+  assert.equal(result.stdout, 'Suggestion: bulk | tier: cheap model | effort: low\nAgent: bulk-worker\nApply a repeatable mechanical change. Confirm against your ROUTING.md.\nNo install found; run the installer or pass --dir to see who your stack assigns.\n');
+});
+
+test('aunx cli-run help prints usage to stdout and exits successfully', t => {
+  const cwd = temp(t);
+  for (const flag of ['--help', '-h']) {
+    const result = run(['cli-run', flag], cwd);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /usage: cli-run.*grok.*codex/);
+    assert.equal(result.stderr, '');
+  }
+});
+
+test('aunx unknown subcommands list the supported commands', t => {
+  const result = run(['bogus'], temp(t));
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /unknown aunx subcommand: bogus/);
+  assert.match(result.stderr, /Available subcommands: install, cli-run, route-metrics, brief, context, checks, route/);
+  assert.doesNotMatch(result.stderr, /model-orchestrator: unexpected argument/);
+});
+
+test('aunx doctor reads installed lane data without executing the installed runner', t => {
+  const cwd = temp(t);
+  const dir = join(cwd, 'ai-orchestrator');
+  mkdirSync(join(dir, 'bin'), { recursive: true });
+  writeFileSync(join(dir, 'bin', 'cli-run.mjs'), 'console.log("PLANTED_RUNNER"); process.exit(66);');
+  writeFileSync(join(dir, 'bin', 'lanes.json'), JSON.stringify({ enabled: ['codex'] }));
+  for (const flags of [[], ['--dir', dir]]) {
+    const result = run(['cli-run', ...flags, '--doctor'], cwd, { env: noBinaries(cwd) });
+    assert.equal(result.status, 10, result.stderr);
+    assert.match(result.stdout, /doctor: 1 enabled lane\(s\): codex/);
+    assert.match(result.stdout, /codex\s+enabled\s+binary MISSING/);
+    assert.doesNotMatch(result.stdout, /PLANTED_RUNNER|6 enabled/);
+  }
+});
+
+test('aunx doctor names --dir when no default install is present', t => {
+  const cwd = temp(t);
+  const result = run(['cli-run', '--doctor'], cwd, { env: noBinaries(cwd) });
+  assert.equal(result.status, 10);
+  assert.match(result.stderr, /no installed lanes.json found; pass --dir PATH/);
 });
 
 test('aunx manifest reader refuses malformed, oversized, non-regular and symlink files', t => {
