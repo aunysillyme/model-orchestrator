@@ -145,22 +145,34 @@ function appendLog(record) {
 }
 
 // Parses the LAST <!-- route: <lane> | <why> --> marker out of text. The
-// "why" half never reaches the log. Scan backwards over disjoint comment
-// segments: even repeated unfinished markers take linear work. Anchoring
-// each match also prevents retrying the pattern at every byte of a segment.
+// "why" half never reaches the log. Scan backwards over the disjoint regions
+// between '>' characters, one pattern attempt per region, so even repeated
+// unfinished markers take linear work; a "why" holding its own "<!--" still
+// parses.
 // Returns known lanes split on "+", "invalid" for any unrecognized token,
 // or ["missing"] when there is no complete marker.
-export function extractLane(text) {
+export function extractLane(text, cwd) {
   if (typeof text !== 'string' || text.length === 0) return ['missing'];
-  const re = /^<!--\s*route:([^|>]*)\|[^>]*-->/;
-  let end = text.length;
+  const re = /^<!--\s*route:\s*([^|>]*)\|[^>]*-->/;
+  let searchEnd = text.length;
   let last;
-  while (end > 0) {
-    const start = text.lastIndexOf('<!--', end - 1);
-    if (start === -1) break;
-    last = re.exec(text.slice(start, end));
-    if (last) break;
-    end = start;
+  while (searchEnd > 0) {
+    const gt = text.lastIndexOf('>', searchEnd - 1);
+    if (gt === -1) break;
+    const prevGt = text.lastIndexOf('>', gt - 1);
+    const startIdx = prevGt === -1 ? 0 : prevGt + 1;
+
+    if (gt >= 2 && text.slice(gt - 2, gt + 1) === '-->') {
+      // A region holds no '>' before its closing '-->', so every start inside
+      // it ends there. Only the leftmost route start can match: any later one
+      // sees a subset of the same '|' positions. One attempt per region keeps
+      // the whole scan linear.
+      const regionText = text.slice(startIdx, gt + 1);
+      const first = /<!--\s*route:/.exec(regionText);
+      if (first) last = re.exec(regionText.slice(first.index));
+      if (last) break;
+    }
+    searchEnd = startIdx;
   }
   if (!last) return ['missing'];
   // A token carrying any character outside the charset is logged as
@@ -170,7 +182,20 @@ export function extractLane(text) {
     .split('+')
     .map((s) => s.trim())
     .filter(Boolean)
-    .map((t) => (LANE_NAMES.has(t) ? t : 'invalid'));
+    .map((t) => {
+      if (LANE_NAMES.has(t)) return t;
+      if (/^[A-Za-z0-9_.-]{1,64}$/.test(t)) {
+        const projectDir = cwd || process.env.CLAUDE_PROJECT_DIR;
+        if (projectDir) {
+          try {
+            if (statSync(join(projectDir, '.claude', 'agents', t + '.md')).isFile()) return t;
+          } catch {
+            /* telemetry never blocks the run */
+          }
+        }
+      }
+      return 'invalid';
+    });
   return parts.length ? parts : ['missing'];
 }
 
@@ -212,7 +237,7 @@ export function buildRecord(input, now = () => new Date().toISOString()) {
     }
 
     case 'Stop':
-      return { ...base, event: 'route', session_id: sessionId, lane: extractLane(input.last_assistant_message) };
+      return { ...base, event: 'route', session_id: sessionId, lane: extractLane(input.last_assistant_message, input.cwd) };
 
     default:
       return null;

@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [1.0.10] - 2026-10-06
+
 ### Fixed
 
 - Apply plain routing rules for every supported main agent, preserve manual copy snippets, replace older applied blocks and retain uninstall compatibility (#51, #52).
@@ -29,11 +31,12 @@ All notable changes to this project are documented here. The format follows [Kee
 - Refuse double quotes in install paths before rendering systemd commands.
 - Replace generated files through same-directory temporary files and rename, so hard links cannot redirect writes.
 - Make failure lines terminal-safe for every provider lane.
-- Parse repeated route markers with a bounded linear scan.
+- Parse repeated route markers with a bounded linear scan that allows nested comments.
 - Refuse non-regular or oversized lanes configuration before reading it.
-- Log route lane names only from the known catalog and agent names, recording other values as invalid.
+- Log route lane names only from the known catalog, agent names, and project custom subagents, recording other values as invalid.
 - Open rules files without blocking and verify their identity after opening to prevent a replacement-file race.
 - Create watchdog timeout markers as directories so an unlinked marker cannot truncate a symlink target.
+- Pin the Level 3 images to `ghcr.io/berriai/litellm:v1.104.0` and `ollama/ollama:0.35.1`, the newest releases with the fewest advisories, and renew the dated advisory exceptions for what remains to 2026-11-05 (#56).
 
 ### Changed
 
@@ -644,7 +647,8 @@ First release.
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
-[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.9...HEAD
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.10...HEAD
+[1.0.10]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.9...v1.0.10
 [1.0.9]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.8...v1.0.9
 [1.0.8]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.7...v1.0.8
 [1.0.7]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.6...v1.0.7
