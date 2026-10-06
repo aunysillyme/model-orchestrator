@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { join } from 'node:path';
+import { join, relative, resolve, sep } from 'node:path';
 import { preflight, snippetFor, ACTIVATION_JSON_BYTE_CAP } from './install.js';
 
 export const START = '<!-- model-orchestrator:start -->';
@@ -73,6 +73,21 @@ export function assertSnippetPrimary(primary) {
   return !!primary?.rulesFile;
 }
 
+function appliedRules(snippet, files, project, path) {
+  const match = snippet.match(/^```markdown\r?\n([\s\S]*?)^```[ \t]*(?:\r?\n|$)/m);
+  if (!match) throw refuse(`${path}: missing routing rules in generated snippet`);
+  let body = match[1].trimEnd();
+  const manifest = files.find((file) => file.rel === 'MANIFEST.json');
+  if (manifest) {
+    const rulesDir = JSON.parse(manifest.content).dir;
+    const rel = relative(resolve(project), resolve(rulesDir)).split(sep).join('/') || '.';
+    // Manual guides may use an absolute path for a rules folder outside the
+    // project. Applied instructions always keep the reference project-relative.
+    for (const absolute of new Set([rulesDir, rulesDir.split(sep).join('/')])) body = body.replaceAll(absolute, rel);
+  }
+  return body;
+}
+
 // Read and validate every user file before the installer writes anything.
 // Activation ownership records only the inserted block and added hook entries.
 export function planSnippetApplication({ primary, project, files }) {
@@ -85,7 +100,7 @@ export function planSnippetApplication({ primary, project, files }) {
   const priorRules = existsSync(rulesPath) ? readFileSync(rulesPath) : null;
   const snippet = files.find((f) => f.rel === snippetFor(primary))?.content;
   if (snippet === undefined) throw refuse(`${rulesPath}: missing generated rules snippet`);
-  const content = markedContent(priorRules || Buffer.alloc(0), snippet, rulesPath);
+  const content = markedContent(priorRules || Buffer.alloc(0), appliedRules(snippet, files, project, rulesPath), rulesPath);
   const block = content.subarray(content.indexOf(START), content.indexOf(END) + Buffer.byteLength(END));
   const appended = !priorRules?.includes(START);
   const entries = [{ rel: targets[0], original: priorRules, content, activation: {

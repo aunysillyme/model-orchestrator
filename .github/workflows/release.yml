@@ -2,8 +2,8 @@
 # trusted publishing (OIDC): no npm token is stored anywhere. Requires, once, on npmjs.com:
 # package settings -> Trusted publisher -> GitHub Actions, owner aunysillyme, repository
 # model-orchestrator, workflow release.yml, environment release.
-# The publish job runs in the GitHub environment `release`, which waits for the maintainer's
-# approval and accepts v* tags only, so a pushed tag alone cannot publish.
+# The publish job runs in the GitHub environment `release`, which deploys from v* tags only.
+# Its approval step was removed on 2026-10-05; a pushed tag publishes once the tests pass.
 # What it proves: the tag, package.json and the tests agree before anything is published.
 # What it does NOT do: create the GitHub release page (RELEASING.md step 5) or bump versions.
 name: release

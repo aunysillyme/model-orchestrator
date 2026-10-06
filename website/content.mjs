@@ -20,7 +20,7 @@ export function populateLanding(template, version, releases) {
 }
 
 export function releaseEntries(markdown) {
-  const headings = [...markdown.matchAll(/^## \[([^\]]+)\](?: - (\d{4}-\d{2}-\d{2}))?\s*$/gm)];
+  const headings = [...markdown.matchAll(/^## \[([^\]]+)\](?:[ \t]+-[ \t]+(\d{4}-\d{2}-\d{2}))?[^\r\n]*$/gm)];
   return headings.flatMap((match, index) => semver(match[1]) ? [{
     version: match[1], date: match[2] || '',
     markdown: markdown.slice(match.index + match[0].length, headings[index + 1]?.index ?? markdown.length).replace(/^\[[^\]]+\]:.*$/gm, '').trim(),
@@ -39,6 +39,7 @@ function rewriteUrl(href, source, image = false) {
 export function renderMarkdown(markdown, source) {
   const slugger = new GithubSlugger();
   const renderer = new marked.Renderer();
+  renderer.html = ({text}) => escape(text);
   renderer.heading = function ({ tokens, depth }) {
     const text = this.parser.parseInline(tokens);
     const id = slugger.slug(sanitizeHtml(text, {allowedTags: [], allowedAttributes: {}}));

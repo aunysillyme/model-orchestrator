@@ -1,8 +1,8 @@
 import { spawn } from 'node:child_process';
 import { lstatSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join, parse, resolve, sep } from 'node:path';
+import { basename, dirname, join, parse, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { killTree, windowsSpawnPlan } from '../bin/cli-run.mjs';
+import { killTree, main as runnerMain, windowsSpawnPlan } from '../bin/cli-run.mjs';
 import { MANIFEST_BYTE_CAP, readRegularFile } from './bounded-file.js';
 import { byId } from './catalog.js';
 import { ROLE_SPECS } from './roles.js';
@@ -24,6 +24,8 @@ const HELP = `aunx: model router tools for AI coding agents
 
 Route reads MANIFEST.json from --dir, then ./ai-orchestrator, then the current
 directory. It reads regular JSON files of at most 1 MiB and executes no project code.
+cli-run --doctor reads ./ai-orchestrator/bin/lanes.json when present, or --dir
+for a custom rules folder. The health check executes the packaged runner.
 
 Scaffolds preserve existing files. Check commands run only with checks run.
 Use aunx install --help for the installer flags (or model-orchestrator --help).
@@ -80,7 +82,13 @@ export function scaffold(template, target) {
       mkdirSync(parent);
     }
   }
-  writeFileSync(path, readFileSync(join(COMMON, template)), { flag: 'wx', mode: 0o600 });
+  try {
+    writeFileSync(path, readFileSync(join(COMMON, template)), { flag: 'wx', mode: 0o600 });
+  } catch (error) {
+    if (error.code !== 'EEXIST') throw error;
+    console.log(`${basename(path)} already exists; kept it`);
+    return 0;
+  }
   console.log(`Created ${path}`);
   return 0;
 }
@@ -234,6 +242,17 @@ export async function main(args) {
   if (command === 'install') return runNode(join(ROOT, 'bin', 'cli.js'), rest);
   if (command === 'cli-run') {
     const parsed = runnerArgs(rest);
+    if (parsed.rest.includes('--doctor')) {
+      const here = join(parsed.dir || join(process.cwd(), 'ai-orchestrator'), 'bin');
+      try {
+        lstatSync(join(here, 'lanes.json'));
+        return runnerMain(parsed.rest, { here });
+      } catch (error) {
+        if (error.code !== 'ENOENT') throw error;
+      }
+      console.error('doctor: no installed lanes.json found; pass --dir PATH to inspect a custom rules folder.');
+      return runnerMain(parsed.rest);
+    }
     // The packaged runner is the default. A project's own runner only runs
     // when --dir names it explicitly (R1); this is the one place cli-run
     // dispatch can execute code from outside the package.
@@ -267,9 +286,12 @@ export async function main(args) {
     if (parsed.rest.length !== 1 || !parsed.rest[0].trim()) throw new Error('usage: aunx route [--dir PATH] "<task>"');
     const route = suggestRoute(parsed.rest[0]);
     const roles = readManifestRoles({ dir: parsed.dir });
-    console.log(route ? `Suggestion: ${roles ? route.role : route.agent} | tier: ${route.tier} | effort: ${route.effort}\n${roles ? stackSuggestion(roles[route.role]) + '\n' : ''}${route.reason} Confirm against your ROUTING.md.` : 'Suggestion: unknown task category. Read your ROUTING.md and choose a route for the task.');
+    console.log(route ? `Suggestion: ${route.role} | tier: ${route.tier} | effort: ${route.effort}\nAgent: ${route.agent}\n${roles ? stackSuggestion(roles[route.role]) + '\n' : ''}${route.reason} Confirm against your ROUTING.md.` : 'Suggestion: unknown task category. Read your ROUTING.md and choose a route for the task.');
     if (!roles) console.log('No install found; run the installer or pass --dir to see who your stack assigns.');
     return 0;
+  }
+  if (command && !command.startsWith('-')) {
+    throw new Error(`unknown aunx subcommand: ${command}\nAvailable subcommands: install, cli-run, route-metrics, brief, context, checks, route`);
   }
   return runNode(join(ROOT, 'bin', 'cli.js'), args);
 }

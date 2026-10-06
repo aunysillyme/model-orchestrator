@@ -5,6 +5,12 @@ import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { ROOT, AGENSI_DIR, PACK_NAMES, AGENSI_VERSION } from '../src/agensi.js';
 
+const zip = spawnSync('zip', ['-v'], { stdio: 'ignore', timeout: 5000 });
+if (zip.error || zip.status !== 0) {
+  console.error('zip is required to package skill packs; install zip and add it to PATH (brew install zip on macOS, apt install zip on Debian/Ubuntu).');
+  process.exit(1);
+}
+
 const generated = spawnSync(process.execPath, [join(ROOT, 'scripts/gen-agensi.js')], { stdio: 'inherit' });
 if (generated.error || generated.status !== 0) {
   console.error(generated.error?.message || 'Agensi generation failed');

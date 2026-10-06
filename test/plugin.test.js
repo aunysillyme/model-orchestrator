@@ -104,7 +104,7 @@ const HOOK_IMPORTS = new Set(['node:fs', 'node:path']);
 function hookProblems(src) {
   const problems = HOOK_FORBIDDEN.filter(([re]) => re.test(src)).map(([, label]) => label);
   for (const m of src.matchAll(/^\s*import\s[^;]*?from\s*['"]([^'"]+)['"]/gm)) if (!HOOK_IMPORTS.has(m[1])) problems.push('imports ' + m[1]);
-  for (const m of src.matchAll(/\bopenSync\s*\(([^)]*)\)/g)) if (!/,\s*['"]r['"]\s*$/.test(m[1])) problems.push('opens a file for writing');
+  for (const m of src.matchAll(/\bopenSync\s*\(([^)]*)\)/g)) if (!/,\s*(?:['"]r['"]|constants\.O_RDONLY\s*\|\s*constants\.O_NONBLOCK)\s*$/.test(m[1])) problems.push('opens a file for writing');
   if (!/process\.exit\(\s*(?:0|[A-Za-z_$][\w$]*)\s*\)/.test(src)) problems.push('no exit(0)');
   if (!/catch/.test(src)) problems.push('no catch');
   return problems;
@@ -131,6 +131,20 @@ test('the hook-safety check can go red, on the real route-metrics hook it keeps 
   assert.deepEqual(hookProblems("import { request } from 'node:http';" + ok), ['imports node:http']);
   assert.deepEqual(hookProblems("openSync(p, 'w');" + ok), ['opens a file for writing']);
   assert.deepEqual(hookProblems("openSync(p, 'r'); process.stdout.write(s);" + ok), []);
+});
+
+test('the hook-safety check allows only the exact nonblocking read flags', () => {
+  const ok = ' try {} catch {} process.exit(0)';
+  assert.deepEqual(hookProblems('openSync(p, constants.O_RDONLY | constants.O_NONBLOCK);' + ok), []);
+  assert.deepEqual(hookProblems('openSync(p, constants.O_RDONLY\n  | constants.O_NONBLOCK);' + ok), []);
+  for (const flag of ['O_WRONLY', 'O_RDWR', 'O_CREAT', 'O_TRUNC']) {
+    for (const expression of ['constants.' + flag, 'constants.O_RDONLY | constants.O_NONBLOCK | constants.' + flag, 'constants.' + flag + ' | constants.O_NONBLOCK']) {
+      assert.deepEqual(hookProblems('openSync(p, ' + expression + ');' + ok), ['opens a file for writing'], expression);
+    }
+  }
+  for (const flags of ['0', 'flags', 'constants.O_RDONLY', 'constants.O_NONBLOCK', 'constants.O_NONBLOCK | constants.O_RDONLY']) {
+    assert.deepEqual(hookProblems('openSync(p, ' + flags + ');' + ok), ['opens a file for writing'], flags);
+  }
 });
 
 // ---- agents ----

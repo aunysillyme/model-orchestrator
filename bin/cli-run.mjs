@@ -66,7 +66,7 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { StringDecoder } from 'node:string_decoder';
 import { createHash } from 'node:crypto';
-import { readFileSync, existsSync, mkdirSync, appendFileSync, mkdtempSync, rmSync, accessSync, constants, realpathSync, statSync, lstatSync, openSync, readSync, closeSync } from 'node:fs';
+import { readFileSync, existsSync, mkdirSync, appendFileSync, mkdtempSync, rmSync, accessSync, constants, realpathSync, statSync, lstatSync, fstatSync, openSync, readSync, closeSync } from 'node:fs';
 import { join, dirname, delimiter, resolve, relative, isAbsolute, sep } from 'node:path';
 import { tmpdir, homedir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -310,7 +310,8 @@ export const AUTO_EFFORT = {
 
 export function gitChangedLines(cwd) {
   try {
-    const r = spawnSync('git', ['diff', '--numstat', '-z', 'HEAD'], { cwd, timeout: 5000, maxBuffer: 1024 * 1024 });
+    const safeConfig = ['-c', 'core.fsmonitor=false', '-c', 'core.hooksPath=/dev/null'];
+    const r = spawnSync('git', [...safeConfig, 'diff', '--no-ext-diff', '--no-textconv', '--numstat', '-z', 'HEAD'], { cwd, timeout: 5000, maxBuffer: 1024 * 1024 });
     if (r.error || r.status !== 0) return null;
     let total = 0;
     for (const row of String(r.stdout).split('\0')) {
@@ -318,7 +319,7 @@ export function gitChangedLines(cwd) {
       const [added, removed] = row.split('\t');
       total += (Number.isFinite(Number(added)) ? Number(added) : 0) + (Number.isFinite(Number(removed)) ? Number(removed) : 0);
     }
-    const listed = spawnSync('git', ['ls-files', '--others', '--exclude-standard', '-z'], { cwd, timeout: 5000, maxBuffer: 1024 * 1024 });
+    const listed = spawnSync('git', [...safeConfig, 'ls-files', '--others', '--exclude-standard', '-z'], { cwd, timeout: 5000, maxBuffer: 1024 * 1024 });
     if (listed.error || listed.status !== 0) return null;
     const root = realpathSync(cwd);
     const deadline = Date.now() + 2000;
@@ -368,11 +369,9 @@ export function resolveAutoEffort(lane, requested, prompt, audit, cwd = process.
     const bucket = promptScope < 4000 ? 'small' : 'large';
     return { resolved: AUTO_EFFORT[lane][bucket], basis: 'prompt_chars', scope: promptScope, truncated: false };
   }
-  const git = gitChangedLines(cwd);
-  const scope = Math.max(promptScope, git ? git.lines : 0);
-  // Audit is a stakes floor. Scope records the larger independently observed
-  // input, but never moves an audit above or below high.
-  return { resolved: 'high', basis: 'audit_floor', scope, truncated: !!(git && git.truncated) };
+  // The audit floor is fixed, so Git inspection cannot change the effort.
+  // Avoid running repository helpers merely to record an unused measurement.
+  return { resolved: 'high', basis: 'audit_floor', scope: promptScope, truncated: false };
 }
 
 // A model id or effort level becomes an argv element and, for codex, part of a
@@ -1156,15 +1155,38 @@ function log(rec) {
   }
 }
 
+// This runner ships standalone. Keep its regular-file reader self-contained,
+// with the same identity checks and fixed cap as the package's data readers.
+function readRegularData(path, maxBytes, before = lstatSync(path)) {
+  if (!before.isFile() || before.isSymbolicLink()) throw new Error('expected a regular file');
+  const fd = openSync(path, constants.O_RDONLY | (constants.O_NOFOLLOW || 0) | (constants.O_NONBLOCK || 0));
+  try {
+    const after = fstatSync(fd);
+    if (!after.isFile() || after.dev !== before.dev || after.ino !== before.ino || after.size > maxBytes) throw new Error('unsafe or oversized data file');
+    const buffer = Buffer.alloc(maxBytes + 1);
+    let length = 0;
+    while (length < buffer.length) {
+      const count = readSync(fd, buffer, length, buffer.length - length, null);
+      if (!count) break;
+      length += count;
+    }
+    if (length > maxBytes) throw new Error('data file exceeds byte limit');
+    return buffer.subarray(0, length).toString('utf8');
+  } finally { closeSync(fd); }
+}
+
 // lanes.json sits beside this script. ABSENT = every lane enabled (the
 // documented default). PRESENT BUT UNREADABLE OR MALFORMED = no lane enabled:
 // a half-written config must fail closed, never re-enable what the installer
 // disabled. Returns null when the file is bad so the caller can say so.
 export function laneConfig(here = dirname(fileURLToPath(import.meta.url))) {
   const p = join(here, 'lanes.json');
-  if (!existsSync(p)) return { enabled: LANES, defaults: {} };
+  let before;
+  try { before = lstatSync(p); } catch (error) {
+    return error.code === 'ENOENT' ? { enabled: LANES, defaults: {} } : null;
+  }
   try {
-    const j = JSON.parse(readFileSync(p, 'utf8'));
+    const j = JSON.parse(readRegularData(p, 1024 * 1024, before));
     if (!j || typeof j !== 'object' || !Array.isArray(j.enabled)) return null;
     if (!j.enabled.every((l) => typeof l === 'string' && LANES.includes(l))) return null;
     // `defaults` pins a model and effort per lane. It is optional; present and
@@ -1214,9 +1236,10 @@ export function resolveRoute(lane, opts, defaults) {
   return { model, effort, provider, model_source: src(opts.model, d.model), effort_source: src(opts.effort, d.effort), provider_source: src(opts.provider, d.provider) };
 }
 
-function usage(msg) {
+function usage(msg, help = false) {
   if (msg) console.error('cli-run: ' + msg);
-  console.error(`usage: cli-run <${LANES.join('|')}> "<prompt>" [--brief FILE] [--timeout SECS] [--quiet]
+  const emit = help ? console.log : console.error;
+  emit(`usage: cli-run <${LANES.join('|')}> "<prompt>" [--brief FILE] [--timeout SECS] [--quiet]
                 [--model ID] [--effort LEVEL] [--provider ID] [--expect-file PATH] [--expect-json]
        cli-run codex --audit "<prompt>"          read-only sandbox (audit shape)
        cli-run qwen [--safe-mode] "<prompt>"     qwen-only flag
@@ -1231,7 +1254,12 @@ function usage(msg) {
   15 quota, 16 rejected, 17 refused, 18 cut short. Failures print a problem and a fix line.
   auto sizes per call: below 4,000 prompt characters is medium, otherwise high; a codex audit is always high. Auto never resolves above high.
   Pin them per lane instead of per call with "defaults" in bin/lanes.json.`);
-  return USAGE;
+  return help ? OK : USAGE;
+}
+
+// Provider diagnostics are terminal data: show all controls as visible escapes.
+function terminalSafe(value) {
+  return String(value).replace(/[\u0000-\u001f\u007f-\u009f]/g, c => `\\x${c.charCodeAt(0).toString(16).padStart(2, '0')}`);
 }
 
 // Bounded, control-character-free head of vendor stderr for the terminal.
@@ -1247,8 +1275,7 @@ function stderrHead(err, n = 300) {
 function installedPrimary(here = dirname(fileURLToPath(import.meta.url))) {
   const p = join(here, '..', 'MANIFEST.json');
   try {
-    if (!existsSync(p) || statSync(p).size > 1024 * 1024) return null;
-    const m = JSON.parse(readFileSync(p, 'utf8'));
+    const m = JSON.parse(readRegularData(p, 1024 * 1024));
     return m && typeof m.primary === 'string' && /^[a-z0-9-]+$/.test(m.primary) ? m.primary : null;
   } catch {
     return null;
@@ -1287,7 +1314,7 @@ export async function doctor(run, { here = dirname(fileURLToPath(import.meta.url
     let line = `  ${lane.padEnd(7)} ${on ? 'enabled ' : 'disabled'} ${bin ? 'binary ok' : 'binary MISSING'}${route ? '  ' + route : ''}`;
     if (on && !bin) bad++;
     if (on && bin && run) {
-      const rc = await main([lane, 'Reply with exactly the word OK and nothing else.', '--timeout', '120', '--quiet']);
+      const rc = await main([lane, 'Reply with exactly the word OK and nothing else.', '--timeout', '120', '--quiet'], { here });
       line += rc === OK ? '  canary ok' : `  canary FAILED rc=${rc}`;
       if (rc !== OK) bad++;
     }
@@ -1341,7 +1368,8 @@ export function checkContracts(opts, text, before) {
   return null;
 }
 
-export async function main(argv) {
+export async function main(argv, { here = dirname(fileURLToPath(import.meta.url)) } = {}) {
+  if (argv.length === 1 && ['--help', '-h'].includes(argv[0])) return usage(null, true);
   const VALUE = new Set(['--brief', '--timeout', '--model', '--effort', '--provider', '--expect-file']);
   const BOOL = new Set(['--quiet', '--audit', '--safe-mode', '--doctor', '--run', '--expect-json']);
   const args = [...argv];
@@ -1349,7 +1377,8 @@ export async function main(argv) {
   const positional = [];
   while (args.length) {
     const a = args.shift();
-    if (VALUE.has(a)) {
+    if (a === '--help' || a === '-h') return usage(null, true);
+    else if (VALUE.has(a)) {
       const v = args.shift();
       if (v === undefined || v.startsWith('--')) return usage(`${a} requires a value`);
       if (a === '--brief') opts.brief = v;
@@ -1370,7 +1399,7 @@ export async function main(argv) {
   }
   if (opts.doctor) {
     if (positional.length) return usage('--doctor takes no lane or prompt');
-    return doctor(opts.run);
+    return doctor(opts.run, { here });
   }
   if (opts.run) return usage('--run only applies with --doctor');
   const lane = positional[0];
@@ -1403,7 +1432,7 @@ export async function main(argv) {
 
   const digest = createHash('sha256').update(prompt).digest('hex').slice(0, 12);
   const base = { lane, prompt_sha256_12: digest, prompt_chars: prompt.length };
-  const cfg = laneConfig();
+  const cfg = laneConfig(here);
   // Resolve the route BEFORE the refusals below. A run that never reached a lane
   // was still a request for one, and a failure record with no route is the exact
   // gap this feature exists to close. A malformed lanes.json has no usable
@@ -1496,15 +1525,15 @@ export async function main(argv) {
     }
     const code = cls === 'interrupted' ? 128 + (r.interrupted === 'SIGINT' ? 2 : 15) : CLASS_CODES[cls];
     if (text && code === OK) process.stdout.write(text + '\n');
-    const routeNote = (route.provider ? `${route.provider}:` : '') + (route.model || route.effort ? `${route.model || 'lane default'}/${route.effort || 'lane default'}` : 'lane default');
+    const routeNote = `provider:${route.provider || 'default'} model:${route.model || 'default'} effort:${route.effort || 'default'}`;
     if (!opts.quiet) {
-      console.error(`cli-run[${lane}] ${verdict} rc=${code} class=${cls} refused=${refused === null ? 'null' : refused} ${r.seconds.toFixed(1)}s raw=${r.outBytes || 0}B route=${routeNote} :: ${redact(detail)}`);
+      console.error(terminalSafe(`cli-run[${lane}] ${verdict} rc=${code} class=${cls} refused=${refused === null ? 'null' : refused} ${r.seconds.toFixed(1)}s raw=${r.outBytes || 0}B route=${routeNote} :: ${redact(detail)}`));
       let authoritative = null;
       if (lane === 'claude' && ['auth', 'quota', 'rejected'].includes(cls)) authoritative = stderrHead(claudeErrorText(out) || err);
       if (lane === 'codex' && (cls === 'quota' || cls === 'rejected')) authoritative = codexPrimaryError(out);
       const pf = problemAndFix(lane, cls, { out, err, detail, refused, authoritative });
-      if (pf.problem) console.error('cli-run problem: ' + redact(pf.problem).slice(0, 600));
-      if (pf.fix) console.error('cli-run fix: ' + pf.fix);
+      if (pf.problem) console.error('cli-run problem: ' + terminalSafe(redact(pf.problem).slice(0, 600)));
+      if (pf.fix) console.error('cli-run fix: ' + terminalSafe(pf.fix));
     }
     // Durable log: fixed reason code, fixed class and structural numbers only.
     log({ ...base, verdict, class: cls in CLASS_CODES || cls === 'interrupted' ? cls : 'unknown', rc: code, cli_rc: r.status, signal: r.signal || null, refused: Number.isInteger(refused) ? refused : null, seconds: Math.round(r.seconds * 100) / 100, raw_bytes: r.outBytes || 0, deliverable_bytes: Buffer.byteLength(text), reason: REASONS.has(reason) ? reason : 'unknown' });

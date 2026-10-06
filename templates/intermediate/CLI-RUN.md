@@ -19,7 +19,7 @@ aunx cli-run {{EXAMPLE_LANE}} --brief TASK_BRIEF.md --timeout 900
 node bin/cli-run.mjs {{EXAMPLE_LANE}} --brief TASK_BRIEF.md --timeout 900
 ```
 
-When `aunx` runs, it uses the packaged runner. Use `--dir <rules-directory>` to select an installed project runner and its lane configuration explicitly. An absent project runner falls back to the package runner.
+When `aunx` runs, it uses the packaged runner. Doctor reads `./ai-orchestrator/bin/lanes.json` when present, as data only. Use `--dir <rules-directory>` for a custom rules folder or to select an installed project runner explicitly. An absent project runner falls back to the package runner.
 
 When requesting a particular route, inspect the lane's current roster and select the model and effort for the job:
 
@@ -31,6 +31,8 @@ node bin/cli-run.mjs {{EXAMPLE_LANE}} "<prompt>" --model '<model-id>'{{EXAMPLE_E
 {{EXAMPLE_AUDIT_BLOCK}}
 
 {{QWEN_SAFE_MODE_NOTE}}`--quiet` suppresses human-readable status lines. `--timeout SECS` bounds each call.
+
+The terminal status prints separate route fields: `route=provider:<provider-id> model:<model-id> effort:<effort>`. An unpinned field reads `default`; model IDs containing `/` remain unambiguous. The JSON run log retains its documented fields.
 
 ## Check availability before work depends on it
 

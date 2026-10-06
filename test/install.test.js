@@ -194,15 +194,15 @@ test('writing to a temp dir produces the plan; a second run keeps existing files
 
     writeFileSync(join(dir, 'README.md'), 'mine');
     const second = writeFiles(files, { dir, project: dir });
-    // machine-owned files (MANIFEST.json, bin/lanes.json) are always rewritten; documents are kept.
+    // Unchanged machine-owned bytes are kept; the manifest refreshes its inventory.
     // written/skipped/etc are report labels: posix-normalized on every host (see writeFiles()),
     // not the OS-native join() the existsSync() check above correctly uses for a real path.
-    assert.deepEqual(second.written.sort(), ['MANIFEST.json', 'bin/lanes.json']);
-    assert.equal(second.skipped.length, files.length - 2);
+    assert.deepEqual(second.written.sort(), ['MANIFEST.json']);
+    assert.equal(second.skipped.length, files.length - 1);
     assert.equal(readFileSync(join(dir, 'README.md'), 'utf8'), 'mine', 'existing file was overwritten without --force');
 
     const forced = writeFiles(files, { dir, project: dir, force: true });
-    assert.equal(forced.written.length, files.length);
+    assert.deepEqual(forced.written.sort(), ['MANIFEST.json', 'README.md']);
     assert.notEqual(readFileSync(join(dir, 'README.md'), 'utf8'), 'mine');
 
     const dryDir = mkdtempSync(join(tmpdir(), 'orch-dry-'));

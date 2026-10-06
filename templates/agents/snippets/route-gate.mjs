@@ -11,7 +11,7 @@
 // reads at most 64 KB of the rules file through a fixed-size buffer (never
 // a full read of an arbitrarily large or non-regular file), and never
 // executes anything it reads. See docs/security-review-history.md for the security notes.
-import { statSync, openSync, readSync, closeSync, realpathSync } from 'node:fs';
+import { statSync, openSync, fstatSync, readSync, closeSync, realpathSync, constants } from 'node:fs';
 import { join, isAbsolute, basename } from 'node:path';
 
 // One template, two renders. The installer renders a one-element list from
@@ -109,9 +109,10 @@ function locateRules() {
 // Bounded, regular-file-only read. statSync (not lstatSync) follows a
 // symlink to its target and reports what the target actually is, so a
 // symlinked rules file still reads; a FIFO, socket, device or directory at
-// the resolved path is refused before any open/read call touches it. That
-// check matters: opening a FIFO for reading blocks until a writer opens the
-// other end, and a plain readFileSync on any of these can hang or, for a
+// the resolved path is refused before any read. Opening with O_NONBLOCK also
+// refuses a FIFO swapped in after stat without waiting for a writer; fstat
+// verifies the opened descriptor still names the inspected regular file.
+// A plain readFileSync on any of these can hang or, for a
 // huge or sparse regular file, allocate far more than this hook needs. The
 // fixed-size buffer plus a single bounded readSync call means the on-disk
 // size of the file never determines how much this hook reads or how long it
@@ -127,7 +128,10 @@ function readBounded(path) {
   const buf = Buffer.alloc(MAX_READ);
   let fd;
   try {
-    fd = openSync(path, 'r');
+    fd = openSync(path, constants.O_RDONLY | constants.O_NONBLOCK);
+    const opened = fstatSync(fd);
+    if (!opened.isFile()) throw new Error(path + ' is not a regular file');
+    if (opened.dev !== st.dev || opened.ino !== st.ino) throw new Error(path + ' changed during inspection');
     const bytesRead = readSync(fd, buf, 0, MAX_READ, 0);
     return buf.toString('utf8', 0, bytesRead);
   } finally {

@@ -191,6 +191,66 @@ test('route-metrics.mjs: a lane token with disallowed characters is logged as "i
   }
 });
 
+test('route-metrics.mjs: repeated incomplete route markers finish within the hook deadline', () => {
+  const home = newHome();
+  const hookPath = writeHook(home);
+  try {
+    for (const message of ['x'.repeat(1024 * 1024), '<!--route:'.repeat(110000), '<!--route:' + ' '.repeat(1024 * 1024)]) {
+      const r = spawnSync('node', [hookPath], {
+        input: JSON.stringify({ hook_event_name: 'Stop', session_id: 's', last_assistant_message: message }),
+        encoding: 'utf8', timeout: 5000,
+        env: { ...process.env, HOME: home, USERPROFILE: home }
+      });
+      assert.equal(r.error, undefined, 'route marker parsing exceeded 5s: ' + r.error?.code);
+      assert.equal(r.status, 0, r.stderr);
+      assert.deepEqual(readLog(home).at(-1).lane, ['missing']);
+    }
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test('route-metrics.mjs: known lanes survive and incomplete or unrelated trailing comments keep the last complete route', () => {
+  const home = newHome();
+  const hookPath = writeHook(home);
+  try {
+    const lanes = ['inline', 'main', 'builder', 'reader', 'deep-planner', 'code-reviewer', 'finding-verifier', 'live-researcher', 'bulk-worker', 'done-verifier', 'claude', 'codex', 'grok', 'agy', 'hermes', 'qwen'];
+    const cases = [
+      ['<!-- route: ' + lanes.join('+') + ' | no text retained -->', lanes],
+      ['<!-- route: builder | completed --> <!-- route: codex', ['builder']],
+      ['<!-- route: builder | completed --> <!-- unrelated comment -->', ['builder']],
+      ['<!-- route: builder | first --> <!-- route: codex | last --> <!-- ignored -->', ['codex']],
+      ['<!-- \n route: main | whitespace -->', ['main']],
+      ['<!-- route: | empty -->', ['missing']]
+    ];
+    for (const [message, expected] of cases) {
+      const r = run(hookPath, home, { hook_event_name: 'Stop', session_id: 's', last_assistant_message: message });
+      assert.equal(r.status, 0, r.stderr);
+      assert.deepEqual(readLog(home).at(-1).lane, expected);
+    }
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test('route-metrics.mjs: charset-valid free text cannot enter the durable lane field', () => {
+  const home = newHome();
+  const hookPath = writeHook(home);
+  try {
+    for (const token of ['free-text-provider-data', 'builder.suffix', 'constructor', '__proto__', 'CODEX']) {
+      const r = run(hookPath, home, {
+        hook_event_name: 'Stop', session_id: 's',
+        last_assistant_message: '<!-- route: builder+' + token + ' | ignored -->'
+      });
+      assert.equal(r.status, 0, r.stderr);
+      assert.deepEqual(readLog(home).at(-1).lane, ['builder', 'invalid'], 'unknown lane token reached the log');
+      assert.ok(!readFileSync(logPath(home), 'utf8').includes(token), 'raw lane text reached the durable log');
+    }
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
 test('route-metrics.mjs: no marker at all logs lane ["missing"]', () => {
   const home = newHome();
   const hookPath = writeHook(home);

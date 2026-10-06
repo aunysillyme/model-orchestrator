@@ -1,4 +1,5 @@
 import test from 'node:test';
+import './content-checks.mjs';
 import assert from 'node:assert/strict';
 import {readFileSync, readdirSync, existsSync} from 'node:fs';
 import path from 'node:path';
@@ -85,8 +86,8 @@ test('link and Google tag checks reject deliberately broken HTML', () => {
 });
 test('Markdown removes scripts, event handlers and unsafe protocols', () => {
   const output = renderMarkdown('<script>alert(1)</script>\n\n[x](javascript:alert(1))\n\n<img src=x onerror=alert(1)>\n\n<iframe src="https://evil.example"></iframe>', 'README.md');
-  assert.doesNotMatch(output, /<script|<iframe|onerror|javascript:/i);
-  assert.ok(output.includes('<img'));
+  assert.doesNotMatch(output, /<script|<iframe|<img|href="javascript:/i);
+  assert.ok(output.includes('&lt;img'));
 });
 test('Markdown source-relative paths resolve locally and unknown files resolve to GitHub', () => {
   const output = renderMarkdown('[Install](install.md#setup) [Runner](../bin/README.md) [Source](../src/index.js)', 'docs/README.md');
@@ -102,6 +103,16 @@ test('release parsing excludes Unreleased and keeps each version paired with its
   assert.ok(validRelease({name: 'model-orchestrator', version: '1.0.1'}));
   for (const value of ['<script>', '01.0.0', '1.0', '1.0.0-01', null]) assert.ok(!validRelease({name: 'model-orchestrator', version: value}));
   assert.ok(!validRelease({name: 'other-package', version: '1.0.0'}));
+});
+
+test('the built website renders a release panel for every changelog version', () => {
+  const entries = releaseEntries(readFileSync(path.join(here, '..', 'CHANGELOG.md'), 'utf8'));
+  const html = readFileSync(path.join(out, 'index.html'), 'utf8');
+  const rendered = inventory(html).tags.filter(({name, attrs}) => name === 'article' && attrs['data-release']).map(({attrs}) => attrs['data-release']);
+  assert.deepEqual(rendered, entries.map(entry => entry.version));
+  const notes = readFileSync(path.join(out, 'docs/changelog/index.html'), 'utf8');
+  assert.ok(notes.includes('&lt;dir&gt;'));
+  assert.ok(notes.includes('&lt;project&gt;'));
 });
 function releaseFixture() {
   const status = {textContent: ''}, badge = {textContent: 'v1.0.0'};

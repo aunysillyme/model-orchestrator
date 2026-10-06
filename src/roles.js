@@ -60,7 +60,7 @@ export const ROLE_SPECS = [
     id: 'bulk', job: 'Many similar items, cheap', tier: 'cheap model',
     requires: (ai) => ai.facts.headless === true && ai.facts.cliRun === true,
     prefer: [costRank, inputRate], fallback: 'main',
-    why: (ai) => `${billingReason(ai)}, headless, runs through cli-run; ties follow selection order`
+    why: (ai, ctx) => `${billingReason(ai)}, headless${!isMain(ai, ctx) && ctx.level >= 2 && routeVia(ai, ctx.primary) === 'cli-run' ? ', runs through cli-run' : ''}; ties follow selection order`
   },
   {
     id: 'read', job: 'Digest many files, return cited facts', tier: 'cheap model',
@@ -93,11 +93,11 @@ function routeVia(ai, primary) {
   return 'manual';
 }
 
-export function assignRoles({ selected, primary, detected = new Set(), plans = {} }) {
+export function assignRoles({ selected, primary, detected = new Set(), plans = {}, level = 2 }) {
   // PATH detection and stated plan headroom are advisory, not role qualifiers.
   void detected;
   void plans;
-  const ctx = { primary, mainFamily: primary?.facts.modelFamily ?? null, mainContext: primary?.facts.contextWindow?.tokens ?? null };
+  const ctx = { primary, level, mainFamily: primary?.facts.modelFamily ?? null, mainContext: primary?.facts.contextWindow?.tokens ?? null };
   const roles = {};
   for (const spec of ROLE_SPECS) {
     const pool = selected.filter((ai) => spec.requires(ai, ctx));

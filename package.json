@@ -10,6 +10,7 @@
   "files": [
     "bin",
     "src",
+    "!src/agensi.js",
     "templates",
     "!templates/agensi",
     "docs",

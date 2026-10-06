@@ -9,6 +9,12 @@ const workflow = readFileSync(new URL('../.github/workflows/cla.yml', import.met
 const agreement = 'I agree to the Contributor License Agreement in CLA.md';
 const checked = `- [x] ${agreement}`;
 
+test('Contribution is limited to work intentionally submitted through a pull request', () => {
+  const cla = readFileSync(new URL('../CLA.md', import.meta.url), 'utf8');
+  assert.match(cla, /that You intentionally submit to Auny LLC for inclusion in this project through a pull request\./);
+  assert.doesNotMatch(cla, /an issue, a comment or any other channel/);
+});
+
 function workflowScript() {
   const match = workflow.match(/^        run: \|\n((?:          .*\n)+)$/m);
   assert.ok(match, 'the workflow must contain one literal run script');

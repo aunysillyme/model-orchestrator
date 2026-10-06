@@ -15,6 +15,7 @@ Maintainer checklist for a versioned release through the existing trusted-publis
 - Verify every published figure has its date, method, sample size, script and unexpired data entry. Author-setup figures need their own sources and local remeasurement.
 - Replay acceptance checks and run `npm test` against the final tree. Confirm `npm pack --dry-run` excludes development scripts and private review material.
 - Confirm the GitHub description matches `package.json` exactly. The npm description and README update through publication.
+- Packaging skill packs with `npm run pack:agensi` requires the `zip` command on PATH. Install it with `brew install zip` on macOS or `apt install zip` on Debian/Ubuntu.
 - Refresh `docs/demo.gif` from the published version using `scripts/record-demo.sh`; verify the rendered recording. Update any dated trailer proof figures from the same results data before launch.
 - Write release notes around what readers get and the 0.1.x upgrade path.
 

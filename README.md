@@ -142,7 +142,7 @@ aunx route-metrics --summary
 aunx route-metrics --summary --since 2026-09-01
 ```
 
-On Claude Code installs, the routing hook records turns, route markers and subagent activity locally. The summary reports your routing split, route-marker coverage and agent durations. Prompt text and the explanation inside a route marker never enter that log. [Measured results and reproduction scripts](proof/README.md) show dated figures with methods and sample sizes; expired entries fail the test suite.
+On Claude Code installs, the routing hook records turns, route markers and subagent activity locally. The summary reports your routing split, route-marker coverage and agent durations. Prompt text and the explanation inside a route marker never enter that log. [Measured results and reproduction scripts](proof/README.md) show dated figures with methods and sample sizes. An expired entry is a signal to re-measure; the test suite rejects future-dated or incomplete entries.
 
 ## Claude Code plugin
 
@@ -211,7 +211,7 @@ Run `npx model-orchestrator --uninstall --dir ./ai-orchestrator --project .` (ad
 
 Node 18 or newer, with zero runtime dependencies. Works on macOS and Linux; the level 3 box templates assume Ubuntu. Windows: CI runs the suite on `windows-latest` (Node 18, 20, 22), including lane execution end to end through `cli-run` against a fake CLI installed the same way npm installs a real one (a `.cmd` shim). `cli-run` never runs a lane through `cmd.exe`: it resolves the shim to the Node script underneath and spawns Node directly, so a prompt reaching a real lane never passes through a Windows shell. A `.cmd` or `.bat` lane that cannot be resolved that way (an old or hand-edited shim) is refused with exit 13 and a message saying how to fix it, rather than run through `cmd.exe`: a batch file re-reads its arguments after `cmd.exe` has parsed them once, and no escaping fully contains a prompt through both passes. Install, detection, the hooks and `cli-run`'s `taskkill` tree kill are tested on Windows too, including SIGTERM/SIGINT to the wrapper (Windows has no OS-level signals: both terminate it unconditionally, verified there rather than treated the same as POSIX). The Windows skip list covers POSIX behavior, with each skip pinned by `test/prose.test.js`: `statSync().mode`'s executable bit (NTFS has none, so that one assertion is conditional inside a test that otherwise runs everywhere); a lane dying mid-run from a real POSIX signal (a real Windows lane cannot die "by signal"); running `weekly-audit.sh`'s watchdog functions for real under Git Bash's job control, both the end-to-end run and the `bounded()` timeout check (the script itself only ever runs on the Ubuntu box it targets); and a `mkfifo` FIFO at the rules path, the one case that proves `route-gate.mjs` cannot HANG on a non-regular file, since Windows has no `mkfifo` to build one (the guard behind it is covered on every OS by a directory at the same path); and an untracked `mkfifo` FIFO in the repository `cli-run --audit` sizes, the case that proves `--effort auto` never opens a non-regular file (the symlink half of that test runs on every OS). `test/prose.test.js` counts every `skip:` in the suite and requires this list to document each one.
 
-Additional security regressions skip Windows for the project-hook symlink and manifest FIFO fixtures and the symlinked-manifest refusal message (symlink privileges and POSIX special files), the POSIX shell descendant timeout fixture (the argv equivalent still runs on Windows), and four weekly credential and report lifecycle runtime checks (the Ubuntu watchdog requires POSIX process-tree semantics). Their configuration and generated syntax remain covered on every platform.
+Additional security regressions skip Windows for the project-hook symlink and manifest FIFO fixtures and the symlinked-manifest refusal message (symlink privileges and POSIX special files), the fsmonitor helper and runner lanes FIFO fixtures (POSIX executables and special files), the POSIX shell descendant timeout fixture (the argv equivalent still runs on Windows), and five weekly credential, report lifecycle and timeout marker runtime checks (the Ubuntu watchdog requires POSIX process-tree semantics). The rules-file replacement race also needs `mkfifo`. Their configuration and generated syntax remain covered on every platform.
 
 **Privacy.** The installer sends no telemetry and makes no network call of its own once it is running. Two things around that are worth being exact about:
 
@@ -265,6 +265,8 @@ Contributions are welcome:
 - **New AIs:** add an entry to `src/catalog.js`; prompts, tables, configs and docs use the catalog.
 - **Vendor updates:** contribute a lane fixture captured from a newer vendor version and the test that checks it.
 - **Docs:** fix an unclear instruction or add a reproducible example.
+
+Pull requests are accepted under the [contributor license agreement](CLA.md); the checkbox in the pull request template records your agreement.
 
 Run `npm test` with your change. Keep templates free of logic and credential values. See [CONTRIBUTING.md](CONTRIBUTING.md), [RELEASING.md](RELEASING.md) and [SECURITY.md](SECURITY.md).
 
