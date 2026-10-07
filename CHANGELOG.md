@@ -4,6 +4,17 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [1.0.13] - 2026-10-07
+
+### Added
+
+- Resolve current Claude tier models from official documentation with `aunx models --probe`, explicit candidate approvals for new families and price increases, optional isolated alias canaries, validated installer snapshots through `--models`, and offline checks against installed agent definitions (AUN-1345).
+
+### Fixed
+
+- Reject incomplete family approvals before optional alias probes and report model snapshot changes during reconfiguration (AUN-1345).
+- Refresh the Anthropic gateway compatibility IDs from the official model overview checked on 2026-10-07 (AUN-1345).
+
 ## [1.0.12] - 2026-10-07
 
 ### Fixed
@@ -660,7 +671,8 @@ First release.
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
-[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.12...HEAD
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.13...HEAD
+[1.0.13]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.12...v1.0.13
 [1.0.12]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.11...v1.0.12
 [1.0.11]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.10...v1.0.11
 [1.0.10]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.9...v1.0.10

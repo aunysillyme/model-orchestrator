@@ -38,6 +38,18 @@
 
 export const CATALOG_MODELS = { measuredAt: '2026-09-23', expiresAt: '2026-10-23', source: 'catalog compatibility snapshot; verify with the provider before use' };
 
+// Capability policy, independent of subscriptions. Initial price ceilings come
+// from the official overview; Haiku's published prices are lower bounds (From).
+// Additional families require explicit candidate-specific acknowledgement.
+export const MODEL_POLICY = {
+  checked: '2026-10-07', source: 'https://platform.claude.com/docs/en/models/overview.md',
+  tiers: {
+    deep: { family: 'opus', price_in: 4, price_out: 20, agents: ['deep-planner'], label: 'planning model' },
+    standard: { family: 'sonnet', price_in: 2, price_out: 10, agents: ['builder', 'code-reviewer', 'finding-verifier', 'live-researcher'], label: 'working model' },
+    fast: { family: 'haiku', price_in: .1, price_out: .5, price_basis: 'from', agents: ['bulk-worker', 'done-verifier', 'reader'], label: 'cheap model' }
+  }
+};
+
 export const LEVELS = [
   {
     id: 1,
@@ -446,7 +458,7 @@ export const toolById = Object.fromEntries(TOOLS.map((t) => [t.id, t]));
 // Model names are a dated compatibility snapshot, refreshed against vendor catalogs.
 
 export const PROVIDERS = [
-  { id: 'anthropic', name: 'Anthropic API', envName: 'ANTHROPIC_API_KEY', modelsChecked: CATALOG_MODELS.measuredAt, modelsExpires: CATALOG_MODELS.expiresAt, lanes: [['standard', 'anthropic/claude-sonnet-5'], ['deep', 'anthropic/claude-opus-5']] },
+  { id: 'anthropic', name: 'Anthropic API', envName: 'ANTHROPIC_API_KEY', modelsChecked: MODEL_POLICY.checked, modelsExpires: '2026-11-07', lanes: [['standard', 'anthropic/claude-sonnet-5-5'], ['deep', 'anthropic/claude-opus-5-5']] },
   { id: 'openai', name: 'OpenAI API', envName: 'OPENAI_API_KEY', modelsChecked: CATALOG_MODELS.measuredAt, modelsExpires: CATALOG_MODELS.expiresAt, lanes: [['second-opinion', 'openai/gpt-5.6-terra']] },
   { id: 'google', name: 'Google Gemini API', envName: 'GEMINI_API_KEY', modelsChecked: CATALOG_MODELS.measuredAt, modelsExpires: CATALOG_MODELS.expiresAt, lanes: [['long-context', 'gemini/gemini-3.1-pro']] },
   { id: 'xai', name: 'xAI API', envName: 'XAI_API_KEY', modelsChecked: CATALOG_MODELS.measuredAt, modelsExpires: CATALOG_MODELS.expiresAt, lanes: [['live-fast', 'xai/grok-4.1-fast']] },

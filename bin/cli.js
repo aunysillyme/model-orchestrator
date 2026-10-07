@@ -15,12 +15,13 @@ import { assertSnippetPrimary, planSnippetApplication } from '../src/apply-snipp
 import { assignRoles, inferPrimary, roleTable } from '../src/roles.js';
 import { installHealthCheck, signInStatus } from '../src/postinstall.js';
 import { planCompanionApplication } from '../src/apply-companions.js';
+import { readSnapshot, validateSnapshot } from '../src/models.js';
 
 // One strict parse. Unknown flags, missing values and duplicates are usage
 // errors (exit 2) before anything is planned, so a typo like --dryy can never
 // turn a dry run into a real one.
 const SPEC = {
-  level: 'value', ais: 'value', primary: 'value', dir: 'value', project: 'value', tools: 'value', apis: 'value', plans: 'value',
+  level: 'value', ais: 'value', primary: 'value', dir: 'value', project: 'value', tools: 'value', apis: 'value', plans: 'value', models: 'value',
   'apply-snippets': 'bool', 'no-apply': 'bool', yes: 'bool', force: 'bool', dry: 'bool', 'dry-run': 'bool', uninstall: 'bool', 'no-install': 'bool', 'no-tools': 'bool', 'no-apis': 'bool', 'effort-auto': 'bool', 'upgrade-runtime': 'bool', 'update-docs': 'bool', list: 'bool', help: 'bool', h: 'bool', version: 'bool', v: 'bool'
 };
 export function parseArgs(argv) {
@@ -104,6 +105,8 @@ Flags
   --apis a,b         level 3 only: metered API keys you HOLD (anthropic,openai,google,xai,openrouter); --no-apis for none.
                      Select these with --apis or the edit screen; a subscription is not an API key.
   --plans a=plan,b=plan  stated subscription plans for guidance; --plans none clears prior stated plans
+  --models path      validated resolver JSON snapshot for Claude Code subagent models; --models none clears prior pins
+                     see aunx models --help; refresh snapshots after 72 hours
   --effort-auto      consent to write auto effort defaults for selected high or max plan cli-run lanes
   --dir path         where to write the docs and protocols (default ./ai-orchestrator)
   --project path     the project root your agent runs from (default: current directory);
@@ -439,7 +442,17 @@ async function main() {
   }
   validateSetup(setup);
 
+  if (opt('models') && opt('models') !== 'none') {
+    if (setup.primary?.id !== 'claude-code') bad('--models requires Claude Code as the main agent');
+    setup.models = readSnapshot(opt('models'));
+  }
+
   let prev = readManifest(setup.dir);
+  if (opt('models') === null && prev?.models && setup.primary?.id === 'claude-code') {
+    // Preserve an explicit earlier selection. Stale evidence requires a fresh
+    // snapshot or an explicit --models none before any writes or vendor calls.
+    setup.models = validateSnapshot(prev.models);
+  }
   setup.plans = opt('plans') !== null ? plansFromIds(opt('plans'), setup.selected) : plansFromManifest(prev, setup.selected);
   let plansKept = opt('plans') === null && Object.keys(setup.plans).length > 0;
   setup.effortAuto = flag('effort-auto') ? eligibleEffort(setup.selected, setup.plans)
@@ -452,7 +465,7 @@ async function main() {
     validateSetup(setup);
     const { level, selected, primary, dir, project, tools, apis, plans, effortAuto, detected, applySnippets } = setup;
     if (applySnippets) assertSnippetPrimary(primary);
-    files = planFiles({ level, selected, primary, dir, project, tools, apis, plans, effortAuto, detected, applySnippets });
+    files = planFiles({ level, selected, primary, dir, project, tools, apis, plans, effortAuto, detected, applySnippets, models: setup.models });
     plannedManifest = JSON.parse(files.find((file) => file.rel === 'MANIFEST.json').content);
     if (applySnippets) files.push(...planSnippetApplication({ primary, project, files }));
     registrations = applySnippets ? planCompanionApplication({ primary, tools, project, files }) : [];
@@ -555,6 +568,7 @@ async function main() {
         .concat(['ais', 'tools', 'apis'].filter((k) => JSON.stringify(prev[k] || []) !== JSON.stringify({ ais: selected, tools, apis }[k].map((x) => x.id))))
         .concat(JSON.stringify(prev.plans || {}) !== JSON.stringify(Object.fromEntries(Object.entries(plans).map(([id, p]) => [id, p.id]))) ? ['plans'] : [])
         .concat(JSON.stringify((prev.effortAuto || []).slice().sort()) !== JSON.stringify(effortAuto.slice().sort()) ? ['effortAuto'] : [])
+        .concat(JSON.stringify(prev.models ?? null) !== JSON.stringify(plannedManifest.models ?? null) ? ['models'] : [])
         .concat(JSON.stringify(prev.roles || {}) !== JSON.stringify(plannedManifest.roles || {}) ? ['roles'] : [])
     : [];
 
