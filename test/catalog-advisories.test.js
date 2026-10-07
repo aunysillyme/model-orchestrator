@@ -189,6 +189,10 @@ test('image parser accepts exact tags and digests and rejects malformed or float
   assert.equal(parseImageReference(`ghcr.io/fixture/image@${resolved.resolvedDigest}`).selector, resolved.resolvedDigest);
   for (const reference of [null, '', 'fixture/image', 'fixture/image:latest', 'fixture/image:', 'fixture//image:1', 'Fixture/image:1', 'fixture/image:1?x', 'fixture/image:1#x', 'fixture/image:1 bad', 'fixture/image@sha256:abcd', 'fixture/image@bad@bad', 'https://example.test/image:1']) assert.throws(() => parseImageReference(reference), /(?:malformed|unpinned|unsupported)-image/);
   assert.throws(() => parseImageReference('unsupported.test/fixture/image:1'), /unsupported-image-registry/);
+  for (const registry of ['docker.io.evil.test', 'evildocker.io', 'docker.io:443', 'ghcr.io.evil.test']) {
+    assert.throws(() => parseImageReference(`${registry}/fixture/image:1`), /unsupported-image-registry/);
+  }
+  assert.throws(() => parseImageReference('docker.io@evil.test/fixture/image:1'), /malformed-image-reference/);
 });
 
 test('registry fixtures resolve a tag to a verified digest and record platform', async () => {

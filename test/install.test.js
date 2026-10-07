@@ -809,7 +809,9 @@ test('#10b: bounded() reports a timeout (rc 124) even when the killed command ru
     "bounded 1 bash -c '/bin/sleep 30; echo never'",
     'echo "rc=$?"'
   ].join('\n');
-  const r = spawnSync('bash', ['-c', harness], { encoding: 'utf8', timeout: 20000 });
+  const harnessPath = join(d, 'bounded-harness.sh');
+  writeFileSync(harnessPath, harness);
+  const r = spawnSync('bash', [harnessPath], { encoding: 'utf8', timeout: 20000 });
   assert.match(r.stdout, /rc=124/, r.stdout + r.stderr);
   rmSync(d, { recursive: true, force: true });
 });

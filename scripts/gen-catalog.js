@@ -4,6 +4,7 @@
 import { writeFileSync, readFileSync } from 'node:fs';
 import { AIS, LEVELS, TOOLS, IMAGES, npmSpec, summaryWithEvidence } from '../src/catalog.js';
 import { readdirSync } from 'node:fs';
+import { markdownCell } from '../src/markdown.js';
 
 export function protocolCount() {
   return readdirSync(new URL('../templates/common/protocols/', import.meta.url)).filter((f) => f.endsWith('.md') && f !== 'README.md').length;
@@ -12,8 +13,8 @@ export function protocolCount() {
 function factValue(value) {
   if (value === null) return 'unverified';
   if (typeof value === 'boolean') return value ? 'yes' : 'no';
-  if (typeof value === 'object') return Object.entries(value).map(([key, item]) => `${key}: ${factValue(item)}`).join('; ');
-  return String(value).replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
+  if (typeof value === 'object') return Object.entries(value).map(([key, item]) => `${markdownCell(key)}: ${factValue(item)}`).join('; ');
+  return markdownCell(value);
 }
 
 export function catalogMarkdown() {

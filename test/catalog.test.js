@@ -102,6 +102,17 @@ test('generated catalog carries the same npm pin the installer uses; the tarball
   for (const f of ['CHANGELOG.md', 'SECURITY.md', 'README.md', 'LICENSE']) assert.ok(pkg.files.includes(f), `package.json files lacks ${f}`);
 });
 
+test('catalog fact cells escape backslashes and pipes in nested values and keys once', () => {
+  const facts = AIS[0].facts;
+  try {
+    facts.tableFixture = { 'path\\|key': 'path\\|value\r\nnext' };
+    const md = catalogMarkdown();
+    assert.ok(md.includes(String.raw`path\\\|key: path\\\|value next`));
+  } finally {
+    delete facts.tableFixture;
+  }
+});
+
 // #23: the README's compatibility table and the catalog pins used to be two
 // numbers with no rule for which to trust. There is now one number per lane.
 test('the README vendor table is generated from the catalog and matches it', () => {
