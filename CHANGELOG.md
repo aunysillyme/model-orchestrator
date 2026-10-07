@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- Resolve current Claude tier models from official documentation with `aunx models --probe`, explicit candidate approvals for new families and price increases, optional isolated alias canaries, validated installer snapshots through `--models`, and offline checks against installed agent definitions (AUN-1345).
+
+### Fixed
+
+- Refresh the Anthropic gateway compatibility IDs from the official model overview checked on 2026-10-07 (AUN-1345).
+
 ## [1.0.12] - 2026-10-07
 
 ### Fixed
