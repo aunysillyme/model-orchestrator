@@ -1,5 +1,6 @@
 // Pure role assignment. The catalog supplies capabilities; this module orders
 // those facts and renders the result without probing tools or touching files.
+import { markdownCell } from './markdown.js';
 
 const isMain = (ai, ctx) => ai.id === ctx.primary?.id;
 const mainFirst = (ai, ctx) => isMain(ai, ctx) ? 0 : 1;
@@ -163,14 +164,13 @@ export function roleHow(role, { selected = [], primary = null } = {}) {
   return `manual handoff, ${tier}`;
 }
 
-const cell = (text) => String(text).replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
 export function roleTable(assignment, { selected = [], primary = null, detected = new Set(), agents = {} } = {}) {
   const context = { selected, primary, agents };
   const rows = ROLE_SPECS.filter((spec) => assignment.roles[spec.id]).map((spec) => {
     const role = roleRoute(spec.id, assignment, context);
     const ai = selected.find((item) => item.id === role.ai);
     const name = ai ? `${ai.name}${detected.has(ai.id) ? ' (detected on PATH)' : ''}` : 'none selected';
-    return `| ${[spec.job, name, roleHow(role, context), role.why].map(cell).join(' | ')} |`;
+    return `| ${[spec.job, name, roleHow(role, context), role.why].map(markdownCell).join(' | ')} |`;
   });
   return [
     '## Your stack: who does what', '',

@@ -687,7 +687,12 @@ test('claude: timeout and wrapper cancellation stop the lane', async () => {
   const ready = join(d, 'ready');
   const marker = join(d, 'after-stop');
   try {
-    writeNodeStub(join(bin, 'claude'), `const fs = require('node:fs'); fs.writeFileSync(${JSON.stringify(ready)}, 'ready'); setTimeout(() => fs.writeFileSync(${JSON.stringify(marker)}, 'survived'), 800);`);
+    writeNodeStub(join(bin, 'claude'), `
+      const fs = require('node:fs');
+      const { join } = require('node:path');
+      fs.writeFileSync(join(__dirname, '..', 'ready'), 'ready');
+      setTimeout(() => fs.writeFileSync(join(__dirname, '..', 'after-stop'), 'survived'), 800);
+    `);
     const env = winEnv(withNode(bin), d);
     const timed = runLane(['claude', 'public test', '--timeout', '0.3', '--quiet'], env);
     assert.equal(timed.status, 12, timed.stderr);

@@ -26,7 +26,7 @@ export function parseImageReference(reference) {
   const segments = path.split('/');
   let registry = 'docker.io';
   if (segments[0].includes('.') || segments[0].includes(':') || segments[0] === 'localhost') registry = segments.shift();
-  if (!['docker.io', 'ghcr.io'].includes(registry)) throw new Error('unsupported-image-registry');
+  if (registry !== 'docker.io' && registry !== 'ghcr.io') throw new Error('unsupported-image-registry');
   if (registry === 'docker.io' && segments.length === 1) segments.unshift('library');
   if (segments.length < 2 || segments.some((s) => !/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(s))) throw new Error('malformed-image-reference');
   return { registry, repository: segments.join('/'), selector: parts[1] || tag,

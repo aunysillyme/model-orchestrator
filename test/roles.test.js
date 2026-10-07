@@ -121,6 +121,13 @@ test('unknown required facts do not qualify and render unverified', () => {
   assert.match(roleTable(assignment, { selected: [unknown], primary: unknown }), /unverified/i);
 });
 
+test('role table preserves backslashes before pipes inside a single cell', () => {
+  const ai = { ...byId.codex, name: 'path\\|value\nnext' };
+  const assignment = assignRoles({ selected: [ai], primary: ai });
+  const table = roleTable(assignment, { selected: [ai], primary: ai });
+  assert.ok(table.includes(String.raw`path\\\|value next`));
+});
+
 test('long-context requires known main context and selects the largest', () => {
   const make = (id, tokens) => ({ ...byId.codex, id, facts: { ...byId.codex.facts, contextWindow: tokens === null ? null : { tokens, source: 'fixture', checked: '2026-09-27' } } });
   const main = make('main', 100);

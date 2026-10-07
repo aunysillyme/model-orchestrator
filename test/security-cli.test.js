@@ -4,7 +4,6 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { readManifest } from '../src/install.js';
 import { uninstallFiles } from '../src/uninstall.js';
 
@@ -58,8 +57,11 @@ test('manifest reader refuses symlinks and FIFOs without blocking', { skip: proc
   assert.throws(() => readManifest(dir), /regular|symlink/);
   rmSync(path);
   assert.equal(spawnSync('mkfifo', [path]).status, 0);
-  const module = pathToFileURL(resolve('src/install.js')).href;
-  const result = spawnSync(process.execPath, ['--input-type=module', '-e', `import {readManifest} from ${JSON.stringify(module)};try {readManifest(${JSON.stringify(dir)});} catch {process.exit(2);}`], { timeout: 1500, killSignal: 'SIGKILL' });
+  const result = spawnSync(process.execPath, [
+    '--input-type=module', '-e',
+    'import { readManifest } from "./src/install.js"; try { readManifest(process.argv[1]); } catch { process.exit(2); }',
+    dir
+  ], { timeout: 1500, killSignal: 'SIGKILL' });
   assert.equal(result.error, undefined, 'reader must refuse, not rely on the outer timeout');
   assert.equal(result.status, 2);
 });
@@ -68,7 +70,16 @@ for (const shell of [false, true]) {
   test(`check timeout terminates descendants (${shell ? 'shell' : 'argv'})`, { skip: shell && process.platform === 'win32' && 'POSIX shell fixture; argv case covers Windows' }, async t => {
     const dir = temp(t), marker = join(dir, 'late-write');
     const program = join(dir, 'parent.cjs');
-    writeFileSync(program, `const {spawn}=require('node:child_process');spawn(process.execPath,['-e',${JSON.stringify(`setTimeout(()=>require('node:fs').writeFileSync(${JSON.stringify(marker)},'late'),900)`)}],{stdio:'ignore'});setTimeout(()=>process.exit(),1800);`);
+    writeFileSync(program, `
+      const { spawn } = require('node:child_process');
+      const { join } = require('node:path');
+      spawn(process.execPath, [
+        '-e',
+        "setTimeout(() => require('node:fs').writeFileSync(process.argv[1], 'late'), 900);",
+        join(__dirname, 'late-write')
+      ], { stdio: 'ignore' });
+      setTimeout(() => process.exit(), 1800);
+    `);
     const command = shell ? `'${process.execPath.replaceAll("'", "'\\''")}' '${program.replaceAll("'", "'\\''")}'; :` : ['node', program];
     writeFileSync(join(dir, 'checks.json'), JSON.stringify({ version: 1, checks: [{ id: 'timeout', command, timeoutMs: 400 }] }));
     const result = run(['checks', 'run', 'checks.json'], dir);

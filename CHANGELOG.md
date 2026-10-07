@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [1.0.12] - 2026-10-07
+
+### Fixed
+
+- Preserve backslashes before pipes in rendered role tables and catalog facts, including nested fact keys.
+- Use explicit registry comparisons and static Node fixtures with data arguments; execute the watchdog test harness from a file to make the existing boundaries clear to code scanning.
+
 ## [1.0.11] - 2026-10-06
 
 ### Added
@@ -653,7 +660,8 @@ First release.
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
-[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.11...HEAD
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.12...HEAD
+[1.0.12]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.11...v1.0.12
 [1.0.11]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.10...v1.0.11
 [1.0.10]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.9...v1.0.10
 [1.0.9]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.8...v1.0.9
