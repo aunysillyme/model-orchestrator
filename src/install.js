@@ -7,7 +7,8 @@ import { validateActivationOwnership } from './activation-ownership.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { ROLE_SPECS, assignRoles, roleTable, roleRoute, manifestRoles, inferPrimary } from './roles.js';
 import { LANE_FLAGS } from '../bin/cli-run.mjs';
-import { AIS, LEVELS, TOOLS, PROVIDERS, IMAGES, byId, toolById, providerById, npmSpec, summaryWithEvidence } from './catalog.js';
+import { AIS, LEVELS, TOOLS, PROVIDERS, IMAGES, MODEL_POLICY, byId, toolById, providerById, npmSpec, summaryWithEvidence } from './catalog.js';
+import { validateSnapshot } from './models.js';
 import { companionRegistrationSteps } from './apply-companions.js';
 import { MANIFEST_BYTE_CAP, readRegularFile } from './bounded-file.js';
 
@@ -102,14 +103,15 @@ export function installTable(selected) {
 // Gateway lanes come from the metered API keys the user said they HOLD, never
 // from which subscription CLIs they selected: those are different entitlements.
 // Only variable NAMES appear here. The installer never writes a value.
-export function gatewayModels(selected, apis = []) {
+export function gatewayModels(selected, apis = [], models = null) {
   const lines = [];
   if (selected.some((a) => a.id === 'ollama')) {
     lines.push('  - model_name: local-small', '    litellm_params:', `      model: ${byId.ollama.gatewayModel}`, '      api_base: http://ollama:11434');
   }
   for (const prov of apis) {
     for (const [alias, model] of prov.lanes) {
-      lines.push(`  - model_name: ${alias}`, '    litellm_params:', `      model: ${model}`, `      api_key: os.environ/${prov.envName}`);
+      const resolvedModel = prov.id === 'anthropic' && models?.tiers[alias]?.model_id ? `anthropic/${models.tiers[alias].model_id}` : model;
+      lines.push(`  - model_name: ${alias}`, '    litellm_params:', `      model: ${resolvedModel}`, `      api_key: os.environ/${prov.envName}`);
     }
   }
   if (!lines.length) lines.push('  # No provider key and no local runtime selected. Add one lane per provider here; keys stay in the environment.');
@@ -716,7 +718,7 @@ function vars(opts) {
     CLAUDE_WORKER_TRANSPORT: Object.values(assignment.roles).some(role => role.ai === 'claude-code' && role.via === 'cli-run')
       ? '- When assigning a Claude Code worker, prefer a connected Claude worker MCP service exposed in the host tool catalog. Call its tools directly from the host, follow its session and permission workflow, and preserve the task scope. See `CLI-RUN.md` for dispatch and fallback boundaries.\n'
       : '',
-    GATEWAY_MODELS: gatewayModels(selected, apis),
+    GATEWAY_MODELS: gatewayModels(selected, apis, opts.models),
     ENV_NAMES: envNames(selected, apis).map((n) => '- `' + n + '`').join('\n'),
     ENV_EXPORTS: envNames(selected, apis).map((n) => n + '=').join('\n'),
     NPM_PACKAGES: selected.map(npmSpec).filter(Boolean).join(' ') || '""',
@@ -753,6 +755,10 @@ function vars(opts) {
 // reading templates, so tests and --dry can inspect it.
 export function planFiles(opts) {
   const { level, selected, primary } = opts;
+  if (opts.models) {
+    validateSnapshot(opts.models);
+    if (primary?.id !== 'claude-code') throw new Error('models snapshot requires Claude Code as the main agent');
+  }
   const v = vars(opts);
   const files = [];
   // root: 'dir' (the docs folder) or 'project' (where the agent actually looks for subagents)
@@ -760,7 +766,8 @@ export function planFiles(opts) {
   const renderAgent = (raw) => {
     let content = render(raw, v);
     const tier = raw.match(/^Tier: ((?:planning|working|cheap) model)\./m)?.[1];
-    const model = opts.plans?.[primary?.id]?.tierModels?.[tier];
+    const resolvedTier = Object.entries(MODEL_POLICY.tiers).find(([, policy]) => policy.label === tier)?.[0];
+    const model = opts.models?.tiers[resolvedTier]?.value ?? opts.plans?.[primary?.id]?.tierModels?.[tier];
     // Mappings belong to a dated, verified plan entry. Every shipped mapping
     // is null; an unstated plan leaves vendor resolution entirely intact.
     if (model != null) {
@@ -861,6 +868,7 @@ export function planFiles(opts) {
           apis: (opts.apis || []).map((p) => p.id),
           ...(Object.keys(opts.plans || {}).length ? { plans: Object.fromEntries(Object.entries(opts.plans).sort(([a], [b]) => a.localeCompare(b)).map(([id, p]) => [id, p.id])) } : {}),
           ...((opts.effortAuto || []).length ? { effortAuto: [...opts.effortAuto].sort() } : {}),
+          ...(opts.models ? { models: opts.models } : {}),
           dir: resolve(opts.dir || 'ai-orchestrator'),
           project: resolve(opts.project || process.cwd()),
           files: fileHashes,

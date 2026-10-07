@@ -6,6 +6,7 @@ import { killTree, main as runnerMain, windowsSpawnPlan } from '../bin/cli-run.m
 import { MANIFEST_BYTE_CAP, readRegularFile } from './bounded-file.js';
 import { byId } from './catalog.js';
 import { ROLE_SPECS } from './roles.js';
+import { modelsMain } from './models.js';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const COMMON = join(ROOT, 'templates', 'common');
@@ -14,6 +15,7 @@ const HELP = `aunx: model router tools for AI coding agents
   aunx [installer flags]              Run the model-orchestrator installer
   aunx cli-run [--dir PATH] <args>     Run a lane; --dir names a project's own runner
   aunx route-metrics [--summary]      Read the local routing summary
+  aunx models --help                 Resolve current Claude models or check installed agent pins
   aunx brief [PATH]                   Print the task brief template, or scaffold it at PATH
   aunx brief new [PATH]               Create TASK_BRIEF.md
   aunx context [new] [PATH]           Create CONTEXT.md
@@ -239,6 +241,7 @@ export function suggestRoute(task) {
 export async function main(args) {
   if (args.length === 1 && ['--help', '-h'].includes(args[0])) { console.log(HELP); return 0; }
   const [command, ...rest] = args;
+  if (command === 'models') return modelsMain(rest);
   if (command === 'install') return runNode(join(ROOT, 'bin', 'cli.js'), rest);
   if (command === 'cli-run') {
     const parsed = runnerArgs(rest);
@@ -291,7 +294,7 @@ export async function main(args) {
     return 0;
   }
   if (command && !command.startsWith('-')) {
-    throw new Error(`unknown aunx subcommand: ${command}\nAvailable subcommands: install, cli-run, route-metrics, brief, context, checks, route`);
+    throw new Error(`unknown aunx subcommand: ${command}\nAvailable subcommands: install, cli-run, route-metrics, brief, context, checks, route, models`);
   }
   return runNode(join(ROOT, 'bin', 'cli.js'), args);
 }
