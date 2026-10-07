@@ -568,6 +568,7 @@ async function main() {
         .concat(['ais', 'tools', 'apis'].filter((k) => JSON.stringify(prev[k] || []) !== JSON.stringify({ ais: selected, tools, apis }[k].map((x) => x.id))))
         .concat(JSON.stringify(prev.plans || {}) !== JSON.stringify(Object.fromEntries(Object.entries(plans).map(([id, p]) => [id, p.id]))) ? ['plans'] : [])
         .concat(JSON.stringify((prev.effortAuto || []).slice().sort()) !== JSON.stringify(effortAuto.slice().sort()) ? ['effortAuto'] : [])
+        .concat(JSON.stringify(prev.models ?? null) !== JSON.stringify(plannedManifest.models ?? null) ? ['models'] : [])
         .concat(JSON.stringify(prev.roles || {}) !== JSON.stringify(plannedManifest.roles || {}) ? ['roles'] : [])
     : [];
 

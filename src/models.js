@@ -66,8 +66,9 @@ export function resolveModels(lineup, aliases = {}, previous = null, { approveFa
   if (previous) validateSnapshot(previous, { allowHeld: true, fresh: false });
   const known = new Set([...Object.values(MODEL_POLICY.tiers).map(t => t.family), ...(previous?.known_unrouted_families || [])]);
   for (const approval of approveFamilies) {
-    const [family, id] = approval.split('=');
-    if (lineup[family]?.id !== id) fail('family approval must match the current model ID');
+    const parts = typeof approval === 'string' ? approval.split('=') : [];
+    const [family, id] = parts;
+    if (parts.length !== 2 || !family || !id || !Object.hasOwn(lineup, family) || lineup[family].id !== id) fail('family approval must match the current model ID');
     known.add(family);
   }
   const escalations = Object.keys(lineup).filter(f => !known.has(f)).map(family => ({ code: 'NEW_FAMILY', family, model_id: lineup[family].id }));
@@ -201,12 +202,14 @@ export async function modelsMain(args) {
   }
   if (!flags['--probe'] || flags['--project']) fail('use models --probe or --check SNAPSHOT --project PATH');
   const lineup = parseLineup(flags['--docs'] ? readModelFile(flags['--docs']).toString('utf8') : await fetchDocs());
+  // Validate the previous snapshot and approvals before any optional paid canary.
+  const previous = flags['--previous'] ? readSnapshot(flags['--previous'], { allowHeld: true, fresh: false }) : null;
+  resolveModels(lineup, {}, previous, { approveFamilies, approveTiers });
   const aliases = {};
   if (flags['--probe-aliases']) {
     for (const family of [...new Set(Object.values(MODEL_POLICY.tiers).map(t => t.family))]) { const id = await probeAlias(family); if (id) aliases[family] = id; }
     if (!Object.keys(aliases).length) { console.error('models: all alias probes failed; no snapshot produced'); return 3; }
   }
-  const previous = flags['--previous'] ? readSnapshot(flags['--previous'], { allowHeld: true, fresh: false }) : null;
   const snapshot = resolveModels(lineup, aliases, previous, { approveFamilies, approveTiers });
   process.stdout.write(JSON.stringify(snapshot, null, 2) + '\n');
   if (snapshot.escalations.length) { console.error('models: approval required; snapshot cannot be installed'); return 1; }
