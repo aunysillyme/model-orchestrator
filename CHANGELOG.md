@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [1.0.14] - 2026-10-10
+
+### Fixed
+
+- npm homepage now points at the product site.
+
 ## [1.0.13] - 2026-10-07
 
 ### Added
@@ -671,7 +677,8 @@ First release.
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
-[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.13...HEAD
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.14...HEAD
+[1.0.14]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.13...v1.0.14
 [1.0.13]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.12...v1.0.13
 [1.0.12]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.11...v1.0.12
 [1.0.11]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.10...v1.0.11
