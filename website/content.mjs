@@ -67,9 +67,33 @@ export function renderMarkdown(markdown, source) {
 export function documentHtml({title, description, route, body, discovery = true}) {
   const socialImage = `${origin}/assets/social-preview.png`;
   const socialAlt = 'Model-orchestrator: the right model for the right job. Dark green repository card with Auny’s avatar and a three-tone green border.';
+  const jsonLd = JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Model Orchestrator",
+    "description": "Model router for AI coding agents: installs routing rules, 8 subagents, hooks and a CLI runner so your AI picks model and effort per task and saves tokens",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "macOS, Linux, Windows",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "url": origin,
+    "sameAs": [
+      repository,
+      "https://www.npmjs.com/package/model-orchestrator"
+    ],
+    "author": {
+      "@type": "Organization",
+      "name": "AunySillyMe",
+      "url": "https://aunysillyme.com"
+    }
+  });
   return `<!doctype html><html lang="en"><head><!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-HK1CE993HY"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-HK1CE993HY');</script>
+<script type="application/ld+json">\n${jsonLd}\n</script>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${escape(title)}</title><meta name="description" content="${escape(description)}">
 ${discovery ? `<link rel="describedby" href="${origin}/llms.txt"><link rel="alternate" type="text/markdown" href="${origin}${route}index.md">` : '<meta name="robots" content="noindex">'}
