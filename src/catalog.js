@@ -36,7 +36,8 @@
 //              source, checked, tierModels }. A null tierModels leaves model selection
 //              to the user's plan and agent configuration.
 
-export const CATALOG_MODELS = { measuredAt: '2026-10-16', expiresAt: '2026-11-15', source: 'catalog compatibility snapshot; verify with the provider before use' };
+export const CATALOG_MODELS = { measuredAt: '2026-10-16', expiresAt: '2026-11-15', source:
+  'catalog compatibility snapshot; verify with the provider before use' };
 
 // Capability policy, independent of subscriptions. Initial price ceilings come
 // from the official overview; Haiku's published prices are lower bounds (From).
@@ -45,7 +46,8 @@ export const MODEL_POLICY = {
   checked: '2026-10-07', source: 'https://platform.claude.com/docs/en/models/overview.md',
   tiers: {
     deep: { family: 'opus', price_in: 4, price_out: 20, agents: ['deep-planner'], label: 'planning model' },
-    standard: { family: 'sonnet', price_in: 2, price_out: 10, agents: ['builder', 'code-reviewer', 'finding-verifier', 'live-researcher'], label: 'working model' },
+    standard: { family: 'sonnet', price_in: 2, price_out: 10, agents: ['builder', 'code-reviewer', 'finding-verifier', 'live-researcher'], label:
+       'working model' },
     fast: { family: 'haiku', price_in: .1, price_out: .5, price_basis: 'from', agents: ['bulk-worker', 'done-verifier', 'reader'], label: 'cheap model' }
   }
 };
@@ -70,7 +72,8 @@ export const LEVELS = [
     key: 'advanced',
     name: 'Advanced',
     tagline: 'everything above, plus templates for your always-on Linux machine',
-    gives: 'everything in Intermediate plus a gateway config, a scheduled review job, dispatch guidance and configurable privacy gates'
+    gives: ("everything in Intermediate plus a gateway config, a scheduled review job, dispatch guidance and " +
+      "configurable privacy gates")
   }
 ];
 
@@ -111,7 +114,9 @@ export const AIS = [
     // Positive-only (Q1): an author-machine probe of a working, authenticated
     // session (2026-09-27) still returned {"loggedIn":false} with exit 1, so a
     // reported failure is not trusted; only loggedIn:true skips the step.
-    authStatus: { args: ['auth', 'status'], reliable: true, trust: 'positive-only', jsonField: 'loggedIn', checked: '2026-09-27', source: 'author-machine probe: `claude auth status` (default JSON) returned {"loggedIn":false}, exit 1, inside a working authenticated session' },
+    authStatus: { args: ['auth', 'status'], reliable: true, trust: 'positive-only', jsonField: 'loggedIn', checked: '2026-09-27', source:
+       ("author-machine probe: `claude auth status` (default JSON) returned {\"loggedIn\":false}, exit 1, " +
+      "inside a working authenticated session") },
     rulesFile: 'CLAUDE.md',
     // Project scope documented in templates/tools/context7/CONTEXT7.md.
     projectMcp: { file: '.mcp.json', key: 'mcpServers' },
@@ -215,7 +220,8 @@ export const AIS = [
     name: 'Grok CLI (xAI, X Premium)',
     vendor: 'xAI',
     bin: 'grok',
-    summary: 'xAI\'s terminal agent with first-party X and web search tools; searches are covered by the subscription rather than billed per call',
+    summary: ("xAI's terminal agent with first-party X and web search tools; searches are covered by the " +
+      "subscription rather than billed per call"),
     minLevel: 1,
     install: { script: 'https://x.ai/cli/install.sh' },
     builtAgainst: '1.0.5',
@@ -411,7 +417,8 @@ export const TOOLS = [
     id: 'codecalc',
     name: 'codecalc (calculator, code runner, logic checker for your agent)',
     repo: 'https://github.com/The-40-Thieves/codecalc',
-    role: 'exact arithmetic, code execution in 31 languages, SMT logic checks, complexity and equivalence proofs; offline, no key, no telemetry',
+    role: ("exact arithmetic, code execution in 31 languages, SMT logic checks, complexity and equivalence " +
+      "proofs; offline, no key, no telemetry"),
     get install() { return `uvx 'codecalc[full]==${this.pin}' setup --write`; },
     pin: '0.5.0',
     advisory: { ecosystem: 'PyPI', package: 'codecalc', extras: ['full'] },
@@ -425,12 +432,17 @@ export const TOOLS = [
     id: 'obsidian-tc',
     name: 'obsidian-tc (governed memory: an agent-ready MCP server over an Obsidian vault)',
     repo: 'https://github.com/The-40-Thieves/obsidian-tc',
-    role: 'durable memory and record for your agents: hybrid retrieval (BM25 + dense + link graph), backlinks, compare-and-swap writes with a confirmation gate, folder ACLs, a poison scan on inferred writes; 163 tools, local by default',
+    role: ("durable memory and record for your agents: hybrid retrieval (BM25 + dense + link graph), backlinks, " +
+      "compare-and-swap writes with a confirmation gate, folder ACLs, a poison scan on inferred writes; 163 " +
+      "tools, local by default"),
     get install() { return `npm install -g obsidian-tc@${this.pin} && obsidian-tc /path/to/your/vault`; },
     pin: '1.26.0',
     advisory: { ecosystem: 'npm', package: 'obsidian-tc' },
-    mcpSnippets: { 'claude-code': 'mcp/obsidian-tc.mcpServers.json', codex: 'mcp/obsidian-tc.codex.config.toml', agy: 'mcp/obsidian-tc.agy.mcp_config.json', qwen: 'mcp/obsidian-tc.mcpServers.json' },
-    requires: 'an Obsidian vault folder (the Obsidian app itself is only needed for live plugin bridges); Node 24+ or Bun 1.1+ (stricter than this installer); Ollama with `nomic-embed-text` for local embeddings, or a cloud embeddings key; the Local REST API plugin only for bridge tools',
+    mcpSnippets: { 'claude-code': 'mcp/obsidian-tc.mcpServers.json', codex: 'mcp/obsidian-tc.codex.config.toml', agy:
+       'mcp/obsidian-tc.agy.mcp_config.json', qwen: 'mcp/obsidian-tc.mcpServers.json' },
+    requires: ("an Obsidian vault folder (the Obsidian app itself is only needed for live plugin bridges); Node 24+ " +
+      "or Bun 1.1+ (stricter than this installer); Ollama with `nomic-embed-text` for local embeddings, or " +
+      "a cloud embeddings key; the Local REST API plugin only for bridge tools"),
     autoClients: ['Cursor', 'VS Code'],
     recommended: false,
     optionalNote: 'Optional and heavier than codecalc. Skip it if you do not keep notes in Obsidian. AGPL-3.0.'
@@ -439,15 +451,21 @@ export const TOOLS = [
     id: 'context7',
     name: 'Context7 (Upstash: version-aware docs for the libraries your agent calls)',
     repo: 'https://github.com/upstash/context7',
-    role: 'up-to-date, version-specific documentation and code examples for libraries, SDKs, APIs and CLIs, pulled into the prompt; tells the agent what the code is SUPPOSED to do. Paired with codecalc, which runs the code and proves what it actually does: docs never stand as proof, and where they disagree the run wins',
+    role: ("up-to-date, version-specific documentation and code examples for libraries, SDKs, APIs and CLIs, " +
+      "pulled into the prompt; tells the agent what the code is SUPPOSED to do. Paired with codecalc, which " +
+      "runs the code and proves what it actually does: docs never stand as proof, and where they disagree " +
+      "the run wins"),
     get install() { return `npx -y @upstash/context7-mcp@${this.pin}`; },
     pin: '4.1.1',
     advisory: { ecosystem: 'npm', package: '@upstash/context7-mcp' },
-    mcpSnippets: { 'claude-code': 'mcp/context7.claude-code.mcp.json', codex: 'mcp/context7.codex.config.toml', agy: 'mcp/context7.agy.mcp_config.json', qwen: 'mcp/context7.qwen.settings.json' },
-    requires: 'Node.js 18+ for the local server or the ctx7 CLI; a free CONTEXT7_API_KEY is optional, for higher rate limits (it works anonymously at the base rate)',
+    mcpSnippets: { 'claude-code': 'mcp/context7.claude-code.mcp.json', codex: 'mcp/context7.codex.config.toml', agy:
+       'mcp/context7.agy.mcp_config.json', qwen: 'mcp/context7.qwen.settings.json' },
+    requires: ("Node.js 18+ for the local server or the ctx7 CLI; a free CONTEXT7_API_KEY is optional, for higher " +
+      "rate limits (it works anonymously at the base rate)"),
     autoClients: [], // The pinned MCP server does not register itself; merge its snippets.
     recommended: false,
-    optionalNote: 'Optional, and from a different maintainer than codecalc and obsidian-tc (Upstash, not The-40-Thieves). Needs a network call even at the anonymous rate; skip it offline. MIT.'
+    optionalNote: ("Optional, and from a different maintainer than codecalc and obsidian-tc (Upstash, not " +
+      "The-40-Thieves). Needs a network call even at the anonymous rate; skip it offline. MIT.")
   }
 ];
 export const toolById = Object.fromEntries(TOOLS.map((t) => [t.id, t]));
@@ -458,11 +476,17 @@ export const toolById = Object.fromEntries(TOOLS.map((t) => [t.id, t]));
 // Model names are a dated compatibility snapshot, refreshed against vendor catalogs.
 
 export const PROVIDERS = [
-  { id: 'anthropic', name: 'Anthropic API', envName: 'ANTHROPIC_API_KEY', modelsChecked: MODEL_POLICY.checked, modelsExpires: '2026-11-07', lanes: [['standard', 'anthropic/claude-sonnet-5-5'], ['deep', 'anthropic/claude-opus-5-5']] },
-  { id: 'openai', name: 'OpenAI API', envName: 'OPENAI_API_KEY', modelsChecked: CATALOG_MODELS.measuredAt, modelsExpires: CATALOG_MODELS.expiresAt, lanes: [['second-opinion', 'openai/gpt-6.1-sol']] },
-  { id: 'google', name: 'Google Gemini API', envName: 'GEMINI_API_KEY', modelsChecked: CATALOG_MODELS.measuredAt, modelsExpires: CATALOG_MODELS.expiresAt, lanes: [['long-context', 'gemini/gemini-4-argon']] },
-  { id: 'xai', name: 'xAI API', envName: 'XAI_API_KEY', modelsChecked: CATALOG_MODELS.measuredAt, modelsExpires: CATALOG_MODELS.expiresAt, lanes: [['live-fast', 'xai/grok-4.3']] },
-  { id: 'openrouter', name: 'OpenRouter (many cheap models, one key)', envName: 'OPENROUTER_API_KEY', modelsChecked: CATALOG_MODELS.measuredAt, modelsExpires: CATALOG_MODELS.expiresAt, lanes: [['bulk-cheap', 'openrouter/qwen/qwen3.7-flash']] }
+  { id: 'anthropic', name: 'Anthropic API', envName: 'ANTHROPIC_API_KEY',
+    modelsChecked: MODEL_POLICY.checked, modelsExpires: '2026-11-07',
+    lanes: [['standard', 'anthropic/claude-sonnet-5-5'], ['deep', 'anthropic/claude-opus-5-5']] },
+  { id: 'openai', name: 'OpenAI API', envName: 'OPENAI_API_KEY',
+    modelsChecked: CATALOG_MODELS.measuredAt, modelsExpires: CATALOG_MODELS.expiresAt, lanes: [['second-opinion', 'openai/gpt-6.1-sol']] },
+  { id: 'google', name: 'Google Gemini API', envName: 'GEMINI_API_KEY',
+    modelsChecked: CATALOG_MODELS.measuredAt, modelsExpires: CATALOG_MODELS.expiresAt, lanes: [['long-context', 'gemini/gemini-4-argon']] },
+  { id: 'xai', name: 'xAI API', envName: 'XAI_API_KEY',
+    modelsChecked: CATALOG_MODELS.measuredAt, modelsExpires: CATALOG_MODELS.expiresAt, lanes: [['live-fast', 'xai/grok-4.3']] },
+  { id: 'openrouter', name: 'OpenRouter (many cheap models, one key)', envName: 'OPENROUTER_API_KEY',
+    modelsChecked: CATALOG_MODELS.measuredAt, modelsExpires: CATALOG_MODELS.expiresAt, lanes: [['bulk-cheap', 'openrouter/qwen/qwen3.7-flash']] }
 ];
 export const providerById = Object.fromEntries(PROVIDERS.map((p) => [p.id, p]));
 

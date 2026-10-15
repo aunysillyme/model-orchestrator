@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { spawnSync } from 'node:child_process';
 import { planFiles, activationSteps } from '../src/install.js';
 import { byId } from '../src/catalog.js';
 import { installHealthCheck } from '../src/postinstall.js';

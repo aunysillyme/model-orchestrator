@@ -456,7 +456,8 @@ function runSummary(args) {
   lines.push('route-marker coverage: ' + (coveragePct === null ? 'no turns yet' : formatNumber(coveragePct) + '%') + ' (' + covered + '/' + turns + ')');
   lines.push('invalid route markers: ' + invalidMarkers);
   const tokenTotals = records.filter((r) => r.event === 'end' && tokenCount(r.totalTokens));
-  if (tokenTotals.length) lines.push('subagent token total: ' + formatNumber(tokenTotals.reduce((sum, r) => sum + r.totalTokens, 0)) + ' (' + tokenTotals.length + ' reported stops)');
+  if (tokenTotals.length) lines.push('subagent token total: ' + formatNumber(tokenTotals.reduce((sum, r) => sum + r.totalTokens,
+     0)) + ' (' + tokenTotals.length + ' reported stops)');
   lines.push(
     'work sent off the main session: ' +
       (sentOffPct === null ? 'no covered turns yet' : formatNumber(sentOffPct) + '%') +

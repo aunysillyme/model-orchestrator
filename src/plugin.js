@@ -40,15 +40,20 @@ export function pluginVars() {
     TASK_BRIEF_REL_JSON: JSON.stringify(DEFAULT_TASK_BRIEF),
     RULES_CANDIDATES_JSON: JSON.stringify(DEFAULT_RULES),
     SETUP_HINT_JSON: JSON.stringify(
-      'This project has no model-orchestrator routing rules yet. Running `npx model-orchestrator` in the project root writes them (' +
+      ("This project has no model-orchestrator routing rules yet. Running `npx model-orchestrator` in the " +
+        "project root writes them (") +
         DEFAULT_RULES[0] +
-        '), and this hook reads them from the next prompt on. Until then, pick the lane yourself, and name that command if the user asks about routing.'
+        ("), and this hook reads them from the next prompt on. Until then, pick the lane yourself, and name " +
+          "that command if the user asks about routing.")
     ),
     SETUP_NOTICE_JSON: JSON.stringify(
-      'model-orchestrator: this project has no routing rules yet, so the plugin has no routing table to inject. Run `npx model-orchestrator` in the project root to write them; the plugin reads them from your next prompt.'
+      ("model-orchestrator: this project has no routing rules yet, so the plugin has no routing table to " +
+        "inject. Run `npx model-orchestrator` in the project root to write them; the plugin reads them from " +
+        "your next prompt.")
     ),
     CONTEXT_SUFFIX_JSON: JSON.stringify(
-      '\nThe model-orchestrator plugin installs the agents named above as model-orchestrator:<name>, for example model-orchestrator:builder.'
+      ("\nThe model-orchestrator plugin installs the agents named above as model-orchestrator:<name>, for " +
+        "example model-orchestrator:builder.")
     )
   };
 }
