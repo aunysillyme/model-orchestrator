@@ -18,7 +18,10 @@ function factValue(value) {
 }
 
 export function catalogMarkdown() {
-  let md = '# Catalog\n\nGenerated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrites it. Protocols shipped at every level: ' + protocolCount() + ' (counted from `templates/common/protocols/`).\n\n## Levels\n\n| Level | Name | Tagline | Gives |\n|---|---|---|---|\n';
+  let md = ("# Catalog\n\nGenerated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrites it. " +
+    "Protocols shipped at every level: ") + protocolCount() +
+    (" (counted from `templates/common/protocols/`).\n\n## Levels\n\n| Level | Name | Tagline | Gives " +
+    "|\n|---|---|---|---|\n");
   for (const l of LEVELS) md += `| ${l.id} | ${l.name} | ${l.tagline} | ${l.gives} |\n`;
   md += '\n## AIs\n\n';
   for (const a of AIS) {
@@ -27,25 +30,73 @@ export function catalogMarkdown() {
       : a.install.script
         ? 'vendor script (read it first): `' + a.install.script + '`'
         : a.install.url + (a.install.brew ? ' (or `brew install ' + a.install.brew + '`)' : '');
-    md += `### \`${a.id}\` · ${a.name}\n\n- **Kind:** ${a.facts.kind} · **Billing:** ${a.facts.billing} · **Level:** ${a.minLevel}+\n- **What it is:** ${summaryWithEvidence(a)}\n- **Install:** ${how}\n- **Sign in:** ${a.auth}\n`;
-    if (a.rulesFile) md += `- **Reads rules from:** \`${a.rulesFile}\`` + (a.facts.agentDefinitions ? ` · subagents in \`${a.facts.agentDefinitions}/\`` : '') + '\n';
+    md += ("### `" +
+      `${a.id}` +
+      "` · " +
+      `${a.name}` +
+      "\n\n- **Kind:** " +
+      `${a.facts.kind}` +
+      " · **Billing:** " +
+      `${a.facts.billing}` +
+      " · **Level:** " +
+      `${a.minLevel}` +
+      "+\n- **What it is:** " +
+      `${summaryWithEvidence(a)}` +
+      "\n- **Install:** " +
+      `${how}` +
+      "\n- **Sign in:** " +
+      `${a.auth}` +
+      "\n");
+    if (a.rulesFile) md += `- **Reads rules from:** \`${a.rulesFile}\`` + (a.facts.agentDefinitions ?
+       ` · subagents in \`${a.facts.agentDefinitions}/\`` : '') + '\n';
     if (a.facts.cliRun) md += '- **cli-run lane:** yes\n';
     if (a.plans) {
       md += '- **Plans:**\n';
-      for (const p of a.plans) md += `  - ${p.name} (${p.headroom} headroom, checked ${p.checked}; tier models: ${factValue(p.tierModels)}): ${p.source}\n`;
+      for (const p of a.plans) md += ("  - " +
+        `${p.name}` +
+        " (" +
+        `${p.headroom}` +
+        " headroom, checked " +
+        `${p.checked}` +
+        "; tier models: " +
+        `${factValue(p.tierModels)}` +
+        "): " +
+        `${p.source}` +
+        "\n");
     }
     if (a.builtAgainst) md += `- **Built against:** ${a.builtAgainst}` + (a.install.npm ? ' (the same number the npm pin uses)' : '') + '\n';
     if (a.note) md += `- **Note:** ${a.note}\n`;
-    md += '\n**Capability facts.** An unverified value needs a current capability check before use. Role assignments come from the selected stack, using these facts.\n\n| Fact | Value |\n|---|---|\n';
-    for (const [key, value] of Object.entries(a.facts)) md += `| \`${key}\` | ${factValue(value)}${a.factNotes?.[key] ? ` (${factValue(a.factNotes[key])})` : ''} |\n`;
+    md += ("\n**Capability facts.** An unverified value needs a current capability check before use. Role " +
+      "assignments come from the selected stack, using these facts.\n\n| Fact | Value |\n|---|---|\n");
+    for (const [key,
+       value] of Object.entries(a.facts)) md += `| \`${key}\` | ${factValue(value)}${a.factNotes?.[key] ? ` (${factValue(a.factNotes[key])})` : ''} |\n`;
     md += '\n';
   }
-  md += '## Companion tools\n\nModel-orchestrator project activation merges supported MCP entries for selected companions when activation is enabled. The vendor command auto-registration field below describes what the listed vendor command does when you run it yourself. Global client configuration remains manual.\n\n';
+  md += ("## Companion tools\n\nModel-orchestrator project activation merges supported MCP entries for selected " +
+    "companions when activation is enabled. The vendor command auto-registration field below describes " +
+    "what the listed vendor command does when you run it yourself. Global client configuration remains " +
+    "manual.\n\n");
   for (const t of TOOLS) {
     const registration = t.autoClients.length
       ? `${t.autoClients.join(', ')}; snippets for the rest are written to \`mcp/\``
       : 'none; use project activation or merge the supplied snippets in `mcp/` using the tool guide';
-    md += `### \`${t.id}\` · ${t.name}\n\n- **Repo:** ${t.repo}\n- **Gives:** ${t.role}\n- **Install:** \`${t.install}\` (needs ${t.requires})\n- **Vendor command auto-registration:** ${registration}\n- **Default:** ${t.recommended ? 'selected' : 'not selected'}\n\n`;
+    md += ("### `" +
+      `${t.id}` +
+      "` · " +
+      `${t.name}` +
+      "\n\n- **Repo:** " +
+      `${t.repo}` +
+      "\n- **Gives:** " +
+      `${t.role}` +
+      "\n- **Install:** `" +
+      `${t.install}` +
+      "` (needs " +
+      `${t.requires}` +
+      ")\n- **Vendor command auto-registration:** " +
+      `${registration}` +
+      "\n- **Default:** " +
+      `${t.recommended ? 'selected' : 'not selected'}` +
+      "\n\n");
   }
   return md;
 }
@@ -75,7 +126,10 @@ export function vendorTableMarkdown() {
           : "the maintainer's own install";
     md += `| \`${a.bin}\` | ${a.vendor} | ${a.builtAgainst} | ${proof} |\n`;
   }
-  md += `\nGenerated from \`src/catalog.js\` by \`npm run gen:catalog\`; \`npm test\` fails if this table and the catalog disagree. Original vendor fixtures were captured ${fx.capturedAt}; [fixture provenance](test/fixtures/README.md) records later captures and remaining gaps.\n\n` + VENDOR_TABLE_END;
+  md += ("\nGenerated from `src/catalog.js` by `npm run gen:catalog`; `npm test` fails if this table and the " +
+    "catalog disagree. Original vendor fixtures were captured " +
+    `${fx.capturedAt}` +
+    "; [fixture provenance](test/fixtures/README.md) records later captures and remaining gaps.\n\n") + VENDOR_TABLE_END;
   return md;
 }
 

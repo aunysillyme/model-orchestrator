@@ -16,6 +16,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Changed
 
+- Add Biome lint, non-strict JavaScript type checks and a 160-character source line cap to CI; split the installer into modules behind its existing public API (#72).
 - Record optional subagent token usage and model identifiers, report supplied token totals, describe routing to cheaper models and disclose route-table prompt overhead (#69).
 
 ## [1.0.14] - 2026-10-10

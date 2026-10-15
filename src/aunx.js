@@ -97,15 +97,20 @@ export function scaffold(template, target) {
 
 function readChecks(path) {
   const config = JSON.parse(readRegularFile(path, MANIFEST_BYTE_CAP).toString('utf8'));
-  if (!config || config.version !== 1 || !Array.isArray(config.checks) || !config.checks.length) throw new Error('expected version: 1 and a non-empty checks array');
+  if (!config || config.version !== 1 || !Array.isArray(config.checks) ||
+     !config.checks.length) throw new Error('expected version: 1 and a non-empty checks array');
   const ids = new Set();
   for (const check of config.checks) {
-    if (!check || typeof check.id !== 'string' || !/^[A-Za-z0-9_.-]{1,100}$/.test(check.id) || ids.has(check.id)) throw new Error('each check needs a unique id (letters, digits, _, . or -)');
+    if (!check || typeof check.id !== 'string' || !/^[A-Za-z0-9_.-]{1,100}$/.test(check.id) ||
+       ids.has(check.id)) throw new Error('each check needs a unique id (letters, digits, _, . or -)');
     ids.add(check.id);
-    if (check.manual !== true && !(typeof check.command === 'string' && check.command.trim()) && !(Array.isArray(check.command) && check.command.length && check.command.every(s => typeof s === 'string' && s.length > 0 && !s.includes('\0')))) throw new Error(`${check.id}: command must be a string or a non-empty argv array`);
+    if (check.manual !== true && !(typeof check.command === 'string' && check.command.trim()) && !(Array.isArray(check.command) &&
+       check.command.length && check.command.every(s => typeof s === 'string' && s.length > 0 &&
+          !s.includes('\0')))) throw new Error(`${check.id}: command must be a string or a non-empty argv array`);
     if (typeof check.command === 'string' && check.command.includes('\0')) throw new Error(`${check.id}: command contains a null byte`);
     if (check.cwd !== undefined && (typeof check.cwd !== 'string' || !check.cwd)) throw new Error(`${check.id}: cwd must be a path`);
-    if (check.timeoutMs !== undefined && (!Number.isInteger(check.timeoutMs) || check.timeoutMs < 1 || check.timeoutMs > 3600000)) throw new Error(`${check.id}: timeoutMs must be between 1 and 3600000`);
+    if (check.timeoutMs !== undefined && (!Number.isInteger(check.timeoutMs) || check.timeoutMs < 1 ||
+       check.timeoutMs > 3600000)) throw new Error(`${check.id}: timeoutMs must be between 1 and 3600000`);
   }
   return config.checks;
 }
@@ -173,7 +178,11 @@ export async function runChecks(file) {
     const result = await runCheck(command, args, options, cwd, check.timeoutMs || 30000);
     const pass = !result.error && result.status === 0;
     failed ||= !pass;
-    console.log(`${pass ? 'PASS' : 'FAIL'} ${check.id}: ${result.error ? result.error.code : result.signal ? `signal ${result.signal}` : `exit ${result.status}`}`);
+    console.log((`${pass ? 'PASS' : 'FAIL'}` +
+      " " +
+      `${check.id}` +
+      ": " +
+      `${result.error ? result.error.code : result.signal ? `signal ${result.signal}` : `exit ${result.status}`}`));
     if (result.interrupted) return result.interrupted === 'SIGINT' ? 130 : 143;
   }
   return failed ? 1 : 0;
@@ -181,6 +190,7 @@ export async function runChecks(file) {
 
 // Unlike a runner lookup, this discovers data only. lstat plus O_NOFOLLOW
 // refuses symlinks; an identity check and bounded read cover replacement/growth.
+/** @param {{dir?: string, cwd?: string}} [options] */
 export function readManifestRoles({ dir, cwd = process.cwd() } = {}) {
   const candidates = [
     ...(dir === undefined ? [] : [join(resolve(cwd, dir), 'MANIFEST.json')]),
@@ -214,7 +224,8 @@ function stackSuggestion(assignment) {
   let via;
   if (assignment.command) via = '`' + clean(assignment.command.startsWith('cli-run ') ? `aunx ${assignment.command}` : assignment.command) + '`';
   else if (assignment.agent) via = '`' + clean(assignment.agent) + '` on your main agent';
-  else via = { 'main-agent': 'your main agent', local: 'your local runtime', manual: 'manual handoff', subagent: 'a subagent', 'cli-run': 'cli-run' }[assignment.via];
+  else via = { 'main-agent': 'your main agent', local: 'your local runtime', manual: 'manual handoff', subagent: 'a subagent', 'cli-run':
+     'cli-run' }[assignment.via];
   if (assignment.ai === 'claude-code' && assignment.via === 'cli-run' && assignment.command === 'cli-run claude' && assignment.preferredTransport === 'mcp') {
     via = `connected Claude worker MCP when available; fallback ${via}`;
   }
@@ -224,15 +235,27 @@ function stackSuggestion(assignment) {
 // Ordered by the action requested. These are suggestions, so the project rules remain authoritative.
 export function suggestRoute(task) {
   const text = task.toLowerCase();
+  /** @type {Array<[RegExp, string, string, string, string, string]>} */
   const routes = [
-    [/\b(verify|reproduce|validate|confirm|check)\b.*\b(findings?|reports?|bugs?)\b/, 'finding-verifier', 'working model', 'high', 'Reproduce each claim against the named evidence.', 'verify'],
-    [/\b(definition[- ]of[- ]done|acceptance checks?|completion|finished|done)\b.*\b(check|verify|met|audit)\b|\b(check|verify)\b.*\b(done|complete|completion|acceptance)\b/, 'done-verifier', 'cheap model', 'low', 'Probe the stated definition of done.', 'verify'],
+    [/\b(verify|reproduce|validate|confirm|check)\b.*\b(findings?|reports?|bugs?)\b/, 'finding-verifier', 'working model', 'high',
+       'Reproduce each claim against the named evidence.', 'verify'],
+    [new RegExp(
+      "\\b(definition[- ]of[- ]done|acceptance " +
+      "checks?|completion|finished|done)\\b.*\\b(check|verify|met|audit)\\b|\\b(check|verify)\\b.*\\b(done|comple" +
+      "te|completion|acceptance)\\b",
+      ""
+    ), 'done-verifier', 'cheap model', 'low', 'Probe the stated definition of done.', 'verify'],
     [/\b(review|audit)\b/, 'code-reviewer', 'working model', 'high', 'Review the change and reproduce potential defects.', 'review'],
-    [/\b(latest|current|live|news|search|browse|research|look up)\b/, 'live-researcher', 'working model', 'medium', 'Fetch current evidence before drawing a conclusion.', 'research'],
-    [/\b(read(?:ing)?|summari[sz]e|digest|scan)\b.*\b(files|notes|documents|codebase|repo|folder)\b/, 'reader', 'cheap model', 'low', 'Read the requested files and return cited facts.', 'read'],
-    [/\b(design|architect(?:ure)?|ambiguous|tradeoffs?|plan|strategy|unknown cause|find why|debug|diagnose|investigate)\b/, 'deep-planner', 'planning model', 'xhigh', 'Resolve the design and interfaces before building; use equivalent effort where xhigh is unavailable.', 'plan'],
-    [/\b(rename|format|sort|classify|tag|bulk|mechanical|replace|lint)\b/, 'bulk-worker', 'cheap model', 'low', 'Apply a repeatable mechanical change.', 'bulk'],
-    [/\b(build(?:ing)?|implement|code|fix|create|write|add|refactor)\b/, 'builder', 'working model', 'high', 'Build within a task brief and run its acceptance checks.', 'build']
+    [/\b(latest|current|live|news|search|browse|research|look up)\b/, 'live-researcher', 'working model', 'medium',
+       'Fetch current evidence before drawing a conclusion.', 'research'],
+    [/\b(read(?:ing)?|summari[sz]e|digest|scan)\b.*\b(files|notes|documents|codebase|repo|folder)\b/, 'reader', 'cheap model', 'low',
+       'Read the requested files and return cited facts.', 'read'],
+    [/\b(design|architect(?:ure)?|ambiguous|tradeoffs?|plan|strategy|unknown cause|find why|debug|diagnose|investigate)\b/, 'deep-planner',
+       'planning model', 'xhigh', 'Resolve the design and interfaces before building; use equivalent effort where xhigh is unavailable.', 'plan'],
+    [/\b(rename|format|sort|classify|tag|bulk|mechanical|replace|lint)\b/, 'bulk-worker', 'cheap model', 'low',
+       'Apply a repeatable mechanical change.', 'bulk'],
+    [/\b(build(?:ing)?|implement|code|fix|create|write|add|refactor)\b/, 'builder', 'working model', 'high',
+       'Build within a task brief and run its acceptance checks.', 'build']
   ];
   for (const [pattern, agent, tier, effort, reason, role] of routes) {
     if (pattern.test(text)) return raiseForRisk(text, { agent, tier, effort, reason, role });
@@ -246,7 +269,11 @@ export function suggestRoute(task) {
 // when the wording sounds mechanical ("rename", "replace"), so they never
 // stay on the cheap tier at low effort (TIERS.md: security or irreversible
 // work needs xhigh on the builder).
-const RISK = /\b(prod|production|o?auth(?:2|entic\w*|ori[sz]\w*|n|z)?|payments?|billing|secrets?|credentials?|migrations?|databases?|schemas?)\b|\b(drop|delete|truncate|rename|alter|replace)\b.*\b(tables?|columns?)\b/;
+const RISK = new RegExp([
+  /\b(prod|production|o?auth(?:2|entic\w*|ori[sz]\w*|n|z)?|payments?|billing)\b/.source,
+  /\b(secrets?|credentials?|migrations?|databases?|schemas?)\b/.source,
+  /\b(drop|delete|truncate|rename|alter|replace)\b.*\b(tables?|columns?)\b/.source
+].join('|'));
 const CHANGE = /\b(drop|delete|truncate|remove|wipe|alter|migrate|rotate|revoke|deploy|change|update|modify|move|switch|enable|disable)\b/;
 const EFFORTS = ['low', 'medium', 'high', 'xhigh'];
 
@@ -255,7 +282,8 @@ function raiseForRisk(text, route) {
   if (!match) return route;
   const why = ` Risk: "${match[0]}" touches production, auth, payments, secrets or schema; name the boundary and test it.`;
   if (route.role === 'bulk' || route.role === 'build') {
-    return { agent: 'builder', tier: 'working model', effort: 'xhigh', reason: 'Build within a task brief and run its acceptance checks; use equivalent effort where xhigh is unavailable.' + why, role: 'build', risk: true };
+    return { agent: 'builder', tier: 'working model', effort: 'xhigh', reason:
+       'Build within a task brief and run its acceptance checks; use equivalent effort where xhigh is unavailable.' + why, role: 'build', risk: true };
   }
   const tier = route.tier === 'cheap model' ? 'working model' : route.tier;
   const effort = EFFORTS.indexOf(route.effort) < EFFORTS.indexOf('high') ? 'high' : route.effort;
@@ -309,12 +337,25 @@ export async function main(args) {
     if (parsed.rest.length !== 1 || !parsed.rest[0].trim()) throw new Error('usage: aunx route [--dir PATH] "<task>"');
     const route = suggestRoute(parsed.rest[0]);
     const roles = readManifestRoles({ dir: parsed.dir });
-    console.log(route ? `Suggestion: ${route.role} | tier: ${route.tier} | effort: ${route.effort}\nAgent: ${route.agent}\n${roles ? stackSuggestion(roles[route.role]) + '\n' : ''}${route.reason} Confirm against your ROUTING.md.` : 'Suggestion: unknown task category. Read your ROUTING.md and choose a route for the task.');
+    console.log(route ? ("Suggestion: " +
+      `${route.role}` +
+      " | tier: " +
+      `${route.tier}` +
+      " | effort: " +
+      `${route.effort}` +
+      "\nAgent: " +
+      `${route.agent}` +
+      "\n" +
+      `${roles ? stackSuggestion(roles[route.role]) + '\n' : ''}` +
+      `${route.reason}` +
+      " Confirm against your ROUTING.md.") : 'Suggestion: unknown task category. Read your ROUTING.md and choose a route for the task.');
     if (!roles) console.log('No install found; run the installer or pass --dir to see who your stack assigns.');
     return 0;
   }
   if (command && !command.startsWith('-')) {
-    throw new Error(`unknown aunx subcommand: ${command}\nAvailable subcommands: install, cli-run, route-metrics, brief, context, checks, route, models`);
+    throw new Error(("unknown aunx subcommand: " +
+      `${command}` +
+      "\nAvailable subcommands: install, cli-run, route-metrics, brief, context, checks, route, models"));
   }
   return runNode(join(ROOT, 'bin', 'cli.js'), args);
 }

@@ -22,7 +22,8 @@
     "SECURITY.md",
     "llms.txt",
     "AGENTS.md",
-    "proof"
+    "proof",
+    "!src/node-compat.d.ts"
   ],
   "scripts": {
     "start": "node bin/cli.js",
@@ -35,7 +36,10 @@
     "proof:render": "node proof/scripts/render.js",
     "proof:demo": "node proof/scripts/record-gate.js",
     "gen:agensi": "node scripts/gen-agensi.js",
-    "pack:agensi": "node scripts/pack-agensi.js"
+    "pack:agensi": "node scripts/pack-agensi.js",
+    "lint": "biome lint bin src templates scripts test && node scripts/lint-templates.js",
+    "typecheck": "tsc -p jsconfig.json",
+    "check:lines": "node scripts/check-lines.js"
   },
   "engines": {
     "node": ">=18"
@@ -96,5 +100,9 @@
   ],
   "author": "aunysillyme (https://github.com/aunysillyme)",
   "license": "MIT",
-  "funding": "https://github.com/sponsors/aunysillyme"
+  "funding": "https://github.com/sponsors/aunysillyme",
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "typescript": "7.0.2"
+  }
 }

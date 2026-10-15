@@ -156,7 +156,7 @@ for (const [name, mutate] of [
   ['absolute entry', (m, s) => { m.files[join(s.base, 'outside.txt')] = sha('outside\n'); }],
   ['Windows absolute entry', (m) => { m.files['C:\\outside.txt'] = sha('outside\n'); }],
   ['backslash traversal entry', (m) => { m.files['..\\..\\outside.txt'] = sha('outside\n'); }],
-  ['object path entry', (m) => { m.files['untrusted'] = { path: '../../outside.txt' }; }],
+  ['object path entry', (m) => { m.files.untrusted = { path: '../../outside.txt' }; }],
   ['array path entry', (m) => { m.files = [{ path: '../../outside.txt' }]; }],
   ['directory traversal entry', (m) => { m.directories = ['../../outside']; }],
   ['manifest self entry', (m) => { m.files['MANIFEST.json'] = sha('manifest'); }],

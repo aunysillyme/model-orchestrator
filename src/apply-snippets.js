@@ -15,7 +15,10 @@ const eolOf = (original) => (original.indexOf(CRLF) !== -1 ? '\r\n' : '\n');
 // the same way invalid JSON is refused today, without ever loading its bytes.
 function refuseIfOversized(path) {
   if (existsSync(path) && statSync(path).size > ACTIVATION_JSON_BYTE_CAP) {
-    throw refuse(`${path}: larger than the ${ACTIVATION_JSON_BYTE_CAP} byte (10 MB) cap on a pre-existing settings/MCP JSON file; nothing written`);
+    throw refuse((`${path}` +
+      ": larger than the " +
+      `${ACTIVATION_JSON_BYTE_CAP}` +
+      " byte (10 MB) cap on a pre-existing settings/MCP JSON file; nothing written"));
   }
 }
 
@@ -103,6 +106,7 @@ export function planSnippetApplication({ primary, project, files }) {
   const content = markedContent(priorRules || Buffer.alloc(0), appliedRules(snippet, files, project, rulesPath), rulesPath);
   const block = content.subarray(content.indexOf(START), content.indexOf(END) + Buffer.byteLength(END));
   const appended = !priorRules?.includes(START);
+  /** @type {Array<{rel: string, original: any, content: any, activation: Record<string, any>}>} */
   const entries = [{ rel: targets[0], original: priorRules, content, activation: {
     kind: 'rules', blockHash: createHash('sha256').update(block).digest('hex'), created: priorRules === null,
     addedPrefix: appended ? content.subarray(priorRules?.length || 0, content.indexOf(START)).toString('utf8') : '',
@@ -121,7 +125,8 @@ export function planSnippetApplication({ primary, project, files }) {
     const merged = mergeHooks(settings, incoming.hooks, settingsPath);
     entries.push({ rel: targets[1], original: priorSettings,
       content: priorSettings && JSON.stringify(settings) === JSON.stringify(merged.settings) ? priorSettings : JSON.stringify(merged.settings, null, 2) + '\n',
-      activation: { kind: 'hooks', hooks: merged.ownership, created: priorSettings === null, hadHooks: Object.hasOwn(settings, 'hooks'), originalEvents: Object.keys(settings.hooks || {}) }
+      activation: { kind: 'hooks', hooks: merged.ownership, created: priorSettings === null, hadHooks: Object.hasOwn(settings, 'hooks'),
+         originalEvents: Object.keys(settings.hooks || {}) }
     });
   }
   return entries.map((file) => ({ ...file, root: 'project', mode: 0o644, applySnippet: true }));

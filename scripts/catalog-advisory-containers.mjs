@@ -85,20 +85,25 @@ export async function resolveImage(reference, { platform = 'linux/amd64', fetchI
   let manifest = await get('manifests', parsed.selector);
   if (manifest.data?.schemaVersion !== 2) throw new Error('unsupported-image-manifest');
   if (Array.isArray(manifest.data.manifests)) {
-    const choices = manifest.data.manifests.filter((m) => m.platform?.os === os && m.platform?.architecture === architecture && (!variant || m.platform?.variant === variant));
+    const choices = manifest.data.manifests.filter((m) => m.platform?.os === os && m.platform?.architecture === architecture && (!variant ||
+       m.platform?.variant === variant));
     if (choices.length !== 1 || !DIGEST.test(choices[0].digest)) throw new Error('unresolved-image-platform');
     manifest = await get('manifests', choices[0].digest);
   }
-  if (manifest.data?.schemaVersion !== 2 || !DIGEST.test(manifest.data.config?.digest) || !Array.isArray(manifest.data.layers)) throw new Error('invalid-image-manifest');
+  if (manifest.data?.schemaVersion !== 2 || !DIGEST.test(manifest.data.config?.digest) ||
+     !Array.isArray(manifest.data.layers)) throw new Error('invalid-image-manifest');
   const config = await get('blobs', manifest.data.config.digest);
-  if (config.data?.os !== os || config.data?.architecture !== architecture || (variant && config.data?.variant !== variant)) throw new Error('image-platform-mismatch');
+  if (config.data?.os !== os || config.data?.architecture !== architecture || (variant &&
+     config.data?.variant !== variant)) throw new Error('image-platform-mismatch');
   return { resolvedDigest: manifest.digest, platform, reference: `${parsed.canonical}@${manifest.digest}` };
 }
 
 export function parseTrivyReport(data, target, resolved, scannerVersion) {
-  if (!data || data.SchemaVersion !== 2 || data.ArtifactType !== 'container_image' || !Array.isArray(data.Results) || !data.Results.length) throw new Error('incomplete-container-report');
+  if (!data || data.SchemaVersion !== 2 || data.ArtifactType !== 'container_image' || !Array.isArray(data.Results) ||
+     !data.Results.length) throw new Error('incomplete-container-report');
   const metadata = data.Metadata;
-  if (!metadata || !Array.isArray(metadata.RepoDigests) || !metadata.RepoDigests.some((r) => typeof r === 'string' && r.endsWith(`@${resolved.resolvedDigest}`))) throw new Error('container-report-digest-mismatch');
+  if (!metadata || !Array.isArray(metadata.RepoDigests) || !metadata.RepoDigests.some((r) => typeof r === 'string' &&
+     r.endsWith(`@${resolved.resolvedDigest}`))) throw new Error('container-report-digest-mismatch');
   const [os, architecture] = resolved.platform.split('/');
   if (metadata.ImageConfig?.architecture !== architecture || metadata.ImageConfig?.os !== os) throw new Error('container-report-platform-mismatch');
   if (!metadata.OS?.Family || metadata.OS.EOSL === true) throw new Error('unsupported-image-os');
@@ -107,7 +112,8 @@ export function parseTrivyReport(data, target, resolved, scannerVersion) {
   let osPackages = false;
   const unversionedRoots = [];
   for (const result of data.Results) {
-    if (!['os-pkgs', 'lang-pkgs'].includes(result.Class) || typeof result.Type !== 'string' || !Array.isArray(result.Packages) || !result.Packages.length) throw new Error('incomplete-container-packages');
+    if (!['os-pkgs', 'lang-pkgs'].includes(result.Class) || typeof result.Type !== 'string' || !Array.isArray(result.Packages) ||
+       !result.Packages.length) throw new Error('incomplete-container-packages');
     if (result.Class === 'os-pkgs') osPackages = true;
     for (const pkg of result.Packages) {
       if (typeof pkg.Name !== 'string' || !pkg.Name) throw new Error('incomplete-container-package');
@@ -121,7 +127,9 @@ export function parseTrivyReport(data, target, resolved, scannerVersion) {
     packageCount += result.Packages.length;
     if ('Vulnerabilities' in result && !Array.isArray(result.Vulnerabilities)) throw new Error('invalid-container-vulnerabilities');
     for (const vuln of result.Vulnerabilities || []) {
-      if (typeof vuln.VulnerabilityID !== 'string' || !vuln.VulnerabilityID || typeof vuln.PkgName !== 'string' || !vuln.PkgName || typeof vuln.InstalledVersion !== 'string' || !vuln.InstalledVersion || (vuln.FixedVersion !== undefined && typeof vuln.FixedVersion !== 'string')) throw new Error('invalid-container-vulnerability');
+      if (typeof vuln.VulnerabilityID !== 'string' || !vuln.VulnerabilityID || typeof vuln.PkgName !== 'string' || !vuln.PkgName ||
+         typeof vuln.InstalledVersion !== 'string' || !vuln.InstalledVersion || (vuln.FixedVersion !== undefined &&
+            typeof vuln.FixedVersion !== 'string')) throw new Error('invalid-container-vulnerability');
       advisories.push({ id: vuln.VulnerabilityID, ecosystem: result.Type, package: vuln.PkgName,
         version: vuln.InstalledVersion, affectedRanges: [{ type: 'scanner-match', version: vuln.InstalledVersion }],
         fixedVersions: (vuln.FixedVersion || '').split(',').map((v) => v.trim()).filter(Boolean),
@@ -144,7 +152,8 @@ export async function dockerTrivy(resolved, scanner, { timeoutMs = 720000 } = {}
     '--user', '65532:65532'];
   const options = { timeout: timeoutMs, maxBuffer: 64 * 1024 * 1024, env, windowsHide: true };
   try {
-    const version = await exec('docker', [...common, '--name', versionName, scanner.reference, '--version'], { ...options, timeout: Math.min(timeoutMs, 60000) });
+    const version = await exec('docker', [...common, '--name', versionName, scanner.reference, '--version'], { ...options, timeout:
+       Math.min(timeoutMs, 60000) });
     if (!new RegExp(`^Version: ${TRIVY.version.replaceAll('.', '\\.')}\\s*$`, 'm').test(version.stdout)) throw new Error('scanner-version-mismatch');
     const run = await exec('docker', [...common, '--name', name, scanner.reference, 'image', '--quiet', '--scanners', 'vuln',
       '--list-all-pkgs', '--format', 'json', '--platform', resolved.platform, '--image-src', 'remote',
