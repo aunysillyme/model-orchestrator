@@ -4,8 +4,12 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [1.0.15] - 2026-10-14
+
 ### Fixed
 
+- Raise `aunx route` to the builder at xhigh effort for production, auth, payment, secret, migration and schema work, even when the wording sounds mechanical; risky questions with no change verb stay unrouted (#70).
+- Check the prompt against each platform's command-line limit before starting a lane, and report an oversized prompt or a spawn `E2BIG` as `prompt_too_large` with exit 16 instead of a missing CLI with exit 13 (#71).
 - Enforce installed project lane data for ordinary packaged runner calls, refusing malformed or unsafe configuration without executing project code (#63).
 - Exclude missing and invalid route markers from coverage, delegated-work counts and reconciliation, and report invalid-marker counts (#64).
 - Put the Codex prompt after the option terminator so option-shaped text remains prompt data (#65).
@@ -692,7 +696,8 @@ First release.
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
-[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.14...HEAD
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.15...HEAD
+[1.0.15]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.14...v1.0.15
 [1.0.14]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.13...v1.0.14
 [1.0.13]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.12...v1.0.13
 [1.0.12]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.11...v1.0.12
