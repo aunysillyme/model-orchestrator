@@ -68,9 +68,9 @@ test('companions: JSON merge preserves other servers and settings with a backup'
   assert.deepEqual(merged.mcpServers.other, { command: 'local-tool' });
   writeFiles(entries, { dir: s.dir, project: s.project, backupExisting: true });
   assert.equal(JSON.parse(readFileSync(s.target)).mcpServers.context7.type, 'http');
-  const backups = readdirSync(s.project).filter((name) => name.startsWith('.mcp.json.bak-'));
+  const backups = readdirSync(join(s.dir, '.backups')).filter((name) => name.startsWith('.mcp.json.bak-'));
   assert.equal(backups.length, 1);
-  assert.equal(readFileSync(join(s.project, backups[0]), 'utf8'), original);
+  assert.equal(readFileSync(join(s.dir, '.backups', backups[0]), 'utf8'), original);
 });
 
 test('companions: duplicate entries keep original bytes and establish no new ownership', async (t) => {
@@ -158,7 +158,7 @@ test('companions: uninstall removes only registered MCP entries and keeps foreig
   assert.deepEqual(Object.keys(manifest.activation['[project] .mcp.json'].servers), ['context7']);
   uninstallFiles({ dir: s.dir, project: s.project });
   assert.deepEqual(JSON.parse(readFileSync(s.target)), foreign);
-  assert.ok(readdirSync(s.project).some((name) => name.startsWith('.mcp.json.bak-')));
+  assert.ok(readdirSync(join(s.dir, '.backups')).some((name) => name.startsWith('.mcp.json.bak-')));
 });
 
 test('companions: upgrade retains ownership and uninstall preserves an edited server', async (t) => {
@@ -218,7 +218,7 @@ test('companions CLI: --yes --apply-snippets merges selected MCP entries with a 
   const config = JSON.parse(readFileSync(s.target));
   assert.equal(config.custom, true);
   assert.equal(config.mcpServers.context7.type, 'http');
-  assert.ok(readdirSync(s.project).some((name) => name.startsWith('.mcp.json.bak-')));
+  assert.ok(readdirSync(join(s.dir, '.backups')).some((name) => name.startsWith('.mcp.json.bak-')));
   assert.doesNotMatch(result.stdout, /\[Y\/n\/e\]/);
 });
 

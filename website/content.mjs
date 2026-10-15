@@ -71,7 +71,7 @@ export function documentHtml({title, description, route, body, discovery = true}
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
     "name": "Model Orchestrator",
-    "description": "Model router for AI coding agents: installs routing rules, 8 subagents, hooks and a CLI runner so your AI picks model and effort per task and saves tokens",
+    "description": "Model router for AI coding agents: routes routine work to cheaper models with routing rules, 8 subagents, hooks and a CLI runner",
     "applicationCategory": "DeveloperApplication",
     "operatingSystem": "macOS, Linux, Windows",
     "offers": {

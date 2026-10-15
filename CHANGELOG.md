@@ -4,6 +4,20 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Fixed
+
+- Enforce installed project lane data for ordinary packaged runner calls, refusing malformed or unsafe configuration without executing project code (#63).
+- Exclude missing and invalid route markers from coverage, delegated-work counts and reconciliation, and report invalid-marker counts (#64).
+- Put the Codex prompt after the option terminator so option-shaped text remains prompt data (#65).
+- Record exact inserted rule separators, restore CRLF files byte for byte and retain legacy LF uninstall ownership (#66).
+- Give agnostic advice tests neutral project paths so checkout names cannot imply unselected providers (#67).
+- Reject runner timeouts above the Node timer limit before starting a lane (#68).
+- Store install and uninstall backups in the rules folder's gitignored `.backups/` directory and preserve user backups (#73).
+
+### Changed
+
+- Record optional subagent token usage and model identifiers, report supplied token totals, describe routing to cheaper models and disclose route-table prompt overhead (#69).
+
 ## [1.0.14] - 2026-10-10
 
 ### Fixed

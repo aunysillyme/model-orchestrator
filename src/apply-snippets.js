@@ -105,8 +105,8 @@ export function planSnippetApplication({ primary, project, files }) {
   const appended = !priorRules?.includes(START);
   const entries = [{ rel: targets[0], original: priorRules, content, activation: {
     kind: 'rules', blockHash: createHash('sha256').update(block).digest('hex'), created: priorRules === null,
-    addedPrefix: appended && priorRules?.length ? (priorRules.at(-1) === 10 ? '\n' : '\n\n') : '',
-    addedSuffix: appended ? '\n' : ''
+    addedPrefix: appended ? content.subarray(priorRules?.length || 0, content.indexOf(START)).toString('utf8') : '',
+    addedSuffix: appended ? content.subarray(content.indexOf(END) + Buffer.byteLength(END)).toString('utf8') : ''
   } }];
   if (primary.id === 'claude-code') {
     const settingsPath = join(project, targets[1]);

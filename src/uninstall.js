@@ -1,7 +1,7 @@
 import { closeSync, constants, existsSync, fstatSync, lstatSync, openSync, readFileSync, readdirSync, rmdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep, win32 } from 'node:path';
-import { ACTIVATION_JSON_BYTE_CAP, atomicWriteFile, backupStamp, dirProblems, globalConfigProblem, realRoot } from './install.js';
+import { ACTIVATION_JSON_BYTE_CAP, atomicWriteFile, backupPath, ensureBackupDirectory, preflight, dirProblems, globalConfigProblem, realRoot } from './install.js';
 import { START, END } from './apply-snippets.js';
 import { validateActivationOwnership } from './activation-ownership.js';
 import { MANIFEST_BYTE_CAP, readBounded } from './bounded-file.js';
@@ -168,17 +168,20 @@ function applyRemoval(item, plan) {
 
 // Restore formatting only after the remaining settings match a saved original
 // semantically. Older installs did not record a backup path in their manifest.
-function originalSettingsBytes(item, content) {
+function originalSettingsBytes(item, content, rulesDir) {
   if (item.ownership.kind !== 'hooks' || item.ownership.created || content === null) return content;
   let remaining;
   try { remaining = JSON.parse(content.toString('utf8')); } catch { return content; }
   const prefix = basename(item.abs) + '.bak-';
-  for (const name of readdirSync(dirname(item.abs)).sort()) {
-    if (!name.startsWith(prefix) || !/^\d{8}T\d{6}Z?$/.test(name.slice(prefix.length))) continue;
-    try {
-      const saved = readRegular({ root: item.root, abs: join(dirname(item.abs), name), maxBytes: ACTIVATION_JSON_BYTE_CAP });
-      if (saved && isDeepStrictEqual(JSON.parse(saved.bytes.toString('utf8')), remaining)) return saved.bytes;
-    } catch { /* unsafe, oversized or malformed backups cannot supply original bytes */ }
+  for (const [root, folder] of [[rulesDir, join(rulesDir, '.backups')], [item.root, dirname(item.abs)]]) {
+    if (!inspect({ root, abs: folder, directory: true })) continue;
+    for (const name of readdirSync(folder).sort()) {
+      if (!name.startsWith(prefix) || !/^\d{8}T\d{6}Z?$/.test(name.slice(prefix.length))) continue;
+      try {
+        const saved = readRegular({ root, abs: join(folder, name), maxBytes: ACTIVATION_JSON_BYTE_CAP });
+        if (saved && isDeepStrictEqual(JSON.parse(saved.bytes.toString('utf8')), remaining)) return saved.bytes;
+      } catch { /* unsafe, oversized or malformed backups cannot supply original bytes */ }
+    }
   }
   return content;
 }
@@ -218,6 +221,12 @@ export function uninstallFiles({ dir, project, dry = false }) {
   }
 
   const actions = [];
+  const backupFolder = join(roots.dir, '.backups');
+  if (inspect({ root: roots.dir, abs: backupFolder, directory: true })) {
+    for (const name of readdirSync(backupFolder).sort()) {
+      if (/\.bak-\d{8}T\d{6}Z?$/.test(name)) actions.push('  keep backup ' + join(backupFolder, name));
+    }
+  }
   const backupTargets = [...files, manifest, ...activation];
   if (data.primary === 'claude-code') backupTargets.push(entry('[project] CLAUDE.md', roots), entry('[project] .claude/settings.json', roots));
   for (const item of new Map(backupTargets.map((target) => [target.abs, target])).values()) {
@@ -237,18 +246,13 @@ export function uninstallFiles({ dir, project, dry = false }) {
     const current = readRegular(item);
     if (!current) { actions.push('  missing activation ' + item.abs); continue; }
     const removal = removeActivation(item, current.bytes);
-    if (!removal.edited) removal.content = originalSettingsBytes(item, removal.content);
+    if (!removal.edited) removal.content = originalSettingsBytes(item, removal.content, roots.dir);
     if (removal.edited) {
       edited = true;
       actions.push('  keep edited activation ' + item.abs);
     }
     if (removal.content !== null && removal.content.equals(current.bytes)) continue;
-    let stamp = Date.now();
-    let backup;
-    do {
-      backup = item.abs + '.bak-' + backupStamp(stamp);
-      stamp += 1000;
-    } while (existsSync(backup));
+    const backup = backupPath(roots.dir, item.abs);
     changes.push({ item, original: current.bytes, ...removal, backup });
     actions.push('  backup ' + backup);
     actions.push('  remove activation ' + item.abs);
@@ -266,6 +270,10 @@ export function uninstallFiles({ dir, project, dry = false }) {
   }
   if (edited) actions.push('  keep manifest ' + manifest.abs);
   else actions.push('  remove file ' + manifest.abs);
+  if (changes.length) {
+    const problems = preflight([{ rel: '.backups/.gitignore' }], roots.dir);
+    if (problems.length) throw refused(problems.join('; '));
+  }
 
   // Compute empty directories against the same plan used by the real run.
   // Foreign entries and kept edits prevent their parents from being removed.
@@ -276,7 +284,7 @@ export function uninstallFiles({ dir, project, dry = false }) {
   directories.sort((a, b) => b.abs.split(sep).length - a.abs.split(sep).length || a.abs.localeCompare(b.abs));
   for (const item of directories) {
     if (!inspect(item)) continue;
-    if (!backupParents.has(item.abs) && readdirSync(item.abs).every((name) => disappearing.has(join(item.abs, name)))) {
+    if (![...backupParents].some((parent) => parent === item.abs || parent.startsWith(item.abs + sep)) && readdirSync(item.abs).every((name) => disappearing.has(join(item.abs, name)))) {
       disappearing.add(item.abs);
       empty.push(item);
     }
@@ -285,6 +293,7 @@ export function uninstallFiles({ dir, project, dry = false }) {
   if (!dry) {
     // A changed type or symlink detected here still refuses the whole run.
     for (const item of [...files, ...directories, ...activation, manifest]) inspect(item);
+    if (changes.length) ensureBackupDirectory(roots.dir);
     for (const plan of changes) applyRemoval(plan.item, plan);
     for (const item of pending) removeFile(item, item.digest);
     if (!edited) removeFile(manifest, hash(saved.bytes));

@@ -7,7 +7,7 @@ export function validateActivationOwnership(key, ownership) {
   if (!relative || /[\\:\x00-\x1f\x7f]/.test(relative) || relative.split('/').some((part) => !part || part === '.' || part === '..')
       || !object(ownership) || typeof ownership.created !== 'boolean') return `invalid activation ownership: ${key}`;
   if (ownership.kind === 'rules') {
-    if (!digest(ownership.blockHash) || !['', '\n', '\n\n'].includes(ownership.addedPrefix) || !['', '\n'].includes(ownership.addedSuffix)) return `invalid rules ownership: ${key}`;
+    if (!digest(ownership.blockHash) || !['', '\n', '\n\n', '\r\n', '\r\n\r\n'].includes(ownership.addedPrefix) || !['', '\n', '\r\n'].includes(ownership.addedSuffix)) return `invalid rules ownership: ${key}`;
   } else if (ownership.kind === 'hooks') {
     if (!Array.isArray(ownership.hooks) || typeof ownership.hadHooks !== 'boolean' || !Array.isArray(ownership.originalEvents)
         || ownership.originalEvents.some((event) => typeof event !== 'string')

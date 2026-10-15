@@ -9,7 +9,7 @@
 //   UserPromptSubmit                 -> {event:"turn"}
 //   PreToolUse (matcher Agent|Task)  -> {event:"dispatch", subagent_type, background}
 //   SubagentStart                    -> {event:"start", agent_type}
-//   SubagentStop                     -> {event:"end", agent_type?, duration_s?}
+//   SubagentStop                     -> {event:"end", agent_type?, duration_s?, totalTokens?, usage?, modelsUsed?}
 //   Stop                             -> {event:"route", lane}, parsed from the LAST
 //                                        <!-- route: <lane> | <why> --> marker in
 //                                        last_assistant_message (documented source;
@@ -20,7 +20,7 @@
 // exits 0, whether or not a line was written. A miss here is a missing log
 // line, never a blocked turn.
 //
-// The durable log holds no provider-supplied string: prompt text, tool
+// The durable log holds no provider-supplied prose: prompt text, tool
 // descriptions, and the "why" half of the route marker are never read into a
 // field; lanes must match the generated allowlist and other tokens are charset-bounded.
 // See docs/security-review-history.md.
@@ -59,6 +59,26 @@ const LANE_NAMES = new Set(LANE_NAMES_JSON.startsWith('[') ? JSON.parse(LANE_NAM
 function sanitize(raw, maxLen) {
   if (typeof raw !== 'string' || raw.length === 0) return '';
   return raw.replace(TOKEN_CHARSET, '').slice(0, maxLen);
+}
+
+function tokenCount(value) {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+}
+
+// Keep numeric usage counters only. Bounded depth and field counts preserve
+// nested cache counters without copying response text or unbounded metadata.
+function usageCounters(raw, depth = 0) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw) || depth > 3) return null;
+  const counters = {};
+  for (const [key, value] of Object.entries(raw).slice(0, 64)) {
+    if (!/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(key)) continue;
+    if (tokenCount(value)) counters[key] = value;
+    else {
+      const nested = usageCounters(value, depth + 1);
+      if (nested) counters[key] = nested;
+    }
+  }
+  return Object.keys(counters).length ? counters : null;
 }
 
 function stateKeyFor(agentId) {
@@ -233,6 +253,13 @@ export function buildRecord(input, now = () => new Date().toISOString()) {
       const record = { ...base, event: 'end', session_id: sessionId };
       if (agentType) record.agent_type = agentType;
       if (durationS !== null) record.duration_s = durationS;
+      if (tokenCount(input.totalTokens)) record.totalTokens = input.totalTokens;
+      const usage = usageCounters(input.usage);
+      if (usage) record.usage = usage;
+      if (Array.isArray(input.modelsUsed)) {
+        const models = input.modelsUsed.slice(0, 64).filter((model) => typeof model === 'string' && /^[A-Za-z0-9_.+-]{1,128}$/.test(model));
+        if (models.length) record.modelsUsed = models;
+      }
       return record;
     }
 
@@ -336,6 +363,10 @@ function formatNumber(n) {
   return Number.isInteger(n) ? String(n) : n.toFixed(2);
 }
 
+function validLane(lane) {
+  return typeof lane === 'string' && lane.length > 0 && lane !== 'missing' && lane !== 'invalid';
+}
+
 function runSummary(args) {
   if (!existsSync(LOG_FILE)) {
     console.log('route-metrics: no data yet (' + LOG_FILE + ' does not exist).');
@@ -348,7 +379,9 @@ function runSummary(args) {
 
   const turns = records.filter((r) => r.event === 'turn').length;
   const routes = records.filter((r) => r.event === 'route');
-  const covered = routes.filter((r) => !(Array.isArray(r.lane) && r.lane.length === 1 && r.lane[0] === 'missing')).length;
+  const coveredRoutes = routes.filter((r) => Array.isArray(r.lane) && r.lane.some(validLane));
+  const covered = coveredRoutes.length;
+  const invalidMarkers = routes.filter((r) => Array.isArray(r.lane) && r.lane.includes('invalid')).length;
   const coveragePct = turns > 0 ? (covered / turns) * 100 : null;
 
   const laneCounts = new Map();
@@ -358,7 +391,7 @@ function runSummary(args) {
 
   // The one number that answers "did the routing actually move work off the main
   // session?". Derived only from lane names the marker already carries: no price
-  // table, no token count, nothing this log does not hold. A covered turn counts as
+  // table or token estimate. A covered turn counts as
   // sent off when its marker names any lane that is not one of the inline names.
   // The inline names are overridable so a report can classify existing logged
   // lanes differently without changing the durable records.
@@ -368,8 +401,7 @@ function runSummary(args) {
       .map((n) => n.trim().toLowerCase())
       .filter(Boolean)
   );
-  const coveredRoutes = routes.filter((r) => Array.isArray(r.lane) && r.lane.some((l) => l !== 'missing'));
-  const sentOff = coveredRoutes.filter((r) => r.lane.some((l) => l !== 'missing' && !inlineNames.has(String(l).trim().toLowerCase()))).length;
+  const sentOff = coveredRoutes.filter((r) => r.lane.some((l) => validLane(l) && !inlineNames.has(l.trim().toLowerCase()))).length;
   const sentOffPct = coveredRoutes.length > 0 ? (sentOff / coveredRoutes.length) * 100 : null;
 
   const dispatches = records.filter((r) => r.event === 'dispatch');
@@ -399,10 +431,8 @@ function runSummary(args) {
     const acc = sessions.get(r.session_id);
     if (r.event === 'dispatch') acc.dispatched = true;
     if (r.event === 'route' && Array.isArray(r.lane)) {
-      // 'missing' is what the hook writes when a turn carried NO marker, so it is the
-      // absence of a claim, not a claim of inline. Counting it here would double-report
-      // the gap the coverage line above already reports.
-      const named = r.lane.filter((l) => l !== 'missing');
+      // Placeholder lanes carry no usable claim. Coverage reports that gap above.
+      const named = r.lane.filter(validLane);
       if (named.length > 0) acc.sawLane = true;
       if (named.some((l) => !inlineNames.has(String(l).trim().toLowerCase()))) acc.declaredOff = true;
     }
@@ -424,6 +454,9 @@ function runSummary(args) {
   lines.push('route-metrics summary' + (Number.isNaN(since) ? '' : ' since ' + args[sinceIdx + 1]));
   lines.push('turns: ' + turns);
   lines.push('route-marker coverage: ' + (coveragePct === null ? 'no turns yet' : formatNumber(coveragePct) + '%') + ' (' + covered + '/' + turns + ')');
+  lines.push('invalid route markers: ' + invalidMarkers);
+  const tokenTotals = records.filter((r) => r.event === 'end' && tokenCount(r.totalTokens));
+  if (tokenTotals.length) lines.push('subagent token total: ' + formatNumber(tokenTotals.reduce((sum, r) => sum + r.totalTokens, 0)) + ' (' + tokenTotals.length + ' reported stops)');
   lines.push(
     'work sent off the main session: ' +
       (sentOffPct === null ? 'no covered turns yet' : formatNumber(sentOffPct) + '%') +
