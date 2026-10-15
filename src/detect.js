@@ -25,7 +25,7 @@ export function candidateExtensions(platform = process.platform, pathext = proce
 // the whole search.
 export function which(bin, platform = process.platform, home = homedir()) {
   if (!bin) return null;
-  const searchPath = process.env['PATH'] || '';
+  const searchPath = process.env.PATH || '';
   const dirs = searchPath.split(delimiter).filter(Boolean);
   dirs.push(join(home, '.local', 'bin'), join(home, '.grok', 'bin'), join(home, '.npm-global', 'bin'));
   const exts = candidateExtensions(platform);

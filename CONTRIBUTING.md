@@ -10,12 +10,35 @@ Thanks for looking. Two kinds of contribution land well here: a **failure you hi
 ## Running the checks
 
 ```bash
+npm ci                   # install exact development tools from package-lock.json
+npm run lint             # Biome recommended rules, including rendered hook templates
+npm run typecheck        # non-strict checkJs over src/ and bin/, without emitting files
+npm run check:lines      # maximum 160 characters in bin/, src/, templates/, scripts/ JS/MJS
 npm test                 # node --test: the suite prints the current number, fixture and stub tests, no live vendor call
 npm run dry-run          # plan a level 2 install and write nothing
 node bin/cli.js --help
 ```
 
 CI runs the same on Ubuntu, macOS and Windows across Node 18, 20 and 22, then packs the tarball and installs it into a clean consumer project. Check the CI matrix for platform behavior beyond your local machine.
+
+The separate Node 22 lint job runs `npm ci` and all three static checks. Runtime stays dependency-free. Biome and TypeScript are exact-pinned development tools; keep `package-lock.json` in version control. The formatter is disabled. Wrap source lines by hand and preserve rendered string bytes. After template edits, run `npm run gen:agensi` and `npm run gen:plugin`.
+
+`src/node-compat.d.ts` supplies a minimal offline Node boundary without another dependency. Its Node APIs are permissive, so this first non-strict check verifies project code and internal callers, rather than full Node API contracts. The declaration is excluded from the published package. No JavaScript file disables type checking.
+
+Biome exceptions preserve current behavior and literal output:
+
+- `style/useTemplate`: concatenation keeps wrapped output byte-identical.
+- `complexity/useOptionalChain`: existing truthiness guards can return values other than null or undefined.
+- `complexity/noAdjacentSpacesInRegex`: vendor parsers and fixtures match literal spaces.
+- `correctness/noUnusedFunctionParameters`: positional parameters preserve existing callback and public signatures.
+- `correctness/noUnsafeFinally`: cleanup failures retain their existing error precedence.
+- `suspicious/noControlCharactersInRegex`: security filters deliberately match control characters.
+- `suspicious/noTemplateCurlyInString`: literal placeholders and shell substitutions are intentional output.
+- `suspicious/useIterableCallbackReturn`: output callbacks retain their existing ignored return values.
+- `correctness/noConstantCondition` (only the rendered subagent hook): plugin rendering intentionally fixes its rules-path branch.
+- `suspicious/noExplicitAny` (only `src/node-compat.d.ts`): platform declarations remain permissive for this initial check.
+
+The raw `route-gate.mjs` and `subagent-context.mjs` hook templates contain unquoted render placeholders. Biome skips those raw inputs; `scripts/lint-templates.js` lints the rendered plugin hooks in a temporary directory that is removed afterward as part of `npm run lint`. The line cap still checks every source template.
 
 ## Adding an AI
 

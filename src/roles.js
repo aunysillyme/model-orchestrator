@@ -12,7 +12,8 @@ const callable = (ai, ctx) => isMain(ai, ctx) || ai.facts.cliRun === true;
 const inputRate = (ai) => ai.facts.billing === 'pay-per-token' ? ai.facts.pricing?.inPerM ?? null : null;
 const factNote = (ai, key) => ai.factNotes?.[key] ? `; ${ai.factNotes[key]}` : '';
 const billingReason = (ai) => ai.facts.billing === 'pay-per-token'
-  ? `pay-per-token billing${ai.facts.pricing?.inPerM == null ? "; check your provider's rate" : `, stated input rate ${ai.facts.pricing.inPerM} per million tokens`}`
+  ? ("pay-per-token billing" +
+    `${ai.facts.pricing?.inPerM == null ? "; check your provider's rate" : `, stated input rate ${ai.facts.pricing.inPerM} per million tokens`}`)
   : `${ai.facts.billing} billing`;
 
 export function costRank(ai) {
@@ -23,8 +24,12 @@ const mainOrContext = (ai, ctx) => isMain(ai, ctx) ? 'main agent' : knownContext
   ? 'selection order; context capacity is unverified'
   : `largest known context among qualifying lanes (${knownContext(ai)} tokens)`;
 const noReview = (ctx) => ctx.mainFamily
-  ? `No AI from a different model family than ${ctx.mainFamily} is selected. Review in a fresh context on your main agent and treat the result as a self-check, not an independent review.`
-  : 'The main agent model family is unverified, so independent review cannot be established. Review in a fresh context as a self-check.';
+  ? ("No AI from a different model family than " +
+    `${ctx.mainFamily}` +
+    " is selected. Review in a fresh context on your main agent and treat the result as a self-check, not " +
+    "an independent review.")
+  : ("The main agent model family is unverified, so independent review cannot be established. Review in a " +
+    "fresh context as a self-check.");
 const noPrivate = () => 'Nothing in your stack runs on your own machine. Keep this work off every lane here.';
 const noMain = () => 'No main agent is selected.';
 
@@ -37,20 +42,24 @@ export const ROLE_SPECS = [
     id: 'build', job: 'Implement a specified section', tier: 'working model',
     requires: (ai, ctx) => ai.facts.writesFiles === true && (isMain(ai, ctx) || (ai.facts.headless === true && ai.facts.cliRun === true)),
     prefer: [mainFirst, (ai) => ai.facts.loadsProjectRules === true ? 0 : 1, (ai) => ai.facts.agentDefinitions ? 0 : 1], fallback: 'main',
-    why: (ai, ctx) => [isMain(ai, ctx) ? 'main agent' : 'writes files, headless cli-run lane', ai.facts.loadsProjectRules === true ? 'loads project rules' : ai.facts.loadsProjectRules === null ? 'project rules inheritance is unverified' : null].filter(Boolean).join(', ')
+    why: (ai, ctx) => [isMain(ai, ctx) ? 'main agent' : 'writes files, headless cli-run lane', ai.facts.loadsProjectRules === true ?
+       'loads project rules' : ai.facts.loadsProjectRules === null ? 'project rules inheritance is unverified' : null].filter(Boolean).join(', ')
   },
   {
     id: 'review', job: 'Independent review of the final artifact', tier: 'working model',
     requires: (ai, ctx) => ai.facts.cliRun === true && differentFamily(ai, ctx),
     prefer: [(ai) => ai.facts.readOnlyMode === true ? 0 : 1, costRank], fallback: 'none', noneReason: noReview,
-    why: (ai, ctx) => `different model family from ${ctx.mainFamily}${ai.facts.readOnlyMode === true ? ', read-only mode available' : `, ${billingReason(ai)}`}`
+    why: (ai, ctx) => ("different model family from " +
+      `${ctx.mainFamily}` +
+      `${ai.facts.readOnlyMode === true ? ', read-only mode available' : `, ${billingReason(ai)}`}`)
   },
   {
     id: 'verify', job: 'Reproduce a finding, check a definition of done', tier: 'working model',
     requires: callable, prefer: [familyFirst, costRank, mainFirst], fallback: 'main',
     why: (ai, ctx) => differentFamily(ai, ctx)
       ? `different model family from the author (${ctx.mainFamily}), ${billingReason(ai)}`
-      : `${isMain(ai, ctx) ? 'main agent' : billingReason(ai)}${!ai.facts.modelFamily || !ctx.mainFamily ? '; model family is unverified' : ''}`
+      : (`${isMain(ai, ctx) ? 'main agent' : billingReason(ai)}` +
+        `${!ai.facts.modelFamily || !ctx.mainFamily ? '; model family is unverified' : ''}`)
   },
   {
     id: 'research', job: 'Current primary sources, live web or social', tier: 'working model',
@@ -61,7 +70,10 @@ export const ROLE_SPECS = [
     id: 'bulk', job: 'Many similar items, cheap', tier: 'cheap model',
     requires: (ai) => ai.facts.headless === true && ai.facts.cliRun === true,
     prefer: [costRank, inputRate], fallback: 'main',
-    why: (ai, ctx) => `${billingReason(ai)}, headless${!isMain(ai, ctx) && ctx.level >= 2 && routeVia(ai, ctx.primary) === 'cli-run' ? ', runs through cli-run' : ''}; ties follow selection order`
+    why: (ai, ctx) => (`${billingReason(ai)}` +
+      ", headless" +
+      `${!isMain(ai, ctx) && ctx.level >= 2 && routeVia(ai, ctx.primary) === 'cli-run' ? ', runs through cli-run' : ''}` +
+      "; ties follow selection order")
   },
   {
     id: 'read', job: 'Digest many files, return cited facts', tier: 'cheap model',
@@ -106,7 +118,8 @@ export function assignRoles({ selected, primary, detected = new Set(), plans = {
       if (spec.conditional) continue;
       if (spec.fallback === 'main' && primary) {
         const why = spec.id === 'research'
-          ? 'No selected AI states live web tools; capability is unverified. The main agent carries it; verify it has the required tools.'
+          ? ("No selected AI states live web tools; capability is unverified. The main agent carries it; verify it " +
+            "has the required tools.")
           : 'No separate lane qualifies; the main agent carries it.';
         roles[spec.id] = { ai: primary.id, via: 'main-agent', tier: spec.tier, why };
       } else {
