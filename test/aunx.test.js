@@ -122,6 +122,59 @@ test('aunx suggestions carry a stack role and preserve the existing agent and ti
   ]) assert.equal(suggestRoute(task)?.role, role, task);
 });
 
+test('aunx route raises tier and effort for risky tasks (#70)', () => {
+  for (const task of [
+    'replace our auth provider with Clerk',
+    'rename the production payments table',
+    'drop table users',
+    'write the database migration for orders',
+    'fix the payment webhook',
+    'rotate the prod secrets and rename the env vars',
+    'rename the users table',
+    'rename the users schema',
+    'replace authorize with can',
+    'replace oauth2 token handler',
+    'rename the authenticate middleware',
+    'rename the authorisation helper'
+  ]) {
+    const route = suggestRoute(task);
+    assert.equal(route?.agent, 'builder', task);
+    assert.equal(route.tier, 'working model', task);
+    assert.equal(route.effort, 'xhigh', task);
+    assert.equal(route.risk, true, task);
+    assert.match(route.reason, /Risk:/, task);
+  }
+});
+
+test('aunx route risk guard lifts cheap read and verify routes without demoting stronger ones (#70)', () => {
+  const read = suggestRoute('summarize the auth files');
+  assert.equal(read.agent, 'reader');
+  assert.equal(read.tier, 'working model');
+  assert.equal(read.effort, 'high');
+  const research = suggestRoute('search the latest production incident docs');
+  assert.equal(research.agent, 'live-researcher');
+  assert.equal(research.effort, 'high');
+  const plan = suggestRoute('design the auth system');
+  assert.equal(plan.tier, 'planning model');
+  assert.equal(plan.effort, 'xhigh');
+});
+
+test('aunx route risk guard leaves ordinary tasks and lookalike words alone (#70)', () => {
+  for (const task of ['rename this file', 'format the author list', 'classify the notes as drafts', 'sort the products by price']) {
+    const route = suggestRoute(task);
+    assert.equal(route.agent, 'bulk-worker', task);
+    assert.equal(route.tier, 'cheap model', task);
+    assert.equal(route.effort, 'low', task);
+    assert.equal(route.risk, undefined, task);
+  }
+  for (const task of ['explain the production auth flow', 'where is the production database', 'read the production documentation']) {
+    assert.equal(suggestRoute(task), null, task);
+  }
+  const r = run(['route', 'rename the production payments table']);
+  assert.equal(r.status, 0);
+  assert.match(r.stdout, /Suggestion: build \| tier: working model \| effort: xhigh\nAgent: builder/);
+});
+
 test('aunx route prints the assigned AI from its manifest without executing project code', t => {
   const cwd = temp(t);
   const dir = join(cwd, 'ai-orchestrator');
