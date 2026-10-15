@@ -234,8 +234,30 @@ export function suggestRoute(task) {
     [/\b(rename|format|sort|classify|tag|bulk|mechanical|replace|lint)\b/, 'bulk-worker', 'cheap model', 'low', 'Apply a repeatable mechanical change.', 'bulk'],
     [/\b(build(?:ing)?|implement|code|fix|create|write|add|refactor)\b/, 'builder', 'working model', 'high', 'Build within a task brief and run its acceptance checks.', 'build']
   ];
-  for (const [pattern, agent, tier, effort, reason, role] of routes) if (pattern.test(text)) return { agent, tier, effort, reason, role };
-  return null;
+  for (const [pattern, agent, tier, effort, reason, role] of routes) {
+    if (pattern.test(text)) return raiseForRisk(text, { agent, tier, effort, reason, role });
+  }
+  // An unmatched risky change ("drop table users") still gets the guarded build route.
+  return RISK.test(text) ? raiseForRisk(text, { role: 'build' }) : null;
+}
+
+// Production, auth, payments, secrets and schema work are high-stakes even
+// when the wording sounds mechanical ("rename", "replace"), so they never
+// stay on the cheap tier at low effort (TIERS.md: security or irreversible
+// work needs xhigh on the builder).
+const RISK = /\b(prod|production|o?auth(?:entication|orization|n|z)?|payments?|billing|secrets?|credentials?|migrations?|databases?)\b|\b(drop|delete|truncate)\b.*\btables?\b/;
+const EFFORTS = ['low', 'medium', 'high', 'xhigh'];
+
+function raiseForRisk(text, route) {
+  const match = text.match(RISK);
+  if (!match) return route;
+  const why = ` Risk: "${match[0]}" touches production, auth, payments, secrets or schema; name the boundary and test it.`;
+  if (route.role === 'bulk' || route.role === 'build') {
+    return { agent: 'builder', tier: 'working model', effort: 'xhigh', reason: 'Build within a task brief and run its acceptance checks; use equivalent effort where xhigh is unavailable.' + why, role: 'build', risk: true };
+  }
+  const tier = route.tier === 'cheap model' ? 'working model' : route.tier;
+  const effort = EFFORTS.indexOf(route.effort) < EFFORTS.indexOf('high') ? 'high' : route.effort;
+  return { ...route, tier, effort, reason: route.reason + why, risk: true };
 }
 
 export async function main(args) {
