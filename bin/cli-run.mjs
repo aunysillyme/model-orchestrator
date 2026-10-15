@@ -444,7 +444,7 @@ export function buildArgv(lane, binary, prompt, opts, tmp) {
       const argv = [binary, 'exec', '--json', '--color', 'never', '--skip-git-repo-check', '-o', last];
       if (opts.audit) argv.push('--sandbox', 'read-only'); // an audit lane that can write is a bug
       argv.push(...route);
-      argv.push(prompt);
+      argv.push('--', prompt);
       return { argv, outFile: last };
     }
     case 'agy': {
@@ -1423,6 +1423,8 @@ export async function main(argv, { here = dirname(fileURLToPath(import.meta.url)
     } else if (a.startsWith('--')) return usage('unknown flag ' + a);
     else positional.push(a);
   }
+  if (!Number.isFinite(opts.timeout) || opts.timeout <= 0) return usage('--timeout must be a positive number of seconds');
+  if (opts.timeout * 1000 > 2147483647) return usage('--timeout must fit within 2147483647 milliseconds');
   if (opts.doctor) {
     if (positional.length) return usage('--doctor takes no lane or prompt');
     return doctor(opts.run, { here });
@@ -1442,7 +1444,6 @@ export async function main(argv, { here = dirname(fileURLToPath(import.meta.url)
     }
   }
   if (!prompt) return usage('give a prompt or --brief FILE');
-  if (!Number.isFinite(opts.timeout) || opts.timeout <= 0) return usage('--timeout must be a positive number of seconds');
   if (opts.audit && lane !== 'codex') return usage('--audit is codex-only');
   if (opts.safeMode && lane !== 'qwen') return usage('--safe-mode is qwen-only');
   for (const [kind, v] of [['model', opts.model], ['effort', opts.effort], ['provider', opts.provider]]) {

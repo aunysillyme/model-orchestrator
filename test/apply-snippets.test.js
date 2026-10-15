@@ -33,7 +33,7 @@ function snapshot(path) {
 }
 const read = (path) => readFileSync(path, 'utf8');
 const json = (path) => JSON.parse(read(path));
-const backups = (path) => readdirSync(path).filter((name) => name.includes('.bak-'));
+const backups = (path) => existsSync(path) ? readdirSync(path).filter((name) => name.includes('.bak-')) : [];
 
 test('apply-snippets: create missing rules and settings with applied activation steps', (t) => {
   const s = setup(t);
@@ -61,6 +61,33 @@ test('apply-snippets: append preserves outside bytes and replacement preserves p
   writeFileSync(s.rules, prior);
   assert.equal(s.apply().status, 0);
   assert.deepEqual(readFileSync(s.rules), prior);
+});
+
+for (const original of ['# existing rules\r\n', '# existing rules\r\nlast line', '# existing rules\n']) {
+  test(`apply-snippets: uninstall restores original rule bytes for ${JSON.stringify(original)}`, (t) => {
+    const s = setup(t);
+    writeFileSync(s.rules, original);
+    assert.equal(s.apply().status, 0);
+    const ownership = json(join(s.dir, 'MANIFEST.json')).activation['[project] CLAUDE.md'];
+    const nl = original.includes('\r\n') ? '\r\n' : '\n';
+    assert.equal(ownership.addedPrefix, original.endsWith('\n') ? nl : nl + nl);
+    assert.equal(ownership.addedSuffix, nl);
+    assert.equal(s.apply().status, 0, 'reruns retain exact ownership');
+    const result = run(['--uninstall', '--dir', s.dir, '--project', s.project]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(readFileSync(s.rules), Buffer.from(original));
+  });
+}
+
+test('apply-snippets: CRLF uninstall preserves a user line next to the owned block', (t) => {
+  const s = setup(t);
+  const original = '# existing rules\r\n';
+  writeFileSync(s.rules, original);
+  assert.equal(s.apply().status, 0);
+  writeFileSync(s.rules, read(s.rules) + 'user footer\r\n');
+  const result = run(['--uninstall', '--dir', s.dir, '--project', s.project]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(read(s.rules), original + 'user footer\r\n');
 });
 
 test('apply-snippets: rerun replaces the marked block exactly once', (t) => {
@@ -120,16 +147,18 @@ test('apply-snippets: truncated settings exits 2 and writes nothing anywhere', (
 test('apply-snippets: backups contain original bytes only for pre-existing changed files', (t) => {
   const s = setup(t);
   assert.equal(s.apply().status, 0);
-  assert.deepEqual(backups(s.project), []);
-  assert.deepEqual(backups(join(s.project, '.claude')), []);
+  assert.deepEqual(backups(join(s.dir, '.backups')), []);
   writeFileSync(s.rules, 'existing rules');
   writeFileSync(s.settings, '{"permissions":{"allow":["Bash(ls:*)"]}}');
   const rulesBefore = readFileSync(s.rules);
   const settingsBefore = readFileSync(s.settings);
   const r = s.apply();
   assert.equal(r.status, 0, r.stderr);
-  for (const [folder, name, before] of [[s.project, 'CLAUDE.md', rulesBefore], [join(s.project, '.claude'), 'settings.json', settingsBefore]]) {
-    const saved = backups(folder);
+  assert.equal(read(join(s.dir, '.backups', '.gitignore')), '*\n');
+  assert.deepEqual(backups(s.project), []);
+  assert.deepEqual(backups(join(s.project, '.claude')), []);
+  for (const [folder, name, before] of [[join(s.dir, '.backups'), 'CLAUDE.md', rulesBefore], [join(s.dir, '.backups'), 'settings.json', settingsBefore]]) {
+    const saved = backups(folder).filter((file) => file.startsWith(name + '.bak-'));
     assert.equal(saved.length, 1);
     assert.match(saved[0], new RegExp('^' + name.replaceAll('.', '\\.') + '\\.bak-\\d{8}T\\d{6}Z$'));
     const path = join(folder, saved[0]);
@@ -209,7 +238,7 @@ test('apply-snippets: uninstall restores exact original settings bytes when rema
   const original = '{\r\n "custom": {"two":2, "one":1}, "permissions":{"allow":["Bash(ls:*)"]}\r\n}\r\n';
   writeFileSync(s.settings, original);
   assert.equal(s.apply().status, 0);
-  const saved = join(s.project, '.claude', backups(join(s.project, '.claude'))[0]);
+  const saved = join(s.dir, '.backups', backups(join(s.dir, '.backups')).find((name) => name.startsWith('settings.json.bak-')));
   renameSync(saved, saved.slice(0, -1)); // Older installs omitted the UTC suffix.
   assert.equal(s.apply().status, 0);
   const result = run(['--uninstall', '--dir', s.dir, '--project', s.project]);
@@ -238,7 +267,7 @@ test('apply-snippets: flag absent keeps user files and manual activation unchang
   assert.equal(read(s.settings), '{ "hooks": ');
   assert.match(r.stdout, /copy the block/);
   assert.match(r.stdout, /merge the hooks/);
-  assert.deepEqual(backups(s.project), []);
+  assert.deepEqual(backups(join(s.dir, '.backups')), []);
 });
 
 test('apply-snippets: uninstall removes applied block and hooks while preserving user content and backups', (t) => {
@@ -251,9 +280,9 @@ test('apply-snippets: uninstall removes applied block and hooks while preserving
   assert.equal(r.status, 0, r.stderr);
   assert.equal(read(s.rules), 'my rules');
   assert.deepEqual(json(s.settings), { permissions: { allow: ['Bash(ls:*)'] }, hooks: { CustomEvent: [{ hooks: [{ type: 'command', command: 'echo own' }] }] } });
-  assert.equal(backups(s.project).length, 2);
-  assert.ok(backups(s.project).some((name) => readFileSync(join(s.project, name)).equals(rulesBefore)));
-  assert.ok(r.stdout.includes('keep backup ' + join(s.project, backups(s.project)[0])));
+  assert.equal(backups(join(s.dir, '.backups')).filter((name) => name.startsWith('CLAUDE.md.bak-')).length, 2);
+  assert.ok(backups(join(s.dir, '.backups')).some((name) => readFileSync(join(s.dir, '.backups', name)).equals(rulesBefore)));
+  assert.ok(r.stdout.includes('keep backup ' + join(s.dir, '.backups', backups(join(s.dir, '.backups'))[0])));
 });
 
 test('apply-snippets: ambiguous markers and symlink targets refuse before install writes', (t) => {
@@ -333,8 +362,7 @@ test('apply-snippets: uninstall dry run writes nothing before removing auto-crea
   assert.equal(run(['--uninstall', '--dir', s.dir, '--project', s.project]).status, 0);
   assert.equal(existsSync(s.rules), false);
   assert.equal(existsSync(s.settings), false);
-  assert.equal(backups(s.project).length, 1);
-  assert.equal(backups(join(s.project, '.claude')).length, 1);
+  assert.equal(backups(join(s.dir, '.backups')).length, 2);
 });
 
 for (const kind of ['traversal', 'shape', 'symlink']) {
@@ -380,10 +408,10 @@ test('apply-snippets: reapplying an edited marked block backs up its exact bytes
   writeFileSync(s.rules, edited);
   assert.equal(s.apply().status, 0);
   assert.doesNotMatch(read(s.rules), /user edited this block/);
-  assert.ok(backups(s.project).some((name) => read(join(s.project, name)) === edited));
+  assert.ok(backups(join(s.dir, '.backups')).some((name) => read(join(s.dir, '.backups', name)) === edited));
   assert.equal(run(['--uninstall', '--dir', s.dir, '--project', s.project]).status, 0);
   assert.equal(existsSync(s.rules), false);
-  assert.ok(backups(s.project).some((name) => read(join(s.project, name)) === edited));
+  assert.ok(backups(join(s.dir, '.backups')).some((name) => read(join(s.dir, '.backups', name)) === edited));
 });
 
 test('apply-snippets: backup name collisions preserve every original during apply and uninstall', (t) => {
@@ -399,6 +427,41 @@ test('apply-snippets: backup name collisions preserve every original during appl
   assert.equal(s.apply().status, 0);
   assert.equal(run(['--uninstall', '--dir', s.dir, '--project', s.project]).status, 0);
   for (const name of protectedNames) assert.equal(read(name), 'existing backup');
-  assert.ok(backups(s.project).some((name) => read(join(s.project, name)) === 'before first apply'));
+  assert.ok(backups(join(s.dir, '.backups')).some((name) => read(join(s.dir, '.backups', name)) === 'before first apply'));
   assert.equal(read(s.rules), 'before first apply');
+});
+
+test('apply-snippets: backup collisions in the rules directory preserve every saved file', (t) => {
+  const s = setup(t);
+  const folder = join(s.dir, '.backups');
+  mkdirSync(folder, { recursive: true });
+  const protectedNames = [];
+  const now = Date.now();
+  for (let i = -1; i <= 10; i++) {
+    const name = join(folder, 'CLAUDE.md.bak-' + new Date(now + i * 1000).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z'));
+    writeFileSync(name, 'existing backup');
+    protectedNames.push(name);
+  }
+  writeFileSync(s.rules, 'original rules');
+  assert.equal(s.apply().status, 0);
+  assert.equal(run(['--uninstall', '--dir', s.dir, '--project', s.project]).status, 0);
+  for (const path of protectedNames) assert.equal(read(path), 'existing backup');
+  assert.equal(read(join(folder, '.gitignore')), '*\n');
+  assert.equal(read(s.rules), 'original rules');
+});
+
+test('apply-snippets: symlinked backup directory refuses before install or uninstall writes', (t) => {
+  const s = setup(t);
+  writeFileSync(s.rules, 'original rules');
+  assert.equal(s.apply().status, 0);
+  const folder = join(s.dir, '.backups');
+  const outside = join(s.base, 'outside-backups');
+  renameSync(folder, outside);
+  symlinkSync(outside, folder, 'junction');
+  const before = snapshot(s.base);
+  for (const result of [s.apply(), run(['--uninstall', '--dir', s.dir, '--project', s.project])]) {
+    assert.equal(result.status, 2, result.stderr);
+    assert.match(result.stderr, /symlink/);
+  }
+  assert.deepEqual(snapshot(s.base), before);
 });

@@ -43,9 +43,42 @@ test('aunx cli-run uses the packaged runner by default, never a project-local on
   const cwd = temp(t);
   mkdirSync(join(cwd, 'ai-orchestrator', 'bin'), { recursive: true });
   writeFileSync(join(cwd, 'ai-orchestrator', 'bin', 'cli-run.mjs'), 'console.log("LOCAL-RUNNER-RAN"); process.exit(66);');
-  const result = run(['cli-run', 'codex', 'quotes " spaces & $(literal)'], cwd);
+  const result = run(['cli-run', 'codex', 'quotes " spaces & $(literal)'], cwd, { env: noBinaries(cwd) });
   assert.notEqual(result.status, 66, 'a planted project runner must not run without --dir');
   assert.doesNotMatch(result.stdout, /LOCAL-RUNNER-RAN/);
+});
+
+test('#63: ordinary calls enforce installed lane data without executing project code', t => {
+  const cwd = temp(t);
+  const bin = join(cwd, 'ai-orchestrator', 'bin');
+  mkdirSync(bin, { recursive: true });
+  writeFileSync(join(bin, 'cli-run.mjs'), 'console.log("PLANTED_RUNNER"); process.exit(66);');
+  const marker = join(cwd, 'spawned');
+  const stub = '#!' + process.execPath + '\nrequire("node:fs").writeFileSync(' + JSON.stringify(marker) + ', "ran"); process.exit(77);';
+  // A standard npm shim exercises the Windows runner path as well.
+  writeFileSync(join(bin, 'claude.cjs'), stub.replace(/^#![^\n]*\n/, ''));
+  writeFileSync(join(bin, 'claude'), stub, { mode: 0o755 });
+  writeFileSync(join(bin, 'claude.cmd'), '@ECHO off\r\n"' + process.execPath + '" "%~dp0claude.cjs" %*\r\n');
+  const env = { ...noBinaries(cwd), PATH: bin };
+  writeFileSync(join(bin, 'lanes.json'), '{"enabled":["grok"]}');
+  const disabled = run(['cli-run', 'claude', 'fixture prompt', '--quiet'], cwd, { env });
+  assert.equal(disabled.status, 13, disabled.stderr);
+  assert.match(disabled.stderr, /not enabled/);
+  assert.equal(existsSync(marker), false);
+  assert.doesNotMatch(disabled.stdout, /PLANTED_RUNNER/);
+  for (const data of ['{', '{"enabled":["unknown"]}', ' '.repeat(1024 * 1024 + 1)]) {
+    writeFileSync(join(bin, 'lanes.json'), data);
+    const malformed = run(['cli-run', 'claude', 'fixture prompt', '--quiet'], cwd, { env });
+    assert.equal(malformed.status, 13, malformed.stderr);
+    assert.match(malformed.stderr, /not a valid/);
+    assert.equal(existsSync(marker), false);
+  }
+  rmSync(join(bin, 'lanes.json'));
+  symlinkSync(join(bin, 'claude.cjs'), join(bin, 'lanes.json'), 'file');
+  const unsafe = run(['cli-run', 'claude', 'fixture prompt', '--quiet'], cwd, { env });
+  assert.equal(unsafe.status, 13, unsafe.stderr);
+  assert.match(unsafe.stderr, /not a valid/);
+  assert.equal(existsSync(marker), false);
 });
 
 test('aunx cli-run honors custom --dir and uses package fallback', t => {

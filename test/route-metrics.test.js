@@ -151,6 +151,39 @@ test('route-metrics.mjs: SubagentStop with no agent_id or no matching state logs
   }
 });
 
+test('route-metrics.mjs: SubagentStop records optional token usage and model identifiers without payload prose', () => {
+  const home = newHome();
+  const hookPath = writeHook(home);
+  try {
+    const usage = { input_tokens: 10, output_tokens: 5, cache_creation: { ephemeral_1h_input_tokens: 2 } };
+    const r = run(hookPath, home, {
+      hook_event_name: 'SubagentStop', session_id: 's', totalTokens: 17,
+      usage: { ...usage, response: 'private response text', invalid: -1 },
+      modelsUsed: ['fixture-model', 'private model\ntext'], last_assistant_message: 'private response text'
+    });
+    assert.equal(r.status, 0, r.stderr);
+    assert.equal(r.stdout, '');
+    const record = readLog(home)[0];
+    assert.equal(record.totalTokens, 17);
+    assert.deepEqual(record.usage, usage);
+    assert.deepEqual(record.modelsUsed, ['fixture-model']);
+    assert.doesNotMatch(readFileSync(logPath(home), 'utf8'), /private|response|invalid/);
+
+    for (const fields of [{}, { totalTokens: -1, usage: 'private', modelsUsed: 'private' }]) {
+      const result = run(hookPath, home, { hook_event_name: 'SubagentStop', session_id: 's', ...fields });
+      assert.equal(result.status, 0, result.stderr);
+      const omitted = readLog(home).at(-1);
+      for (const key of ['totalTokens', 'usage', 'modelsUsed']) assert.ok(!(key in omitted), key + ' must stay absent');
+    }
+    const zero = run(hookPath, home, { hook_event_name: 'SubagentStop', totalTokens: 0, usage: { input_tokens: 0 }, modelsUsed: [] });
+    assert.equal(zero.status, 0, zero.stderr);
+    assert.equal(readLog(home).at(-1).totalTokens, 0);
+    assert.deepEqual(readLog(home).at(-1).usage, { input_tokens: 0 });
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
 test('route-metrics.mjs: Stop parses the LAST route marker, splits lanes on "+", strips disallowed characters, and never logs the "why" text or the raw message', () => {
   const home = newHome();
   const hookPath = writeHook(home);
@@ -464,6 +497,62 @@ test('route-metrics.mjs --summary: computes turns, coverage, lanes, dispatches a
     assert.match(r.stdout, /dispatches with no matching start: 2/, '3 dispatches minus 1 start = 2');
     assert.match(r.stdout, /builder: 3(\.00)? \/ 4(\.00)?/, 'mean of 2 and 4 is 3, max is 4');
     assert.match(r.stdout, /work sent off the main session: 100(\.00)?% \(1\/1 covered turns\)/, 'the one covered turn named builder, which is not an inline name');
+    assert.doesNotMatch(r.stdout, /subagent token total:/, 'older logs carry no token count');
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test('route-metrics.mjs --summary: excludes missing and invalid lanes from all routing measures', () => {
+  const home = newHome();
+  const hookPath = writeHook(home);
+  try {
+    mkdirSync(join(home, '.ai-orchestrator'), { recursive: true });
+    const ts = '2026-01-01T00:00:00.000Z';
+    const rows = [
+      ...['invalid', 'missing', 'mixed', 'builder'].map((session_id) => ({ ts, event: 'turn', session_id })),
+      { ts, event: 'route', session_id: 'invalid', lane: ['invalid'] },
+      { ts, event: 'dispatch', session_id: 'invalid', subagent_type: 'reader' },
+      { ts, event: 'route', session_id: 'missing', lane: ['missing'] },
+      { ts, event: 'route', session_id: 'mixed', lane: ['inline', 'invalid'] },
+      { ts, event: 'route', session_id: 'builder', lane: ['builder'] },
+      { ts, event: 'dispatch', session_id: 'builder', subagent_type: 'builder' }
+    ];
+    writeFileSync(logPath(home), rows.map((r) => JSON.stringify(r)).join('\n') + '\n');
+    const r = spawnSync('node', [hookPath, '--summary'], { encoding: 'utf8', env: { ...process.env, HOME: home, USERPROFILE: home } });
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(r.stdout, /route-marker coverage: 50% \(2\/4\)/);
+    assert.match(r.stdout, /invalid route markers: 2/);
+    assert.match(r.stdout, /work sent off the main session: 50% \(1\/2 covered turns\)/);
+    assert.match(r.stdout, /delegation claimed vs observed: 100% of sessions match \(2\/2 sessions that named a lane\)/);
+    assert.match(r.stdout, /named a lane, no dispatch in this window: 0/);
+    assert.match(r.stdout, /dispatched, but every named lane was inline: 0/);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test('route-metrics.mjs --summary: totals reported SubagentStop tokens and respects --since', () => {
+  const home = newHome();
+  const hookPath = writeHook(home);
+  try {
+    mkdirSync(join(home, '.ai-orchestrator'), { recursive: true });
+    const rows = [
+      { ts: '2026-01-01T00:00:00.000Z', event: 'end', totalTokens: 100 },
+      { ts: '2026-01-02T00:00:00.000Z', event: 'end', totalTokens: 20 },
+      { ts: '2026-01-02T00:00:00.000Z', event: 'end', totalTokens: 0 },
+      { ts: '2026-01-02T00:00:00.000Z', event: 'end' },
+      { ts: '2026-01-02T00:00:00.000Z', event: 'end', totalTokens: -1 },
+      { ts: '2026-01-02T00:00:00.000Z', event: 'route', totalTokens: 500, lane: ['inline'] }
+    ];
+    writeFileSync(logPath(home), rows.map((r) => JSON.stringify(r)).join('\n') + '\n');
+    const env = { ...process.env, HOME: home, USERPROFILE: home };
+    const all = spawnSync('node', [hookPath, '--summary'], { encoding: 'utf8', env });
+    assert.equal(all.status, 0, all.stderr);
+    assert.match(all.stdout, /subagent token total: 120 \(3 reported stops\)/);
+    const since = spawnSync('node', [hookPath, '--summary', '--since', '2026-01-02'], { encoding: 'utf8', env });
+    assert.equal(since.status, 0, since.stderr);
+    assert.match(since.stdout, /subagent token total: 20 \(2 reported stops\)/);
   } finally {
     rmSync(home, { recursive: true, force: true });
   }

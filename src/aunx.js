@@ -26,8 +26,8 @@ const HELP = `aunx: model router tools for AI coding agents
 
 Route reads MANIFEST.json from --dir, then ./ai-orchestrator, then the current
 directory. It reads regular JSON files of at most 1 MiB and executes no project code.
-cli-run --doctor reads ./ai-orchestrator/bin/lanes.json when present, or --dir
-for a custom rules folder. The health check executes the packaged runner.
+cli-run reads ./ai-orchestrator/bin/lanes.json when present, or --dir for a
+custom rules folder. The health check executes the packaged runner.
 
 Scaffolds preserve existing files. Check commands run only with checks run.
 Use aunx install --help for the installer flags (or model-orchestrator --help).
@@ -269,16 +269,12 @@ export async function main(args) {
   if (command === 'install') return runNode(join(ROOT, 'bin', 'cli.js'), rest);
   if (command === 'cli-run') {
     const parsed = runnerArgs(rest);
+    const here = join(parsed.dir || join(process.cwd(), 'ai-orchestrator'), 'bin');
     if (parsed.rest.includes('--doctor')) {
-      const here = join(parsed.dir || join(process.cwd(), 'ai-orchestrator'), 'bin');
-      try {
-        lstatSync(join(here, 'lanes.json'));
-        return runnerMain(parsed.rest, { here });
-      } catch (error) {
-        if (error.code !== 'ENOENT') throw error;
+      try { lstatSync(join(here, 'lanes.json')); } catch (error) {
+        if (error.code === 'ENOENT') console.error('doctor: no installed lanes.json found; pass --dir PATH to inspect a custom rules folder.');
       }
-      console.error('doctor: no installed lanes.json found; pass --dir PATH to inspect a custom rules folder.');
-      return runnerMain(parsed.rest);
+      return runnerMain(parsed.rest, { here });
     }
     // The packaged runner is the default. A project's own runner only runs
     // when --dir names it explicitly (R1); this is the one place cli-run
@@ -290,7 +286,7 @@ export async function main(args) {
         return runNode(local, parsed.rest);
       }
     }
-    return runNode(join(ROOT, 'bin', 'cli-run.mjs'), parsed.rest);
+    return runnerMain(parsed.rest, { here });
   }
   if (command === 'route-metrics') {
     return runNode(join(ROOT, 'templates', 'agents', 'snippets', 'route-metrics.mjs'), rest.length ? rest : ['--summary']);
