@@ -2,7 +2,7 @@
 
 [![npm](https://img.shields.io/npm/v/model-orchestrator.svg)](https://www.npmjs.com/package/model-orchestrator) [![test](https://github.com/aunysillyme/model-orchestrator/actions/workflows/test.yml/badge.svg)](https://github.com/aunysillyme/model-orchestrator/actions/workflows/test.yml) [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![node >=18](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)](package.json)
 
-**Model router for AI coding agents: installs routing rules, 8 subagents, hooks and a CLI runner so your AI picks model and effort per task and saves tokens.**
+**Model router for AI coding agents: routes routine work to cheaper models with routing rules, 8 subagents, hooks and a CLI runner.**
 
 Routine work can use a cheap model. Planning and difficult decisions can use a stronger one. Your agent gets editable rules for making that choice and a runner that checks whether delegated work returned a result.
 
@@ -37,7 +37,7 @@ npx model-orchestrator --yes --level 2 --ais claude-code,codex --primary claude-
 
 ## After you install
 
-The interactive installer applies the main agent's project rules and, for Claude Code, merges its hooks. The summary names these changes before the single confirmation; existing files get timestamped backups. A local health check runs automatically after installation.
+The interactive installer applies the main agent's project rules and, for Claude Code, merges its hooks. The summary names these changes before the single confirmation; existing files get timestamped backups in `<rules dir>/.backups/`. That directory is gitignored and retained by uninstall, which stores its backups there too. A local health check runs automatically after installation.
 
 - **What's left for you:** follow the remaining sign-in or setup steps printed at the end. Codex sign-in is listed only when its reliable status check cannot confirm it; other CLIs get an "if you have not signed in yet" instruction. A chat-app main agent keeps one paste step. A CLI main agent with no cataloged project rules file (for example Grok or Hermes) gets a "load the block" instruction instead of a file to copy.
 - **Your agent:** start a fresh session in the project. `ai-orchestrator/README.md` (or the README in your chosen `--dir`) explains the installed rules and activation check.
@@ -59,7 +59,7 @@ aunx --help
 | Repo | What it gives you |
 |---|---|
 | [agent-personalizer](https://github.com/aunysillyme/agent-personalizer) | One interview writes the profile and rules every AI you use reads, kept in sync from one source. |
-| **model-orchestrator** | Model router for AI coding agents: installs routing rules, 8 subagents, hooks and a CLI runner so your AI picks model and effort per task and saves tokens |
+| **model-orchestrator** | Model router for AI coding agents: routes routine work to cheaper models with routing rules, 8 subagents, hooks and a CLI runner |
 | [website-build-skill](https://github.com/aunysillyme/website-build-skill) | A skill pack that teaches your AI current website-building expertise: research, design, code, accessibility, performance, search and security. |
 
 ## Model routing and request-level proxies
@@ -142,7 +142,7 @@ aunx route-metrics --summary
 aunx route-metrics --summary --since 2026-09-01
 ```
 
-On Claude Code installs, the routing hook records turns, route markers and subagent activity locally. The summary reports your routing split, route-marker coverage and agent durations. Prompt text and the explanation inside a route marker never enter that log. [Measured results and reproduction scripts](proof/README.md) show dated figures with methods and sample sizes. An expired entry is a signal to re-measure; the test suite rejects future-dated or incomplete entries.
+On Claude Code installs, the routing hook records turns, route markers and subagent activity locally. The summary reports your routing split, valid route-marker coverage, invalid marker count and agent durations. SubagentStop events also record totalTokens, numeric usage counters and model identifiers when the hook payload provides them; the summary totals reported tokens. Older payloads keep those fields absent. Prompt text and the explanation inside a route marker never enter that log. [Measured results and reproduction scripts](proof/README.md) show dated figures with methods and sample sizes. An expired entry is a signal to re-measure; the test suite rejects future-dated or incomplete entries.
 
 ## Claude Code plugin
 
@@ -151,7 +151,7 @@ On Claude Code installs, the routing hook records turns, route markers and subag
 /plugin install model-orchestrator@model-orchestrator
 ```
 
-The plugin carries read-only routing hooks and the subagents. Generate your project's routing rules with `npx model-orchestrator`. The npm installer also supplies the local metrics hook. [Plugin setup](plugin/README.md).
+The plugin carries read-only routing hooks and the subagents. Generate your project's routing rules with `npx model-orchestrator`. The npm installer also supplies the local metrics hook. On Claude Code installs, every prompt carries the ~1.7 KB route table as context; include that overhead when comparing token use. [Plugin setup](plugin/README.md).
 
 ## Skill packs on Agensi
 

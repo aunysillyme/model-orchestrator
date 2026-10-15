@@ -123,6 +123,15 @@ test('buildArgv: codex --audit adds a read-only sandbox', () => {
   assert.ok(argv.includes('--sandbox') && argv.includes('read-only'));
   assert.equal(argv[argv.length - 1], 'p');
 });
+test('#65: Codex option-shaped prompts follow the option terminator', () => {
+  for (const prompt of ['-public prompt', '--help', 'resume', 'ordinary prompt']) {
+    const { argv } = buildArgv('codex', '/bin/codex', prompt, { timeout: 60, audit: true, model: 'fixture-model', effort: 'high' }, '/tmp');
+    assert.deepEqual(argv.slice(-2), ['--', prompt]);
+    assert.ok(argv.indexOf('--sandbox') < argv.length - 2);
+    assert.ok(argv.indexOf('-m') < argv.length - 2);
+    assert.ok(argv.indexOf('-c') < argv.length - 2);
+  }
+});
 test('buildArgv: qwen flags are only added when set', () => {
   assert.deepEqual(buildArgv('qwen', '/bin/qwen', 'p', { timeout: 60 }, '/tmp').argv, ['/bin/qwen', '-o', 'json', '-p', 'p']);
   const { argv } = buildArgv('qwen', '/bin/qwen', 'p', { timeout: 60, model: 'm', safeMode: true }, '/tmp');

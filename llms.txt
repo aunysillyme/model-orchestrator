@@ -1,6 +1,6 @@
 # model-orchestrator
 
-> Model router for AI coding agents: installs routing rules, 8 subagents, hooks and a CLI runner so your AI picks model and effort per task and saves tokens. A lane is an AI tool or model that can receive work; a tier describes model strength and cost. It sits above the request layer: your agent reads the rules and picks the lane. Request-level proxies and gateways can carry API calls underneath it.
+> Model router for AI coding agents: routes routine work to cheaper models with routing rules, 8 subagents, hooks and a CLI runner. A lane is an AI tool or model that can receive work; a tier describes model strength and cost. It sits above the request layer: your agent reads the rules and picks the lane. Request-level proxies and gateways can carry API calls underneath it.
 
 Install: `npx model-orchestrator`. Interactive installation applies the main agent's catalog-supported project rules and settings with backups under one confirmation. Use `--no-apply` or the edit screen to keep activation manual. Headless: `npx model-orchestrator --yes --level 2 --ais claude-code,codex --project . --dir ./ai-orchestrator`. Headless activation requires `--apply-snippets`; add `--dry-run` to preview. Every non-dry install runs a local CLI presence health check; live canaries require `--doctor --run` explicitly. "What's left for you" lists only remaining actions, including one paste step for a chat app.
 

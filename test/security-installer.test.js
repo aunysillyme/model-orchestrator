@@ -120,7 +120,8 @@ test('rerun: identical activation makes no backups, preserves mtimes and permits
   assert.deepEqual(result.backups, [], 'an identical rerun must create no backup');
   assert.deepEqual(tree(s.project, true), before, 'only the manifest timestamp may change');
   uninstallFiles(s);
-  assert.equal(existsSync(s.dir), false, 'a clean install must leave no rules folder');
+  assert.deepEqual(readdirSync(s.dir), ['.backups'], 'uninstall retains only its backup directory');
+  assert.equal(readFileSync(join(s.dir, '.backups', '.gitignore'), 'utf8'), '*\n');
 });
 
 test('rerun: changed machine-owned files never receive backups', (t) => {
@@ -133,12 +134,12 @@ test('rerun: changed machine-owned files never receive backups', (t) => {
   assert.deepEqual(readdirSync(join(s.dir, 'bin')).filter((name) => name.includes('.bak-')), []);
 });
 
-test('rerun: clean uninstall removes the rules folder after an identical apply', (t) => {
+test('rerun: clean uninstall retains only backups after an identical apply', (t) => {
   const s = setup(t);
   writeFiles(appliedFiles(s), { ...s, backupExisting: true });
   writeFiles(appliedFiles(s), { ...s, prevManifest: readManifest(s.dir), backupExisting: true });
   uninstallFiles(s);
-  assert.equal(existsSync(s.dir), false, 'the rules folder must be removed after a clean rerun');
+  assert.deepEqual(readdirSync(s.dir), ['.backups'], 'uninstall retains only its backup directory');
 });
 
 test('preflight: home-level refusal reports the refused root once', (t) => {

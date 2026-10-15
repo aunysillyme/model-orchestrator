@@ -409,6 +409,23 @@ test('cli-run: value flags need values, one prompt only, no stray positionals', 
   rmSync(d, { recursive: true, force: true });
 });
 
+test('#68: timer overflow is rejected before spawning and the lower boundary runs', t => {
+  const d = mkdtempSync(join(tmpdir(), 'orch-timeout-limit-'));
+  t.after(() => rmSync(d, { recursive: true, force: true }));
+  const bin = join(d, 'bin');
+  mkdirSync(bin);
+  const marker = join(d, 'spawned');
+  writeNodeStub(join(bin, 'grok'), 'require("node:fs").writeFileSync(' + JSON.stringify(marker) + ', "ran"); console.log(JSON.stringify({stopReason:"end_turn",text:"done"}));');
+  const env = winEnv(withNode(bin), d);
+  const rejected = runLane(['grok', 'fixture prompt', '--timeout', '2147484', '--quiet'], env);
+  assert.equal(rejected.status, 2, rejected.stderr);
+  assert.match(rejected.stderr, /2147483647 milliseconds/);
+  assert.equal(existsSync(marker), false);
+  const accepted = runLane(['grok', 'fixture prompt', '--timeout', '2147483', '--quiet'], env);
+  assert.equal(accepted.status, 0, accepted.stderr);
+  assert.equal(readFileSync(marker, 'utf8'), 'ran');
+});
+
 test('cli-run: provider message text reaches stderr but never the durable log', () => {
   const d = mkdtempSync(join(tmpdir(), 'orch-plog-'));
   const bin = join(d, 'bin');

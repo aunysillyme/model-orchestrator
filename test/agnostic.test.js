@@ -6,7 +6,7 @@ import { planFiles } from '../src/install.js';
 import { byId } from '../src/catalog.js';
 
 function installed(ids, primary = ids[0], level = 2) {
-  return planFiles({ level, selected: ids.map(id => byId[id]), primary: byId[primary] });
+  return planFiles({ level, selected: ids.map(id => byId[id]), primary: byId[primary], dir: '/tmp/mo-neutral/ai', project: '/tmp/mo-neutral' });
 }
 function content(files, rel) { return files.find(f => f.rel.replaceAll('\\', '/') === rel)?.content || ''; }
 const advice = ['README.md', 'ORCHESTRATOR.md', 'ROUTING.md', 'DELEGATION_MATRIX.md', 'TIERS.md', 'RESEARCH_TRIAGE.md'];

@@ -24,10 +24,17 @@ test('description, README opening and banner all say it is a model router', () =
   }
 });
 
-test('description and README opening state the same purpose', () => {
-  const purpose = 'so your AI picks model and effort per task and saves tokens';
-  assert.ok(pkg.description.includes(purpose), 'package.json description');
-  assert.ok(lead.includes(purpose), 'README opening');
+test('description, README and llms.txt share the routing purpose without claiming token savings', () => {
+  const purpose = 'routes routine work to cheaper models';
+  for (const [name, text] of [['package.json', pkg.description], ['README opening', lead], ['README', readme], ['llms.txt', llms]]) {
+    assert.ok(text.includes(purpose), name);
+    assert.doesNotMatch(text, /saves tokens/i, name + ' must leave token savings unclaimed');
+  }
+  assert.equal(lead, '**' + pkg.description + '.**', 'README opening and package description must match');
+});
+
+test('README discloses the routing table context overhead on every prompt', () => {
+  assert.match(readme, /every prompt carries the ~1\.7 KB route table/i);
 });
 
 test('the description fits the search-card copy budget', () => {

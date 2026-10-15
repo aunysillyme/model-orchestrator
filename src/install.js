@@ -1,5 +1,5 @@
 import { readFileSync, existsSync, mkdirSync, writeFileSync, chmodSync, readdirSync, statSync, lstatSync, unlinkSync, realpathSync, openSync, closeSync, fstatSync, constants, renameSync, linkSync } from 'node:fs';
-import { join, dirname, isAbsolute, relative, resolve, sep, parse as parsePath, posix } from 'node:path';
+import { join, basename, dirname, isAbsolute, relative, resolve, sep, parse as parsePath, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
 import { render } from './render.js';
@@ -646,7 +646,7 @@ function vars(opts) {
     ACTIVATION_STEPS: steps.length ? steps.map((st, i) => `${i + 1}. ${st}`).join('\n') : 'Nothing left to do.',
     PROOF_STEPS: proofs.map((st, i) => `${i + 1}. ${st}`).join('\n'),
     LOAD_IT: opts.applySnippets && readsProjectRules
-      ? `The installer applied the generated rules to the model-orchestrator marked block in \`${primary.rulesFile}\`${subagentsLoadRules(primary) ? ' and merged the hooks into `.claude/settings.json`' : ''}. Existing files changed by this run have timestamped backups beside them; their paths were printed in the terminal.`
+      ? `The installer applied the generated rules to the model-orchestrator marked block in \`${primary.rulesFile}\`${subagentsLoadRules(primary) ? ' and merged the hooks into `.claude/settings.json`' : ''}. Existing files changed by this run have timestamped backups in the rules folder's gitignored \`.backups/\` directory; their paths were printed in the terminal.`
       : readsProjectRules
       ? `${primary.name} reads its rules from \`${primary.rulesFile}\` in the project root. The installer wrote \`${snippet}\` next to this README; copy its contents into \`${join(projectAbs, primary.rulesFile)}\`, creating that file if it does not exist. Nothing was appended to a file you already had.${subagentsLoadRules(primary) ? ` Also merge \`settings.hooks.snippet.json\`, written next to this README, into \`.claude/settings.json\` (create it if missing) to wire the route-gate, subagent-context and route-metrics hooks.` : ''}`
       : snippet
@@ -1053,6 +1053,29 @@ export function atomicWriteFile(path, content, mode, exists = existsSync(path)) 
 
 export const backupStamp = (stamp) => new Date(stamp).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
 
+export function backupPath(dir, path) {
+  let stamp = Date.now();
+  let backup;
+  do {
+    backup = join(realRoot(dir).root, '.backups', basename(path) + '.bak-' + backupStamp(stamp));
+    stamp += 1000;
+  } while (existsSync(backup));
+  return backup;
+}
+
+export function ensureBackupDirectory(dir) {
+  const problems = preflight([{ rel: '.backups/.gitignore' }], dir);
+  if (problems.length) throw Object.assign(new Error(problems.join('; ')), { code: 'PREFLIGHT' });
+  const folder = join(realRoot(dir).root, '.backups');
+  mkdirSync(folder, { recursive: true });
+  const ignore = join(folder, '.gitignore');
+  if (!existsSync(ignore)) writeFileSync(ignore, '*\n', { flag: 'wx', mode: 0o644 });
+  else {
+    const current = readFileSync(ignore, 'utf8');
+    if (!current.split(/\r?\n/).includes('*')) atomicWriteFile(ignore, current + (current.endsWith('\n') ? '' : '\n') + '*\n', statSync(ignore).mode & 0o777);
+  }
+}
+
 // Path-safety-only preflight: global agent config, path escape, a non-directory
 // target. Read-only, no side effects, and independent of any previous
 // manifest. writeFiles() below runs the same check again before it writes
@@ -1068,6 +1091,7 @@ export function writePreflightProblems(files, { dir, project }) {
     if (!groups[k].length) continue;
     problems.push(...preflight(groups[k], roots[k]).map((p) => (k === 'project' ? `[project] ${p}` : p)));
   }
+  problems.push(...preflight([{ rel: '.backups/.gitignore' }], dir));
   return problems;
 }
 
@@ -1121,7 +1145,7 @@ export function writeFiles(files, opts) {
     activation[key] = next;
   }
   const groups = { dir: files.filter((f) => (f.root || 'dir') === 'dir'), project: files.filter((f) => f.root === 'project') };
-  const problems = [];
+  const problems = preflight([{ rel: '.backups/.gitignore' }], dir);
   for (const k of ['dir', 'project']) {
     if (!groups[k].length) continue;
     problems.push(...preflight(groups[k], roots[k]).map((p) => (k === 'project' ? `[project] ${p}` : p)));
@@ -1322,13 +1346,11 @@ export function writeFiles(files, opts) {
           continue;
         }
         if (exists && cls !== 'owned' && (opts.backupExisting || k === 'project')) {
-          let stamp = Date.now();
-          let backup;
-          do {
-            backup = abs + '.bak-' + backupStamp(stamp);
-            stamp += 1000;
-          } while (existsSync(backup));
-          if (!dry) writeFileSync(backup, readFileSync(abs), { flag: 'wx', mode: statSync(abs).mode & 0o777 });
+          const backup = backupPath(dir, abs);
+          if (!dry) {
+            ensureBackupDirectory(dir);
+            writeFileSync(backup, readFileSync(abs), { flag: 'wx', mode: statSync(abs).mode & 0o777 });
+          }
           backups.push(backup);
           if (!dry) opts.onBackup?.(backup);
         }
