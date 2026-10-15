@@ -30,10 +30,12 @@ node bin/cli-run.mjs codex --brief TASK_BRIEF.md --effort high
 | 13 | Unavailable tool |
 | 14 | Authentication failure |
 | 15 | Quota exhausted |
-| 16 | Request rejected |
+| 16 | Request rejected, including a prompt too large for the command line |
 | 17 | Required tool action refused |
 | 18 | Run cut short |
 | 130 / 143 | Interrupted by a signal on POSIX |
+
+The prompt travels as one command-line argument. When it passes the platform cap (Linux: 128 KiB in one argument; Windows: 32,767 characters of command line), or spawning fails with `E2BIG`, the runner exits 16 with reason `prompt_too_large` and does not start the lane. Save a large brief to a file and pass a short prompt that names its path; `--brief` pastes the file into the command line, so it has the same cap.
 
 The local log records requested model and effort, their source, fixed result classes and the vendor exit code. Its existing schema is preserved. It stores no prompt text or provider-supplied failure text.
 

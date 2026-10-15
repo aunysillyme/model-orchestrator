@@ -26,7 +26,10 @@
 // The prompt travels in argv because that is each vendor's documented headless
 // shape (-p / exec). argv is visible to other processes on the machine and is
 // bounded by the OS ARG_MAX, so: no secrets in a prompt, and very large briefs
-// should be referenced by path in the prompt rather than pasted into it.
+// should be referenced by path in the prompt rather than pasted into it. A
+// prompt over the platform cap (Linux: 128 KiB in one argument; Windows: 32,767
+// characters of command line) is refused before spawning, as rejected with
+// reason prompt_too_large, and so is a spawn that fails with E2BIG.
 //
 // Exit codes: one per failure CLASS, so the code says what to do next.
 //   0   ok: structurally accepted non-empty response (and every --expect-* contract met)
@@ -36,7 +39,8 @@
 //   13  unavailable: missing binary, disabled in lanes.json, or lanes.json malformed
 //   14  auth: the lane's own error says a credential is missing or not logged in
 //   15  quota: the lane's own error says usage limit, credits or rate limit
-//   16  rejected: the upstream rejected the request (bad model id, bad request)
+//   16  rejected: the upstream rejected the request (bad model id, bad request), or the
+//       prompt is too large for this OS's command line (reason prompt_too_large)
 //   17  refused: no result, and the lane reports tool calls a hook or deny rule blocked
 //   18  cut_short: no trustworthy finish: a missing or non-success terminal event, a lane
 //       killed by a signal, output past the 16 MiB buffer, or a nonzero vendor exit
@@ -91,8 +95,29 @@ export const REASONS = new Set([
   'bad_status', 'empty_response', 'exit_nonzero', 'empty_stdout', 'bad_event_array', 'bad_last_event',
   'not_result', 'bad_subtype', 'is_error', 'result_not_string', 'empty_result', 'api_error_in_result',
   'telemetry_absent', 'total_errors_unreadable', 'total_errors', 'contract_unmet', 'error_message_not_string',
-  'judge_raised', 'timeout', 'unavailable', 'killed', 'disabled', 'lanes_json_malformed', 'no_output', 'unknown'
+  'judge_raised', 'timeout', 'unavailable', 'killed', 'disabled', 'lanes_json_malformed', 'no_output',
+  'prompt_too_large', 'unknown'
 ]);
+
+// The prompt is one argv element. Linux refuses any single argument over
+// MAX_ARG_STRLEN (32 pages: 128 KiB including its NUL); Windows refuses a whole
+// command line over 32,767 characters. Past either, spawn fails with E2BIG (or
+// ENAMETOOLONG on Windows) before the lane starts, which is not a missing CLI.
+// Other platforms have only the total ARG_MAX, which the spawn error covers.
+export const LINUX_ARG_BYTES = 128 * 1024 - 1;
+export const WINDOWS_CMDLINE_CHARS = 32767;
+export const TOO_LARGE_CODES = new Set(['E2BIG', 'ENAMETOOLONG']);
+export function argvSizeProblem(argv, platform = process.platform) {
+  if (platform === 'linux') {
+    const bytes = Math.max(0, ...argv.map((a) => Buffer.byteLength(String(a))));
+    if (bytes > LINUX_ARG_BYTES) return `one argument is ${bytes} bytes and Linux caps a single argument at ${LINUX_ARG_BYTES} bytes (128 KiB)`;
+  } else if (platform === 'win32') {
+    // CreateProcess counts the whole line: every argument, its quotes and a separating space.
+    const chars = argv.reduce((n, a) => n + String(a).length + 3, 0);
+    if (chars > WINDOWS_CMDLINE_CHARS) return `the command line is about ${chars} characters and Windows caps it at ${WINDOWS_CMDLINE_CHARS}`;
+  }
+  return null;
+}
 
 const LOG = join(homedir(), '.ai-orchestrator', 'cli-run.log.jsonl');
 
@@ -846,7 +871,8 @@ const FIX = {
   cut_short: 'rerun once; if it recurs, run without --quiet and read the lane\'s stderr on the terminal',
   empty: 'rerun once, or use another lane',
   timeout: 'raise --timeout, or split the brief into smaller pieces',
-  no_output: 'rerun once; if it recurs, check that the lane runs on its own outside cli-run'
+  no_output: 'rerun once; if it recurs, check that the lane runs on its own outside cli-run',
+  too_large: 'save the brief to a file and pass a short prompt that names its path (for example "Read TASK_BRIEF.md and follow it"), or split the brief into smaller pieces; --brief pastes the file into the command line, so it does not help here'
 };
 
 // A one-line problem naming the concrete cause, and a one-line fix. The caller
@@ -1477,9 +1503,19 @@ export async function main(argv, { here = dirname(fileURLToPath(import.meta.url)
 
   const tmp = mkdtempSync(join(tmpdir(), 'cli-run-'));
   const before = opts.expectFile ? snapshotFile(resolve(opts.expectFile)) : null;
+  // A prompt the OS cannot pass is a request this machine rejects, not a missing CLI.
+  const tooLarge = (why) => {
+    console.error(`cli-run: prompt too large for the command line (${prompt.length} characters): ${why}`);
+    if (!opts.quiet) console.error(`cli-run fix: ${FIX.too_large}`);
+    log({ ...base, verdict: 'rejected', class: 'rejected', rc: REJECTED, refused: null, reason: 'prompt_too_large' });
+    return REJECTED;
+  };
   try {
     const { argv: cmd, outFile } = buildArgv(lane, binary, prompt, opts, tmp);
+    const oversize = argvSizeProblem(cmd);
+    if (oversize) return tooLarge(oversize);
     const r = await runBounded(cmd, opts.timeout);
+    if (r.error && TOO_LARGE_CODES.has(r.error.code)) return tooLarge(`spawn ${r.error.code}`);
     const out = r.stdout || '';
     const err = r.stderr || '';
     let verdict, reason, detail, cls, text = '', refused = null;

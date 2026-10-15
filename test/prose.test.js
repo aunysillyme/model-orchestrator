@@ -173,6 +173,8 @@ const SKIPS = [
   { file: 'security-vm.test.js', marker: 'skip: SKIP_VM_RUNTIME_ON_WINDOWS', tests: 5, readme: 'five weekly credential, report lifecycle and timeout marker' },
   { file: 'security-messages.test.js', marker: "skip: process.platform === 'win32'", tests: 1, readme: 'symlinked-manifest refusal message' },
   { file: 'security-runner.test.js', marker: 'skip: !POSIX &&', tests: 2, readme: 'fsmonitor helper and runner lanes FIFO' },
+  { file: 'brief-size.test.js', marker: 'skip: SKIP_BRIEF_CAP_OFF_LINUX_WINDOWS', tests: 1, readme: 'oversized-brief refusal' },
+  { file: 'brief-size.test.js', marker: 'skip: SKIP_E2BIG_OFF_LINUX', tests: 1, readme: 'spawn `E2BIG` fixture' },
 ];
 // Not a test skip: one assertion inside a test that otherwise runs everywhere. Listed so the README
 // sentence and this guard describe the same set, and asserted by its own shape below.
