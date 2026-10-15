@@ -237,15 +237,17 @@ export function suggestRoute(task) {
   for (const [pattern, agent, tier, effort, reason, role] of routes) {
     if (pattern.test(text)) return raiseForRisk(text, { agent, tier, effort, reason, role });
   }
-  // An unmatched risky change ("drop table users") still gets the guarded build route.
-  return RISK.test(text) ? raiseForRisk(text, { role: 'build' }) : null;
+  // An unmatched risky change ("drop table users") still gets the guarded build route;
+  // an unmatched question about a risky topic ("explain the production auth flow") stays unknown.
+  return RISK.test(text) && CHANGE.test(text) ? raiseForRisk(text, { role: 'build' }) : null;
 }
 
 // Production, auth, payments, secrets and schema work are high-stakes even
 // when the wording sounds mechanical ("rename", "replace"), so they never
 // stay on the cheap tier at low effort (TIERS.md: security or irreversible
 // work needs xhigh on the builder).
-const RISK = /\b(prod|production|o?auth(?:entication|orization|n|z)?|payments?|billing|secrets?|credentials?|migrations?|databases?)\b|\b(drop|delete|truncate)\b.*\btables?\b/;
+const RISK = /\b(prod|production|o?auth(?:2|entic\w*|ori[sz]\w*|n|z)?|payments?|billing|secrets?|credentials?|migrations?|databases?|schemas?)\b|\b(drop|delete|truncate|rename|alter|replace)\b.*\b(tables?|columns?)\b/;
+const CHANGE = /\b(drop|delete|truncate|remove|wipe|alter|migrate|rotate|revoke|deploy|change|update|modify|move|switch|enable|disable)\b/;
 const EFFORTS = ['low', 'medium', 'high', 'xhigh'];
 
 function raiseForRisk(text, route) {

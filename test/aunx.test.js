@@ -129,7 +129,13 @@ test('aunx route raises tier and effort for risky tasks (#70)', () => {
     'drop table users',
     'write the database migration for orders',
     'fix the payment webhook',
-    'rotate the prod secrets and rename the env vars'
+    'rotate the prod secrets and rename the env vars',
+    'rename the users table',
+    'rename the users schema',
+    'replace authorize with can',
+    'replace oauth2 token handler',
+    'rename the authenticate middleware',
+    'rename the authorisation helper'
   ]) {
     const route = suggestRoute(task);
     assert.equal(route?.agent, 'builder', task);
@@ -160,6 +166,9 @@ test('aunx route risk guard leaves ordinary tasks and lookalike words alone (#70
     assert.equal(route.tier, 'cheap model', task);
     assert.equal(route.effort, 'low', task);
     assert.equal(route.risk, undefined, task);
+  }
+  for (const task of ['explain the production auth flow', 'where is the production database', 'read the production documentation']) {
+    assert.equal(suggestRoute(task), null, task);
   }
   const r = run(['route', 'rename the production payments table']);
   assert.equal(r.status, 0);
