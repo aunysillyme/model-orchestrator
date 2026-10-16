@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [1.0.16] - 2026-10-16
+
 ### Security
 
 - Pin the Level 3 images to `ghcr.io/berriai/litellm:v1.105.1` (from v1.104.0, clears the multidict advisory) and `ollama/ollama:0.40.5` (from 0.35.1, 139 findings to 122), the newest stable releases. No published image, release candidates included, clears the rest: litellm still ships glibc 2.44-r6 and ollama still compiles in older Go modules. The remaining findings are dated exceptions that expire on 2026-11-15 (AUN-1552). Ollama 0.40.2+ upgrades previously downloaded models in the background on first run and keeps the original copy as a backup, so the `ollama` volume temporarily grows.
@@ -698,7 +700,8 @@ First release.
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
-[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.15...HEAD
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.16...HEAD
+[1.0.16]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.15...v1.0.16
 [1.0.15]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.14...v1.0.15
 [1.0.14]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.13...v1.0.14
 [1.0.13]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.12...v1.0.13
