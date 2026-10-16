@@ -1617,6 +1617,12 @@ function runShell(command, cwd, timeoutMs) {
     };
     const stop = () => {
       if (!child || !child.pid) return;
+      // Windows: wait for taskkill so no verify descendant outlives the run and
+      // keeps its working directory locked. POSIX group kill is already synchronous.
+      if (process.platform === 'win32') {
+        const r = spawnSync(taskkillPath(), ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true, timeout: 10000 });
+        if (!r.error) return;
+      }
       try { killTree(child.pid); }
       catch { try { child.kill('SIGKILL'); } catch { /* already exited */ } }
     };
