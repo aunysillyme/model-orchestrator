@@ -109,8 +109,10 @@ for (const layout of ['level 2', 'Agensi']) {
     const files = layout === 'Agensi' ? planAgensiFiles() : planFiles({
       level: 2, selected: [byId.codex], primary: byId.codex, dir, project: dir
     });
-    const runner = files.find(file => file.rel.endsWith('bin/cli-run.mjs'));
-    const config = files.find(file => file.rel.endsWith('fallbacks.json'));
+    // Planned paths use the platform separator (\ on Windows); compare them in POSIX form.
+    const posix = file => file.rel.replace(/\\/g, '/');
+    const runner = files.find(file => posix(file).endsWith('bin/cli-run.mjs'));
+    const config = files.find(file => posix(file).endsWith('fallbacks.json'));
     assert.ok(runner && config);
     const target = join(dir, config.rel);
     mkdirSync(dirname(target), { recursive: true });
