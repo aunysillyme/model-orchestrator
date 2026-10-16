@@ -35,7 +35,9 @@ function writeLane(bin, lane, body) {
   }
 }
 function shellNode(script) {
-  if (process.platform === 'win32') return `"${process.execPath}" -e "${script.replace(/"/g, '\\"')}"`;
+  // base64 keeps quotes and backslashes in the script away from cmd.exe and argv quoting.
+  const encoded = Buffer.from(script, 'utf8').toString('base64');
+  if (process.platform === 'win32') return `"${process.execPath}" -e "eval(Buffer.from('${encoded}','base64').toString())"`;
   return `${JSON.stringify(process.execPath)} -e ${JSON.stringify(script)}`;
 }
 function run(dir, args, extra) {
