@@ -33,11 +33,14 @@ node bin/cli-run.mjs codex --brief TASK_BRIEF.md --effort high
 | 16 | Request rejected, including a prompt too large for the command line |
 | 17 | Required tool action refused |
 | 18 | Run cut short |
+| 24 | A verify command failed after the lane returned output; that output stays on stdout |
 | 130 / 143 | Interrupted by a signal on POSIX |
 
 The prompt travels as one command-line argument. When it passes the platform cap (Linux: 128 KiB in one argument; Windows: 32,767 characters of command line), or spawning fails with `E2BIG`, the runner exits 16 with reason `prompt_too_large` and does not start the lane. Save a large brief to a file and pass a short prompt that names its path; `--brief` pastes the file into the command line, so it has the same cap.
 
-The local log records requested model and effort, their source, fixed result classes and the vendor exit code. Its existing schema is preserved. It stores no prompt text or provider-supplied failure text.
+The local log records requested model and effort, their source, fixed result classes and the vendor exit code. Its existing schema is preserved. It stores no prompt text or provider-supplied failure text. A verify run adds `verify`, `verify_log` and a bounded redacted `verify_output`. A quota walk adds `hops` (lane, reason, exit). Those fields are omitted when the feature did not run. Verify command output also goes to `~/.ai-orchestrator/cli-run-verify.log`.
+
+`--verify CMD` repeats. `--verify-timeout SECS` bounds each command (default 600). After exit 15, `fallbacks.json` beside the rules folder names the next lane in a different billing pool. `--no-fallback` and `CLI_RUN_NO_FALLBACK=1` disable that walk. A missing file leaves the quota result unchanged. `aunx route --class frontier|fast|swarm` resolves one installed eligible lane from `classes.json`.
 
 `cli-run.mjs` exports its output judges so `test/judges.test.js` can prove each rejects the failure shapes it exists to catch. Tests use fixture output and stub CLIs.
 
