@@ -9,7 +9,8 @@ import { makeAsker } from '../src/prompt.js';
 import { resolve, join } from 'node:path';
 import { which } from '../src/detect.js';
 import { AIS, LEVELS, TOOLS, PROVIDERS, aisForLevel, agentCandidates, byId, npmSpec, summaryWithEvidence } from '../src/catalog.js';
-import { planFiles, writeFiles, writePreflightProblems, resolveSelection, resolveTools, resolveApis, dirProblems, readManifest, activationSteps, MACHINE_OWNED, RUNTIME, toPosixRel, GENERATOR_VERSION } from '../src/install.js';
+import { planFiles, writeFiles, writePreflightProblems, resolveSelection, resolveTools, resolveApis, dirProblems, readManifest, activationSteps,
+   MACHINE_OWNED, RUNTIME, toPosixRel, GENERATOR_VERSION } from '../src/install.js';
 import { uninstallFiles } from '../src/uninstall.js';
 import { assertSnippetPrimary, planSnippetApplication } from '../src/apply-snippets.js';
 import { assignRoles, inferPrimary, roleTable } from '../src/roles.js';
@@ -22,7 +23,9 @@ import { readSnapshot, validateSnapshot } from '../src/models.js';
 // turn a dry run into a real one.
 const SPEC = {
   level: 'value', ais: 'value', primary: 'value', dir: 'value', project: 'value', tools: 'value', apis: 'value', plans: 'value', models: 'value',
-  'apply-snippets': 'bool', 'no-apply': 'bool', yes: 'bool', force: 'bool', dry: 'bool', 'dry-run': 'bool', uninstall: 'bool', 'no-install': 'bool', 'no-tools': 'bool', 'no-apis': 'bool', 'effort-auto': 'bool', 'upgrade-runtime': 'bool', 'update-docs': 'bool', list: 'bool', help: 'bool', h: 'bool', version: 'bool', v: 'bool'
+  'apply-snippets': 'bool', 'no-apply': 'bool', yes: 'bool', force: 'bool', dry: 'bool', 'dry-run': 'bool', uninstall: 'bool', 'no-install':
+     'bool', 'no-tools': 'bool', 'no-apis': 'bool', 'effort-auto': 'bool', 'upgrade-runtime': 'bool', 'update-docs': 'bool', list: 'bool', help:
+        'bool', h: 'bool', version: 'bool', v: 'bool'
 };
 export function parseArgs(argv) {
   const out = {};
@@ -88,46 +91,40 @@ if (flag('version') || flag('v')) {
 }
 
 if (flag('help') || flag('h')) {
-  console.log(`model-orchestrator: set up a model router for the AIs you actually have.
-
-Usage
-  npx model-orchestrator                      interactive
-  npx model-orchestrator --list               show the AI catalog and exit
-  npx model-orchestrator --uninstall --dir <dir> --project <project>
-  npx model-orchestrator --yes --level 2 --ais claude-code,codex,grok [--primary claude-code] [--dir ./ai-orchestrator] [--project .]
-
-Flags
-  --level 1|2|3      1 beginner (one agent), 2 intermediate (many CLIs), 3 advanced (plus a VM)
-  --ais a,b,c        catalog ids you have access to (see --list)
-  --primary id       the main agent that runs the system and receives the subagents (any level). When several qualify
-                     and --yes is set, the run picks one and says so in the plan; pass this to decide it yourself.
-  --tools a,b        companion guides and supported project registration, all optional (default: none)
-  --apis a,b         level 3 only: metered API keys you HOLD (anthropic,openai,google,xai,openrouter); --no-apis for none.
-                     Select these with --apis or the edit screen; a subscription is not an API key.
-  --plans a=plan,b=plan  stated subscription plans for guidance; --plans none clears prior stated plans
-  --models path      validated resolver JSON snapshot for Claude Code subagent models; --models none clears prior pins
-                     see aunx models --help; refresh snapshots after 72 hours
-  --effort-auto      consent to write auto effort defaults for selected high or max plan cli-run lanes
-  --dir path         where to write the docs and protocols (default ./ai-orchestrator)
-  --project path     the project root your agent runs from (default: current directory);
-                     choose a project folder: global agent configuration is outside the installer scope
-  --yes              skip confirmations; requires --level and --ais for a reproducible install
-  --apply-snippets   apply main-agent rules and supported project config with backups; enables activation with --yes
-  --no-apply         leave project rules and settings for manual activation (interactive default: apply)
-  --force            overwrite every file that already exists, documents included
-  --upgrade-runtime  replace the runtime files (cli-run, the audit job, compose, gateway config, setup script) even
-                     when they cannot be verified as untouched; documents are still kept
-  --update-docs      regenerate the documents a previous run wrote and nobody edited since (hash-checked against
-                     MANIFEST.json), so a changed selection reaches ROUTING.md and friends; edited documents are kept
-                     and reported, and nothing happens without a manifest
-  --uninstall        remove unedited managed files recorded in MANIFEST.json; keep and list edited files
-  --dry, --dry-run   print the plan, write nothing
-  --no-install       accepted for compatibility; the installer never runs third-party installations
-  --no-tools         accepted for compatibility; companions default to none
-  --list             print the catalog
-  --version, -v      print the version and exit
-  --help, -h         print this and exit
-`);
+  console.log(("model-orchestrator: set up a model router for the AIs you actually have.\n\nUsage\n  npx " +
+    "model-orchestrator                      interactive\n  npx model-orchestrator --list               " +
+    "show the AI catalog and exit\n  npx model-orchestrator --uninstall --dir <dir> --project <project>\n  " +
+    "npx model-orchestrator --yes --level 2 --ais claude-code,codex,grok [--primary claude-code] [--dir " +
+    "./ai-orchestrator] [--project .]\n\nFlags\n  --level 1|2|3      1 beginner (one agent), 2 intermediate " +
+    "(many CLIs), 3 advanced (plus a VM)\n  --ais a,b,c        catalog ids you have access to (see " +
+    "--list)\n  --primary id       the main agent that runs the system and receives the subagents (any " +
+    "level). When several qualify\n                     and --yes is set, the run picks one and says so in " +
+    "the plan; pass this to decide it yourself.\n  --tools a,b        companion guides and supported " +
+    "project registration, all optional (default: none)\n  --apis a,b         level 3 only: metered API " +
+    "keys you HOLD (anthropic,openai,google,xai,openrouter); --no-apis for none.\n                     " +
+    "Select these with --apis or the edit screen; a subscription is not an API key.\n  --plans " +
+    "a=plan,b=plan  stated subscription plans for guidance; --plans none clears prior stated plans\n  " +
+    "--models path      validated resolver JSON snapshot for Claude Code subagent models; --models none " +
+    "clears prior pins\n                     see aunx models --help; refresh snapshots after 72 hours\n  " +
+    "--effort-auto      consent to write auto effort defaults for selected high or max plan cli-run " +
+    "lanes\n  --dir path         where to write the docs and protocols (default ./ai-orchestrator)\n  " +
+    "--project path     the project root your agent runs from (default: current directory);\n              " +
+    "       choose a project folder: global agent configuration is outside the installer scope\n  --yes    " +
+    "          skip confirmations; requires --level and --ais for a reproducible install\n  " +
+    "--apply-snippets   apply main-agent rules and supported project config with backups; enables " +
+    "activation with --yes\n  --no-apply         leave project rules and settings for manual activation " +
+    "(interactive default: apply)\n  --force            overwrite every file that already exists, " +
+    "documents included\n  --upgrade-runtime  replace the runtime files (cli-run, the audit job, compose, " +
+    "gateway config, setup script) even\n                     when they cannot be verified as untouched; " +
+    "documents are still kept\n  --update-docs      regenerate the documents a previous run wrote and " +
+    "nobody edited since (hash-checked against\n                     MANIFEST.json), so a changed " +
+    "selection reaches ROUTING.md and friends; edited documents are kept\n                     and " +
+    "reported, and nothing happens without a manifest\n  --uninstall        remove unedited managed files " +
+    "recorded in MANIFEST.json; keep and list edited files\n  --dry, --dry-run   print the plan, write " +
+    "nothing\n  --no-install       accepted for compatibility; the installer never runs third-party " +
+    "installations\n  --no-tools         accepted for compatibility; companions default to none\n  --list   " +
+    "          print the catalog\n  --version, -v      print the version and exit\n  --help, -h         " +
+    "print this and exit\n"));
   process.exit(0);
 }
 
@@ -137,11 +134,33 @@ if (flag('list')) {
   for (const a of AIS) {
     const here = a.bin ? (which(a.bin) ? 'installed' : 'not on PATH') : 'app';
     const billing = { subscription: 'subscription lane', 'pay-per-token': 'pay-per-token lane', free: 'free lane', local: 'local lane' }[a.facts.billing];
-    console.log(`${a.id.padEnd(13)} ${a.name}\n${''.padEnd(13)} level ${a.minLevel}+ · ${billing} · ${here}\n${''.padEnd(13)} ${summaryWithEvidence(a)}`);
+    console.log((`${a.id.padEnd(13)}` +
+      " " +
+      `${a.name}` +
+      "\n" +
+      `${''.padEnd(13)}` +
+      " level " +
+      `${a.minLevel}` +
+      "+ · " +
+      `${billing}` +
+      " · " +
+      `${here}` +
+      "\n" +
+      `${''.padEnd(13)}` +
+      " " +
+      `${summaryWithEvidence(a)}`));
     const install = a.install.npm
       ? 'npm install -g ' + npmSpec(a)
       : a.install.script
-        ? `curl -fsSL ${a.install.script} -o /tmp/${a.id}-install.sh && less /tmp/${a.id}-install.sh && bash /tmp/${a.id}-install.sh`
+        ? ("curl -fsSL " +
+          `${a.install.script}` +
+          " -o /tmp/" +
+          `${a.id}` +
+          "-install.sh && less /tmp/" +
+          `${a.id}` +
+          "-install.sh && bash /tmp/" +
+          `${a.id}` +
+          "-install.sh")
         : a.install.url + (a.install.brew ? ` (or: brew install ${a.install.brew})` : '');
     console.log(`${''.padEnd(13)} install: ${install}\n${''.padEnd(13)} sign in: ${a.auth}`);
     if (a.plans) for (const p of a.plans) console.log(`${''.padEnd(13)} plan ${p.id}: ${p.name} (${p.headroom} headroom, checked ${p.checked}, ${p.source})`);
@@ -149,7 +168,25 @@ if (flag('list')) {
   console.log('\nmetered API providers (--apis a,b, level 3 gateway only):');
   for (const prov of PROVIDERS) console.log(`${prov.id.padEnd(13)} ${prov.name}  (variable name: ${prov.envName})`);
   console.log('\ncompanion tools (--tools a,b), all optional:');
-  for (const t of TOOLS) console.log(`${t.id.padEnd(13)} ${t.name}\n${''.padEnd(13)} ${t.role}\n${''.padEnd(13)} needs: ${t.requires}\n${''.padEnd(13)} ${t.optionalNote}\n${''.padEnd(13)} ${t.repo}`);
+  for (const t of TOOLS) console.log((`${t.id.padEnd(13)}` +
+    " " +
+    `${t.name}` +
+    "\n" +
+    `${''.padEnd(13)}` +
+    " " +
+    `${t.role}` +
+    "\n" +
+    `${''.padEnd(13)}` +
+    " needs: " +
+    `${t.requires}` +
+    "\n" +
+    `${''.padEnd(13)}` +
+    " " +
+    `${t.optionalNote}` +
+    "\n" +
+    `${''.padEnd(13)}` +
+    " " +
+    `${t.repo}`));
   process.exit(0);
 }
 
@@ -210,10 +247,12 @@ export function legacyPrimary(candidates) {
 
 // Detection reads filesystem metadata only. A caller can supply the detector
 // for deterministic tests; no detected vendor program is executed here.
+/** @param {{selected?: typeof AIS, detect?: typeof which}} [options] */
 export function inferSetup({ selected, detect = which } = {}) {
   const detected = new Set(AIS.filter((ai) => ai.bin && detect(ai.bin)).map((ai) => ai.id));
   const picks = selected || AIS.filter((ai) => detected.has(ai.id));
-  return { detected, selected: picks, level: inferLevel(picks), primary: inferPrimary(agentCandidates(picks)) || null, tools: [], apis: [], plans: {}, effortAuto: [] };
+  return { detected, selected: picks, level: inferLevel(picks), primary: inferPrimary(agentCandidates(picks)) || null, tools: [], apis: [], plans:
+     {}, effortAuto: [] };
 }
 
 function selectedFromIds(raw) {
@@ -256,9 +295,15 @@ function validateSetup(state) {
   if (![1, 2, 3].includes(state.level)) bad('level must be 1, 2 or 3');
   if (!state.selected.length) bad('pick at least one AI');
   const tooHigh = state.selected.filter((ai) => ai.minLevel > state.level);
-  if (tooHigh.length) bad(`${tooHigh.map((ai) => ai.id).join(', ')} ${tooHigh.length === 1 ? 'needs' : 'need'} level ${Math.max(...tooHigh.map((ai) => ai.minLevel))} or higher`);
+  if (tooHigh.length) bad((`${tooHigh.map((ai) => ai.id).join(', ')}` +
+    " " +
+    `${tooHigh.length === 1 ? 'needs' : 'need'}` +
+    " level " +
+    `${Math.max(...tooHigh.map((ai) => ai.minLevel))}` +
+    " or higher"));
   const candidates = agentCandidates(state.selected);
-  if (!candidates.length) bad('pick at least one agent or chat app to be the orchestrator; a local model runtime on its own cannot run the system');
+  if (!candidates.length) bad(("pick at least one agent or chat app to be the orchestrator; a local model runtime on its own cannot " +
+    "run the system"));
   if (!candidates.includes(state.primary)) bad('--primary must be one of: ' + candidates.map((ai) => ai.id).join(', '));
   if (state.level < 3 && state.apis.length) bad('--apis only applies at level 3 (the gateway)');
   const dirBad = dirProblems(state.dir);
@@ -273,7 +318,11 @@ function validateSetup(state) {
 // only a USAGE error raised while THIS function is running is caught locally.
 async function editSetup(state, sources) {
   while (true) {
-    console.log('\nChange what?\n  1 level (1, 2 or 3; 3 needs an always-on Linux machine)\n  2 which AIs\n  3 main agent\n  4 companion tools\n  5 where the files go (folder and project root)\n  6 subscription plans' + (state.level === 3 ? '\n  7 level 3 API keys' : '') + `\n  8 automatic activation (${state.applySnippets ? 'on; select to turn off' : 'off; select to turn on'})` + '\n  0 nothing, back to the summary');
+    console.log(("\nChange what?\n  1 level (1, 2 or 3; 3 needs an always-on Linux machine)\n  2 which AIs\n  3 main " +
+      "agent\n  4 companion tools\n  5 where the files go (folder and project root)\n  6 subscription plans") + (state.level === 3 ?
+         '\n  7 level 3 API keys' :
+            '') + `\n  8 automatic activation (${state.applySnippets ? 'on; select to turn off' :
+               'off; select to turn on'})` + '\n  0 nothing, back to the summary');
     const choice = await ask('\nNumber [0]: ', '0');
     if (choice === '0') return;
     if (choice === '1') {
@@ -311,7 +360,8 @@ async function editSetup(state, sources) {
       state.primaryChosen = true;
       sources.delete('primary');
     } else if (choice === '4') {
-      console.log('Companion tools (optional): selecting one writes guides and config snippets, and registers supported project config when activation is on. Install prerequisites yourself.');
+      console.log(("Companion tools (optional): selecting one writes guides and config snippets, and registers supported " +
+        "project config when activation is on. Install prerequisites yourself."));
       TOOLS.forEach((tool, i) => console.log(`  ${i + 1} ${tool.name}: ${tool.role}\n    ${tool.requires}\n    ${tool.optionalNote}`));
       const fallback = TOOLS.map((tool, i) => state.tools.includes(tool) ? i + 1 : null).filter(Boolean).join(',') || 'none';
       while (true) {
@@ -356,7 +406,8 @@ async function editSetup(state, sources) {
       state.plansChosen = true;
       state.effortChosen = true;
       const eligible = eligibleEffort(state.selected, plans);
-      state.effortAuto = eligible.length && /^y/i.test(await ask(`Size reasoning effort per task automatically on ${eligible.join(', ')}? [y/N] `, 'n')) ? eligible : [];
+      state.effortAuto = eligible.length && /^y/i.test(await ask(`Size reasoning effort per task automatically on ${eligible.join(', ')}? [y/N] `,
+         'n')) ? eligible : [];
       sources.delete('plans');
       sources.delete('effort-auto');
     } else if (choice === '7' && state.level === 3) {
@@ -397,13 +448,15 @@ async function main() {
     const actions = uninstallFiles({ dir, project, dry });
     console.log(dry ? 'Uninstall preview (--dry): nothing changed.' : 'Uninstall complete.');
     for (const action of actions) console.log(action);
-    console.log('\nRecorded activation entries are removed when unchanged. User edits and backups are kept. Remove any instructions you pasted by hand from their app or rules file.');
+    console.log(("\nRecorded activation entries are removed when unchanged. User edits and backups are kept. Remove any " +
+      "instructions you pasted by hand from their app or rules file."));
     return;
   }
   // Says what this generates, not what it guarantees. The old line promised
   // routing this package does not perform: lane choice is an instruction an
   // agent follows, never something enforced here (#11).
-  console.log('\nmodel-orchestrator\nModel router for AI coding agents: routes routine work to cheaper models with routing rules, 8 subagents, hooks and a CLI runner\n');
+  console.log(("\nmodel-orchestrator\nModel router for AI coding agents: routes routine work to cheaper models with " +
+    "routing rules, 8 subagents, hooks and a CLI runner\n"));
   if (flag('no-install')) console.log('--no-install is no longer needed: the installer never runs a third-party install.');
 
   if (!yes) rl = makeAsker({ input: stdin, output: stdout });
@@ -474,7 +527,8 @@ async function main() {
     const candidates = agentCandidates(selected);
     const agentFiles = files.filter((file) => file.root === 'project');
     const projectKinds = [
-      [agentFiles.filter((file) => primary?.facts.agentDefinitions && toPosixRel(file.rel).startsWith(primary.facts.agentDefinitions + '/')).length, 'subagents'],
+      [agentFiles.filter((file) => primary?.facts.agentDefinitions &&
+         toPosixRel(file.rel).startsWith(primary.facts.agentDefinitions + '/')).length, 'subagents'],
       [agentFiles.filter((file) => toPosixRel(file.rel).startsWith('.claude/hooks/')).length, 'hooks']
     ].filter(([count]) => count).map(([count, kind]) => `${count} ${kind}`).join(' + ');
     const from = (key) => sources.has(key) ? ` (from --${key})` : '';
@@ -482,16 +536,48 @@ async function main() {
       ? ` (chosen for you from ${candidates.map((ai) => ai.id).join(', ')}; pass --primary to decide it yourself)` : '';
     const detectedAccess = !sources.has('ais') && selected.every((ai) => detected.has(ai.id)) ? ' (detected on your PATH)' : '';
     const statedPlans = Object.entries(plans).map(([id, plan]) => `${id}=${plan.id}`).join(', ');
-    console.log(`\nPlan\n  level    ${lvl.id} ${lvl.name}: ${lvl.tagline}${from('level')}\n  access   ${selected.map((ai) => ai.id).join(', ')}${from('ais')}${detectedAccess}\n  primary  ${primary.id}${from('primary')}${autoPrimary}\n  tools    ${tools.map((tool) => tool.id).join(', ') || 'none (companions are opt-in)'}${from('tools')}${from('no-tools')}\n  plans    ${statedPlans || 'not stated (your tools select the model)'}${from('plans')}`
+    console.log(("\nPlan\n  level    " +
+      `${lvl.id}` +
+      " " +
+      `${lvl.name}` +
+      ": " +
+      `${lvl.tagline}` +
+      `${from('level')}` +
+      "\n  access   " +
+      `${selected.map((ai) => ai.id).join(', ')}` +
+      `${from('ais')}` +
+      `${detectedAccess}` +
+      "\n  primary  " +
+      `${primary.id}` +
+      `${from('primary')}` +
+      `${autoPrimary}` +
+      "\n  tools    " +
+      `${tools.map((tool) => tool.id).join(', ') || 'none (companions are opt-in)'}` +
+      `${from('tools')}` +
+      `${from('no-tools')}` +
+      "\n  plans    " +
+      `${statedPlans || 'not stated (your tools select the model)'}` +
+      `${from('plans')}`)
       + (level >= 3 ? `\n  api keys ${apis.map((provider) => provider.id).join(', ') || 'none'}${from('apis')}${from('no-apis')}` : '')
       + (effortAuto.length || sources.has('effort-auto') ? `\n  auto effort ${effortAuto.join(', ') || 'none eligible'}${from('effort-auto')}` : '')
-      + `\n  folder   ${dir}${from('dir')}\n  project  ${project}${projectKinds ? ' (' + projectKinds + ' go here)' : ''}${from('project')}\n  files    ${files.length}`);
+      + ("\n  folder   " +
+        `${dir}` +
+        `${from('dir')}` +
+        "\n  project  " +
+        `${project}` +
+        `${projectKinds ? ' (' + projectKinds + ' go here)' : ''}` +
+        `${from('project')}` +
+        "\n  files    " +
+        `${files.length}`));
     if (plansKept) console.log('  plans kept from the previous run');
     // Q4: automatic activation only ever means a rules file gets written for
     // the primary; a primary with none (a chat app, or a CLI the catalog has
     // no rules file for, such as Grok or Hermes) always keeps a manual step,
     // whatever --apply-snippets or the edit screen say.
-    console.log(`  activation ${applySnippets && assertSnippetPrimary(primary) ? 'automatic' : 'manual'}${from('apply-snippets')}${from('no-apply')}`);
+    console.log(("  activation " +
+      `${applySnippets && assertSnippetPrimary(primary) ? 'automatic' : 'manual'}` +
+      `${from('apply-snippets')}` +
+      `${from('no-apply')}`));
     for (const file of agentFiles) {
       const path = join(project, file.rel);
       // Q8: a rules file that does not exist yet is created, not updated, and
@@ -499,28 +585,40 @@ async function main() {
       // run is the first to write it.
       const rulesCreated = file.applySnippet && file.rel === primary.rulesFile && file.original === null;
       const action = rulesCreated ? 'create'
-        : file.applySnippet ? file.rel === primary.rulesFile ? 'update' : file.rel === join('.claude', 'settings.json') ? 'merge hooks into' : 'merge config into'
+        : file.applySnippet ? file.rel === primary.rulesFile ? 'update' : file.rel === join('.claude', 'settings.json') ? 'merge hooks into' :
+           'merge config into'
         : 'write';
       const note = rulesCreated ? 'new file, marked block'
         : `${file.applySnippet && file.rel === primary.rulesFile ? 'marked block, ' : ''}backup kept if changed`;
       console.log(`    ${action} ${path} (${note})`);
     }
-    if (primary.facts.agentDefinitions) console.log(`  subagent location: ${join(project, primary.facts.agentDefinitions)}; launch ${primary.bin} from ${project}`);
-    if (agentFiles.length && !sources.has('project')) console.log(`\nNote: --project defaults to the current directory, so the ${projectKinds} go to the current directory (${project}). Pass --project to put them somewhere else.`);
+    if (primary.facts.agentDefinitions) console.log(`  subagent location: ${join(project,
+       primary.facts.agentDefinitions)}; launch ${primary.bin} from ${project}`);
+    if (agentFiles.length && !sources.has('project')) console.log(("\nNote: --project defaults to the current directory, so the " +
+      `${projectKinds}` +
+      " go to the current directory (" +
+      `${project}` +
+      "). Pass --project to put them somewhere else."));
     const assignment = assignRoles({ selected, primary, detected, plans, level });
     const agents = Object.fromEntries(Object.entries(plannedManifest.roles || {}).filter(([, role]) => role.agent).map(([id, role]) => [id, role.agent]));
     console.log('\n' + roleTable(assignment, { selected, primary, detected, agents }));
-    if (level >= 2 && !selected.some((ai) => ai.facts.cliRun)) console.log('\nWarning: no executable lanes selected; delegation is inactive. Use level 1 for a single-agent setup, or add a supported CLI. Doctor will exit 13 until a lane is enabled.');
+    if (level >= 2 && !selected.some((ai) =>
+       ai.facts.cliRun)) console.log(("\nWarning: no executable lanes selected; delegation is inactive. Use level 1 for a single-agent " +
+      "setup, or add a supported CLI. Doctor will exit 13 until a lane is enabled."));
     const earlyProblems = writePreflightProblems(files, { dir, project });
     if (earlyProblems.length) bad('refusing to write:\n  ' + earlyProblems.join('\n  '));
     if (flag('dry') || flag('dry-run')) {
       for (const file of files) console.log('  - ' + (file.root === 'project' ? '[project] ' : '') + file.rel);
       if (applySnippets) {
-        const preview = writeFiles(files, { dir, project, dry: true, force: flag('force'), upgradeRuntime: flag('upgrade-runtime'), updateDocs: flag('update-docs'), prevManifest: prev, backupExisting: true });
+        const preview = writeFiles(files, { dir, project, dry: true, force: flag('force'), upgradeRuntime: flag('upgrade-runtime'), updateDocs:
+           flag('update-docs'), prevManifest: prev, backupExisting: true });
         for (const path of preview.written) console.log('  would write ' + path);
-        for (const path of [...preview.skipped, ...preview.conflicts, ...preview.unverifiable, ...preview.docsConflict, ...preview.docsUnverifiable]) console.log('  would keep ' + path);
+        for (const path of [...preview.skipped, ...preview.conflicts, ...preview.unverifiable, ...preview.docsConflict,
+           ...preview.docsUnverifiable]) console.log('  would keep ' + path);
         for (const path of preview.backups) console.log('  would back up ' + path);
-        if (preview.lanesWithheld.length) console.log(`  lanes withheld: ${preview.lanesWithheld.join(', ')} (the kept bin/cli-run.mjs predates them; re-run with --upgrade-runtime to enable)`);
+        if (preview.lanesWithheld.length) console.log(("  lanes withheld: " +
+          `${preview.lanesWithheld.join(', ')}` +
+          " (the kept bin/cli-run.mjs predates them; re-run with --upgrade-runtime to enable)"));
       }
       console.log('\n--dry: nothing written.');
       rl && rl.close();
@@ -540,7 +638,8 @@ async function main() {
           setup.plans = plansFromManifest(prev, setup.selected);
           plansKept = Object.keys(setup.plans).length > 0;
         }
-        if (!setup.effortChosen) setup.effortAuto = Array.isArray(prev?.effortAuto) ? prev.effortAuto.filter((id) => setup.selected.some((ai) => ai.id === id && ai.facts.cliRun)) : [];
+        if (!setup.effortChosen) setup.effortAuto = Array.isArray(prev?.effortAuto) ? prev.effortAuto.filter((id) => setup.selected.some((ai) =>
+           ai.id === id && ai.facts.cliRun)) : [];
       }
       continue;
     }
@@ -574,7 +673,9 @@ async function main() {
 
   let written, skipped, upgraded, conflicts, unverifiable, lanesWithheld, docsUpdated, docsConflict, docsUnverifiable, docsRenamed;
   try {
-    ({ written, skipped, upgraded, conflicts, unverifiable, lanesWithheld, docsUpdated, docsConflict, docsUnverifiable, docsRenamed } = writeFiles(files, { dir, project, force: flag('force'), upgradeRuntime: flag('upgrade-runtime'), updateDocs: flag('update-docs'), prevManifest: prev, backupExisting: applySnippets, onBackup: (path) => console.log('  backup ' + path) }));
+    ({ written, skipped, upgraded, conflicts, unverifiable, lanesWithheld, docsUpdated, docsConflict, docsUnverifiable, docsRenamed } =
+       writeFiles(files, { dir, project, force: flag('force'), upgradeRuntime: flag('upgrade-runtime'), updateDocs: flag('update-docs'),
+          prevManifest: prev, backupExisting: applySnippets, onBackup: (path) => console.log('  backup ' + path) }));
   } catch (e) {
     if (e && e.code === 'PREFLIGHT') bad(e.message);
     throw e;
@@ -584,37 +685,57 @@ async function main() {
   for (const s of skipped) console.log('  kept ' + s);
   const existingRuntime = files.filter((f) => f.root !== 'project' && RUNTIME.has(toPosixRel(f.rel))).length;
   if (prev || existingRuntime && (upgraded.length || conflicts.length || unverifiable.length) || docsUnverifiable.length) {
-    console.log(`\nExisting installation found${prev ? ` (MANIFEST.json from generator ${prev.generatorVersion || 'pre-0.1.1'}, ${prev.generatedAt || 'undated'}; this run is ${GENERATOR_VERSION})` : ' (no MANIFEST.json: it predates 0.1.1)'}.`);
+    console.log(("\nExisting installation found" +
+      (`${prev ? ` (MANIFEST.json from generator ${prev.generatorVersion || 'pre-0.1.1'}, ${prev.generatedAt ||
+         'undated'}; this run is ${GENERATOR_VERSION})` : ' (no MANIFEST.json: it predates 0.1.1)'}`) +
+      "."));
     if (prev) {
       if (changed.length) {
         console.log(`  selection changed: ${changed.join(', ')}`);
         console.log(`  applied: ${ownedWritten.join(', ') || 'nothing'} (machine-owned files refresh when changed)`);
-        if (changed.includes('roles')) console.log('  the role assignment changed; MANIFEST.json and aunx route are current. Any kept documents may still carry the previous assignment.');
+        if (changed.includes('roles')) console.log(("  the role assignment changed; MANIFEST.json and aunx route are current. Any kept documents may " +
+          "still carry the previous assignment."));
       } else console.log('  selection identical.');
     }
-    if (lanesWithheld.length) console.log(`  lanes withheld: ${lanesWithheld.join(', ')} (the kept bin/cli-run.mjs predates them; re-run with --upgrade-runtime to enable)`);
-    if (upgraded.length) console.log(`  runtime upgraded: ${upgraded.join(', ')} ${flag('upgrade-runtime') ? '(--upgrade-runtime: replaced whether or not you had edited them)' : '(each installed copy matched the hash of a previous run, so nobody had edited it)'}`);
+    if (lanesWithheld.length) console.log(("  lanes withheld: " +
+      `${lanesWithheld.join(', ')}` +
+      " (the kept bin/cli-run.mjs predates them; re-run with --upgrade-runtime to enable)"));
+    if (upgraded.length) console.log(("  runtime upgraded: " +
+      `${upgraded.join(', ')}` +
+      " " +
+      (`${flag('upgrade-runtime') ? '(--upgrade-runtime: replaced whether or not you had edited them)' :
+         '(each installed copy matched the hash of a previous run, so nobody had edited it)'}`)));
     if (conflicts.length) {
       console.log(`  runtime CONFLICT, kept: ${conflicts.join(', ')}`);
-      console.log('    these differ from what a previous run generated, so you edited them. The fixes in this release were NOT applied to them.');
-      console.log('    Options: move your copy aside and re-run; or --upgrade-runtime to replace runtime files only; or --force to replace current generated files.');
+      console.log(("    these differ from what a previous run generated, so you edited them. The fixes in this release " +
+        "were NOT applied to them."));
+      console.log(("    Options: move your copy aside and re-run; or --upgrade-runtime to replace runtime files only; or " +
+        "--force to replace current generated files."));
     }
     if (unverifiable.length) {
       console.log(`  runtime kept, UNVERIFIABLE: ${unverifiable.join(', ')}`);
-      console.log('    the previous install left no manifest, so it is not possible to tell whether you edited these. Executable fixes were NOT applied.');
-      console.log('    Re-run with --upgrade-runtime to replace runtime files only (documents stay), or --force to replace everything.');
+      console.log(("    the previous install left no manifest, so it is not possible to tell whether you edited these. " +
+        "Executable fixes were NOT applied."));
+      console.log(("    Re-run with --upgrade-runtime to replace runtime files only (documents stay), or --force to " +
+        "replace everything."));
     }
-    if (docsUpdated.length) console.log(`  documents updated: ${docsUpdated.join(', ')} (each matched the hash of a previous run, so nobody had edited them)`);
+    if (docsUpdated.length) console.log(("  documents updated: " +
+      `${docsUpdated.join(', ')}` +
+      " (each matched the hash of a previous run, so nobody had edited them)"));
     if (docsRenamed.length) console.log(`  documents renamed: ${docsRenamed.join(', ')} (the old copy matched its installed hash)`);
     if (docsConflict.length) {
       console.log(`  document CONFLICT, kept: ${docsConflict.join(', ')}`);
-      console.log('    these differ from what a previous run generated, so you edited them. Edit them by hand; --force replaces current generated paths. Edited legacy briefs stay.');
+      console.log(("    these differ from what a previous run generated, so you edited them. Edit them by hand; --force " +
+        "replaces current generated paths. Edited legacy briefs stay."));
     }
     if (docsUnverifiable.length) {
       console.log(`  documents kept, UNVERIFIABLE: ${docsUnverifiable.join(', ')}`);
-      console.log('    the previous install left no manifest, so --update-docs cannot tell your edits from generated text. --force replaces current generated paths. Unverifiable legacy briefs stay.');
+      console.log(("    the previous install left no manifest, so --update-docs cannot tell your edits from generated " +
+        "text. --force replaces current generated paths. Unverifiable legacy briefs stay."));
     }
-    if (skipped.length && prev && changed.length && !flag('update-docs')) console.log('  documents kept: they may describe the old selection. --update-docs regenerates the ones you have not edited; --force regenerates all of them (this overwrites your edits).');
+    if (skipped.length && prev && changed.length &&
+       !flag('update-docs')) console.log(("  documents kept: they may describe the old selection. --update-docs regenerates the ones you have " +
+      "not edited; --force regenerates all of them (this overwrites your edits)."));
   }
 
   // 6. Print manual installation commands for missing CLIs.
@@ -625,9 +746,24 @@ async function main() {
       const command = a.install.npm
         ? 'npm install -g ' + npmSpec(a)
         : a.install.script
-          ? `curl -fsSL ${a.install.script} -o /tmp/${a.id}-install.sh && less /tmp/${a.id}-install.sh && bash /tmp/${a.id}-install.sh`
+          ? ("curl -fsSL " +
+            `${a.install.script}` +
+            " -o /tmp/" +
+            `${a.id}` +
+            "-install.sh && less /tmp/" +
+            `${a.id}` +
+            "-install.sh && bash /tmp/" +
+            `${a.id}` +
+            "-install.sh")
           : a.install.brew ? `brew install ${a.install.brew}` : 'Follow the vendor setup guide';
-      console.log(`  ${a.name}: ${command}\n    ${a.install.url ? 'official guide' : 'install script'}: ${a.install.url || a.install.script}`);
+      console.log(("  " +
+        `${a.name}` +
+        ": " +
+        `${command}` +
+        "\n    " +
+        `${a.install.url ? 'official guide' : 'install script'}` +
+        ": " +
+        `${a.install.url || a.install.script}`));
     }
   }
 

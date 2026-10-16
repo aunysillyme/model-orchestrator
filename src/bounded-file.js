@@ -23,12 +23,15 @@ export function readBounded(fd, maxBytes) {
 
 export function readRegularFile(path, maxBytes) {
   const before = lstatSync(path);
-  if (before.isSymbolicLink()) throw refused(`${shown(path)}: expected a regular file, not a symlink; replace the link with the file it points to, then run the command again`);
+  if (before.isSymbolicLink()) throw refused((`${shown(path)}` +
+    ": expected a regular file, not a symlink; replace the link with the file it points to, then run the " +
+    "command again"));
   if (!before.isFile()) throw refused(`${shown(path)}: expected a regular file; point the command at a file`);
   const fd = openSync(path, constants.O_RDONLY | (constants.O_NOFOLLOW || 0) | (constants.O_NONBLOCK || 0));
   try {
     const after = fstatSync(fd);
-    if (!after.isFile() || after.dev !== before.dev || after.ino !== before.ino) throw refused(`${shown(path)}: file changed during inspection; run the command again`);
+    if (!after.isFile() || after.dev !== before.dev ||
+       after.ino !== before.ino) throw refused(`${shown(path)}: file changed during inspection; run the command again`);
     return readBounded(fd, maxBytes);
   } finally { closeSync(fd); }
 }

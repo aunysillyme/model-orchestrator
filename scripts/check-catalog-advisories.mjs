@@ -22,11 +22,14 @@ export function parseOSVAdvisory(data, target, id) {
   for (const affected of matches) {
     if (!Array.isArray(affected.ranges) && !Array.isArray(affected.versions)) throw new Error('missing-advisory-ranges');
     if (affected.ranges !== undefined && !Array.isArray(affected.ranges)) throw new Error('invalid-advisory-ranges');
-    if (affected.versions !== undefined && (!Array.isArray(affected.versions) || affected.versions.some((v) => typeof v !== 'string'))) throw new Error('invalid-advisory-versions');
+    if (affected.versions !== undefined && (!Array.isArray(affected.versions) || affected.versions.some((v) =>
+       typeof v !== 'string'))) throw new Error('invalid-advisory-versions');
     for (const range of affected.ranges || []) {
-      if (!object(range) || !['SEMVER', 'ECOSYSTEM', 'GIT'].includes(range.type) || !Array.isArray(range.events) || !range.events.length) throw new Error('invalid-advisory-range');
+      if (!object(range) || !['SEMVER', 'ECOSYSTEM', 'GIT'].includes(range.type) || !Array.isArray(range.events) ||
+         !range.events.length) throw new Error('invalid-advisory-range');
       for (const event of range.events) {
-        if (!object(event) || Object.keys(event).length !== 1 || !Object.entries(event).every(([k, v]) => ['introduced', 'fixed', 'last_affected', 'limit'].includes(k) && typeof v === 'string' && v)) throw new Error('invalid-advisory-event');
+        if (!object(event) || Object.keys(event).length !== 1 || !Object.entries(event).every(([k, v]) => ['introduced', 'fixed', 'last_affected',
+           'limit'].includes(k) && typeof v === 'string' && v)) throw new Error('invalid-advisory-event');
         if (event.fixed) fixedVersions.push(event.fixed);
       }
       affectedRanges.push(range);
@@ -63,11 +66,13 @@ export async function scanPackages(targets, options = {}) {
   await Promise.all(supported.map(async (result, index) => {
     try {
       const match = batch.results[index];
-      if (!object(match) || Object.keys(match).some((k) => k !== 'vulns') || ('vulns' in match && !Array.isArray(match.vulns))) throw new Error('invalid-batch-result');
+      if (!object(match) || Object.keys(match).some((k) => k !== 'vulns') || ('vulns' in match &&
+         !Array.isArray(match.vulns))) throw new Error('invalid-batch-result');
       if ((match.vulns || []).some((v) => !object(v) || !ID.test(v.id || ''))) throw new Error('invalid-advisory-id');
       const ids = [...new Set((match.vulns || []).map((v) => v.id))];
       result.advisoryIds = ids;
-      result.advisories = await Promise.all(ids.map(async (id) => parseOSVAdvisory(await requestJSON(`${OSV}/vulns/${encodeURIComponent(id)}`, options), result, id)));
+      result.advisories = await Promise.all(ids.map(async (id) => parseOSVAdvisory(await requestJSON(`${OSV}/vulns/${encodeURIComponent(id)}`,
+         options), result, id)));
       result.status = result.advisories.length ? 'affected' : 'clean';
       delete result.reason;
     } catch (error) { result.reason = errorCode(error); }
@@ -83,7 +88,8 @@ export function validateExceptions(exceptions) {
       [item.package, item.version, item.advisory, item.ecosystem].some((v) => v.includes('*')) || !ID.test(item.advisory) ||
       !/^\d{4}-\d{2}-\d{2}$/.test(item.expires) || !Number.isFinite(Date.parse(item.expires)) ||
       new Date(item.expires).toISOString().slice(0, 10) !== item.expires ||
-      (item.target !== undefined && (typeof item.target !== 'string' || !item.target || item.target.includes('*')))) throw new Error('invalid-exception-policy');
+      (item.target !== undefined && (typeof item.target !== 'string' || !item.target ||
+         item.target.includes('*')))) throw new Error('invalid-exception-policy');
   }
   return exceptions;
 }
@@ -103,20 +109,42 @@ export function applyExceptions(results, exceptions, now = new Date()) {
 }
 
 export function reportExitCode(report) {
-  if (report.policyError || !Array.isArray(report.results) || !report.results.length || report.results.some((r) => !['clean', 'affected', 'unknown', 'excepted'].includes(r.status) || r.status === 'unknown')) return 2;
+  if (report.policyError || !Array.isArray(report.results) || !report.results.length || report.results.some((r) => !['clean', 'affected',
+     'unknown', 'excepted'].includes(r.status) || r.status === 'unknown')) return 2;
   return report.results.some((r) => r.status === 'affected') ? 1 : 0;
 }
 
-const markdown = (value) => String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('|', '&#124;').replace(/[\r\n\x00-\x1f]/g, ' ').replaceAll('`', "'");
+const markdown = (value) => String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('|',
+   '&#124;').replace(/[\r\n\x00-\x1f]/g, ' ').replaceAll('`', "'");
 export function reportSummary(report) {
-  const lines = ['# Catalog advisories', '', `Generated: ${markdown(report.generatedAt)}. Source: ${markdown(report.sourceCommit)}. Exit: ${reportExitCode(report)}.`, '',
+  const lines = ['# Catalog advisories', '', ("Generated: " +
+    `${markdown(report.generatedAt)}` +
+    ". Source: " +
+    `${markdown(report.sourceCommit)}` +
+    ". Exit: " +
+    `${reportExitCode(report)}` +
+    "."), '',
     '| Source | Package/image | Version/digest | Platform | Coverage | Status |', '|---|---|---|---|---|---|'];
   for (const result of report.results) {
-    lines.push(`| ${[result.source, result.package, result.resolvedDigest || result.pinnedVersion, result.platform || '', result.coverage, result.status].map(markdown).join(' | ')} |`);
+    lines.push(("| " +
+      (`${[result.source, result.package, result.resolvedDigest || result.pinnedVersion, result.platform || '', result.coverage,
+         result.status].map(markdown).join(' | ')}`) +
+      " |"));
   }
   for (const result of report.results) {
     if (result.reason) lines.push(`\n${markdown(result.source)}: ${markdown(result.reason)}.\n`);
-    for (const advisory of result.advisories || []) lines.push(`\n- ${markdown(advisory.id)}: ${markdown(advisory.package)} ${markdown(advisory.version)}; affected ranges ${markdown(JSON.stringify(advisory.affectedRanges))}; fixed versions ${markdown(advisory.fixedVersions.join(', ') || 'none reported')}${advisory.exception ? `; exception expires ${markdown(advisory.exception.expires)} (${markdown(advisory.exception.rationale)})` : ''}.`);
+    for (const advisory of result.advisories || []) lines.push(("\n- " +
+      `${markdown(advisory.id)}` +
+      ": " +
+      `${markdown(advisory.package)}` +
+      " " +
+      `${markdown(advisory.version)}` +
+      "; affected ranges " +
+      `${markdown(JSON.stringify(advisory.affectedRanges))}` +
+      "; fixed versions " +
+      `${markdown(advisory.fixedVersions.join(', ') || 'none reported')}` +
+      (`${advisory.exception ? `; exception expires ${markdown(advisory.exception.expires)} (${markdown(advisory.exception.rationale)})` : ''}`) +
+      "."));
   }
   if (report.policyError) lines.push('', `Exception policy: ${markdown(report.policyError)}.`);
   lines.push('', '## Explicit exclusions', '');
@@ -125,7 +153,8 @@ export function reportSummary(report) {
   return lines.join('\n');
 }
 
-export async function checkCatalog({ inventory = catalogInventory(), exceptions = [], now = new Date(), sourceCommit = null, sourceDirty = null, platform = 'linux/amd64', ...options } = {}) {
+export async function checkCatalog({ inventory = catalogInventory(), exceptions = [], now = new Date(), sourceCommit = null, sourceDirty = null,
+   platform = 'linux/amd64', ...options } = {}) {
   const [packages, containers] = await Promise.all([
     scanPackages(inventory.targets.filter((t) => t.kind === 'package'), options),
     scanContainers(inventory.targets.filter((t) => t.kind === 'container'), { platform, ...options })
@@ -152,9 +181,11 @@ export async function main(args = process.argv.slice(2)) {
     if (flag === '--platform') platform = value;
   }
   let sourceCommit = process.env.GITHUB_SHA || null;
-  if (!sourceCommit) try { sourceCommit = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch {}
+  if (!sourceCommit) try { sourceCommit = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8', stdio: ['ignore', 'pipe',
+     'ignore'] }).trim(); } catch {}
   let sourceDirty = null;
-  try { sourceDirty = Boolean(execFileSync('git', ['status', '--porcelain', '--untracked-files=normal'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()); } catch {}
+  try { sourceDirty = Boolean(execFileSync('git', ['status', '--porcelain', '--untracked-files=normal'], { encoding: 'utf8', stdio: ['ignore',
+     'pipe', 'ignore'] }).trim()); } catch {}
   let exceptions;
   let policyError;
   try { exceptions = JSON.parse(await readFile(exceptionFile, 'utf8')); validateExceptions(exceptions); }
@@ -164,7 +195,8 @@ export async function main(args = process.argv.slice(2)) {
   await mkdir(resolve(reportDir), { recursive: true });
   await writeFile(join(resolve(reportDir), 'report.json'), JSON.stringify(report, null, 2) + '\n');
   await writeFile(join(resolve(reportDir), 'summary.md'), reportSummary(report));
-  const counts = Object.fromEntries(['clean', 'affected', 'unknown', 'excepted'].map((status) => [status, report.results.filter((r) => r.status === status).length]));
+  const counts = Object.fromEntries(['clean', 'affected', 'unknown', 'excepted'].map((status) => [status, report.results.filter((r) =>
+     r.status === status).length]));
   console.log(JSON.stringify({ reportDir, ...counts, exitCode: reportExitCode(report) }));
   return reportExitCode(report);
 }

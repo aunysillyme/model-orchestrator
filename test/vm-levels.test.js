@@ -36,7 +36,7 @@ esac
   stub('curl', `#!/usr/bin/env bash
 printf 'curl %s\\n' "$*" >> "$VM_TEST_TRACE"
 IFS= read -r auth
-[ "$auth" = "header = \\\"Authorization: Bearer $GATEWAY_MASTER_KEY\\\"" ] || exit 92
+[ "$auth" = "header = \\"Authorization: Bearer $GATEWAY_MASTER_KEY\\"" ] || exit 92
 if [ "\${VM_TEST_EMPTY_REPLY:-0}" = 1 ]; then
   printf '%s\\n' '{"choices":[{"message":{"content":""}}]}'
 else

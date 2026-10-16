@@ -20,7 +20,10 @@ export function planCompanionApplication({ primary, tools = [], project, files, 
   // R1: refuse an oversized pre-existing MCP config before it is read, the
   // same way invalid JSON is refused today.
   if (existsSync(path) && statSync(path).size > ACTIVATION_JSON_BYTE_CAP) {
-    throw refuse(`${path}: larger than the ${ACTIVATION_JSON_BYTE_CAP} byte (10 MB) cap on a pre-existing settings/MCP JSON file; nothing written`);
+    throw refuse((`${path}` +
+      ": larger than the " +
+      `${ACTIVATION_JSON_BYTE_CAP}` +
+      " byte (10 MB) cap on a pre-existing settings/MCP JSON file; nothing written"));
   }
   const original = existsSync(path) ? readFileSync(path) : null;
   let settings = {};
@@ -70,6 +73,7 @@ export function planCompanionApplication({ primary, tools = [], project, files, 
 
 // The generated README can use conditional guidance before a merge is planned;
 // the terminal supplies registrations to describe the observed merge result.
+/** @param {{primary?: any, tools?: any[], project?: string, dir?: string, applySnippets?: boolean, registrations?: any[]}} [options] */
 export function companionRegistrationSteps({ primary, tools = [], project, dir, applySnippets = false, registrations } = {}) {
   const root = resolve(project || process.cwd());
   const docs = resolve(dir || 'ai-orchestrator');
@@ -83,21 +87,43 @@ export function companionRegistrationSteps({ primary, tools = [], project, dir, 
     const registered = applySnippets && host && rel;
     if (!registered) {
       if (!rel) {
-        steps.push(`${tool.id}: follow ${join(docs, tool.id.toUpperCase() + '.md')} to set it up with ${primary?.chatName || primary?.name || 'your agent'}`);
+        steps.push((`${tool.id}` +
+          ": follow " +
+          `${join(docs, tool.id.toUpperCase() + '.md')}` +
+          " to set it up with " +
+          `${primary?.chatName || primary?.name || 'your agent'}`));
         continue;
       }
       const target = host ? join(root, host.file) : 'your agent\'s MCP config (user-managed)';
-      steps.push(`${tool.id}: merge ${snippet} into ${target}; follow ${join(docs, tool.id.toUpperCase() + '.md')} for prerequisites`);
+      steps.push((`${tool.id}` +
+        ": merge " +
+        `${snippet}` +
+        " into " +
+        `${target}` +
+        "; follow " +
+        `${join(docs, tool.id.toUpperCase() + '.md')}` +
+        " for prerequisites"));
       continue;
     }
     if (state?.status === 'conflict') {
-      steps.push(`${tool.id}: review the existing ${tool.id} entry in ${join(root, host.file)} against ${snippet} (existing entry kept)`);
+      steps.push((`${tool.id}` +
+        ": review the existing " +
+        `${tool.id}` +
+        " entry in " +
+        `${join(root, host.file)}` +
+        " against " +
+        `${snippet}` +
+        " (existing entry kept)"));
       continue;
     }
     if (tool.id === 'codecalc') {
       steps.push(`codecalc: if uv or Python 3.10+ is missing, install it using ${join(docs, 'CODECALC.md')}`);
     } else if (tool.id === 'obsidian-tc' && (!state || state.needsConfiguration)) {
-      steps.push(`obsidian-tc: set OBSIDIAN_TC_CONFIG in ${join(root, host.file)} to your config file path; follow ${join(docs, 'OBSIDIAN-TC.md')} for vault setup`);
+      steps.push(("obsidian-tc: set OBSIDIAN_TC_CONFIG in " +
+        `${join(root, host.file)}` +
+        " to your config file path; follow " +
+        `${join(docs, 'OBSIDIAN-TC.md')}` +
+        " for vault setup"));
     }
   }
   return steps;

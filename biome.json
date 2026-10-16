@@ -1,0 +1,65 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "files": {
+    "includes": [
+      "bin/**",
+      "src/**",
+      "templates/**",
+      "scripts/**",
+      "test/**",
+      "!templates/agents/snippets/route-gate.mjs",
+      "!templates/agents/snippets/subagent-context.mjs"
+    ]
+  },
+  "formatter": {
+    "enabled": false
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "style": {
+        "useTemplate": "off"
+      },
+      "complexity": {
+        "useOptionalChain": "off",
+        "noAdjacentSpacesInRegex": "off"
+      },
+      "correctness": {
+        "noUnusedFunctionParameters": "off",
+        "noUnsafeFinally": "off"
+      },
+      "suspicious": {
+        "noControlCharactersInRegex": "off",
+        "noTemplateCurlyInString": "off",
+        "useIterableCallbackReturn": "off"
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": [
+        "src/node-compat.d.ts"
+      ],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noExplicitAny": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "templates/agents/snippets/subagent-context.rendered.mjs"
+      ],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noConstantCondition": "off"
+          }
+        }
+      }
+    }
+  ]
+}

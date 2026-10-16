@@ -70,7 +70,8 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { StringDecoder } from 'node:string_decoder';
 import { createHash } from 'node:crypto';
-import { readFileSync, existsSync, mkdirSync, appendFileSync, mkdtempSync, rmSync, accessSync, constants, realpathSync, statSync, lstatSync, fstatSync, openSync, readSync, closeSync } from 'node:fs';
+import { readFileSync, existsSync, mkdirSync, appendFileSync, mkdtempSync, rmSync, accessSync, constants, realpathSync, statSync, lstatSync,
+   fstatSync, openSync, readSync, closeSync } from 'node:fs';
 import { join, dirname, delimiter, resolve, relative, isAbsolute, sep } from 'node:path';
 import { tmpdir, homedir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -134,7 +135,7 @@ function candidateExtensions() {
 }
 
 function which(bin) {
-  const dirs = (process.env['PATH'] || '').split(delimiter).filter(Boolean);
+  const dirs = (process.env.PATH || '').split(delimiter).filter(Boolean);
   const home = homedir();
   dirs.push(join(home, '.local', 'bin'), join(home, '.grok', 'bin'), join(home, '.npm-global', 'bin'));
   const exts = candidateExtensions();
@@ -204,7 +205,8 @@ export function judgeClaude(rc, out) {
     if (!Array.isArray(o.errors) || !o.errors.every(e => typeof e === 'string')) return fail('error_message_not_string', 'errors was not an array of strings');
     if (o.errors.length) return fail('is_error', 'result carried execution errors');
   }
-  if (o.stop_reason != null && !['end_turn', 'stop_sequence', 'refusal'].includes(o.stop_reason)) return fail('bad_stop_reason', 'result stopped before completing a response');
+  if (o.stop_reason != null && !['end_turn', 'stop_sequence', 'refusal'].includes(o.stop_reason)) return fail('bad_stop_reason',
+     'result stopped before completing a response');
   if (typeof o.result !== 'string') return fail('result_not_string', 'result was not a string');
   const text = o.result.trim();
   return text ? pass(text, 'subtype=success, is_error=false') : fail('empty_result', 'success but empty result');
@@ -336,7 +338,8 @@ export const AUTO_EFFORT = {
 export function gitChangedLines(cwd) {
   try {
     const safeConfig = ['-c', 'core.fsmonitor=false', '-c', 'core.hooksPath=/dev/null'];
-    const r = spawnSync('git', [...safeConfig, 'diff', '--no-ext-diff', '--no-textconv', '--numstat', '-z', 'HEAD'], { cwd, timeout: 5000, maxBuffer: 1024 * 1024 });
+    const r = spawnSync('git', [...safeConfig, 'diff', '--no-ext-diff', '--no-textconv', '--numstat', '-z', 'HEAD'], { cwd, timeout: 5000,
+       maxBuffer: 1024 * 1024 });
     if (r.error || r.status !== 0) return null;
     let total = 0;
     for (const row of String(r.stdout).split('\0')) {
@@ -407,7 +410,11 @@ export function resolveAutoEffort(lane, requested, prompt, audit, cwd = process.
 export const ROUTE_VALUE = /^[A-Za-z0-9][A-Za-z0-9._:@/+-]{0,63}$/;
 export function badRouteValue(kind, v) {
   if (typeof v !== 'string' || !ROUTE_VALUE.test(v)) {
-    return `--${kind} must be 1 to 64 characters of letters, digits, dot, underscore, colon, at, slash, plus or dash, and may not start with a dash: ${JSON.stringify(v)}`;
+    return ("--" +
+      `${kind}` +
+      " must be 1 to 64 characters of letters, digits, dot, underscore, colon, at, slash, plus or dash, and " +
+      "may not start with a dash: " +
+      `${JSON.stringify(v)}`);
   }
   return null;
 }
@@ -502,6 +509,7 @@ export function safeJudge(lane, rc, out, err, outFile) {
 // Terminal output only; nothing redacted here reaches the durable log anyway.
 // Redact BEFORE clipping: a clip first can cut a long token so its tail no
 // longer matches any pattern.
+/** @type {Array<[RegExp, string]>} */
 export const SECRET_PATTERNS = [
   // A JSON string value, escapes included; an unterminated value (a clipped line) runs to the end.
   // The optional backslashes also catch a JSON body escaped inside another string.
@@ -661,7 +669,11 @@ function authoritativeBlob(lane, out, err, detail, rc) {
 
 export function sigAuth(lane, blob) {
   const b = blob.toLowerCase();
-  if (lane === 'claude') return /authentication_error|permission_error|invalid api key|not logged in|please run \/login|failed to authenticate|oauth (?:token|session).*expired|api_error_status=(?:401|403)|api error: (?:401|403)\b/.test(b);
+  if (lane === 'claude') return new RegExp(
+    "authentication_error|permission_error|invalid api key|not logged in|please run \\/login|failed to " +
+    "authenticate|oauth (?:token|session).*expired|api_error_status=(?:401|403)|api error: (?:401|403)\\b",
+    ""
+  ).test(b);
   if (lane === 'qwen') return b.includes('missing api key');
   if (lane === 'agy') return b.includes('you are not logged into antigravity') || b.includes('not authenticated');
   return false; // codex, grok, hermes: no documented native auth signal
@@ -669,7 +681,9 @@ export function sigAuth(lane, blob) {
 
 export function sigQuota(lane, blob) {
   const b = blob.toLowerCase();
-  if (lane === 'claude') return /rate_limit_error|rate limit|insufficient credits|credit balance|you['’]ve hit your limit|api_error_status=429|api error: 429\b/.test(b);
+  if (lane === 'claude') return (
+    /rate_limit_error|rate limit|insufficient credits|credit balance|you['’]ve hit your limit|api_error_status=429|api error: 429\b/.test(b)
+  );
   if (lane === 'qwen') return b.includes('[api error: 402') || b.includes('requires more credits') || blob.includes(' 429') || b.includes('rate limit');
   if (lane === 'codex') return blob.includes('usage_limit_exceeded') || b.includes("you've hit your usage limit");
   if (lane === 'hermes') return hermesQuotaText(b);
@@ -764,7 +778,8 @@ export function isInsideRoot(root, p, pathApi = { relative, isAbsolute, sep }) {
   const rel = pathApi.relative(root, p);
   return !!rel && !pathApi.isAbsolute(rel) && rel !== '..' && !rel.startsWith('..' + pathApi.sep);
 }
-export function refusedGrok(out, { root = process.env.CLI_RUN_GROK_SESSIONS_ROOT || join(homedir(), '.grok', 'sessions'), cwd = process.cwd(), cap = GROK_TRANSCRIPT_CAP } = {}) {
+export function refusedGrok(out, { root = process.env.CLI_RUN_GROK_SESSIONS_ROOT || join(homedir(), '.grok', 'sessions'), cwd = process.cwd(),
+   cap = GROK_TRANSCRIPT_CAP } = {}) {
   let o;
   try {
     o = JSON.parse(out);
@@ -863,16 +878,20 @@ function deliverableSnippet(out, limit = 160) {
 }
 
 const FIX = {
-  auth: 'set the credential the message above names (its environment variable, or the lane\'s own login command), then rerun',
+  auth: ("set the credential the message above names (its environment variable, or the lane's own login " +
+    "command), then rerun"),
   quota: 'switch to another lane, or wait for the reset time if the message gave one',
   rejected: 'correct the model id, flag or request the upstream message names',
-  mismatch: 'pair the model with a provider that serves it: run `hermes model`, or pin both with --provider and --model (or "defaults": {"hermes": {"provider": ..., "model": ...}} in bin/lanes.json)',
+  mismatch: ("pair the model with a provider that serves it: run `hermes model`, or pin both with --provider and " +
+    "--model (or \"defaults\": {\"hermes\": {\"provider\": ..., \"model\": ...}} in bin/lanes.json)"),
   refused: 'adjust the hook or deny rule named above, or give this lane the tool it needs',
   cut_short: 'rerun once; if it recurs, run without --quiet and read the lane\'s stderr on the terminal',
   empty: 'rerun once, or use another lane',
   timeout: 'raise --timeout, or split the brief into smaller pieces',
   no_output: 'rerun once; if it recurs, check that the lane runs on its own outside cli-run',
-  too_large: 'save the brief to a file and pass a short prompt that names its path (for example "Read TASK_BRIEF.md and follow it"), or split the brief into smaller pieces; --brief pastes the file into the command line, so it does not help here'
+  too_large: ("save the brief to a file and pass a short prompt that names its path (for example \"Read " +
+    "TASK_BRIEF.md and follow it\"), or split the brief into smaller pieces; --brief pastes the file into " +
+    "the command line, so it does not help here")
 };
 
 // A one-line problem naming the concrete cause, and a one-line fix. The caller
@@ -894,7 +913,8 @@ export function problemAndFix(lane, cls, { out = '', err = '', detail = '', refu
     case 'cut_short': return { problem: `${tag} cut short: ${d || 'no terminal success event, cause not identifiable'}`, fix: FIX.cut_short };
     case 'empty': return { problem: `${tag} empty: ${d || 'completed but delivered nothing'}`, fix: FIX.empty };
     case 'timeout': return { problem: `${tag} timeout: ${d || 'exceeded the wall clock'}`, fix: FIX.timeout };
-    case 'unavailable': return { problem: `${tag} unavailable: ${d || 'binary not found on PATH'}`, fix: `install the ${lane} CLI and put it on PATH, or enable it in lanes.json` };
+    case 'unavailable': return { problem: `${tag} unavailable: ${d || 'binary not found on PATH'}`, fix:
+       `install the ${lane} CLI and put it on PATH, or enable it in lanes.json` };
     case 'no_output': return { problem: `${tag} no output: the process wrote nothing to stdout or stderr`, fix: FIX.no_output };
     case 'ok':
       if (Number.isInteger(refused) && refused > 0) {
@@ -909,6 +929,19 @@ export function problemAndFix(lane, cls, { out = '', err = '', detail = '', refu
 // Classify a judged run. `reason`/`detail` are the judge's own (not the
 // wrapper's decorated detail). A nonzero vendor exit is never ok, whatever
 // came back. Never throws.
+/**
+ * @typedef {object} ClassifiedInput
+ * @property {number} [rc]
+ * @property {string} [out]
+ * @property {string} [err]
+ * @property {string} [reason]
+ * @property {string} [detail]
+ * @property {string} [text]
+ * @property {object} [refusedOpts]
+ */
+/** @param {string} lane
+ * @param {ClassifiedInput} [options]
+ */
 export function classifyRun(lane, { rc = 0, out = '', err = '', reason = '', detail = '', text = '', refusedOpts } = {}) {
   out = typeof out === 'string' ? out : '';
   err = typeof err === 'string' ? err : '';
@@ -1034,7 +1067,10 @@ export function windowsSpawnPlan(argv, platform = process.platform, { allowCmdFa
   if (script) return { command: process.execPath, args: [script, ...args], options: {} };
   if (!allowCmdFallback) {
     return {
-      refuse: `${bin} is a batch file that is not a standard npm shim, and cli-run never passes a prompt through cmd.exe. Reinstall the CLI with npm (npm install -g <package>) so npm writes a standard shim, or put the CLI's .exe first on PATH.`
+      refuse: (`${bin}` +
+        " is a batch file that is not a standard npm shim, and cli-run never passes a prompt through cmd.exe. " +
+        "Reinstall the CLI with npm (npm install -g <package>) so npm writes a standard shim, or put the " +
+        "CLI's .exe first on PATH.")
     };
   }
   const comspec = process.env.ComSpec || process.env.COMSPEC || 'C:\\Windows\\System32\\cmd.exe';
@@ -1160,7 +1196,8 @@ export function runBounded(argv, timeoutSec, maxBuffer = 16 * 1024 * 1024) {
       err += errDec.end();
       // Resolve on the child's exit with a short grace for the pipes, so a stray
       // descendant holding stdout cannot keep this promise open.
-      setTimeout(() => resolveRun({ status, signal, stdout: out, stderr: err, error, timedOut, overrun, interrupted, outBytes, seconds: (Date.now() - t0) / 1000 }), 20);
+      setTimeout(() => resolveRun({ status, signal, stdout: out, stderr: err, error, timedOut, overrun, interrupted, outBytes, seconds:
+         (Date.now() - t0) / 1000 }), 20);
     };
     child.on('error', (e) => finish(null, null, e));
     child.on('exit', (status, signal) => {
@@ -1259,27 +1296,28 @@ export function resolveRoute(lane, opts, defaults) {
   const effort = opts.effort ?? d.effort ?? null;
   const provider = opts.provider ?? d.provider ?? null;
   const src = (flag, def) => (flag != null ? 'flag' : def != null ? 'lanes.json' : 'lane_default');
-  return { model, effort, provider, model_source: src(opts.model, d.model), effort_source: src(opts.effort, d.effort), provider_source: src(opts.provider, d.provider) };
+  return { model, effort, provider, model_source: src(opts.model, d.model), effort_source: src(opts.effort, d.effort), provider_source:
+     src(opts.provider, d.provider) };
 }
 
 function usage(msg, help = false) {
   if (msg) console.error('cli-run: ' + msg);
   const emit = help ? console.log : console.error;
-  emit(`usage: cli-run <${LANES.join('|')}> "<prompt>" [--brief FILE] [--timeout SECS] [--quiet]
-                [--model ID] [--effort LEVEL] [--provider ID] [--expect-file PATH] [--expect-json]
-       cli-run codex --audit "<prompt>"          read-only sandbox (audit shape)
-       cli-run qwen [--safe-mode] "<prompt>"     qwen-only flag
-       cli-run --doctor [--run]                  enabled lanes, binaries, and the route each one is pinned to
-
-  --model / --effort pin what a lane runs with, instead of letting it inherit its
-  own config. Every lane takes --model; every lane except qwen takes --effort.
-  Hermes also takes --provider; it needs --model, a defaults model, or HERMES_INFERENCE_MODEL.
-  Levels are the vendor's own (agy low|medium|high, hermes none|minimal|...): an
-  unknown level is rejected by the lane, and reported by class (codex: rejected, 16).
-  Exit codes: 0 ok, 10 empty, 11 no output, 12 timeout, 13 unavailable, 14 auth,
-  15 quota, 16 rejected, 17 refused, 18 cut short. Failures print a problem and a fix line.
-  auto sizes per call: below 4,000 prompt characters is medium, otherwise high; a codex audit is always high. Auto never resolves above high.
-  Pin them per lane instead of per call with "defaults" in bin/lanes.json.`);
+  emit(("usage: cli-run <" +
+    `${LANES.join('|')}` +
+    "> \"<prompt>\" [--brief FILE] [--timeout SECS] [--quiet]\n                [--model ID] [--effort LEVEL] " +
+    "[--provider ID] [--expect-file PATH] [--expect-json]\n       cli-run codex --audit \"<prompt>\"         " +
+    " read-only sandbox (audit shape)\n       cli-run qwen [--safe-mode] \"<prompt>\"     qwen-only flag\n    " +
+    "   cli-run --doctor [--run]                  enabled lanes, binaries, and the route each one is " +
+    "pinned to\n\n  --model / --effort pin what a lane runs with, instead of letting it inherit its\n  own " +
+    "config. Every lane takes --model; every lane except qwen takes --effort.\n  Hermes also takes " +
+    "--provider; it needs --model, a defaults model, or HERMES_INFERENCE_MODEL.\n  Levels are the vendor's " +
+    "own (agy low|medium|high, hermes none|minimal|...): an\n  unknown level is rejected by the lane, and " +
+    "reported by class (codex: rejected, 16).\n  Exit codes: 0 ok, 10 empty, 11 no output, 12 timeout, 13 " +
+    "unavailable, 14 auth,\n  15 quota, 16 rejected, 17 refused, 18 cut short. Failures print a problem " +
+    "and a fix line.\n  auto sizes per call: below 4,000 prompt characters is medium, otherwise high; a " +
+    "codex audit is always high. Auto never resolves above high.\n  Pin them per lane instead of per call " +
+    "with \"defaults\" in bin/lanes.json."));
   return help ? OK : USAGE;
 }
 
@@ -1309,7 +1347,8 @@ function installedPrimary(here = dirname(fileURLToPath(import.meta.url))) {
 }
 
 // --doctor: the first thing to run after install.
-export async function doctor(run, { here = dirname(fileURLToPath(import.meta.url)), compact = false, config = laneConfig(here), primary = installedPrimary(here) } = {}) {
+export async function doctor(run, { here = dirname(fileURLToPath(import.meta.url)), compact = false, config = laneConfig(here), primary =
+   installedPrimary(here) } = {}) {
   const cfg = config;
   if (cfg === null) {
     console.error('doctor: lanes.json exists but is malformed; fix it first');
@@ -1325,7 +1364,8 @@ export async function doctor(run, { here = dirname(fileURLToPath(import.meta.url
       console.log('doctor: no executable lanes enabled.');
       return UNAVAILABLE;
     }
-    console.error('doctor: inactive: no executable lanes enabled. Use level 1 for a single-agent setup, or re-run the installer with a supported CLI selected.');
+    console.error(("doctor: inactive: no executable lanes enabled. Use level 1 for a single-agent setup, or re-run the " +
+      "installer with a supported CLI selected."));
     return UNAVAILABLE;
   }
   for (const lane of LANES) {
@@ -1336,8 +1376,15 @@ export async function doctor(run, { here = dirname(fileURLToPath(import.meta.url
     // A disabled lane has no route worth reporting; saying "not pinned" there
     // reads as a finding about a lane that is not going to run.
     const model = `${d.provider ? d.provider + ':' : ''}${d.model || 'lane default'}`;
-    const route = !on ? '' : d.effort === 'auto' ? `route ${model}/auto (sized per call)` : d.model || d.effort || d.provider ? `route ${model}/${d.effort || 'lane default'}` : 'route not pinned (inherits the lane\'s own config)';
-    let line = `  ${lane.padEnd(7)} ${on ? 'enabled ' : 'disabled'} ${bin ? 'binary ok' : 'binary MISSING'}${route ? '  ' + route : ''}`;
+    const route = !on ? '' : d.effort === 'auto' ? `route ${model}/auto (sized per call)` : d.model || d.effort || d.provider ?
+       `route ${model}/${d.effort || 'lane default'}` : 'route not pinned (inherits the lane\'s own config)';
+    let line = ("  " +
+      `${lane.padEnd(7)}` +
+      " " +
+      `${on ? 'enabled ' : 'disabled'}` +
+      " " +
+      `${bin ? 'binary ok' : 'binary MISSING'}` +
+      `${route ? '  ' + route : ''}`);
     if (on && !bin) bad++;
     if (on && bin && run) {
       const rc = await main([lane, 'Reply with exactly the word OK and nothing else.', '--timeout', '120', '--quiet'], { here });
@@ -1345,13 +1392,18 @@ export async function doctor(run, { here = dirname(fileURLToPath(import.meta.url
       if (rc !== OK) bad++;
     }
     console.log(compact ? `  ${lane}: ${bin ? 'present' : 'MISSING'}` : line);
-    if (on && lane === 'hermes' && d.model && !d.provider) console.log('    note: model pinned with no provider: Hermes sends it to its default provider. A model that provider does not serve fails with HTTP 400; pin "provider" beside "model".');
-    if (on && lane === 'hermes' && d.provider && !d.model) console.log('    note: provider pinned with no model: every run without --model will be refused unless HERMES_INFERENCE_MODEL supplies a model; pin "model" beside "provider".');
+    if (on && lane === 'hermes' && d.model &&
+       !d.provider) console.log(("    note: model pinned with no provider: Hermes sends it to its default provider. A model that " +
+      "provider does not serve fails with HTTP 400; pin \"provider\" beside \"model\"."));
+    if (on && lane === 'hermes' && d.provider &&
+       !d.model) console.log(("    note: provider pinned with no model: every run without --model will be refused unless " +
+      "HERMES_INFERENCE_MODEL supplies a model; pin \"model\" beside \"provider\"."));
   }
   console.log(bad ? `doctor: ${bad} problem(s)` : 'doctor: all enabled lanes ' + (run ? 'answered' : 'present'));
   if (!compact) {
     console.log('doctor checks presence and, with --run, a one-word canary. It does not check vendor versions.');
-    console.log('"route not pinned" means that lane runs on whatever its own config file says, which this tool cannot see. Pin it in lanes.json "defaults" if the route matters.');
+    console.log(("\"route not pinned\" means that lane runs on whatever its own config file says, which this tool cannot " +
+      "see. Pin it in lanes.json \"defaults\" if the route matters."));
   }
   return bad ? NO_DELIVERABLE : OK;
 }
@@ -1381,14 +1433,18 @@ export function checkContracts(opts, text, before) {
     if (!after.file || after.size === 0) return `--expect-file: ${p} is empty or not a regular file`;
     if (before && before.exists) {
       const changed = !before.file || after.sha !== before.sha || after.mtimeMs > before.mtimeMs;
-      if (!changed) return `--expect-file: ${p} existed before the run and was not changed by it (same content, same mtime); a pre-existing artifact is not this run's result`;
+      if (!changed) return ("--expect-file: " +
+        `${p}` +
+        " existed before the run and was not changed by it (same content, same mtime); a pre-existing " +
+        "artifact is not this run's result");
     }
   }
   if (opts.expectJson) {
     try {
       JSON.parse(unfence(text));
     } catch {
-      return '--expect-json: the response is not valid JSON (a single ```json fence around the whole response is accepted; prose around it is not)';
+      return ("--expect-json: the response is not valid JSON (a single ```json fence around the whole response is " +
+        "accepted; prose around it is not)");
     }
   }
   return null;
@@ -1399,7 +1455,8 @@ export async function main(argv, { here = dirname(fileURLToPath(import.meta.url)
   const VALUE = new Set(['--brief', '--timeout', '--model', '--effort', '--provider', '--expect-file']);
   const BOOL = new Set(['--quiet', '--audit', '--safe-mode', '--doctor', '--run', '--expect-json']);
   const args = [...argv];
-  const opts = { timeout: 900, quiet: false, audit: false, model: null, effort: null, provider: null, safeMode: false, brief: null, doctor: false, run: false, expectFile: null, expectJson: false };
+  const opts = { timeout: 900, quiet: false, audit: false, model: null, effort: null, provider: null, safeMode: false, brief: null, doctor: false,
+     run: false, expectFile: null, expectJson: false };
   const positional = [];
   while (args.length) {
     const a = args.shift();
@@ -1454,7 +1511,8 @@ export async function main(argv, { here = dirname(fileURLToPath(import.meta.url)
   }
   // qwen has no reasoning flag. Dropping --effort silently would leave the caller
   // believing a route that never happened, which is the defect this feature fixes.
-  if (opts.effort && !(LANE_FLAGS[lane] && LANE_FLAGS[lane].effort)) return usage(`${lane} has no reasoning-effort flag; --effort is not available on this lane`);
+  if (opts.effort && !(LANE_FLAGS[lane] &&
+     LANE_FLAGS[lane].effort)) return usage(`${lane} has no reasoning-effort flag; --effort is not available on this lane`);
   if (opts.provider && !LANE_FLAGS[lane].provider) return usage(`${lane} has no provider flag; --provider is hermes-only`);
 
   const digest = createHash('sha256').update(prompt).digest('hex').slice(0, 12);
@@ -1465,7 +1523,8 @@ export async function main(argv, { here = dirname(fileURLToPath(import.meta.url)
   // gap this feature exists to close. A malformed lanes.json has no usable
   // defaults, so the flags stand alone and say so.
   const route = resolveRoute(lane, opts, cfg === null ? {} : cfg.defaults);
-  if (route.provider && !route.model && !(process.env.HERMES_INFERENCE_MODEL || '').trim()) return usage('--provider <p> needs a model: pass --model, or set "model" beside "provider" in lanes.json "defaults"');
+  if (route.provider && !route.model && !(process.env.HERMES_INFERENCE_MODEL ||
+     '').trim()) return usage('--provider <p> needs a model: pass --model, or set "model" beside "provider" in lanes.json "defaults"');
   const sizing = resolveAutoEffort(lane, route.effort, prompt, opts.audit);
   opts.model = route.model;
   opts.effort = sizing.resolved;
@@ -1490,10 +1549,12 @@ export async function main(argv, { here = dirname(fileURLToPath(import.meta.url)
     return UNAVAILABLE;
   };
   if (enabled === null) {
-    return unavailable({ msg: 'lanes.json exists but is not a valid {"enabled": [...]} file; refusing every lane until it is fixed', reason: 'lanes_json_malformed', fix: 'fix bin/lanes.json, or delete it to enable every lane' });
+    return unavailable({ msg: 'lanes.json exists but is not a valid {"enabled": [...]} file; refusing every lane until it is fixed',
+      reason: 'lanes_json_malformed', fix: 'fix bin/lanes.json, or delete it to enable every lane' });
   }
   if (!enabled.includes(lane)) {
-    return unavailable({ msg: `${lane} is not enabled in lanes.json`, reason: 'disabled', fix: `add "${lane}" to "enabled" in bin/lanes.json, or use an enabled lane` });
+    return unavailable({ msg: `${lane} is not enabled in lanes.json`, reason: 'disabled', fix:
+       `add "${lane}" to "enabled" in bin/lanes.json, or use an enabled lane` });
   }
   const binary = which(lane);
   if (!binary) {
@@ -1564,7 +1625,24 @@ export async function main(argv, { here = dirname(fileURLToPath(import.meta.url)
     if (text && code === OK) process.stdout.write(text + '\n');
     const routeNote = `provider:${route.provider || 'default'} model:${route.model || 'default'} effort:${route.effort || 'default'}`;
     if (!opts.quiet) {
-      console.error(terminalSafe(`cli-run[${lane}] ${verdict} rc=${code} class=${cls} refused=${refused === null ? 'null' : refused} ${r.seconds.toFixed(1)}s raw=${r.outBytes || 0}B route=${routeNote} :: ${redact(detail)}`));
+      console.error(terminalSafe(("cli-run[" +
+        `${lane}` +
+        "] " +
+        `${verdict}` +
+        " rc=" +
+        `${code}` +
+        " class=" +
+        `${cls}` +
+        " refused=" +
+        `${refused === null ? 'null' : refused}` +
+        " " +
+        `${r.seconds.toFixed(1)}` +
+        "s raw=" +
+        `${r.outBytes || 0}` +
+        "B route=" +
+        `${routeNote}` +
+        " :: " +
+        `${redact(detail)}`)));
       let authoritative = null;
       if (lane === 'claude' && ['auth', 'quota', 'rejected'].includes(cls)) authoritative = stderrHead(claudeErrorText(out) || err);
       if (lane === 'codex' && (cls === 'quota' || cls === 'rejected')) authoritative = codexPrimaryError(out);
@@ -1573,7 +1651,9 @@ export async function main(argv, { here = dirname(fileURLToPath(import.meta.url)
       if (pf.fix) console.error('cli-run fix: ' + terminalSafe(pf.fix));
     }
     // Durable log: fixed reason code, fixed class and structural numbers only.
-    log({ ...base, verdict, class: cls in CLASS_CODES || cls === 'interrupted' ? cls : 'unknown', rc: code, cli_rc: r.status, signal: r.signal || null, refused: Number.isInteger(refused) ? refused : null, seconds: Math.round(r.seconds * 100) / 100, raw_bytes: r.outBytes || 0, deliverable_bytes: Buffer.byteLength(text), reason: REASONS.has(reason) ? reason : 'unknown' });
+    log({ ...base, verdict, class: cls in CLASS_CODES || cls === 'interrupted' ? cls : 'unknown', rc: code, cli_rc: r.status, signal: r.signal ||
+       null, refused: Number.isInteger(refused) ? refused : null, seconds: Math.round(r.seconds * 100) / 100, raw_bytes: r.outBytes || 0,
+          deliverable_bytes: Buffer.byteLength(text), reason: REASONS.has(reason) ? reason : 'unknown' });
     return code;
   } finally {
     rmSync(tmp, { recursive: true, force: true });
