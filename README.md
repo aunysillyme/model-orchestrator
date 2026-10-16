@@ -4,7 +4,7 @@
 
 **Model router for AI coding agents: routes routine work to cheaper models with routing rules, 8 subagents, hooks and a CLI runner.**
 
-Routine work can use a cheap model. Planning and difficult decisions can use a stronger one. Your agent gets editable rules for making that choice and a runner that checks whether delegated work returned a result.
+Routine work can use a cheap model. Planning and difficult decisions can use a stronger one. Your agent gets editable rules for making that choice and a runner that checks whether delegated work returned a result that passes your checks.
 
 A **lane** is one AI tool or model your agent can hand work to. A **tier** describes a model's strength and cost: planning model, working model or cheap model.
 
@@ -22,7 +22,7 @@ npx model-orchestrator
 | Subagents and hooks | Named jobs with explicit tools, plus routing reminders inside Claude Code |
 | Step-by-step playbooks (protocols) | A build process from acceptance checks through independent review and verified use |
 | Task brief and context file | One shared set of facts, plus each worker's scope, permissions and checks |
-| Lane runner | Honest exit codes, optional file or JSON checks, requested model and effort recorded per run |
+| Lane runner | Honest exit codes, optional file or JSON checks, requested model and effort recorded per run, verify commands that fail the run (exit 24), and a switch to another installed lane when one hits its quota |
 | Routing metrics | Your local routing split and subagent activity |
 
 The package sits **above the request layer**: your agent reads the rules and picks the lane. Request-level proxies and gateways can carry the API calls underneath it. `aunx route` prints a deterministic suggestion for your agent to consider.
@@ -113,7 +113,7 @@ aunx cli-run '<lane>' --brief TASK_BRIEF.md
 node bin/cli-run.mjs '<lane>' --brief TASK_BRIEF.md
 ```
 
-`--doctor --run` sends a small live check through your own vendor sign-ins. Each run records the requested model and effort and a fixed result class in a local log. A missing result returns nonzero. Add `--expect-file` or `--expect-json` when success needs a concrete output contract. [Runner reference](bin/README.md).
+`--doctor --run` sends a small live check through your own vendor sign-ins. Each run records the requested model and effort and a fixed result class in a local log. A missing result returns nonzero. Add `--expect-file` or `--expect-json` when success needs a concrete output contract. Verify commands from a brief's `## Verify commands` section or repeatable `--verify` run after accepted output; a failure exits 24 and keeps the output. After a quota result, `fallbacks.json` guides the runner to the next installed lane in another billing pool and names the lane that ran; `--no-fallback` turns this off. [Runner reference](bin/README.md).
 
 ## Task brief (`aunx brief`) and acceptance checks (`aunx checks`)
 
@@ -131,9 +131,12 @@ Fill the context file with verified facts, quote the user's ask in the brief, an
 ```bash
 aunx route "rename this file"
 aunx route "design the auth system"
+aunx route --class frontier --data private --write
 ```
 
 The first suggests cheap bulk work; the second suggests planning. Each prints the AI assigned to that role in your installation. Use `--dir PATH` for a custom rules folder; otherwise it reads `./ai-orchestrator/MANIFEST.json`, then `./MANIFEST.json`. With no install, it prints a generic suggestion and an install notice. The classifier uses keywords and points unmatched requests to `ROUTING.md`. It reads JSON and launches no worker.
+
+The class command prints the first installed lane eligible for that class, data and read or write access, and names why each earlier candidate was skipped. Classes live in editable `classes.json`; `--json` gives machine output.
 
 ## See where your agent sends work (`aunx route-metrics`)
 
