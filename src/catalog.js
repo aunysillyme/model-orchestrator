@@ -36,8 +36,8 @@
 //              source, checked, tierModels }. A null tierModels leaves model selection
 //              to the user's plan and agent configuration.
 
-export const CATALOG_MODELS = { measuredAt: '2026-09-23', expiresAt: '2026-10-23', source:
-   'catalog compatibility snapshot; verify with the provider before use' };
+export const CATALOG_MODELS = { measuredAt: '2026-10-16', expiresAt: '2026-11-15', source:
+  'catalog compatibility snapshot; verify with the provider before use' };
 
 // Capability policy, independent of subscriptions. Initial price ceilings come
 // from the official overview; Haiku's published prices are lower bounds (From).
@@ -318,7 +318,7 @@ export const AIS = [
     summary: 'A local model runtime; work sent here stays on the machine',
     minLevel: 2,
     install: { url: 'https://ollama.com/download', brew: 'ollama' },
-    builtAgainst: '0.35.1',
+    builtAgainst: '0.40.5',
     auth: 'none',
     rulesFile: null,
   },
@@ -476,24 +476,25 @@ export const toolById = Object.fromEntries(TOOLS.map((t) => [t.id, t]));
 // Model names are a dated compatibility snapshot, refreshed against vendor catalogs.
 
 export const PROVIDERS = [
-  { id: 'anthropic', name: 'Anthropic API', envName: 'ANTHROPIC_API_KEY', modelsChecked: MODEL_POLICY.checked, modelsExpires: '2026-11-07', lanes:
-     [['standard', 'anthropic/claude-sonnet-5-5'], ['deep', 'anthropic/claude-opus-5-5']] },
-  { id: 'openai', name: 'OpenAI API', envName: 'OPENAI_API_KEY', modelsChecked: CATALOG_MODELS.measuredAt, modelsExpires: CATALOG_MODELS.expiresAt,
-     lanes: [['second-opinion', 'openai/gpt-5.6-terra']] },
-  { id: 'google', name: 'Google Gemini API', envName: 'GEMINI_API_KEY', modelsChecked: CATALOG_MODELS.measuredAt, modelsExpires:
-     CATALOG_MODELS.expiresAt, lanes: [['long-context', 'gemini/gemini-3.1-pro']] },
-  { id: 'xai', name: 'xAI API', envName: 'XAI_API_KEY', modelsChecked: CATALOG_MODELS.measuredAt, modelsExpires: CATALOG_MODELS.expiresAt, lanes:
-     [['live-fast', 'xai/grok-4.1-fast']] },
-  { id: 'openrouter', name: 'OpenRouter (many cheap models, one key)', envName: 'OPENROUTER_API_KEY', modelsChecked: CATALOG_MODELS.measuredAt,
-     modelsExpires: CATALOG_MODELS.expiresAt, lanes: [['bulk-cheap', 'openrouter/qwen/qwen3.7-flash']] }
+  { id: 'anthropic', name: 'Anthropic API', envName: 'ANTHROPIC_API_KEY',
+    modelsChecked: MODEL_POLICY.checked, modelsExpires: '2026-11-07',
+    lanes: [['standard', 'anthropic/claude-sonnet-5-5'], ['deep', 'anthropic/claude-opus-5-5']] },
+  { id: 'openai', name: 'OpenAI API', envName: 'OPENAI_API_KEY',
+    modelsChecked: CATALOG_MODELS.measuredAt, modelsExpires: CATALOG_MODELS.expiresAt, lanes: [['second-opinion', 'openai/gpt-6.1-sol']] },
+  { id: 'google', name: 'Google Gemini API', envName: 'GEMINI_API_KEY',
+    modelsChecked: CATALOG_MODELS.measuredAt, modelsExpires: CATALOG_MODELS.expiresAt, lanes: [['long-context', 'gemini/gemini-4-argon']] },
+  { id: 'xai', name: 'xAI API', envName: 'XAI_API_KEY',
+    modelsChecked: CATALOG_MODELS.measuredAt, modelsExpires: CATALOG_MODELS.expiresAt, lanes: [['live-fast', 'xai/grok-4.3']] },
+  { id: 'openrouter', name: 'OpenRouter (many cheap models, one key)', envName: 'OPENROUTER_API_KEY',
+    modelsChecked: CATALOG_MODELS.measuredAt, modelsExpires: CATALOG_MODELS.expiresAt, lanes: [['bulk-cheap', 'openrouter/qwen/qwen3.7-flash']] }
 ];
 export const providerById = Object.fromEntries(PROVIDERS.map((p) => [p.id, p]));
 
 // Container image pins for the level 3 templates. Bump deliberately; a
 // reviewed box should not change underneath the user on a restart.
 export const IMAGES = {
-  litellm: 'ghcr.io/berriai/litellm:v1.104.0',
-  ollama: 'ollama/ollama:0.35.1'
+  litellm: 'ghcr.io/berriai/litellm:v1.105.1',
+  ollama: 'ollama/ollama:0.40.5'
 };
 
 export const byId = Object.fromEntries(AIS.map((a) => [a.id, a]));

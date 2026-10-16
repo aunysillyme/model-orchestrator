@@ -1,830 +1,1244 @@
 [
   {
-    "ecosystem": "python-pkg",
-    "package": "multidict",
-    "version": "6.7.1",
-    "advisory": "CVE-2026-104874",
-    "target": "ghcr.io/berriai/litellm:v1.104.0",
-    "rationale": "Inside the vendor's own image. v1.104.0 is the newest stable release (checked 2026-10-06) and carries this one advisory, fixed upstream in multidict 6.9.1 but not yet in a stable image. Level 3 gateway only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "ecosystem": "wolfi",
+    "package": "glibc-2.44",
+    "version": "2.44-r6",
+    "advisory": "CVE-2026-8674",
+    "target": "ghcr.io/berriai/litellm:v1.105.1",
+    "rationale": "Inside the vendor's own image. v1.105.1 is the newest stable release (checked 2026-10-16); its Wolfi base still ships glibc 2.44-r6 (fixed in 2.44-r8), and the v1.106.0-rc.4 and v1.107.0-dev.3 images carry the same packages. Level 3 gateway only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "wolfi",
+    "package": "glibc-2.44",
+    "version": "2.44-r6",
+    "advisory": "CVE-2026-86805",
+    "target": "ghcr.io/berriai/litellm:v1.105.1",
+    "rationale": "Inside the vendor's own image. v1.105.1 is the newest stable release (checked 2026-10-16); its Wolfi base still ships glibc 2.44-r6 (fixed in 2.44-r8), and the v1.106.0-rc.4 and v1.107.0-dev.3 images carry the same packages. Level 3 gateway only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "wolfi",
+    "package": "glibc-2.44",
+    "version": "2.44-r6",
+    "advisory": "CVE-2026-89092",
+    "target": "ghcr.io/berriai/litellm:v1.105.1",
+    "rationale": "Inside the vendor's own image. v1.105.1 is the newest stable release (checked 2026-10-16); its Wolfi base still ships glibc 2.44-r6 (fixed in 2.44-r8), and the v1.106.0-rc.4 and v1.107.0-dev.3 images carry the same packages. Level 3 gateway only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "wolfi",
+    "package": "glibc-2.44",
+    "version": "2.44-r6",
+    "advisory": "CVE-2026-95818",
+    "target": "ghcr.io/berriai/litellm:v1.105.1",
+    "rationale": "Inside the vendor's own image. v1.105.1 is the newest stable release (checked 2026-10-16); its Wolfi base still ships glibc 2.44-r6 (fixed in 2.44-r8), and the v1.106.0-rc.4 and v1.107.0-dev.3 images carry the same packages. Level 3 gateway only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "wolfi",
+    "package": "glibc-2.44-locale-posix",
+    "version": "2.44-r6",
+    "advisory": "CVE-2026-8674",
+    "target": "ghcr.io/berriai/litellm:v1.105.1",
+    "rationale": "Inside the vendor's own image. v1.105.1 is the newest stable release (checked 2026-10-16); its Wolfi base still ships glibc 2.44-r6 (fixed in 2.44-r8), and the v1.106.0-rc.4 and v1.107.0-dev.3 images carry the same packages. Level 3 gateway only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "wolfi",
+    "package": "glibc-2.44-locale-posix",
+    "version": "2.44-r6",
+    "advisory": "CVE-2026-86805",
+    "target": "ghcr.io/berriai/litellm:v1.105.1",
+    "rationale": "Inside the vendor's own image. v1.105.1 is the newest stable release (checked 2026-10-16); its Wolfi base still ships glibc 2.44-r6 (fixed in 2.44-r8), and the v1.106.0-rc.4 and v1.107.0-dev.3 images carry the same packages. Level 3 gateway only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "wolfi",
+    "package": "glibc-2.44-locale-posix",
+    "version": "2.44-r6",
+    "advisory": "CVE-2026-89092",
+    "target": "ghcr.io/berriai/litellm:v1.105.1",
+    "rationale": "Inside the vendor's own image. v1.105.1 is the newest stable release (checked 2026-10-16); its Wolfi base still ships glibc 2.44-r6 (fixed in 2.44-r8), and the v1.106.0-rc.4 and v1.107.0-dev.3 images carry the same packages. Level 3 gateway only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "wolfi",
+    "package": "glibc-2.44-locale-posix",
+    "version": "2.44-r6",
+    "advisory": "CVE-2026-95818",
+    "target": "ghcr.io/berriai/litellm:v1.105.1",
+    "rationale": "Inside the vendor's own image. v1.105.1 is the newest stable release (checked 2026-10-16); its Wolfi base still ships glibc 2.44-r6 (fixed in 2.44-r8), and the v1.106.0-rc.4 and v1.107.0-dev.3 images carry the same packages. Level 3 gateway only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "wolfi",
+    "package": "ld-linux-2.44",
+    "version": "2.44-r6",
+    "advisory": "CVE-2026-8674",
+    "target": "ghcr.io/berriai/litellm:v1.105.1",
+    "rationale": "Inside the vendor's own image. v1.105.1 is the newest stable release (checked 2026-10-16); its Wolfi base still ships glibc 2.44-r6 (fixed in 2.44-r8), and the v1.106.0-rc.4 and v1.107.0-dev.3 images carry the same packages. Level 3 gateway only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "wolfi",
+    "package": "ld-linux-2.44",
+    "version": "2.44-r6",
+    "advisory": "CVE-2026-86805",
+    "target": "ghcr.io/berriai/litellm:v1.105.1",
+    "rationale": "Inside the vendor's own image. v1.105.1 is the newest stable release (checked 2026-10-16); its Wolfi base still ships glibc 2.44-r6 (fixed in 2.44-r8), and the v1.106.0-rc.4 and v1.107.0-dev.3 images carry the same packages. Level 3 gateway only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "wolfi",
+    "package": "ld-linux-2.44",
+    "version": "2.44-r6",
+    "advisory": "CVE-2026-89092",
+    "target": "ghcr.io/berriai/litellm:v1.105.1",
+    "rationale": "Inside the vendor's own image. v1.105.1 is the newest stable release (checked 2026-10-16); its Wolfi base still ships glibc 2.44-r6 (fixed in 2.44-r8), and the v1.106.0-rc.4 and v1.107.0-dev.3 images carry the same packages. Level 3 gateway only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "wolfi",
+    "package": "ld-linux-2.44",
+    "version": "2.44-r6",
+    "advisory": "CVE-2026-95818",
+    "target": "ghcr.io/berriai/litellm:v1.105.1",
+    "rationale": "Inside the vendor's own image. v1.105.1 is the newest stable release (checked 2026-10-16); its Wolfi base still ships glibc 2.44-r6 (fixed in 2.44-r8), and the v1.106.0-rc.4 and v1.107.0-dev.3 images carry the same packages. Level 3 gateway only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "wolfi",
+    "package": "libcrypt1-2.44",
+    "version": "2.44-r6",
+    "advisory": "CVE-2026-8674",
+    "target": "ghcr.io/berriai/litellm:v1.105.1",
+    "rationale": "Inside the vendor's own image. v1.105.1 is the newest stable release (checked 2026-10-16); its Wolfi base still ships glibc 2.44-r6 (fixed in 2.44-r8), and the v1.106.0-rc.4 and v1.107.0-dev.3 images carry the same packages. Level 3 gateway only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "wolfi",
+    "package": "libcrypt1-2.44",
+    "version": "2.44-r6",
+    "advisory": "CVE-2026-86805",
+    "target": "ghcr.io/berriai/litellm:v1.105.1",
+    "rationale": "Inside the vendor's own image. v1.105.1 is the newest stable release (checked 2026-10-16); its Wolfi base still ships glibc 2.44-r6 (fixed in 2.44-r8), and the v1.106.0-rc.4 and v1.107.0-dev.3 images carry the same packages. Level 3 gateway only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "wolfi",
+    "package": "libcrypt1-2.44",
+    "version": "2.44-r6",
+    "advisory": "CVE-2026-89092",
+    "target": "ghcr.io/berriai/litellm:v1.105.1",
+    "rationale": "Inside the vendor's own image. v1.105.1 is the newest stable release (checked 2026-10-16); its Wolfi base still ships glibc 2.44-r6 (fixed in 2.44-r8), and the v1.106.0-rc.4 and v1.107.0-dev.3 images carry the same packages. Level 3 gateway only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "wolfi",
+    "package": "libcrypt1-2.44",
+    "version": "2.44-r6",
+    "advisory": "CVE-2026-95818",
+    "target": "ghcr.io/berriai/litellm:v1.105.1",
+    "rationale": "Inside the vendor's own image. v1.105.1 is the newest stable release (checked 2026-10-16); its Wolfi base still ships glibc 2.44-r6 (fixed in 2.44-r8), and the v1.106.0-rc.4 and v1.107.0-dev.3 images carry the same packages. Level 3 gateway only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "ubuntu",
+    "package": "dash",
+    "version": "0.5.12-6ubuntu5",
+    "advisory": "CVE-2026-102473",
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "ubuntu",
+    "package": "dash",
+    "version": "0.5.12-6ubuntu5",
+    "advisory": "CVE-2026-102474",
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "ubuntu",
     "package": "libc-bin",
     "version": "2.39-0ubuntu8.9",
     "advisory": "CVE-2026-18374",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "ubuntu",
     "package": "libc-bin",
     "version": "2.39-0ubuntu8.9",
     "advisory": "CVE-2026-89092",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "ubuntu",
     "package": "libc6",
     "version": "2.39-0ubuntu8.9",
     "advisory": "CVE-2026-18374",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "ubuntu",
     "package": "libc6",
     "version": "2.39-0ubuntu8.9",
     "advisory": "CVE-2026-89092",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "ubuntu",
     "package": "libelf1t64",
     "version": "0.190-1.1ubuntu0.1",
     "advisory": "CVE-2025-1352",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "ubuntu",
     "package": "libelf1t64",
     "version": "0.190-1.1ubuntu0.1",
     "advisory": "CVE-2025-1376",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "ubuntu",
     "package": "libexpat1",
     "version": "2.6.1-2ubuntu0.6",
     "advisory": "CVE-2025-66382",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "ubuntu",
+    "package": "libgnutls30t64",
+    "version": "3.8.3-1.1ubuntu3.6",
+    "advisory": "CVE-2026-67693",
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "ubuntu",
+    "package": "libgnutls30t64",
+    "version": "3.8.3-1.1ubuntu3.6",
+    "advisory": "CVE-2026-88647",
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "ubuntu",
+    "package": "libgnutls30t64",
+    "version": "3.8.3-1.1ubuntu3.6",
+    "advisory": "CVE-2026-95184",
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "ubuntu",
+    "package": "libgnutls30t64",
+    "version": "3.8.3-1.1ubuntu3.6",
+    "advisory": "CVE-2026-95209",
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "ubuntu",
+    "package": "libgnutls30t64",
+    "version": "3.8.3-1.1ubuntu3.6",
+    "advisory": "CVE-2026-95210",
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "ubuntu",
     "package": "libicu74",
     "version": "74.2-1ubuntu3.1",
     "advisory": "CVE-2025-5222",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "ubuntu",
+    "package": "libpcre2-8-0",
+    "version": "10.42-4ubuntu2.1",
+    "advisory": "CVE-2026-103111",
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "ubuntu",
     "package": "libpcre2-8-0",
     "version": "10.42-4ubuntu2.1",
     "advisory": "CVE-2026-86145",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "ubuntu",
+    "package": "libpcre2-8-0",
+    "version": "10.42-4ubuntu2.1",
+    "advisory": "CVE-2026-89156",
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "ubuntu",
+    "package": "libpcre2-8-0",
+    "version": "10.42-4ubuntu2.1",
+    "advisory": "CVE-2026-89157",
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "ubuntu",
+    "package": "libpcre2-8-0",
+    "version": "10.42-4ubuntu2.1",
+    "advisory": "CVE-2026-89158",
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "ubuntu",
+    "package": "libpcre2-8-0",
+    "version": "10.42-4ubuntu2.1",
+    "advisory": "CVE-2026-89160",
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "ubuntu",
     "package": "libpcre2-8-0",
     "version": "10.42-4ubuntu2.1",
     "advisory": "CVE-2026-89161",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "ubuntu",
     "package": "libsystemd0",
     "version": "255.4-1ubuntu8.17",
     "advisory": "CVE-2026-40228",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "ubuntu",
     "package": "libudev1",
     "version": "255.4-1ubuntu8.17",
     "advisory": "CVE-2026-40228",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "ubuntu",
     "package": "login",
     "version": "1:4.13+dfsg1-4ubuntu3.2",
     "advisory": "CVE-2024-56433",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "ubuntu",
     "package": "passwd",
     "version": "1:4.13+dfsg1-4ubuntu3.2",
     "advisory": "CVE-2024-56433",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "ubuntu",
     "package": "tar",
     "version": "1.35+dfsg-3ubuntu0.4",
     "advisory": "CVE-2026-18477",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "ubuntu",
     "package": "tar",
     "version": "1.35+dfsg-3ubuntu0.4",
     "advisory": "CVE-2026-18508",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "ubuntu",
     "package": "zlib1g",
     "version": "1:1.3.dfsg-3.1ubuntu2.2",
     "advisory": "CVE-2026-85091",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "github.com/buger/jsonparser",
     "version": "v1.1.1",
     "advisory": "CVE-2026-32285",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "golang.org/x/crypto",
     "version": "v0.43.0",
     "advisory": "CVE-2026-39828",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "golang.org/x/crypto",
     "version": "v0.43.0",
     "advisory": "CVE-2026-39829",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "golang.org/x/crypto",
     "version": "v0.43.0",
     "advisory": "CVE-2026-39830",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "golang.org/x/crypto",
     "version": "v0.43.0",
     "advisory": "CVE-2026-39831",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "golang.org/x/crypto",
     "version": "v0.43.0",
     "advisory": "CVE-2026-39832",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "golang.org/x/crypto",
     "version": "v0.43.0",
     "advisory": "CVE-2026-39835",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "golang.org/x/crypto",
     "version": "v0.43.0",
     "advisory": "CVE-2026-42508",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "golang.org/x/crypto",
     "version": "v0.43.0",
     "advisory": "CVE-2026-46595",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "golang.org/x/crypto",
     "version": "v0.43.0",
     "advisory": "CVE-2026-46597",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "golang.org/x/crypto",
     "version": "v0.43.0",
     "advisory": "CVE-2026-56854",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "golang.org/x/crypto",
     "version": "v0.43.0",
     "advisory": "CVE-2025-47914",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "golang.org/x/crypto",
     "version": "v0.43.0",
     "advisory": "CVE-2025-58181",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "golang.org/x/crypto",
     "version": "v0.43.0",
     "advisory": "CVE-2026-39827",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "golang.org/x/crypto",
     "version": "v0.43.0",
     "advisory": "CVE-2026-39833",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "golang.org/x/crypto",
     "version": "v0.43.0",
     "advisory": "CVE-2026-39834",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "golang.org/x/crypto",
     "version": "v0.43.0",
     "advisory": "CVE-2026-46598",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "golang.org/x/crypto",
     "version": "v0.43.0",
     "advisory": "CVE-2026-56855",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "golang.org/x/crypto",
     "version": "v0.43.0",
     "advisory": "CVE-2026-78662",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "golang.org/x/crypto",
     "version": "v0.43.0",
     "advisory": "GO-2026-5932",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "golang.org/x/image",
     "version": "v0.22.0",
     "advisory": "CVE-2026-46602",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "golang.org/x/image",
     "version": "v0.22.0",
     "advisory": "CVE-2026-46603",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "golang.org/x/image",
     "version": "v0.22.0",
     "advisory": "CVE-2026-33809",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "golang.org/x/image",
     "version": "v0.22.0",
     "advisory": "CVE-2026-33812",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "golang.org/x/image",
     "version": "v0.22.0",
     "advisory": "CVE-2026-33813",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "golang.org/x/image",
     "version": "v0.22.0",
     "advisory": "CVE-2026-42500",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "golang.org/x/image",
     "version": "v0.22.0",
     "advisory": "CVE-2026-46599",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "golang.org/x/image",
     "version": "v0.22.0",
     "advisory": "CVE-2026-46601",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "golang.org/x/image",
     "version": "v0.22.0",
     "advisory": "CVE-2026-46604",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "golang.org/x/mod",
     "version": "v0.30.0",
     "advisory": "CVE-2026-56864",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "golang.org/x/mod",
     "version": "v0.30.0",
     "advisory": "CVE-2026-56865",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "golang.org/x/net",
     "version": "v0.46.0",
     "advisory": "CVE-2026-25681",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "golang.org/x/net",
     "version": "v0.46.0",
     "advisory": "CVE-2026-27136",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "golang.org/x/net",
     "version": "v0.46.0",
     "advisory": "CVE-2026-33814",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "golang.org/x/net",
     "version": "v0.46.0",
     "advisory": "CVE-2026-39821",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "golang.org/x/net",
     "version": "v0.46.0",
     "advisory": "CVE-2026-46600",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "gobinary",
+    "package": "golang.org/x/net",
+    "version": "v0.46.0",
+    "advisory": "CVE-2026-78669",
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "golang.org/x/net",
     "version": "v0.46.0",
     "advisory": "CVE-2026-25680",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "golang.org/x/net",
     "version": "v0.46.0",
     "advisory": "CVE-2026-42502",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "golang.org/x/net",
     "version": "v0.46.0",
     "advisory": "CVE-2026-42506",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "gobinary",
+    "package": "golang.org/x/net",
+    "version": "v0.46.0",
+    "advisory": "CVE-2026-78659",
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "gobinary",
+    "package": "golang.org/x/net",
+    "version": "v0.46.0",
+    "advisory": "CVE-2026-78660",
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "gobinary",
+    "package": "golang.org/x/net",
+    "version": "v0.46.0",
+    "advisory": "CVE-2026-78663",
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "gobinary",
+    "package": "golang.org/x/net",
+    "version": "v0.46.0",
+    "advisory": "CVE-2026-97032",
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "golang.org/x/sys",
     "version": "v0.37.0",
     "advisory": "CVE-2026-39824",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "golang.org/x/text",
     "version": "v0.30.0",
     "advisory": "CVE-2026-56852",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "gobinary",
+    "package": "golang.org/x/text",
+    "version": "v0.30.0",
+    "advisory": "CVE-2026-56851",
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "stdlib",
     "version": "v1.26.0",
     "advisory": "CVE-2026-25679",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "stdlib",
     "version": "v1.26.0",
     "advisory": "CVE-2026-27137",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "stdlib",
     "version": "v1.26.0",
     "advisory": "CVE-2026-27145",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "stdlib",
     "version": "v1.26.0",
     "advisory": "CVE-2026-32280",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "stdlib",
     "version": "v1.26.0",
     "advisory": "CVE-2026-32281",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "stdlib",
     "version": "v1.26.0",
     "advisory": "CVE-2026-32283",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "stdlib",
     "version": "v1.26.0",
     "advisory": "CVE-2026-33810",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "stdlib",
     "version": "v1.26.0",
     "advisory": "CVE-2026-33811",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "stdlib",
     "version": "v1.26.0",
     "advisory": "CVE-2026-33814",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "stdlib",
     "version": "v1.26.0",
     "advisory": "CVE-2026-33818",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "stdlib",
     "version": "v1.26.0",
     "advisory": "CVE-2026-39820",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "stdlib",
     "version": "v1.26.0",
     "advisory": "CVE-2026-39821",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "stdlib",
     "version": "v1.26.0",
     "advisory": "CVE-2026-39822",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "stdlib",
     "version": "v1.26.0",
     "advisory": "CVE-2026-39836",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "stdlib",
     "version": "v1.26.0",
     "advisory": "CVE-2026-42499",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "stdlib",
     "version": "v1.26.0",
     "advisory": "CVE-2026-42504",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "stdlib",
     "version": "v1.26.0",
     "advisory": "CVE-2026-46600",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "stdlib",
     "version": "v1.26.0",
     "advisory": "CVE-2026-56853",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "stdlib",
     "version": "v1.26.0",
     "advisory": "CVE-2026-56858",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "stdlib",
     "version": "v1.26.0",
     "advisory": "CVE-2026-56859",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "stdlib",
     "version": "v1.26.0",
     "advisory": "CVE-2026-56860",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "stdlib",
     "version": "v1.26.0",
     "advisory": "CVE-2026-56862",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "gobinary",
+    "package": "stdlib",
+    "version": "v1.26.0",
+    "advisory": "CVE-2026-78667",
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "gobinary",
+    "package": "stdlib",
+    "version": "v1.26.0",
+    "advisory": "CVE-2026-78669",
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "gobinary",
+    "package": "stdlib",
+    "version": "v1.26.0",
+    "advisory": "CVE-2026-97031",
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "stdlib",
     "version": "v1.26.0",
     "advisory": "CVE-2026-27142",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "stdlib",
     "version": "v1.26.0",
     "advisory": "CVE-2026-32282",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "stdlib",
     "version": "v1.26.0",
     "advisory": "CVE-2026-32288",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "stdlib",
     "version": "v1.26.0",
     "advisory": "CVE-2026-32289",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "stdlib",
     "version": "v1.26.0",
     "advisory": "CVE-2026-39823",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "stdlib",
     "version": "v1.26.0",
     "advisory": "CVE-2026-39825",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "stdlib",
     "version": "v1.26.0",
     "advisory": "CVE-2026-39826",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "stdlib",
     "version": "v1.26.0",
     "advisory": "CVE-2026-42505",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "stdlib",
     "version": "v1.26.0",
     "advisory": "CVE-2026-42507",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "gobinary",
+    "package": "stdlib",
+    "version": "v1.26.0",
+    "advisory": "CVE-2026-56866",
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "gobinary",
+    "package": "stdlib",
+    "version": "v1.26.0",
+    "advisory": "CVE-2026-78659",
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "gobinary",
+    "package": "stdlib",
+    "version": "v1.26.0",
+    "advisory": "CVE-2026-78660",
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "gobinary",
+    "package": "stdlib",
+    "version": "v1.26.0",
+    "advisory": "CVE-2026-78663",
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "gobinary",
+    "package": "stdlib",
+    "version": "v1.26.0",
+    "advisory": "CVE-2026-94439",
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "gobinary",
+    "package": "stdlib",
+    "version": "v1.26.0",
+    "advisory": "CVE-2026-94440",
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "gobinary",
+    "package": "stdlib",
+    "version": "v1.26.0",
+    "advisory": "CVE-2026-94448",
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "gobinary",
+    "package": "stdlib",
+    "version": "v1.26.0",
+    "advisory": "CVE-2026-97032",
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "stdlib",
     "version": "v1.26.0",
     "advisory": "CVE-2026-27138",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   },
   {
     "ecosystem": "gobinary",
     "package": "stdlib",
     "version": "v1.26.0",
     "advisory": "CVE-2026-27139",
-    "target": "ollama/ollama:0.35.1",
-    "rationale": "Inside the vendor's own image, which is the newest release (0.35.1, checked 2026-10-06); most are in Go libraries compiled into the ollama binary or Ubuntu base packages, so no newer image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
-    "expires": "2026-11-05"
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "gobinary",
+    "package": "stdlib",
+    "version": "v1.26.0",
+    "advisory": "CVE-2026-56857",
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
+  },
+  {
+    "ecosystem": "gobinary",
+    "package": "stdlib",
+    "version": "v1.26.0",
+    "advisory": "CVE-2026-97030",
+    "target": "ollama/ollama:0.40.5",
+    "rationale": "Inside the vendor's own image. 0.40.5 is the newest stable release (checked 2026-10-16) and 0.40.6-rc0 carries the same findings; most are in the Go toolchain and golang.org/x modules compiled into the ollama binary or Ubuntu base packages, so no published image clears them. Level 3 local model only. Auny's ruling 2026-09-28: upgrade and dated exceptions; re-check at expiry.",
+    "expires": "2026-11-15"
   }
 ]
