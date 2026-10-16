@@ -40,7 +40,11 @@ The prompt travels as one command-line argument. When it passes the platform cap
 
 The local log records requested model and effort, their source, fixed result classes and the vendor exit code. Its existing schema is preserved. It stores no prompt text or provider-supplied failure text. A verify run adds `verify`, `verify_log` and a bounded redacted `verify_output`. A quota walk adds `hops` (lane, reason, exit). Those fields are omitted when the feature did not run. Verify command output also goes to `~/.ai-orchestrator/cli-run-verify.log`.
 
-`--verify CMD` repeats. `--verify-timeout SECS` bounds each command (default 600). After exit 15, `fallbacks.json` beside the rules folder names the next lane in a different billing pool. `--no-fallback` and `CLI_RUN_NO_FALLBACK=1` disable that walk. A missing file leaves the quota result unchanged. `aunx route --class frontier|fast|swarm` resolves one installed eligible lane from `classes.json`.
+`--verify CMD` repeats. `--verify-timeout SECS` bounds each command (default 600). A brief's verify section ends at the next heading or bold field, including inline fields. Verify processes are cleaned up on normal exit, timeout and catchable interruption; POSIX interruptions exit 130 or 143. Output is redacted before retaining a bounded tail.
+
+After exit 15, `fallbacks.json` in the rules folder names the next lane in a different billing pool. Agensi packs use `rules/fallbacks.json`; `CLI_RUN_FALLBACKS` selects an explicit file. `--no-fallback` and `CLI_RUN_NO_FALLBACK=1` disable that walk. Audit runs keep exit 15 without hopping, preserving Codex's read-only sandbox and effort floor. A missing file leaves the quota result unchanged. Each attempt writes one record, including its fallback skips when a walk runs. `aunx route --class frontier|fast|swarm` resolves one installed eligible lane from `classes.json`.
+
+The regression tests for verify process cleanup on POSIX in `test/runner-audit-regressions.test.js` skip Windows: normal exit with a background sleep, SIGINT and SIGTERM require POSIX shell jobs and process-group signals. The two skip markers cover these three cases; `test/prose.test.js` requires this explanation. Stream-close output, redaction, routing and log-schema regressions run on every platform.
 
 `cli-run.mjs` exports its output judges so `test/judges.test.js` can prove each rejects the failure shapes it exists to catch. Tests use fixture output and stub CLIs.
 
