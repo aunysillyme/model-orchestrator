@@ -508,6 +508,8 @@ export function vars(opts) {
     DECISION_RULE5: decisionRule5(primary),
     DECISION_RULE5_L1: decisionRule5Beginner(primary),
     WHO_BUILDS: whoBuildsSection(primary),
+    CLASS_ROUTE_LINE: ("Resolve one with `aunx route --class frontier|fast|swarm [--data public|private] [--write]`. " +
+      "It prints the first installed, eligible lane, its model, and names each skipped candidate."),
     ADD_ENDPOINT_ROW: addEndpointRow(primary),
     INLINE_THRESHOLD_NOTE: inlineThresholdNote(primary),
     DELEGATE_RULES_NOTE: delegateRulesNote(primary),

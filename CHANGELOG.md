@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- Run brief or `--verify` commands after a lane returns output, keep that output, and exit 24 when a command fails.
+- Walk `fallbacks.json` after a quota result, skip exhausted billing pools and missing CLIs, and name the lane that ran.
+- Resolve `frontier`, `fast` and `swarm` with `aunx route --class`, using one shared eligibility block for public or private data and for read or write.
+
 ## [1.0.15] - 2026-10-14
 
 ### Fixed

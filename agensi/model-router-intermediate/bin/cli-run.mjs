@@ -44,6 +44,7 @@
 //   17  refused: no result, and the lane reports tool calls a hook or deny rule blocked
 //   18  cut_short: no trustworthy finish: a missing or non-success terminal event, a lane
 //       killed by a signal, output past the 16 MiB buffer, or a nonzero vendor exit
+//   24  verify: a Verify command failed after the lane returned output; that output stays
 //   130 / 143  cli-run itself received SIGINT / SIGTERM: the lane's process group was killed first
 //   2   usage error in cli-run itself
 // A run that delivered AND had tool calls refused is still 0, with refused=N and a
@@ -78,7 +79,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 export const LANES = ['grok', 'codex', 'agy', 'hermes', 'qwen', 'claude'];
 export const OK = 0, NO_DELIVERABLE = 10, NO_OUTPUT = 11, TIMEOUT = 12, UNAVAILABLE = 13, USAGE = 2;
-export const AUTH = 14, QUOTA = 15, REJECTED = 16, REFUSED = 17, CUT_SHORT = 18;
+export const AUTH = 14, QUOTA = 15, REJECTED = 16, REFUSED = 17, CUT_SHORT = 18, VERIFY_FAILED = 24;
 
 // The closed set of failure classes. Every judged run lands in exactly one, and
 // the class owns the exit code. `interrupted` (cli-run itself was signalled)
@@ -97,7 +98,7 @@ export const REASONS = new Set([
   'not_result', 'bad_subtype', 'is_error', 'result_not_string', 'empty_result', 'api_error_in_result',
   'telemetry_absent', 'total_errors_unreadable', 'total_errors', 'contract_unmet', 'error_message_not_string',
   'judge_raised', 'timeout', 'unavailable', 'killed', 'disabled', 'lanes_json_malformed', 'no_output',
-  'prompt_too_large', 'unknown'
+  'prompt_too_large', 'verify_failed', 'unknown'
 ]);
 
 // The prompt is one argv element. Linux refuses any single argument over
@@ -916,6 +917,7 @@ export function problemAndFix(lane, cls, { out = '', err = '', detail = '', refu
     case 'unavailable': return { problem: `${tag} unavailable: ${d || 'binary not found on PATH'}`, fix:
        `install the ${lane} CLI and put it on PATH, or enable it in lanes.json` };
     case 'no_output': return { problem: `${tag} no output: the process wrote nothing to stdout or stderr`, fix: FIX.no_output };
+    case 'verify': return { problem: `${tag} verify: a command failed after the lane returned output`, fix: 'fix the named command and rerun' };
     case 'ok':
       if (Number.isInteger(refused) && refused > 0) {
         return { problem: `${tag} ok, but ${refused} call(s) were refused: ${denial() || 'a hook or deny rule blocked part of the call'}`, fix: FIX.refused };
@@ -1314,9 +1316,12 @@ function usage(msg, help = false) {
     "--provider; it needs --model, a defaults model, or HERMES_INFERENCE_MODEL.\n  Levels are the vendor's " +
     "own (agy low|medium|high, hermes none|minimal|...): an\n  unknown level is rejected by the lane, and " +
     "reported by class (codex: rejected, 16).\n  Exit codes: 0 ok, 10 empty, 11 no output, 12 timeout, 13 " +
-    "unavailable, 14 auth,\n  15 quota, 16 rejected, 17 refused, 18 cut short. Failures print a problem " +
-    "and a fix line.\n  auto sizes per call: below 4,000 prompt characters is medium, otherwise high; a " +
-    "codex audit is always high. Auto never resolves above high.\n  Pin them per lane instead of per call " +
+    "unavailable, 14 auth,\n  15 quota, 16 rejected, 17 refused, 18 cut short, 24 verify command failed. " +
+    "Failures print a problem and a fix line.\n  --verify CMD (repeatable) runs after the lane returns output. " +
+    "--verify-timeout SECS bounds each command (default 600).\n  --no-fallback skips the quota walk. " +
+    "CLI_RUN_NO_FALLBACK=1 does the same. No fallbacks.json leaves quota unchanged.\n  auto sizes per call: below 4,000 " +
+    "prompt characters is medium, otherwise high; a codex audit is always high. Auto never resolves above high.\n  " +
+    "Pin them per lane instead of per call " +
     "with \"defaults\" in bin/lanes.json."));
   return help ? OK : USAGE;
 }
@@ -1387,7 +1392,7 @@ export async function doctor(run, { here = dirname(fileURLToPath(import.meta.url
       `${route ? '  ' + route : ''}`);
     if (on && !bin) bad++;
     if (on && bin && run) {
-      const rc = await main([lane, 'Reply with exactly the word OK and nothing else.', '--timeout', '120', '--quiet'], { here });
+      const rc = await main([lane, 'Reply with exactly the word OK and nothing else.', '--timeout', '120', '--quiet', '--no-fallback'], { here });
       line += rc === OK ? '  canary ok' : `  canary FAILED rc=${rc}`;
       if (rc !== OK) bad++;
     }
@@ -1450,22 +1455,405 @@ export function checkContracts(opts, text, before) {
   return null;
 }
 
+// One shell command per line inside "## Verify commands" or "**Verify commands.**".
+// `none` adds nothing. A leading "$ " is the prompt, not part of the command.
+// Fenced blocks and angle-bracket placeholders are not commands.
+export function briefVerifyCommands(text) {
+  const commands = [];
+  let mode = null;
+  let fence = null;
+  for (const line of String(text || '').split(/\r?\n/)) {
+    const marker = /^\s*(`{3,}|~{3,})(.*)$/.exec(line);
+    if (marker) {
+      const run = marker[1];
+      const suffix = marker[2];
+      if (fence === null) fence = run;
+      else if (run[0] === fence[0] && run.length >= fence.length && !suffix.trim()) fence = null;
+      continue;
+    }
+    if (fence !== null) continue;
+    if (/^##\s+Verify commands\s*$/.test(line)) { mode = 'heading'; continue; }
+    if (/^\*\*Verify commands\.\*\*\s*$/.test(line)) { mode = 'bold'; continue; }
+    if (mode === 'heading' && /^##\s+/.test(line)) break;
+    if (mode === 'bold' && /^\*\*[^*\n]+?\.\*\*\s*$/.test(line)) break;
+    if (!mode) continue;
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('<!--') || /^<[^>\n]+>$/.test(trimmed)) continue;
+    const command = trimmed.replace(/^\$\s+/, '');
+    if (!command || /^none(?:\s|$)/.test(command)) continue;
+    commands.push(command);
+  }
+  return commands;
+}
+
+export function fallbackWanted(opts, env = process.env) {
+  if (opts && opts.noFallback) return false;
+  const value = String(env.CLI_RUN_NO_FALLBACK || '').trim().toLowerCase();
+  return !['1', 'true', 'yes', 'on'].includes(value);
+}
+
+export function fallbackFilePath(here = dirname(fileURLToPath(import.meta.url)), env = process.env) {
+  return env.CLI_RUN_FALLBACKS ? env.CLI_RUN_FALLBACKS : join(here, '..', 'fallbacks.json');
+}
+
+export function parseFallbacks(text) {
+  const json = JSON.parse(text);
+  if (!json || typeof json !== 'object' || Array.isArray(json)) return null;
+  if (!json.lanes || typeof json.lanes !== 'object' || Array.isArray(json.lanes)) return null;
+  if (json.pools !== undefined && (!json.pools || typeof json.pools !== 'object' || Array.isArray(json.pools))) return null;
+  return json;
+}
+
+export function readFallbackConfig(here, env = process.env) {
+  const explicit = Boolean(env.CLI_RUN_FALLBACKS);
+  const path = fallbackFilePath(here, env);
+  let text;
+  try { text = readRegularData(path, 1024 * 1024); }
+  catch (error) {
+    if (!explicit) return { config: null, note: null };
+    const why = error && (error.code || error.message) ? error.code || error.message : error;
+    return { config: null, note: `cli-run fallback: cannot read ${path}: ${why}` };
+  }
+  try {
+    const config = parseFallbacks(text);
+    if (!config) return { config: null, note: 'cli-run fallback: fallbacks.json is malformed; keeping the quota result' };
+    return { config, note: null };
+  } catch {
+    return { config: null, note: 'cli-run fallback: fallbacks.json is malformed; keeping the quota result' };
+  }
+}
+
+// The next fallback whose pool is still unused, whose name is a real lane,
+// and whose CLI is installed. Every other candidate is returned as a skip.
+/** @param {any} config
+ * @param {string} lane
+ * @param {Set<string>} exhausted
+ * @param {any} [options] */
+export function selectFallback(config, lane, exhausted, options = {}) {
+  const { installed, enabled, attempted = new Set() } = options;
+  const chain = config && config.lanes ? config.lanes[lane] : undefined;
+  if (!Array.isArray(chain)) return { next: null, skips: [{ lane, reason: 'no fallback chain' }] };
+  const skips = [];
+  for (const entry of chain) {
+    const name = entry && typeof entry.lane === 'string' ? entry.lane : '';
+    const pool = entry && typeof entry.pool === 'string' ? entry.pool : '';
+    if (!name || !pool) {
+      skips.push({ lane: name || '?', reason: 'malformed fallback entry' });
+      continue;
+    }
+    if (attempted.has(name)) {
+      skips.push({ lane: name, reason: 'already attempted' });
+      continue;
+    }
+    if (exhausted.has(pool)) {
+      skips.push({ lane: name, reason: `pool ${pool} already exhausted` });
+      continue;
+    }
+    if (!LANES.includes(name)) {
+      skips.push({ lane: name, reason: 'unknown lane' });
+      continue;
+    }
+    if (Array.isArray(enabled) && !enabled.includes(name)) {
+      skips.push({ lane: name, reason: 'not enabled' });
+      continue;
+    }
+    if (typeof installed !== 'function' || !installed(name)) {
+      skips.push({ lane: name, reason: 'not installed' });
+      continue;
+    }
+    return { next: { lane: name, pool }, skips };
+  }
+  return { next: null, skips };
+}
+
+function hopLine(lane, reason, exit) {
+  const clean = String(reason || 'skipped').replace(/[\r\n]+/g, ' ');
+  console.error(`cli-run hop: ${lane} reason=${clean} exit=${exit}`);
+}
+
+function advanceFallback(lane, here, hops, poolByLane) {
+  const loaded = readFallbackConfig(here);
+  if (loaded.note) console.error(loaded.note);
+  if (!loaded.config) return { next: null, summarize: false };
+  const pools = loaded.config.pools || {};
+  const exhausted = new Set();
+  const poolOf = (name) => poolByLane.get(name) || (typeof pools[name] === 'string' && pools[name] ? pools[name] : name);
+  for (const hop of hops) if (hop.reason === 'quota' && hop.lane) exhausted.add(poolOf(hop.lane));
+  exhausted.add(poolOf(lane));
+  const cfg = laneConfig(here);
+  if (!cfg) {
+    hopLine('lanes.json', 'malformed', 'skipped');
+    hops.push({ lane: 'lanes.json', reason: 'malformed', exit: 'skipped' });
+    return { next: null, summarize: true };
+  }
+  const attempted = new Set(hops.map((hop) => hop.lane));
+  const picked = selectFallback(loaded.config, lane, exhausted, {
+    installed: (name) => Boolean(which(name)),
+    enabled: cfg.enabled,
+    attempted
+  });
+  for (const skip of picked.skips) {
+    hopLine(skip.lane || lane, skip.reason, 'skipped');
+    hops.push({ lane: skip.lane || lane, reason: String(skip.reason), exit: 'skipped' });
+  }
+  if (picked.next) poolByLane.set(picked.next.lane, picked.next.pool);
+  return { next: picked.next ? picked.next.lane : null, summarize: !picked.next };
+}
+
+const VERIFY_OUTPUT_CAP = 1024 * 1024;
+const VERIFY_RECORD_CAP = 4096;
+
+function runShell(command, cwd, timeoutMs) {
+  return new Promise((resolveRun) => {
+    let child = null;
+    let settled = false;
+    let timedOut = false;
+    let output = '';
+    const finish = (status) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolveRun({ status, timedOut, output: output.slice(0, VERIFY_OUTPUT_CAP) });
+    };
+    const stop = () => {
+      if (!child || !child.pid) return;
+      try { killTree(child.pid); }
+      catch { try { child.kill('SIGKILL'); } catch { /* already exited */ } }
+    };
+    const take = (chunk) => {
+      if (output.length >= VERIFY_OUTPUT_CAP) return;
+      output += chunk.toString('utf8');
+    };
+    let timer;
+    try {
+      child = spawn(command, { shell: true, cwd, windowsHide: true, detached: process.platform !== 'win32', stdio: ['ignore', 'pipe', 'pipe'] });
+    } catch (error) {
+      resolveRun({ status: null, timedOut: false, output: String(error && error.message ? error.message : error) });
+      return;
+    }
+    child.stdout.on('data', take);
+    child.stderr.on('data', take);
+    child.once('error', (error) => { output += String(error && error.message ? error.message : error); finish(null); });
+    child.once('exit', (status) => finish(status));
+    timer = setTimeout(() => { timedOut = true; stop(); finish(null); }, timeoutMs);
+  });
+}
+
+// Run each command in the caller's working directory. Output goes to the
+// verify log beside the run record. The first nonzero status stops the list.
+export async function runVerifyCommands(commands, { timeoutSec = 600, cwd = process.cwd(), quiet = false, home = homedir() } = {}) {
+  const directory = join(home, '.ai-orchestrator');
+  const logPath = join(directory, 'cli-run-verify.log');
+  let logFd = null;
+  try {
+    mkdirSync(directory, { recursive: true });
+    logFd = openSync(logPath, constants.O_WRONLY | constants.O_CREAT | constants.O_APPEND, 0o600);
+  } catch { logFd = null; }
+  const results = [];
+  const pieces = [];
+  let failed = false;
+  try {
+    for (const command of commands) {
+      const started = Date.now();
+      const outcome = await runShell(command, cwd, timeoutSec * 1000);
+      const seconds = Math.round((Date.now() - started) / 10) / 100;
+      const body = redact(outcome.output || '');
+      const exit = outcome.timedOut ? 'timeout' : outcome.status == null ? 'error' : outcome.status;
+      const safeCommand = redact(command);
+      results.push({ cmd: safeCommand, exit, seconds });
+      pieces.push(`$ ${safeCommand}\n${body}`);
+      if (logFd != null) {
+        try { appendFileSync(logFd, `$ ${safeCommand}\n${body}\n`); } catch { /* the record still holds the output */ }
+      }
+      const bad = exit !== 0;
+      if (bad || !quiet) console.error(`cli-run verify: ${bad ? 'FAIL' : 'PASS'} rc=${exit} ${seconds.toFixed(2)}s :: ${safeCommand}`);
+      if (bad) {
+        console.error(`cli-run verify: failing command exited ${exit}: ${safeCommand}`);
+        if (logFd == null) console.error('cli-run verify: log unavailable');
+        failed = true;
+        break;
+      }
+    }
+  } finally {
+    if (logFd != null) try { closeSync(logFd); } catch { /* logging never changes the outcome */ }
+  }
+  const output = redact(pieces.join('\n')).slice(0, VERIFY_RECORD_CAP);
+  return { failed, results, logPath: redact(logPath), output };
+}
+
+function recordedHops(hops) {
+  return hops.map(({ lane: hopLane, reason, exit }) => ({ lane: hopLane, reason, exit }));
+}
+
+function routeRecord(lane, prompt, route, sizing) {
+  const digest = createHash('sha256').update(prompt).digest('hex').slice(0, 12);
+  return {
+    lane, prompt_sha256_12: digest, prompt_chars: prompt.length,
+    model_requested: route.model, provider_requested: route.provider, provider_source: route.provider_source,
+    effort_requested: route.effort, model_source: route.model_source, effort_source: route.effort_source,
+    effort_resolved: sizing.resolved, effort_basis: sizing.basis, effort_scope: sizing.scope, effort_truncated: sizing.truncated
+  };
+}
+
+// One attempt on the active lane. Verify runs only after accepted output is on stdout.
+// A quota hop is recorded by the caller when a walk actually starts, so a quota
+// with no fallbacks file keeps the original record.
+async function executeLane(lane, prompt, opts, { here, hops, before }) {
+  const cfg = laneConfig(here);
+  const route = resolveRoute(lane, opts, cfg === null ? {} : cfg.defaults);
+  const sizing = resolveAutoEffort(lane, route.effort, prompt, opts.audit);
+  const base = routeRecord(lane, prompt, route, sizing);
+  const runOpts = { ...opts, model: route.model, effort: sizing.resolved, provider: route.provider };
+  if (route.effort === 'auto' && !opts.quiet) console.error(`cli-run: effort auto -> ${sizing.resolved} (${sizing.basis})`);
+  const enabled = cfg === null ? null : cfg.enabled;
+  const unavailable = ({ msg, reason, fix }) => {
+    console.error('cli-run: ' + msg);
+    if (!opts.quiet) console.error(`cli-run fix: ${fix}`);
+    log({ ...base, verdict: 'unavailable', class: 'unavailable', rc: UNAVAILABLE, refused: null, reason });
+    return { code: UNAVAILABLE, base };
+  };
+  if (enabled === null) {
+    return unavailable({ msg: 'lanes.json exists but is not a valid {"enabled": [...]} file; refusing every lane until it is fixed',
+      reason: 'lanes_json_malformed', fix: 'fix bin/lanes.json, or delete it to enable every lane' });
+  }
+  if (!enabled.includes(lane)) {
+    return unavailable({ msg: `${lane} is not enabled in lanes.json`, reason: 'disabled', fix:
+       `add "${lane}" to "enabled" in bin/lanes.json, or use an enabled lane` });
+  }
+  const binary = which(lane);
+  if (!binary) return unavailable({ msg: `${lane} not found on PATH`, reason: 'unavailable', fix: `install the ${lane} CLI and put it on PATH` });
+  if (route.provider && !route.model && !(process.env.HERMES_INFERENCE_MODEL || '').trim()) {
+    return { code: usage('--provider <p> needs a model: pass --model, or set "model" beside "provider" in lanes.json "defaults"'), base };
+  }
+
+  const tmp = mkdtempSync(join(tmpdir(), 'cli-run-'));
+  const tooLarge = (why) => {
+    console.error(`cli-run: prompt too large for the command line (${prompt.length} characters): ${why}`);
+    if (!opts.quiet) console.error(`cli-run fix: ${FIX.too_large}`);
+    log({ ...base, verdict: 'rejected', class: 'rejected', rc: REJECTED, refused: null, reason: 'prompt_too_large' });
+    return { code: REJECTED, base };
+  };
+  try {
+    const { argv: cmd, outFile } = buildArgv(lane, binary, prompt, runOpts, tmp);
+    const oversize = argvSizeProblem(cmd);
+    if (oversize) return tooLarge(oversize);
+    const r = await runBounded(cmd, opts.timeout);
+    if (r.error && TOO_LARGE_CODES.has(r.error.code)) return tooLarge(`spawn ${r.error.code}`);
+    const out = r.stdout || '';
+    const err = r.stderr || '';
+    let verdict, reason, detail, cls, text = '', refused = null;
+    if (r.interrupted) {
+      verdict = 'interrupted'; reason = 'killed'; detail = `cli-run received ${r.interrupted}; the lane's process group was killed`; cls = 'interrupted';
+    } else if (r.timedOut) {
+      verdict = 'timeout'; reason = 'timeout'; detail = `exceeded ${opts.timeout}s; process group killed`; cls = 'timeout';
+    } else if (r.overrun) {
+      verdict = 'no_deliverable'; reason = 'no_output'; detail = 'output exceeded the 16 MiB buffer; process group killed'; cls = 'cut_short';
+    } else if (r.error) {
+      verdict = 'unavailable'; reason = 'unavailable'; detail = r.error.message; cls = 'unavailable';
+    } else if (r.signal || r.status === null) {
+      verdict = 'killed'; reason = 'killed'; detail = `lane killed by ${r.signal || 'unknown signal'}`; cls = 'cut_short';
+    } else {
+      const j = safeJudge(lane, r.status, out, err, outFile);
+      reason = j.reason;
+      detail = j.detail;
+      ({ cls, refused } = classifyRun(lane, { rc: r.status, out, err, reason: j.reason, detail: j.detail, text: j.text || '' }));
+      if (r.status !== 0) {
+        verdict = 'exit_nonzero';
+        if (reason === 'ok') reason = 'exit_nonzero';
+        const head = stderrHead(err);
+        detail = `lane exited ${r.status}` + (head ? `; stderr: ${head}` : '') + (j.reason !== 'ok' ? `; ${j.detail}` : '');
+      } else if (cls === 'ok') {
+        const unmet = checkContracts(opts, j.text, before);
+        if (unmet) {
+          verdict = 'no_deliverable'; reason = 'contract_unmet'; detail = unmet; cls = 'empty';
+        } else {
+          verdict = 'ok'; text = j.text;
+        }
+      } else if (cls === 'no_output') {
+        verdict = 'no_output'; reason = 'no_output';
+      } else {
+        verdict = 'no_deliverable';
+        const head = stderrHead(err);
+        if (head) detail += `; stderr: ${head}`;
+      }
+    }
+    let code = cls === 'interrupted' ? 128 + (r.interrupted === 'SIGINT' ? 2 : 15) : CLASS_CODES[cls];
+    let verify = null;
+    if (text && code === OK) {
+      process.stdout.write(text + '\n');
+      if (opts.verifyCommands && opts.verifyCommands.length) {
+        verify = await runVerifyCommands(opts.verifyCommands, { timeoutSec: opts.verifyTimeout, cwd: process.cwd(), quiet: opts.quiet });
+        if (verify.failed) {
+          code = VERIFY_FAILED;
+          verdict = 'verify_failed';
+          reason = 'verify_failed';
+          cls = 'verify';
+        }
+      }
+    }
+    const routeNote = `provider:${route.provider || 'default'} model:${route.model || 'default'} effort:${route.effort || 'default'}`;
+    if (!opts.quiet) {
+      console.error(terminalSafe(("cli-run[" +
+        `${lane}` +
+        "] " +
+        `${verdict}` +
+        " rc=" +
+        `${code}` +
+        " class=" +
+        `${cls}` +
+        " refused=" +
+        `${refused === null ? 'null' : refused}` +
+        " " +
+        `${r.seconds.toFixed(1)}` +
+        "s raw=" +
+        `${r.outBytes || 0}` +
+        "B route=" +
+        `${routeNote}` +
+        " :: " +
+        `${redact(detail)}`)));
+      let authoritative = null;
+      if (lane === 'claude' && ['auth', 'quota', 'rejected'].includes(cls)) authoritative = stderrHead(claudeErrorText(out) || err);
+      if (lane === 'codex' && (cls === 'quota' || cls === 'rejected')) authoritative = codexPrimaryError(out);
+      const pf = problemAndFix(lane, cls, { out, err, detail, refused, authoritative });
+      if (pf.problem) console.error('cli-run problem: ' + terminalSafe(redact(pf.problem).slice(0, 600)));
+      if (pf.fix) console.error('cli-run fix: ' + terminalSafe(pf.fix));
+    }
+    if (code === QUOTA && hops.length) hops.push({ lane, reason: 'quota', exit: QUOTA });
+    else if (hops.length && code !== QUOTA) hops.push({ lane, reason: REASONS.has(reason) ? reason : 'unknown', exit: code });
+    const logClass = cls === 'verify' || cls === 'interrupted' || cls in CLASS_CODES ? cls : 'unknown';
+    const rec = { ...base, verdict, class: logClass, rc: code, cli_rc: r.status, signal: r.signal || null, refused: Number.isInteger(refused) ? refused :
+       null, seconds: Math.round(r.seconds * 100) / 100, raw_bytes: r.outBytes || 0, deliverable_bytes: Buffer.byteLength(text), reason: REASONS.has(reason) ?
+          reason : 'unknown',
+      ...(hops.length ? { hops: recordedHops(hops) } : {}),
+      ...(verify ? { verify: verify.results, verify_log: verify.logPath, verify_output: verify.output } : {}) };
+    log(rec);
+    return { code, base };
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
 export async function main(argv, { here = dirname(fileURLToPath(import.meta.url)) } = {}) {
   if (argv.length === 1 && ['--help', '-h'].includes(argv[0])) return usage(null, true);
-  const VALUE = new Set(['--brief', '--timeout', '--model', '--effort', '--provider', '--expect-file']);
-  const BOOL = new Set(['--quiet', '--audit', '--safe-mode', '--doctor', '--run', '--expect-json']);
+  const VALUE = new Set(['--brief', '--timeout', '--verify-timeout', '--model', '--effort', '--provider', '--expect-file']);
+  const BOOL = new Set(['--quiet', '--audit', '--safe-mode', '--doctor', '--run', '--expect-json', '--no-fallback']);
   const args = [...argv];
-  const opts = { timeout: 900, quiet: false, audit: false, model: null, effort: null, provider: null, safeMode: false, brief: null, doctor: false,
-     run: false, expectFile: null, expectJson: false };
+  const opts = { timeout: 900, verifyTimeout: 600, verify: [], noFallback: false, quiet: false, audit: false, model: null, effort: null,
+     provider: null, safeMode: false, brief: null, doctor: false, run: false, expectFile: null, expectJson: false };
   const positional = [];
   while (args.length) {
     const a = args.shift();
     if (a === '--help' || a === '-h') return usage(null, true);
-    else if (VALUE.has(a)) {
+    else if (a === '--verify') {
+      const v = args.shift();
+      if (v === undefined || v.startsWith('--') || v.includes('\0') || !v.trim()) return usage('--verify requires a command');
+      opts.verify.push(v);
+    } else if (VALUE.has(a)) {
       const v = args.shift();
       if (v === undefined || v.startsWith('--')) return usage(`${a} requires a value`);
       if (a === '--brief') opts.brief = v;
       else if (a === '--timeout') opts.timeout = Number(v);
+      else if (a === '--verify-timeout') opts.verifyTimeout = Number(v);
       else if (a === '--expect-file') opts.expectFile = v;
       else if (a === '--effort') opts.effort = v;
       else if (a === '--provider') opts.provider = v;
@@ -1476,12 +1864,15 @@ export async function main(argv, { here = dirname(fileURLToPath(import.meta.url)
       else if (a === '--doctor') opts.doctor = true;
       else if (a === '--run') opts.run = true;
       else if (a === '--expect-json') opts.expectJson = true;
+      else if (a === '--no-fallback') opts.noFallback = true;
       else opts.safeMode = true;
     } else if (a.startsWith('--')) return usage('unknown flag ' + a);
     else positional.push(a);
   }
   if (!Number.isFinite(opts.timeout) || opts.timeout <= 0) return usage('--timeout must be a positive number of seconds');
   if (opts.timeout * 1000 > 2147483647) return usage('--timeout must fit within 2147483647 milliseconds');
+  if (!Number.isFinite(opts.verifyTimeout) || opts.verifyTimeout <= 0) return usage('--verify-timeout must be a positive number of seconds');
+  if (opts.verifyTimeout * 1000 > 2147483647) return usage('--verify-timeout must fit within 2147483647 milliseconds');
   if (opts.doctor) {
     if (positional.length) return usage('--doctor takes no lane or prompt');
     return doctor(opts.run, { here });
@@ -1526,9 +1917,6 @@ export async function main(argv, { here = dirname(fileURLToPath(import.meta.url)
   if (route.provider && !route.model && !(process.env.HERMES_INFERENCE_MODEL ||
      '').trim()) return usage('--provider <p> needs a model: pass --model, or set "model" beside "provider" in lanes.json "defaults"');
   const sizing = resolveAutoEffort(lane, route.effort, prompt, opts.audit);
-  opts.model = route.model;
-  opts.effort = sizing.resolved;
-  opts.provider = route.provider;
   Object.assign(base, {
     model_requested: route.model,
     provider_requested: route.provider,
@@ -1561,104 +1949,32 @@ export async function main(argv, { here = dirname(fileURLToPath(import.meta.url)
     return unavailable({ msg: `${lane} not found on PATH`, reason: 'unavailable', fix: `install the ${lane} CLI and put it on PATH` });
   }
 
-  if (route.effort === 'auto' && !opts.quiet) console.error(`cli-run: effort auto -> ${sizing.resolved} (${sizing.basis})`);
-
-  const tmp = mkdtempSync(join(tmpdir(), 'cli-run-'));
+  const verifyCommands = opts.brief ? briefVerifyCommands(prompt) : [];
+  for (const command of opts.verify) verifyCommands.push(command);
+  opts.verifyCommands = verifyCommands;
   const before = opts.expectFile ? snapshotFile(resolve(opts.expectFile)) : null;
-  // A prompt the OS cannot pass is a request this machine rejects, not a missing CLI.
-  const tooLarge = (why) => {
-    console.error(`cli-run: prompt too large for the command line (${prompt.length} characters): ${why}`);
-    if (!opts.quiet) console.error(`cli-run fix: ${FIX.too_large}`);
-    log({ ...base, verdict: 'rejected', class: 'rejected', rc: REJECTED, refused: null, reason: 'prompt_too_large' });
-    return REJECTED;
-  };
-  try {
-    const { argv: cmd, outFile } = buildArgv(lane, binary, prompt, opts, tmp);
-    const oversize = argvSizeProblem(cmd);
-    if (oversize) return tooLarge(oversize);
-    const r = await runBounded(cmd, opts.timeout);
-    if (r.error && TOO_LARGE_CODES.has(r.error.code)) return tooLarge(`spawn ${r.error.code}`);
-    const out = r.stdout || '';
-    const err = r.stderr || '';
-    let verdict, reason, detail, cls, text = '', refused = null;
-    if (r.interrupted) {
-      verdict = 'interrupted'; reason = 'killed'; detail = `cli-run received ${r.interrupted}; the lane's process group was killed`; cls = 'interrupted';
-    } else if (r.timedOut) {
-      verdict = 'timeout'; reason = 'timeout'; detail = `exceeded ${opts.timeout}s; process group killed`; cls = 'timeout';
-    } else if (r.overrun) {
-      verdict = 'no_deliverable'; reason = 'no_output'; detail = 'output exceeded the 16 MiB buffer; process group killed'; cls = 'cut_short';
-    } else if (r.error) {
-      verdict = 'unavailable'; reason = 'unavailable'; detail = r.error.message; cls = 'unavailable';
-    } else if (r.signal || r.status === null) {
-      // A lane killed by a signal has no honest exit status. Whatever it printed
-      // before dying is not a result; a null status must never become exit 0.
-      verdict = 'killed'; reason = 'killed'; detail = `lane killed by ${r.signal || 'unknown signal'}`; cls = 'cut_short';
-    } else {
-      const j = safeJudge(lane, r.status, out, err, outFile);
-      reason = j.reason;
-      detail = j.detail;
-      ({ cls, refused } = classifyRun(lane, { rc: r.status, out, err, reason: j.reason, detail: j.detail, text: j.text || '' }));
-      if (r.status !== 0) {
-        // A nonzero vendor exit is a failure on the vendor's own terms, whether or
-        // not something parseable came back. The class names why; the vendor's
-        // own code is kept as cli_rc, and its stderr head shows on the terminal.
-        verdict = 'exit_nonzero';
-        if (reason === 'ok') reason = 'exit_nonzero';
-        const head = stderrHead(err);
-        detail = `lane exited ${r.status}` + (head ? `; stderr: ${head}` : '') + (j.reason !== 'ok' ? `; ${j.detail}` : '');
-      } else if (cls === 'ok') {
-        const unmet = checkContracts(opts, j.text, before);
-        if (unmet) {
-          verdict = 'no_deliverable'; reason = 'contract_unmet'; detail = unmet; cls = 'empty';
-        } else {
-          verdict = 'ok'; text = j.text;
-        }
-      } else if (cls === 'no_output') {
-        verdict = 'no_output'; reason = 'no_output';
-      } else {
-        verdict = 'no_deliverable';
-        const head = stderrHead(err);
-        if (head) detail += `; stderr: ${head}`;
-      }
+  const hops = [];
+  const poolByLane = new Map();
+  let active = lane;
+  let switched = false;
+  let outcome;
+  while (true) {
+    const attemptOpts = switched ? { ...opts, model: null, effort: null, provider: null, audit: false, safeMode: false } : opts;
+    outcome = await executeLane(active, prompt, attemptOpts, { here, hops, before });
+    if (outcome.code !== QUOTA || !fallbackWanted(opts)) break;
+    if (!hops.some((hop) => hop.lane === active && hop.reason === 'quota')) hops.push({ lane: active, reason: 'quota', exit: QUOTA });
+    const step = advanceFallback(active, here, hops, poolByLane);
+    if (!step.next) {
+      if (step.summarize) log({ ...outcome.base, verdict: 'quota', class: 'quota', rc: QUOTA, reason: 'quota', hops: recordedHops(hops), refused: null });
+      break;
     }
-    const code = cls === 'interrupted' ? 128 + (r.interrupted === 'SIGINT' ? 2 : 15) : CLASS_CODES[cls];
-    if (text && code === OK) process.stdout.write(text + '\n');
-    const routeNote = `provider:${route.provider || 'default'} model:${route.model || 'default'} effort:${route.effort || 'default'}`;
-    if (!opts.quiet) {
-      console.error(terminalSafe(("cli-run[" +
-        `${lane}` +
-        "] " +
-        `${verdict}` +
-        " rc=" +
-        `${code}` +
-        " class=" +
-        `${cls}` +
-        " refused=" +
-        `${refused === null ? 'null' : refused}` +
-        " " +
-        `${r.seconds.toFixed(1)}` +
-        "s raw=" +
-        `${r.outBytes || 0}` +
-        "B route=" +
-        `${routeNote}` +
-        " :: " +
-        `${redact(detail)}`)));
-      let authoritative = null;
-      if (lane === 'claude' && ['auth', 'quota', 'rejected'].includes(cls)) authoritative = stderrHead(claudeErrorText(out) || err);
-      if (lane === 'codex' && (cls === 'quota' || cls === 'rejected')) authoritative = codexPrimaryError(out);
-      const pf = problemAndFix(lane, cls, { out, err, detail, refused, authoritative });
-      if (pf.problem) console.error('cli-run problem: ' + terminalSafe(redact(pf.problem).slice(0, 600)));
-      if (pf.fix) console.error('cli-run fix: ' + terminalSafe(pf.fix));
-    }
-    // Durable log: fixed reason code, fixed class and structural numbers only.
-    log({ ...base, verdict, class: cls in CLASS_CODES || cls === 'interrupted' ? cls : 'unknown', rc: code, cli_rc: r.status, signal: r.signal ||
-       null, refused: Number.isInteger(refused) ? refused : null, seconds: Math.round(r.seconds * 100) / 100, raw_bytes: r.outBytes || 0,
-          deliverable_bytes: Buffer.byteLength(text), reason: REASONS.has(reason) ? reason : 'unknown' });
-    return code;
-  } finally {
-    rmSync(tmp, { recursive: true, force: true });
+    active = step.next;
+    switched = true;
   }
+  if (switched && outcome.code !== QUOTA) console.error(`cli-run FALLBACK ${active}`);
+  return outcome.code;
 }
+
 
 function isEntryPoint() {
   if (!process.argv[1]) return false;
