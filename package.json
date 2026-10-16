@@ -1,6 +1,6 @@
 {
   "name": "model-orchestrator",
-  "version": "1.0.15",
+  "version": "1.0.17",
   "description": "Model router for AI coding agents: routes routine work to cheaper models with routing rules, 8 subagents, hooks and a CLI runner",
   "type": "module",
   "bin": {
