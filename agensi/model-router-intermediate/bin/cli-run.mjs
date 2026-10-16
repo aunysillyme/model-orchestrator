@@ -73,7 +73,7 @@ import { StringDecoder } from 'node:string_decoder';
 import { createHash } from 'node:crypto';
 import { readFileSync, existsSync, mkdirSync, appendFileSync, mkdtempSync, rmSync, accessSync, constants, realpathSync, statSync, lstatSync,
    fstatSync, openSync, readSync, closeSync } from 'node:fs';
-import { join, dirname, delimiter, resolve, relative, isAbsolute, sep } from 'node:path';
+import { join, dirname, delimiter, resolve, relative, isAbsolute, sep, win32 } from 'node:path';
 import { tmpdir, homedir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -1103,7 +1103,10 @@ export function taskkillPath(env = process.env) {
 
 export function killTree(pid, platform = process.platform, deps = { kill: (p, sig) => process.kill(p, sig), spawn }) {
   if (platform === 'win32') {
-    const child = deps.spawn(taskkillPath(), ['/pid', String(pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true });
+    // cwd is taskkill's own folder: a fire-and-forget taskkill that outlives the
+    // wrapper must not hold the run's working directory open (EBUSY on rmdir).
+    const tool = taskkillPath();
+    const child = deps.spawn(tool, ['/pid', String(pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true, cwd: win32.dirname(tool) });
     // Fire-and-forget: nothing here awaits taskkill's own exit. But a spawn
     // failure (ENOENT if this host's layout is unusual, EPERM, ...) still
     // emits an async 'error' event on the returned ChildProcess, and Node
@@ -1620,7 +1623,8 @@ function runShell(command, cwd, timeoutMs) {
       // Windows: wait for taskkill so no verify descendant outlives the run and
       // keeps its working directory locked. POSIX group kill is already synchronous.
       if (process.platform === 'win32') {
-        const r = spawnSync(taskkillPath(), ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true, timeout: 10000 });
+        const tool = taskkillPath();
+        const r = spawnSync(tool, ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true, timeout: 10000, cwd: win32.dirname(tool) });
         if (!r.error) return;
       }
       try { killTree(child.pid); }

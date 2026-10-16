@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, win32 } from 'node:path';
 import { tmpdir } from 'node:os';
 import { judgeGrok, judgeCodex, judgeAgy, judgeHermes, judgeQwen, judge, buildArgv, REASONS, checkContracts, snapshotFile, LANE_FLAGS, badRouteValue, resolveRoute, laneConfig, enabledLanes, LANES, hermesMismatchLine } from '../bin/cli-run.mjs';
 
@@ -221,9 +221,12 @@ test('#17: --expect-json accepts JSON wrapped in one markdown fence, still refus
 test('#18: killTree uses taskkill /T /F on win32 and the negative-pid group kill elsewhere', async () => {
   const { killTree, taskkillPath } = await import('../bin/cli-run.mjs');
   const calls = [];
-  const deps = { kill: (p, sig) => calls.push(['kill', p, sig]), spawn: (cmd, args) => calls.push(['spawn', cmd, args]) };
+  let options = null;
+  const deps = { kill: (p, sig) => calls.push(['kill', p, sig]), spawn: (cmd, args, opts) => { options = opts; calls.push(['spawn', cmd, args]); } };
   assert.equal(killTree(4242, 'win32', deps), 'taskkill');
   assert.deepEqual(calls, [['spawn', taskkillPath(), ['/pid', '4242', '/T', '/F']]]);
+  // taskkill may outlive the wrapper, so it runs from its own folder, never the run's cwd.
+  assert.equal(options.cwd, win32.dirname(taskkillPath()));
   calls.length = 0;
   assert.equal(killTree(4242, 'linux', deps), 'group');
   assert.deepEqual(calls, [['kill', -4242, 'SIGKILL']]);
