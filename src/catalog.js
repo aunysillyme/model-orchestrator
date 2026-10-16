@@ -312,7 +312,7 @@ export const AIS = [
     summary: 'A local model runtime; work sent here stays on the machine',
     minLevel: 2,
     install: { url: 'https://ollama.com/download', brew: 'ollama' },
-    builtAgainst: '0.35.1',
+    builtAgainst: '0.40.5',
     auth: 'none',
     rulesFile: null,
   },
@@ -469,8 +469,8 @@ export const providerById = Object.fromEntries(PROVIDERS.map((p) => [p.id, p]));
 // Container image pins for the level 3 templates. Bump deliberately; a
 // reviewed box should not change underneath the user on a restart.
 export const IMAGES = {
-  litellm: 'ghcr.io/berriai/litellm:v1.104.0',
-  ollama: 'ollama/ollama:0.35.1'
+  litellm: 'ghcr.io/berriai/litellm:v1.105.1',
+  ollama: 'ollama/ollama:0.40.5'
 };
 
 export const byId = Object.fromEntries(AIS.map((a) => [a.id, a]));
