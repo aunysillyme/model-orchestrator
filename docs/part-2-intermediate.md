@@ -56,6 +56,9 @@ Optional companions can help: codecalc for execution and calculations, obsidian-
 
 Everything from [Part 1](part-1-beginner.md), plus `ROUTING.md`, `TIERS.md`, `DELEGATION_MATRIX.md`, `RESEARCH_TRIAGE.md`, `CLI-RUN.md`, `bin/cli-run.mjs` and `bin/lanes.json`.
 
+- **`fallbacks.json`:** an ordered quota fallback walk across unused billing pools and installed CLIs.
+- **`classes.json`:** editable `frontier`, `fast` and `swarm` capability classes with shared data and read or write eligibility rules.
+
 ## Run scheduled work
 
 When the setup needs an always-on host or scheduled review, move to [Part 3](part-3-advanced.md).
