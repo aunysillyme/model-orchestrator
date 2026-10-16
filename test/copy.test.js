@@ -4,20 +4,26 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 const root = new URL('..', import.meta.url);
 const read = (f) => readFileSync(new URL(f, root), 'utf8');
 const pkg = JSON.parse(read('package.json'));
 const readme = read('README.md');
 const lead = readme.split('\n')[4];
-const banner = (read('bin/cli.js').match(/console\.log\('\\nmodel-orchestrator\\n([^']*)\\n'\)/) || [])[1];
+const preview = spawnSync(process.execPath, [
+  fileURLToPath(new URL('bin/cli.js', root)), '--yes', '--level', '1', '--ais', 'chatgpt-app', '--no-tools', '--dry-run'
+], { encoding: 'utf8' });
+const banner = (preview.stdout.match(/\nmodel-orchestrator\n([^\n]*)\n/) || [])[1];
 const llms = read('llms.txt');
 
 // Claims the package does not make. 0.1.11 retired the first one after an audit.
 const OVERCLAIM = /cheapest AI that does it well|switches between models|automatically (selects|picks|chooses|switches)/i;
 
 test('description, README opening and banner all say it is a model router', () => {
-  assert.ok(banner, 'the banner line must be found in bin/cli.js');
+  assert.equal(preview.status, 0, preview.stderr);
+  assert.equal(banner, pkg.description, 'the emitted banner must match the package description byte for byte');
   for (const [name, s] of [['description', pkg.description], ['README line 5', lead], ['banner', banner]]) {
     assert.match(s, /model router/i, name + ' must name what the package is');
     assert.doesNotMatch(s, OVERCLAIM, name + ' must not promise routing the code does not perform');

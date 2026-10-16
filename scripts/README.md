@@ -2,6 +2,8 @@
 
 | File | Job |
 |---|---|
+| `check-lines.js` | `npm run check:lines`: recursively reads JS/MJS files under `bin/`, `src/`, `templates/` and `scripts/`; reports every line over 160 UTF-16 code units with file, line and length, then exits 1. |
+| `lint-templates.js` | second stage of `npm run lint`: plans plugin hooks and passes their rendered JavaScript to Biome in a temporary directory, covering templates whose raw placeholders cannot parse. Exits with the failed lint status. |
 | `check-catalog-advisories.mjs` | checks catalog package pins against OSV, applies exact dated exceptions, writes JSON and Markdown evidence, and returns a failing exit for affected or unknown results. See [the operating procedure](../docs/catalog-advisories.md). |
 | `catalog-advisory-inventory.mjs` | derives package and image inputs, plus explicit exclusions, directly from `src/catalog.js`. |
 | `catalog-advisory-http.mjs` | bounds advisory and registry requests through body reading and rejects malformed or oversized responses. |
@@ -9,3 +11,5 @@
 | `gen-catalog.js` | regenerates `docs/catalog.md` AND the vendor compatibility table in `README.md` (between the `vendor-table` markers) from `src/catalog.js`; `npm run gen:catalog`. `test/catalog.test.js` fails if either generated surface disagrees with the catalog. |
 | `record-demo.sh` | re-records `docs/demo.gif` by installing the published package into a temp folder and running it under `asciinema`, then rendering the cast with `agg`. Pass a version to pin one: `bash scripts/record-demo.sh 0.1.27`. Needs `brew install asciinema agg`. The frames are the installer's own output, so the GIF stays true to what the command prints. |
 | `gen-plugin.js` | regenerates the Claude Code plugin bundle in `plugin/` (agents, the two read-only hooks, `plugin.json`, `LICENSE`) from `templates/`, using the plan in `src/plugin.js`; `npm run gen:plugin`. `test/plugin.test.js` fails if the committed bundle disagrees. `plugin/README.md` and `plugin/hooks/hooks.json` are hand-owned. |
+
+Static checks run on demand and in the Node 22 `lint` job in `.github/workflows/test.yml`. Invocation: `npm ci`, `npm run lint`, `npm run typecheck`, then `npm run check:lines`. Biome and TypeScript are development dependencies; the line check uses Node only. Configuration lives in `biome.json` and `jsconfig.json`; exception reasons and the offline Node typing boundary are in `CONTRIBUTING.md`. The scripts read source and templates, make no network calls and leave source files unchanged. The hook lint stage writes rendered hooks and a configuration copy to a temporary directory and removes it in `finally`. Failures print diagnostics and return nonzero; fix the source and rerun the failed check. Watcher: nothing outside CI. `test/check-lines.test.js` verifies the line cap's boundary, recursion, extensions and diagnostics.

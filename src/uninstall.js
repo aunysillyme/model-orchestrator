@@ -1,7 +1,8 @@
-import { closeSync, constants, existsSync, fstatSync, lstatSync, openSync, readFileSync, readdirSync, rmdirSync, unlinkSync, writeFileSync } from 'node:fs';
+import { closeSync, constants, fstatSync, lstatSync, openSync, readFileSync, readdirSync, rmdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep, win32 } from 'node:path';
-import { ACTIVATION_JSON_BYTE_CAP, atomicWriteFile, backupPath, ensureBackupDirectory, preflight, dirProblems, globalConfigProblem, realRoot } from './install.js';
+import { ACTIVATION_JSON_BYTE_CAP, atomicWriteFile, backupPath, ensureBackupDirectory, preflight, dirProblems, globalConfigProblem,
+   realRoot } from './install.js';
 import { START, END } from './apply-snippets.js';
 import { validateActivationOwnership } from './activation-ownership.js';
 import { MANIFEST_BYTE_CAP, readBounded } from './bounded-file.js';
@@ -101,7 +102,8 @@ function removeActivation(item, bytes) {
     let start = bytes.indexOf(START);
     let end = bytes.indexOf(END);
     if (start === -1 && end === -1) return { content: bytes, edited: false };
-    if (start < 0 || end < start || bytes.indexOf(START, start + START.length) !== -1 || bytes.indexOf(END, end + END.length) !== -1) return { content: bytes, edited: true };
+    if (start < 0 || end < start || bytes.indexOf(START, start + START.length) !== -1 || bytes.indexOf(END, end + END.length) !== -1) return {
+       content: bytes, edited: true };
     end += Buffer.byteLength(END);
     if (hash(bytes.subarray(start, end)) !== owned.blockHash) return { content: bytes, edited: true };
     const prefix = Buffer.from(owned.addedPrefix);
@@ -136,7 +138,8 @@ function removeActivation(item, bytes) {
         changed = removed = true;
         break;
       }
-      if (!removed && groups.some((group) => group.hooks.some((hook) => object(hook) && hook.command === record.hook.command && same(hook.args || [], record.hook.args || [])))) edited = true;
+      if (!removed && groups.some((group) => group.hooks.some((hook) => object(hook) && hook.command === record.hook.command && same(hook.args ||
+         [], record.hook.args || [])))) edited = true;
       if (!groups.length && !owned.originalEvents.includes(record.event)) delete data.hooks[record.event];
     }
     if (!owned.hadHooks && Object.keys(data.hooks).length === 0) delete data.hooks;
@@ -227,6 +230,7 @@ export function uninstallFiles({ dir, project, dry = false }) {
       if (/\.bak-\d{8}T\d{6}Z?$/.test(name)) actions.push('  keep backup ' + join(backupFolder, name));
     }
   }
+  /** @type {Array<ReturnType<typeof entry>>} */
   const backupTargets = [...files, manifest, ...activation];
   if (data.primary === 'claude-code') backupTargets.push(entry('[project] CLAUDE.md', roots), entry('[project] .claude/settings.json', roots));
   for (const item of new Map(backupTargets.map((target) => [target.abs, target])).values()) {
@@ -284,7 +288,8 @@ export function uninstallFiles({ dir, project, dry = false }) {
   directories.sort((a, b) => b.abs.split(sep).length - a.abs.split(sep).length || a.abs.localeCompare(b.abs));
   for (const item of directories) {
     if (!inspect(item)) continue;
-    if (![...backupParents].some((parent) => parent === item.abs || parent.startsWith(item.abs + sep)) && readdirSync(item.abs).every((name) => disappearing.has(join(item.abs, name)))) {
+    if (![...backupParents].some((parent) => parent === item.abs || parent.startsWith(item.abs + sep)) && readdirSync(item.abs).every((name) =>
+       disappearing.has(join(item.abs, name)))) {
       disappearing.add(item.abs);
       empty.push(item);
     }

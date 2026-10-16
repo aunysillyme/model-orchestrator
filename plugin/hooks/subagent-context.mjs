@@ -31,8 +31,10 @@ const additionalContext = [
   'SUBAGENT CONTEXT (model-orchestrator).',
   'Routing rules: ' + RULES_FILE_REL + (isAbsolute(RULES_FILE_REL) ? '.' : ' (relative to the project root).'),
   'Task brief format: ' + TASK_BRIEF_REL + '.',
-  'Report contract: return coverage and evidence, including partial work and unverified checks. Stop at the bound set by your brief.',
-  'When further delegation is authorized by your brief, keep the whole scope and section ownership in each handoff. Return your result to the assigning agent for independent verification.'
+  ("Report contract: return coverage and evidence, including partial work and unverified checks. Stop at " +
+    "the bound set by your brief."),
+  ("When further delegation is authorized by your brief, keep the whole scope and section ownership in " +
+    "each handoff. Return your result to the assigning agent for independent verification.")
 ].join(' ');
 
 // Drain stdin without ever blocking on it. A bare `readFileSync(0)` waits

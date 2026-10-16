@@ -984,7 +984,7 @@ test('a selected local runtime gets host setup at level 2 and container setup at
 });
 
 test('generated lanes.json carries an empty defaults block and explains it', () => {
-  const p = planFiles({ level: 2, selected: [byId['claude-code'], byId['codex']], primary: byId['claude-code'], dir: 'x', project: 'y' });
+  const p = planFiles({ level: 2, selected: [byId['claude-code'], byId.codex], primary: byId['claude-code'], dir: 'x', project: 'y' });
   const lanes = JSON.parse(p.find((f) => f.rel === join('bin', 'lanes.json')).content);
   assert.deepEqual(lanes.enabled, ['claude', 'codex'], 'only cli-run lanes are enabled');
   assert.deepEqual(lanes.defaults, {}, 'the installer pins nothing it was not told');
@@ -1186,7 +1186,7 @@ test('build guidance assigns sections by capability and carries task-specific co
 
 // ---- windows CI finding: MACHINE_OWNED/RUNTIME membership checks must not
 // depend on the host's path separator ----
-import { MACHINE_OWNED, RUNTIME, fileClass, toPosixRel } from '../src/install.js';
+import { MACHINE_OWNED, fileClass, toPosixRel } from '../src/install.js';
 
 test('toPosixRel/fileClass normalize a backslash-separated rel (win32 path.join output) to the forward-slash form MACHINE_OWNED/RUNTIME are keyed with', () => {
   // A win32 f.rel from path.join looks like 'bin\\lanes.json'; MACHINE_OWNED

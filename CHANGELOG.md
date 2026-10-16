@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Changed
+
+- Add Biome lint, non-strict JavaScript type checks and a 160-character source line cap to CI; split the installer into modules behind its existing public API (#72).
+
 ## [1.0.16] - 2026-10-16
 
 ### Security
@@ -14,6 +18,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Fixed
 
+- Raise `aunx route` to the builder at xhigh effort for production, auth, payment, secret, migration and schema work, even when the wording sounds mechanical; risky questions with no change verb stay unrouted (#70).
+- Check the prompt against each platform's command-line limit before starting a lane, and report an oversized prompt or a spawn `E2BIG` as `prompt_too_large` with exit 16 instead of a missing CLI with exit 13 (#71).
 - Enforce installed project lane data for ordinary packaged runner calls, refusing malformed or unsafe configuration without executing project code (#63).
 - Exclude missing and invalid route markers from coverage, delegated-work counts and reconciliation, and report invalid-marker counts (#64).
 - Put the Codex prompt after the option terminator so option-shaped text remains prompt data (#65).
