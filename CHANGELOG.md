@@ -16,6 +16,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Changed
 
+- Refresh the metered provider model snapshot, checked 2026-10-16 against each provider's model list: the OpenAI second-opinion lane moves to `gpt-6.1-sol`, the Gemini long-context lane to `gemini-4-argon` and the xAI live-fast lane to `grok-4.3`; the snapshot now expires 2026-11-15.
 - Record optional subagent token usage and model identifiers, report supplied token totals, describe routing to cheaper models and disclose route-table prompt overhead (#69).
 
 ## [1.0.14] - 2026-10-10

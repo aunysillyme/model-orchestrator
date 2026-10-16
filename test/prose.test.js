@@ -52,7 +52,7 @@ test('real model ids live only in the dated catalog', () => {
   }
   assert.deepEqual(hits, []);
   assert.ok(FIXED_MODEL.test('gpt-6-astra'));
-  assert.ok(FIXED_MODEL.test('xai/grok-4.1-fast'));
+  for (const id of ['openai/gpt-6.1-sol', 'gemini/gemini-4-argon', 'xai/grok-4.3']) assert.ok(FIXED_MODEL.test(id), id);
 });
 
 function* walk(dir) {
