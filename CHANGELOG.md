@@ -4,6 +4,18 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- Run brief or `--verify` commands after a lane returns output, keep that output, and exit 24 when a command fails.
+- Walk `fallbacks.json` after a quota result, skip exhausted billing pools and missing CLIs, and name the lane that ran.
+- Resolve `frontier`, `fast` and `swarm` with `aunx route --class`, using one shared eligibility block for public or private data and for read or write.
+
+### Fixed
+
+- End brief verify sections at any heading or bold field, clean up verify descendants on exit and interruption, wait for stream close, and redact output before clipping.
+- Keep audit quota results read-only by returning exit 15 without fallback; discover fallback files in both installer and Agensi layouts.
+- Write one complete record per fallback attempt, exclude unknown lanes from hops, and escape terminal controls in fallback and verify diagnostics.
+
 ## [1.0.17] - 2026-10-16
 
 ### Changed

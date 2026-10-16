@@ -175,6 +175,8 @@ const SKIPS = [
   { file: 'security-runner.test.js', marker: 'skip: !POSIX &&', tests: 2, readme: 'fsmonitor helper and runner lanes FIFO' },
   { file: 'brief-size.test.js', marker: 'skip: SKIP_BRIEF_CAP_OFF_LINUX_WINDOWS', tests: 1, readme: 'oversized-brief refusal' },
   { file: 'brief-size.test.js', marker: 'skip: SKIP_E2BIG_OFF_LINUX', tests: 1, readme: 'spawn `E2BIG` fixture' },
+  { file: 'runner-audit-regressions.test.js', marker: 'skip: !POSIX', tests: 2,
+    readmeFile: 'bin/README.md', readme: 'verify process cleanup on POSIX' },
 ];
 // Not a test skip: one assertion inside a test that otherwise runs everywhere. Listed so the README
 // sentence and this guard describe the same set, and asserted by its own shape below.
@@ -188,7 +190,9 @@ test('every skipped test is named in the README, and no test is skipped that is 
   for (const s of [...SKIPS, ...CONDITIONAL_ASSERTIONS]) {
     const src = readFileSync(join(ROOT, 'test', s.file), 'utf8');
     assert.ok(src.includes(s.marker), `${s.file} no longer contains the pinned marker ${JSON.stringify(s.marker)}; update SKIPS in test/prose.test.js and the README together`);
-    assert.ok(readme.includes(s.readme), `README.md does not explain the ${s.file} skip: it must carry ${JSON.stringify(s.readme)}`);
+    const explanation = s.readmeFile ? readFileSync(join(ROOT, s.readmeFile), 'utf8') : readme;
+    assert.ok(explanation.includes(s.readme), `${s.readmeFile || 'README.md'} does not explain the ${s.file} skip: ` +
+      `it must carry ${JSON.stringify(s.readme)}`);
     if (s.tests) expected += s.tests;
   }
   // The loud negative: count every `skip:` in the suite and refuse an undocumented one.

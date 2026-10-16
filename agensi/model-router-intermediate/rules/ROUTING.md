@@ -30,8 +30,9 @@ When a cheaper eligible route can complete and verify the task, select it. When 
 
 0. **An external lane offers useful reach or capacity:** check `../rules/DELEGATION_MATRIX.md` and call the selected CLI through `node <skill-dir>/bin/cli-run.mjs` from the user's project root.
 0a. **Availability:** read the user's filled stack table and verify tools, permissions and headroom before dispatch.
-1. **Bulk or mechanical work:** classify, tag, extract, rename or reformat -> cheap model tier / Fill at setup: bounded worker, preferring eligible cheaper billing. Use fan-out only when a selected tool's live capabilities verify it.
-1a. **Read or digest many files:** -> Fill at setup: reader with enough context and source access; return facts, quotes or an index within the brief's scope.
+1. **Bulk or mechanical work:** classify, tag, extract, rename or reformat -> fast class / cheap model tier / Fill at setup: bounded worker, preferring eligible cheaper billing. Use fan-out only when a selected tool's live capabilities verify it.
+1a. **Read or digest many files:** -> fast class / Fill at setup: reader with enough context and source access; return facts, quotes or an index within the brief's scope.
+1b. **Parallel units of the same shape:** -> swarm class. Resolve one installed lane, then start the units on that lane.
 2. **Current data is required:** -> Fill at setup: available research tool with verified live access working model tier with live tools.
 3. **Review code without changing it:** -> Fill at setup: reviewer from a known different model family, or report independent review pending, working model tier. For security-critical scope -> Fill at setup: different-family reviewer with scope and suitable effort with appropriate effort.
 3a. **A reviewer or scanner has returned findings:** -> Fill at setup: finding verifier with reproduction access; reproduce each claim before repair.
@@ -39,7 +40,11 @@ When a cheaper eligible route can complete and verify the task, select it. When 
 4. **Ambiguity, architecture or an unknown cause:** -> planning model tier / Fill at setup: planner, preferring the main agent then largest verified context. Return a concrete plan for execution.
 5. **Build:** use the verified builder with high effort where supported; raise to xhigh for architecture, security or irreversible work.
 
-When assigning a build, prefer the main agent with authorized writes, then an eligible headless CLI. Write the choice and evidence in briefs/DECISIONS.md.
+When assigning a build, prefer the main agent with authorized writes, then an eligible headless CLI. Write the choice and evidence in briefs/DECISIONS.md. Use the frontier class for a build, a fix or a judgment call.
+
+Builds, fixes and judgment calls use the frontier class. Reads, drafts and bulk work use the fast class. Parallel units of the same shape use the swarm class. The order and the shared eligibility block live in `classes.json`.
+
+Resolve one from classes.json: the first installed lane the shared eligibility block allows. Name each skipped candidate.
 
 ## Build process and ownership
 

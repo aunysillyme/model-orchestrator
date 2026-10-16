@@ -53,6 +53,10 @@ For a non-build task, describe the bounded result here and mark build-only field
 
 Include availability checks for required tools and access. Name the checks file and run each approved verifier with the local runtime. Replay against the final merged artifact and any materialized output whose properties may change.
 
+## Verify commands
+
+<One shell command per line. Write `none` when this task has no command. A leading `$ ` is optional.>
+
 ## Resource inventory
 
 - The lane **holds**: <probed tools, models, context window, permissions and runtime access>.

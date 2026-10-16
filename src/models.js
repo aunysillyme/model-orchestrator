@@ -179,6 +179,21 @@ async function fetchDocs() {
   } finally { clearTimeout(timer); }
 }
 
+// A class preference names a tier (`deep`, `standard`, `fast`) or `lane-default`.
+// A tier uses the snapshot when one is valid. Anything else is the lane's own
+// default, which the caller prints as `default`.
+export function resolveClassModel(model, snapshot = null) {
+  if (typeof model !== 'string' || model === 'lane-default') return null;
+  const policy = MODEL_POLICY.tiers[model];
+  if (!policy) return null;
+  const entry = snapshot && snapshot.tiers ? snapshot.tiers[model] : null;
+  if (!entry || typeof entry !== 'object') return policy.family;
+  const approved = entry.approved && typeof entry.approved.value === 'string' ? entry.approved.value : '';
+  if (entry.held) return approved || entry.family || policy.family;
+  if (typeof entry.value === 'string' && entry.value) return entry.value;
+  return approved || entry.family || policy.family;
+}
+
 // Isolated, no-tool paid canaries are opt-in. No fallback to broader permissions.
 export async function probeAlias(family) {
   const directory = mkdtempSync(join(tmpdir(), 'orch-model-probe-'));

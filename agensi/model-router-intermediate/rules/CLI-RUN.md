@@ -87,8 +87,23 @@ Claude runs with [the `dontAsk` permission mode](https://code.claude.com/docs/en
 | 16 | `rejected` | Correct the model, flag or request named by the vendor |
 | 17 | `refused` | Inspect the denied tool call and route it within authorized permissions |
 | 18 | `cut_short` | Inspect a missing terminal event, signal, output overrun or unexplained nonzero vendor exit |
+| 24 | `verify` | Fix the named verify command; the lane output stays on stdout |
 | 130 / 143 | `interrupted` | The wrapper received SIGINT / SIGTERM; inspect cleanup before resuming |
 | 2 | usage error | Correct the runner arguments |
+
+## Verify commands
+
+A task brief can include `## Verify commands` or `**Verify commands.**`, one shell command per line. The section ends at the next heading or bold field, including inline fields. `none` adds no command. Repeat `--verify "<command>"` to add more. After the lane returns accepted output, each command runs in the working directory. The default bound is 600 seconds (`--verify-timeout`). A bounded output tail is redacted before clipping and appended to `~/.ai-orchestrator/cli-run-verify.log`. A failing command exits 24 and names the command and its status. POSIX SIGINT or SIGTERM kills the verify process group and exits 130 or 143; normal exit and timeout also clean up the group. The lane output stays on stdout. Commands run with the user's permissions.
+
+```bash
+node <skill-dir>/bin/cli-run.mjs <lane> --brief TASK_BRIEF.md --verify "npm test"
+```
+
+## Quota fallback
+
+`fallbacks.json`, installed beside the other files in this rules folder, lists an ordered fallback for each lane, with the billing pool that fallback spends. After exit 15, the runner tries the next fallback whose pool is still unused and whose CLI is installed, with the same prompt and brief. Each hop is printed and stored. A `FALLBACK` line names the lane that ran. `--no-fallback` and `CLI_RUN_NO_FALLBACK=1` disable the walk. A missing `fallbacks.json` leaves the quota result unchanged. A lane that is absent or not installed is skipped with a reason. Model and effort flags stay with the first lane.
+
+Agensi packs keep the file at `rules/fallbacks.json`; `CLI_RUN_FALLBACKS` selects an explicit file. Audit runs return exit 15 without hopping so Codex's read-only sandbox and audit effort floor stay in effect. Each attempt writes one complete log record, including fallback skips when its walk runs. Unknown lanes are diagnosed without entering the recorded hops.
 
 When a run fails, read the problem and fix lines and relay the actionable cause. Resolve it within existing authorization; request approval only for a change outside that scope. A nonzero vendor exit remains a failure even if text was produced; `cli_rc` preserves that vendor exit in the local log.
 
@@ -142,7 +157,7 @@ Terminal status and error details are redacted before clipping. Local logs exclu
 
 ## Inspect the local log
 
-Read `~/.ai-orchestrator/cli-run.log.jsonl` for one record per run: lane, verdict, class, return codes, signal, refusal count, timing, byte counts, prompt hash and length, requested model and effort, source of those requests, auto-effort evidence and a fixed reason code.
+Read `~/.ai-orchestrator/cli-run.log.jsonl` for one record per attempt: lane, verdict, class, return codes, signal, refusal count, timing, byte counts, prompt hash and length, requested model and effort, source of those requests, auto-effort evidence and a fixed reason code.
 
 Use `model_source: "lane_default"` to identify an inherited route. These fields record requested settings; verifying the vendor's actual model requires vendor evidence. Keep task success grounded in the acceptance checks.
 

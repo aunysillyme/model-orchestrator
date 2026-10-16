@@ -6,6 +6,7 @@ import { killTree, main as runnerMain, windowsSpawnPlan } from '../bin/cli-run.m
 import { MANIFEST_BYTE_CAP, readRegularFile } from './bounded-file.js';
 import { byId } from './catalog.js';
 import { ROLE_SPECS } from './roles.js';
+import { routeClass, takeClassFlags } from './classes.js';
 import { modelsMain } from './models.js';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -23,9 +24,12 @@ const HELP = `aunx: model router tools for AI coding agents
   aunx checks run [PATH]              Run local checks; exit 1 on any FAIL. checks run executes
                                        the commands in your checks file, so run it only on files you trust.
   aunx route [--dir PATH] "<task>"    Suggest a stack role, tier and effort
+  aunx route --class frontier|fast|swarm [--data public|private] [--write] [--json]
+                                      First installed eligible lane for that class
 
 Route reads MANIFEST.json from --dir, then ./ai-orchestrator, then the current
-directory. It reads regular JSON files of at most 1 MiB and executes no project code.
+directory. \`aunx route --class\` reads classes.json the same way. It reads regular
+JSON files of at most 1 MiB and executes no project code.
 cli-run reads ./ai-orchestrator/bin/lanes.json when present, or --dir for a
 custom rules folder. The health check executes the packaged runner.
 
@@ -334,6 +338,8 @@ export async function main(args) {
   if (command === 'route') {
     if (rest.length === 1 && ['--help', '-h'].includes(rest[0])) { console.log(HELP); return 0; }
     const parsed = runnerArgs(rest);
+    const classFlags = takeClassFlags(parsed.rest);
+    if (classFlags) return routeClass(classFlags, { dir: parsed.dir });
     if (parsed.rest.length !== 1 || !parsed.rest[0].trim()) throw new Error('usage: aunx route [--dir PATH] "<task>"');
     const route = suggestRoute(parsed.rest[0]);
     const roles = readManifestRoles({ dir: parsed.dir });

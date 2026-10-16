@@ -26,8 +26,9 @@ When a cheaper eligible route can complete and verify the task, select it. When 
 
 0. **An external lane offers useful reach or capacity:** check `DELEGATION_MATRIX.md` and call the selected CLI through `aunx cli-run` or the installed `bin/cli-run.mjs`.
 {{LANE_STEP0}}
-1. **Bulk or mechanical work:** classify, tag, extract, rename or reformat -> cheap model tier / {{BULK_ROLE}}{{BULK_LANE}}.{{FAN_OUT_ADVICE}}
-1a. **Read or digest many files:** -> {{READER_ROLE}}; return facts, quotes or an index within the brief's scope.
+1. **Bulk or mechanical work:** classify, tag, extract, rename or reformat -> fast class / cheap model tier / {{BULK_ROLE}}{{BULK_LANE}}.{{FAN_OUT_ADVICE}}
+1a. **Read or digest many files:** -> fast class / {{READER_ROLE}}; return facts, quotes or an index within the brief's scope.
+1b. **Parallel units of the same shape:** -> swarm class. Resolve one installed lane, then start the units on that lane.
 2. **Current data is required:** -> {{LIVE_LANE}} working model tier with live tools.
 3. **Review code without changing it:** -> {{REVIEW_ROLE}}, working model tier. For security-critical scope -> {{ATTACK_LANE}} with appropriate effort.
 3a. **A reviewer or scanner has returned findings:** -> {{FINDING_ROLE}}; reproduce each claim before repair.
@@ -36,6 +37,10 @@ When a cheaper eligible route can complete and verify the task, select it. When 
 {{DECISION_RULE5}}
 
 {{WHO_BUILDS}}
+
+Builds, fixes and judgment calls use the frontier class. Reads, drafts and bulk work use the fast class. Parallel units of the same shape use the swarm class. The order and the shared eligibility block live in `classes.json`.
+
+{{CLASS_ROUTE_LINE}}
 
 ## Build process and ownership
 
