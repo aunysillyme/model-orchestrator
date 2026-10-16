@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Security
+
+- Pin the Level 3 images to `ghcr.io/berriai/litellm:v1.105.1` (from v1.104.0, clears the multidict advisory) and `ollama/ollama:0.40.5` (from 0.35.1, 139 findings to 122), the newest stable releases. No published image, release candidates included, clears the rest: litellm still ships glibc 2.44-r6 and ollama still compiles in older Go modules. The remaining findings are dated exceptions that expire on 2026-11-15 (AUN-1552). Ollama 0.40.2+ upgrades previously downloaded models in the background on first run and keeps the original copy as a backup, so the `ollama` volume temporarily grows.
+
 ## [1.0.15] - 2026-10-16
 
 ### Fixed
