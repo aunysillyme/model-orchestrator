@@ -34,11 +34,12 @@ function writeLane(bin, lane, body) {
     writeFileSync(join(bin, `${lane}.cmd`), `"%_prog%" "%dp0%${lane}.cjs" %*\r\n`);
   }
 }
-function shellNode(script) {
-  // base64 keeps quotes and backslashes in the script away from cmd.exe and argv quoting.
-  const encoded = Buffer.from(script, 'utf8').toString('base64');
-  if (process.platform === 'win32') return `"${process.execPath}" -e "eval(Buffer.from('${encoded}','base64').toString())"`;
-  return `${JSON.stringify(process.execPath)} -e ${JSON.stringify(script)}`;
+let scriptCount = 0;
+// Each verify script runs from its own file, so no shell or argv quoting touches its text.
+function shellNode(dir, script) {
+  const file = join(dir, `verify-script-${++scriptCount}.cjs`);
+  writeFileSync(file, script);
+  return `${JSON.stringify(process.execPath)} ${JSON.stringify(file)}`;
 }
 function run(dir, args, extra) {
   const bin = join(dir, 'stubs');
@@ -100,7 +101,7 @@ test('verify commands pass, and a positional prompt is not scanned', t => {
   const dir = temp(t);
   writeLane(join(dir, 'stubs'), 'hermes', 'console.log("complete");');
   const brief = join(dir, 'TASK_BRIEF.md');
-  writeFileSync(brief, `## Verify commands\n\n${shellNode('console.log("verify-ok")')}\n`);
+  writeFileSync(brief, `## Verify commands\n\n${shellNode(dir, 'console.log("verify-ok")')}\n`);
   const ok = run(dir, ['hermes', '--brief', brief]);
   assert.equal(ok.status, 0, ok.stderr);
   assert.match(ok.stdout, /complete/);
@@ -119,7 +120,7 @@ test('a failing verify command exits 24, keeps the lane output, and stops the li
   const dir = temp(t);
   const marker = join(dir, 'second-ran');
   writeLane(join(dir, 'stubs'), 'hermes', 'console.log("complete");');
-  const failed = run(dir, ['hermes', 'probe', '--quiet', '--verify', shellNode('process.exit(3)'), '--verify', shellNode(`require('node:fs').writeFileSync(${JSON.stringify(marker)}, 'x')`)]);
+  const failed = run(dir, ['hermes', 'probe', '--quiet', '--verify', shellNode(dir, 'process.exit(3)'), '--verify', shellNode(dir, `require('node:fs').writeFileSync(${JSON.stringify(marker)}, 'x')`)]);
   assert.equal(failed.status, 24, failed.stderr);
   assert.match(failed.stdout, /complete/);
   assert.match(failed.stderr, /cli-run verify: failing command exited 3:/);
@@ -138,7 +139,7 @@ test('verify none and a timeout keep the documented outcomes', t => {
   const none = run(dir, ['hermes', '--brief', brief, '--quiet']);
   assert.equal(none.status, 0, none.stderr);
   assert.equal(logLines(dir).at(-1).verify, undefined);
-  const timed = run(dir, ['hermes', 'probe', '--verify', shellNode('setTimeout(() => {}, 20000)'), '--verify-timeout', '1']);
+  const timed = run(dir, ['hermes', 'probe', '--verify', shellNode(dir, 'setTimeout(() => {}, 20000)'), '--verify-timeout', '1']);
   assert.equal(timed.status, 24, timed.stderr);
   assert.match(timed.stdout, /complete/);
   assert.match(timed.stderr, /cli-run verify: failing command exited timeout:/);
