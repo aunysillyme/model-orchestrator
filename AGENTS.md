@@ -19,6 +19,7 @@ When `aunx` is installed, use:
 - **Task scope:** `aunx brief new TASK_BRIEF.md`.
 - **Verification:** `aunx checks ACCEPTANCE_CHECKS.json`, then fill and run trusted commands with `aunx checks run ACCEPTANCE_CHECKS.json`.
 - **Routing suggestion:** `aunx route "rename this file"`, then apply the installed `ROUTING.md` to the actual context.
+- **Class route:** `aunx route --class frontier|fast|swarm [--data public|private] [--write]`.
 - **Own measurements:** `aunx route-metrics --summary`; use [proof/README.md](proof/README.md) for package measurements and scripts.
 
 When using the Claude Code plugin, follow [plugin/README.md](plugin/README.md). The installer supplies project-specific routing rules. Use [llms.txt](llms.txt) for the documentation index.

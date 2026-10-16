@@ -1,0 +1,43 @@
+{
+  "note": "Edit this file. Each lane lists fallback lanes and the billing pool that fallback spends. A pool already exhausted in this call is skipped.",
+  "pools": {
+    "grok": "xai",
+    "codex": "openai",
+    "agy": "google",
+    "hermes": "hermes",
+    "qwen": "qwen",
+    "claude": "anthropic"
+  },
+  "lanes": {
+    "grok": [
+      { "lane": "codex", "pool": "openai" },
+      { "lane": "agy", "pool": "google" },
+      { "lane": "claude", "pool": "anthropic" }
+    ],
+    "codex": [
+      { "lane": "agy", "pool": "google" },
+      { "lane": "grok", "pool": "xai" },
+      { "lane": "claude", "pool": "anthropic" }
+    ],
+    "agy": [
+      { "lane": "codex", "pool": "openai" },
+      { "lane": "grok", "pool": "xai" },
+      { "lane": "hermes", "pool": "hermes" }
+    ],
+    "hermes": [
+      { "lane": "qwen", "pool": "qwen" },
+      { "lane": "agy", "pool": "google" },
+      { "lane": "codex", "pool": "openai" }
+    ],
+    "qwen": [
+      { "lane": "hermes", "pool": "hermes" },
+      { "lane": "agy", "pool": "google" },
+      { "lane": "codex", "pool": "openai" }
+    ],
+    "claude": [
+      { "lane": "codex", "pool": "openai" },
+      { "lane": "grok", "pool": "xai" },
+      { "lane": "agy", "pool": "google" }
+    ]
+  }
+}

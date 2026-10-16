@@ -1,0 +1,31 @@
+{
+  "note": "Edit this file. public and private choose who may see the data. read and write choose who may change files. The first installed lane on both chosen lists wins.",
+  "eligibility": {
+    "public": ["grok", "codex", "agy", "hermes", "qwen", "claude"],
+    "private": ["grok", "codex", "claude"],
+    "read": ["grok", "codex", "agy", "hermes", "qwen", "claude"],
+    "write": ["grok", "codex", "agy", "claude"]
+  },
+  "classes": {
+    "frontier": [
+      { "lane": "codex", "model": "lane-default", "effort": "high" },
+      { "lane": "claude", "model": "deep", "effort": "high" },
+      { "lane": "agy", "model": "lane-default", "effort": "high" },
+      { "lane": "grok", "model": "lane-default", "effort": "high" }
+    ],
+    "fast": [
+      { "lane": "agy", "model": "lane-default", "effort": "low" },
+      { "lane": "qwen", "model": "lane-default", "effort": null },
+      { "lane": "codex", "model": "lane-default", "effort": "medium" },
+      { "lane": "claude", "model": "fast", "effort": "low" },
+      { "lane": "grok", "model": "lane-default", "effort": "low" },
+      { "lane": "hermes", "model": "lane-default", "effort": "low" }
+    ],
+    "swarm": [
+      { "lane": "agy", "model": "lane-default", "effort": "low" },
+      { "lane": "qwen", "model": "lane-default", "effort": null },
+      { "lane": "hermes", "model": "lane-default", "effort": "low" },
+      { "lane": "codex", "model": "lane-default", "effort": "low" }
+    ]
+  }
+}

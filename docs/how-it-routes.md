@@ -34,6 +34,16 @@ When a separate lane is unavailable, the main agent carries the job at its named
 
 `aunx route` reads the assigned role from the current manifest, even if you preserve edited routing documents during an upgrade. Pass `--dir PATH` for a custom rules folder. It tries that manifest, then `./ai-orchestrator/MANIFEST.json`, then `./MANIFEST.json`. With no usable manifest it keeps the generic suggestion and adds an install notice. It reads bounded regular JSON files and executes no project code.
 
+## Capability classes
+
+Use `frontier` for builds, fixes and judgment calls, `fast` for reads, drafts and bulk work, and `swarm` for parallel units of the same shape. A swarm route resolves one lane for those units.
+
+```bash
+aunx route --class frontier --data private --write
+```
+
+The command prints the first installed eligible lane, explains why earlier candidates were skipped, and supports `--json` for machine output. Edit `classes.json` to change the candidate order and shared eligibility rules: `public` or `private` chooses who may see the data, and `read` or `write` chooses who may change files. A lane must be on both selected eligibility lists.
+
 ## Verify a review finding
 
 When a review returns a finding, use the assigned verification role to read the cited line, state the trigger and look for a caller, guard or test that disproves it. Where an agent set is installed, `finding-verifier` supplies this prompt. It returns **CONFIRMED**, **NOT_REPRODUCED** or **INCONCLUSIVE**. A confirmed finding gets a repair and a regression check capable of failing before the fix.

@@ -14,6 +14,7 @@ Use the distinction below when choosing which parts to run unattended.
 | Uninstall removes unchanged managed files and unchanged recorded activation entries | Code: complete manifest validation before removal, containment checks, hash comparison and activation ownership records |
 | Every non-dry install checks CLI presence; live prompts stay opt-in | Code: automatic `--doctor`; `--doctor --run` explicitly enables vendor canaries |
 | `cli-run` returns nonzero for missing results, timeouts and rejected output contracts | Code: vendor-specific output checks, process cleanup and `--expect-*` checks against a pre-run snapshot |
+| `cli-run` returns 24 when a brief or `--verify` command fails after accepted output; that output stays on stdout | Code: commands run in the working directory with a timeout, and the failing command is named |
 | Acceptance checks report PASS or FAIL and return exit 1 for any failure | Code: `aunx checks run ACCEPTANCE_CHECKS.json`; run it before the action you want to gate |
 | Proof entries carry measurement dates, methods and expiry dates | Code: data validation and an expiry check in `npm test` |
 | Codex audits request read-only filesystem access | Vendor flag: `--audit` selects `--sandbox read-only`; command and network permissions still follow the vendor configuration |

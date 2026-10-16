@@ -96,7 +96,10 @@
     "coding-agent",
     "ai-coding",
     "coding-agents",
-    "aunx"
+    "aunx",
+    "fallback",
+    "rate-limit",
+    "quota"
   ],
   "author": "aunysillyme (https://github.com/aunysillyme)",
   "license": "MIT",

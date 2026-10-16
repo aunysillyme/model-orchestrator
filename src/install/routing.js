@@ -275,7 +275,9 @@ export function whoBuildsSection(primary) {
       "combines it with the other sections and gives the final artifact to the independent reviewer."),
     '',
     ("When delegation costs as much as the bounded work itself, keep that work in the current session and " +
-      "record the reason.")
+      "record the reason."),
+    '',
+    'Use the frontier class for a build, a fix or a judgment call.'
   ].join('\n');
 }
 export function addEndpointRow(primary) {

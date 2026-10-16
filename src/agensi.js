@@ -92,7 +92,9 @@ export function unconfiguredVars(level) {
     LIVE_LANE: role('available research tool with verified live access'),
     ATTACK_LANE: role('different-family reviewer with scope and suitable effort'),
     WHO_BUILDS: ("When assigning a build, prefer the main agent with authorized writes, then an eligible headless CLI. " +
-      "Write the choice and evidence in briefs/DECISIONS.md."),
+      "Write the choice and evidence in briefs/DECISIONS.md. Use the frontier class for a build, a fix or a judgment call."),
+    CLASS_ROUTE_LINE: ("Resolve one from classes.json: the first installed lane the shared eligibility block allows. " +
+      "Name each skipped candidate."),
     CLAUDE_WORKER_TRANSPORT: '',
     METERED_CITATION_NOTE: ' Verify current provider rates before quoting costs.',
     PLAN_BIG_LINE: 'Use planning capability for unresolved decisions and scoped working capability for execution. ',
@@ -200,7 +202,11 @@ export function planAgensiFiles() {
       ['rules/ORCHESTRATOR.md', 'templates/beginner/ORCHESTRATOR.md'],
       ...BRIEFS.map(name => ['briefs/' + name, 'templates/common/' + name]),
       ...readdirSync(join(TEMPLATES, 'common', 'protocols')).sort().map(name => ['protocols/' + name, 'templates/common/protocols/' + name]),
-      ...(level === 2 ? INTERMEDIATE_RULES.map(name => ['rules/' + name, 'templates/intermediate/' + name]) : [])
+      ...(level === 2 ? [
+        ...INTERMEDIATE_RULES.map(name => ['rules/' + name, 'templates/intermediate/' + name]),
+        ['rules/fallbacks.json', 'templates/intermediate/fallbacks.json'],
+        ['rules/classes.json', 'templates/intermediate/classes.json']
+      ] : [])
     ]);
     for (const [rel, source] of sources) {
       const raw = readFileSync(join(ROOT, source), 'utf8');

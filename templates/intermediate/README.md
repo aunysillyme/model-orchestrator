@@ -9,5 +9,7 @@ Written at level 2 and above, on top of `common/` and `beginner/`.
 | `DELEGATION_MATRIX.md` | task → lane → pick, generated from the user's selection |
 | `RESEARCH_TRIAGE.md` | selected engines in parallel, one source-checking writer |
 | `CLI-RUN.md` | how `aunx cli-run` and `bin/cli-run.mjs` verify each response |
+| `fallbacks.json` | ordered quota fallbacks, each tagged with a billing pool |
+| `classes.json` | frontier, fast and swarm preferences plus one shared eligibility block |
 
 `bin/cli-run.mjs` and `bin/lanes.json` are written by the installer from `bin/cli-run.mjs` in this repo and the user's selection; they are not templates.
