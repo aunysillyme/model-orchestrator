@@ -4,6 +4,7 @@
 
 | File | Proves |
 |---|---|
+| `check-set.test.js` | the offline set checker accepts clean files, reports document and pinned input drift, and refuses missing files, invalid locks and bad usage using temporary copies. |
 | `catalog-advisories.test.js` | offline package and container metadata establish affected, clean, unknown and excepted results; inventory completeness, digest/platform checks, exact exception expiry and report retention are covered. |
 | `judges.test.js` | every `cli-run` judge accepts a well-formed success AND refuses each failure shape it exists to catch, including the lane whose success flags lie. One isolating case per check, so a disabled check turns exactly one case red. |
 | `catalog.test.js` | every AI has the fields the installer relies on, ids are unique, install methods are one of the three known shapes, and no field carries a value that looks like a key. |

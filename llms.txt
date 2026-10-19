@@ -33,10 +33,16 @@ Pick a model proxy (LiteLLM, Portkey, OpenRouter, claude-code-router) for per-re
 - [Changelog](https://github.com/aunysillyme/model-orchestrator/blob/main/CHANGELOG.md): release changes and upgrade notes
 - [Agent instructions](https://github.com/aunysillyme/model-orchestrator/blob/main/AGENTS.md): headless setup and contributor checks
 
+<!-- set:start -->
+## Part of a set
+
+- [agent-personalizer](https://github.com/aunysillyme/agent-personalizer): AI custom instructions from approved entries: a profile and rules for Claude Code, Codex, Cursor, Gemini CLI and ChatGPT, kept in sync from one source.
+- [repo-build-skill](https://github.com/aunysillyme/repo-build-skill): Skill pack that teaches your AI to build, release and launch a GitHub repo: stack pick, README, AGENTS.md, llms.txt, repo SEO and AEO, trusted publishing.
+- [website-build-skill](https://github.com/aunysillyme/website-build-skill): A skill pack that turns your AI into an expert website builder: current research, design, code, accessibility, speed, SEO and security, alone or as a team.
+<!-- set:end -->
+
 ## Optional
 
 - [Model Router Beginner skill pack on Agensi](https://www.agensi.io/skills/model-router-beginner-right-model-for-every-task): SKILL.md pack for one main agent
 - [Model Router Intermediate skill pack on Agensi](https://www.agensi.io/skills/model-router-intermediate-delegate-across-your-ai-clis): SKILL.md pack with the CLI runner and lanes file for worker AIs
 - [Security policy](https://github.com/aunysillyme/model-orchestrator/blob/main/SECURITY.md): private vulnerability reporting
-- [agent-personalizer](https://github.com/aunysillyme/agent-personalizer): one interview writes the profile and rules every AI reads, kept in sync from one source
-- [website-build-skill](https://github.com/aunysillyme/website-build-skill): current website-building expertise for your AI, from research and design through accessibility and security
