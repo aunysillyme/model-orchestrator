@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { copyFileSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  appendFileSync, copyFileSync, existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
@@ -89,4 +91,67 @@ test('set checker exits 2 for invalid lock data and usage', t => {
     writeFileSync(join(root, '.repo-build/set.lock.json'), data);
     assert.equal(run(root).status, 2);
   }
+});
+
+const drift = file => `SET_DRIFT: ${file}: run npx repo-build-skill@0.1.1 set sync (maintainer-run, outside CI)\n`;
+
+test('set checker never executes a renderer that fails its pin', t => {
+  const root = fixture(t);
+  const marker = join(root, 'ran.marker');
+  appendFileSync(join(root, '.repo-build/render-set.mjs'),
+    `\nimport { writeFileSync } from 'node:fs';\nwriteFileSync(${JSON.stringify(marker)}, 'ran');\nprocess.exit(0);\n`);
+  for (const args of [[], ['--root', root]]) {
+    const result = run(root, args, join(root, 'scripts/check-set.mjs'));
+    assert.equal(result.status, 1, result.stderr);
+    assert.equal(result.stdout, '');
+    assert.equal(result.stderr, drift('.repo-build/render-set.mjs'));
+    assert.equal(existsSync(marker), false, 'unpinned renderer code ran');
+  }
+});
+
+test('set checker exits 2 for symlinked inputs and symlinked directories', async t => {
+  const targets = ['.repo-build/set.lock.json', 'package.json', '.repo-build/render-set.mjs', '.repo-build'];
+  for (const file of targets) {
+    await t.test(file, t => {
+      const root = fixture(t);
+      const real = mkdtempSync(join(tmpdir(), 'check-set-real-'));
+      t.after(() => rmSync(real, { recursive: true, force: true }));
+      const link = join(root, file);
+      const copy = join(real, 'copy');
+      if (file === '.repo-build') {
+        for (const name of ['render-set.mjs', 'set.json', 'set.lock.json']) {
+          mkdirSync(copy, { recursive: true });
+          copyFileSync(join(link, name), join(copy, name));
+        }
+        rmSync(link, { recursive: true });
+      } else {
+        copyFileSync(link, copy);
+        rmSync(link);
+      }
+      try {
+        symlinkSync(copy, link);
+      } catch (error) {
+        return t.skip(`symlinks unavailable: ${error.code}`);
+      }
+      const result = run(root);
+      assert.equal(result.status, 2, result.stdout + result.stderr);
+      assert.match(result.stderr, /^SET_CHECK: .*symlink/);
+    });
+  }
+});
+
+test('set checker with --root runs only the renderer it hashed under that root', t => {
+  const clean = fixture(t);
+  const own = mkdtempSync(join(tmpdir(), 'check-set-own-'));
+  t.after(() => rmSync(own, { recursive: true, force: true }));
+  mkdirSync(join(own, '.repo-build'));
+  mkdirSync(join(own, 'scripts'));
+  copyFileSync(checker, join(own, 'scripts/check-set.mjs'));
+  const marker = join(own, 'ran.marker');
+  writeFileSync(join(own, '.repo-build/render-set.mjs'),
+    `import { writeFileSync } from 'node:fs';\nwriteFileSync(${JSON.stringify(marker)}, 'ran');\nexport const renderSet = () => ({ changed: [] });\n`);
+  const result = run(clean, ['--root', clean], join(own, 'scripts/check-set.mjs'));
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout, 'Set blocks and pinned hashes match.\n');
+  assert.equal(existsSync(marker), false, 'the script-relative renderer ran instead of the hashed one');
 });
