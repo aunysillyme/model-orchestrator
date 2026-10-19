@@ -1,6 +1,6 @@
 {
   "name": "model-orchestrator",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Model router for AI coding agents: routes routine work to cheaper models with routing rules, 8 subagents, hooks and a CLI runner",
   "type": "module",
   "bin": {
@@ -38,7 +38,7 @@
     "gen:agensi": "node scripts/gen-agensi.js",
     "pack:agensi": "node scripts/pack-agensi.js",
     "lint": "biome lint bin src templates scripts test && node scripts/lint-templates.js",
-    "typecheck": "tsc -p jsconfig.json",
+    "typecheck": "tsc -p jsconfig.json && tsc --allowJs --checkJs --noEmit --skipLibCheck --module NodeNext --target ES2022 src/node-compat.d.ts scripts/check-set.mjs",
     "check:lines": "node scripts/check-lines.js"
   },
   "engines": {

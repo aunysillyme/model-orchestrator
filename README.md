@@ -54,13 +54,16 @@ aunx --help
 
 `aunx` without a subcommand runs the same installer as `model-orchestrator`. The installer writes its files and the project activation changes shown in the summary. Every companion is opt-in, including with `--yes`; missing tools appear together under **Install these yourself**, with official commands and links.
 
+<!-- set:start -->
 ## Part of a set
 
 | Repo | What it gives you |
 |---|---|
-| [agent-personalizer](https://github.com/aunysillyme/agent-personalizer) | One interview writes the profile and rules every AI you use reads, kept in sync from one source. |
+| [agent-personalizer](https://github.com/aunysillyme/agent-personalizer) | AI custom instructions from approved entries: a profile and rules for Claude Code, Codex, Cursor, Gemini CLI and ChatGPT, kept in sync from one source. |
 | **model-orchestrator** | Model router for AI coding agents: routes routine work to cheaper models with routing rules, 8 subagents, hooks and a CLI runner |
-| [website-build-skill](https://github.com/aunysillyme/website-build-skill) | A skill pack that teaches your AI current website-building expertise: research, design, code, accessibility, performance, search and security. |
+| [repo-build-skill](https://github.com/aunysillyme/repo-build-skill) | Skill pack that teaches your AI to build, release and launch a GitHub repo: stack pick, README, AGENTS.md, llms.txt, repo SEO and AEO, trusted publishing. |
+| [website-build-skill](https://github.com/aunysillyme/website-build-skill) | A skill pack that turns your AI into an expert website builder: current research, design, code, accessibility, speed, SEO and security, alone or as a team. |
+<!-- set:end -->
 
 ## Model routing and request-level proxies
 

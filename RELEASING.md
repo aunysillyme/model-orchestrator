@@ -11,6 +11,8 @@ Maintainer checklist for a versioned release through the existing trusted-publis
 
 ## Refresh the release evidence
 
+The set rows come from https://raw.githubusercontent.com/aunysillyme/.github/HEAD/set.json; each row's line is that package's npm description. Refresh with `npx repo-build-skill@0.1.1 set sync` outside CI and commit the result. CI only checks drift offline with `node scripts/check-set.mjs`.
+
 - Run the reproducible measurement scripts under `proof/scripts/` and regenerate the page from `proof/results.json` in release week.
 - Verify every published figure has its date, method, sample size, script and unexpired data entry. Author-setup figures need their own sources and local remeasurement.
 - Replay acceptance checks and run `npm test` against the final tree. Confirm `npm pack --dry-run` excludes development scripts and private review material.
