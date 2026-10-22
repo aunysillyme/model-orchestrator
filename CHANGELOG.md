@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-10-22
+
+### Fixed
+
+- Point Claude Desktop users at `Customize > Connectors` in `templates/tools/context7/CONTEXT7.md`. Connectors moved there from `Settings > Connectors` in the current Claude desktop app and claude.ai.
+
 ## [1.1.1] - 2026-10-19
 
 ### Changed
@@ -732,7 +738,8 @@ First release.
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
-[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v1.1.2...HEAD
+[1.1.2]: https://github.com/aunysillyme/model-orchestrator/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/aunysillyme/model-orchestrator/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.17...v1.1.0
 [1.0.17]: https://github.com/aunysillyme/model-orchestrator/compare/v1.0.16...v1.0.17
