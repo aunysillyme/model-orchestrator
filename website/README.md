@@ -25,11 +25,16 @@ The documentation hub uses `/docs/guides/`; `/docs/` redirects there. Avoid an `
 
 The root `vercel.json` is the source of the install, build and output settings. The project uses Node 24; local website development requires Node 22 or later. The package's Node 18 support remains separate.
 
+Every route receives the CSP, frame denial and restricted browser permissions in `vercel.json`, alongside the existing response headers. The CSP allows the site's fonts, trailer, documentation images, npm lookup and Analytics origins. `website/security.mjs` computes exact SHA-256 hashes from every built inline script, including structured data. The website check compares the complete policy with the committed header and fails when a script changes or gains an unlisted hash. After an intentional script change, build the site, run `node website/security.mjs --write`, inspect the `vercel.json` diff, and rerun the website check. Update external resource origins only after tracing the site's actual requests.
+
+Generated code examples are named, keyboard focusable groups with a visible focus outline. Text links are underlined, and skip links sit in the page header so all content belongs to a landmark. These changes retain the existing page layout.
+
 ## Dependencies
 
 - Vercel project and GitHub integration: project ID `prj_HWCUc01VxliaCToJBeQbqg8pjgo0`, team `aunysillymes-projects`.
 - Cloudflare DNS: the `model-orchestrator` record under `aunysillyme.dev`. DNS-only CNAME to `bb9493e20ea5c81c.vercel-dns-016.com`, TTL 300, record ID `6028469f5b74ecc19db52364830cbd40`. Vercel reported the domain correctly configured and HTTPS served the site publicly on 2026-09-28.
 - npm registry: public, credential-free metadata for `model-orchestrator/latest`.
+- GitHub workflow badge: the build copies the public SVG artwork into `/assets/test-badge.svg`, with the bundled SVG as an offline fallback. HTML uses that local copy so visitors receive the same badge without GitHub's cross-site cookie response. The badge refreshes on each build; its workflow link and Markdown source stay intact.
 - Cloudinary: the approved silent v2 trailer, public ID `aunysillyme.dev/model-orchestrator-trailer`, version `1790569976`.
 - Google Fonts: Cormorant Garamond and JetBrains Mono, with local serif and monospace fallbacks.
 - Google Analytics: the existing `G-HK1CE993HY` measurement ID, once per HTML page.

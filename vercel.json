@@ -30,6 +30,18 @@
         {
           "key": "Cache-Control",
           "value": "public, max-age=0, must-revalidate"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'none'; script-src 'self' https://www.googletagmanager.com 'sha256-E8EplgFerf4dgO6JttDK1udqIeEHHq37U3GvcmKsjM8=' 'sha256-cj2hByvzPTFhi0s020SrNNC1Q7i+xG134W8y7QPzvk0='; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' https://res.cloudinary.com https://raw.githubusercontent.com https://img.shields.io https://www.googletagmanager.com; media-src 'self' https://res.cloudinary.com; connect-src 'self' https://registry.npmjs.org https://www.google-analytics.com https://www.googletagmanager.com"
         }
       ]
     }

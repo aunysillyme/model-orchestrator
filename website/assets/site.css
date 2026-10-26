@@ -9,3 +9,6 @@
 .proof-figures{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:21px}.proof-figure{border:1px solid var(--line);background:#0a100c;padding:18px}.proof-figure strong{display:block;font:500 34px/1 var(--serif);color:var(--green);margin-bottom:9px}.proof-figure span{display:block;font-size:10px;color:var(--ink);line-height:1.7}.proof-figure small{display:block;font-size:9px;color:var(--muted);margin-top:8px}@media(max-width:600px){.proof-figures{grid-template-columns:1fr}}
 
 .mobile-nav a.active{color:var(--green);text-decoration:underline;text-underline-offset:4px}
+
+p a,li a,.bottom a{text-decoration:underline;text-underline-offset:3px}
+.markdown pre:focus-visible{outline:2px solid var(--green);outline-offset:4px}
