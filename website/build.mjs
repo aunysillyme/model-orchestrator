@@ -2,7 +2,7 @@ import { readFile, writeFile, mkdir, cp, rm } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { documentHtml, renderMarkdown, releaseEntries, pages, origin, repository, statusBadge, escape, populateLanding } from './content.mjs';
+import { documentHtml, renderMarkdown, releaseEntries, pages, origin, repository, escape, populateLanding } from './content.mjs';
 import { validRelease } from './assets/releases.js';
 import {marked} from 'marked';
 import {sourceDocument, discoveryFiles, publicRoutes} from './discovery.mjs';
@@ -66,16 +66,6 @@ landing = landing.replace('</footer>', `<span>Source <a href="${repository}/tree
 await rm(out, {recursive: true, force: true});
 await mkdir(out, {recursive: true});
 await cp(path.join(here, 'assets'), path.join(out, 'assets'), {recursive: true});
-// Keep the badge's exact artwork without GitHub's cross-site cookie response.
-try {
-  const response = await fetch(statusBadge.source, {signal: AbortSignal.timeout(10000)});
-  if (!response.ok) throw new Error(`GitHub returned ${response.status}`);
-  const svg = await response.text();
-  if (!svg.startsWith('<svg') || Buffer.byteLength(svg) > 16384) throw new Error('Unexpected badge format');
-  await writeFile(path.join(out, statusBadge.asset), svg);
-} catch {
-  console.warn('GitHub badge unavailable; using the bundled badge.');
-}
 await writeFile(path.join(out, 'index.html'), documentHtml({title: 'Model Orchestrator: model router for Claude Code, Codex and Gemini', description: 'Model router for AI coding agents: routing rules, subagents and a CLI runner that give your AI a playbook for the model, effort and tools each task needs.', route: '/', body: landing}));
 
 const navItems = [...pages].map(([source, slug]) => `<a href="/docs/${slug}/">${escape(({overview: 'Overview', guides: 'All guides', commands: 'Commands', proof: 'Measured proof', changelog: 'Changelog'})[slug] || slug.replaceAll('-', ' '))}</a>`).join('');
