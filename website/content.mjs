@@ -40,16 +40,25 @@ export function renderMarkdown(markdown, source) {
   const slugger = new GithubSlugger();
   const renderer = new marked.Renderer();
   renderer.html = ({text}) => escape(text);
+  renderer.image = function (token) {
+    if (source === 'README.md' && token.href === 'docs/router-trailer.gif') {
+      // Prefer H.264 so WebKit loops past the final frame.
+      return `<video class="routing-loop" controls muted loop playsinline preload="none" width="960" height="540" poster="/assets/router-trailer-loop-poster.jpg" aria-label="${escape(token.text)}"><source src="/assets/router-trailer-loop.mp4" type="video/mp4"><source src="/assets/router-trailer-loop.webm" type="video/webm">${escape(token.text)}</video>`;
+    }
+    return marked.Renderer.prototype.image.call(this, token);
+  };
   renderer.heading = function ({ tokens, depth }) {
     const text = this.parser.parseInline(tokens);
     const id = slugger.slug(sanitizeHtml(text, {allowedTags: [], allowedAttributes: {}}));
     return `<h${depth} id="${escape(id)}">${text}</h${depth}>\n`;
   };
   return sanitizeHtml(marked.parse(markdown, {renderer, gfm: true}), {
-    allowedTags: [...sanitizeHtml.defaults.allowedTags, 'img', 'details', 'summary', 'del'],
+    allowedTags: [...sanitizeHtml.defaults.allowedTags, 'img', 'details', 'summary', 'del', 'video', 'source'],
     allowedAttributes: {
       a: ['href', 'target', 'rel', 'id'], img: ['src', 'alt', 'width', 'height', 'loading'],
       '*': ['id'], code: ['class'], pre: ['tabindex', 'role', 'aria-label'],
+      video: ['class', 'controls', 'muted', 'loop', 'playsinline', 'preload', 'width', 'height', 'poster', 'aria-label'],
+      source: ['src', 'type'],
     },
     allowedSchemes: ['http', 'https', 'mailto'],
     allowProtocolRelative: false,

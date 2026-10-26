@@ -65,6 +65,7 @@ test('all routes have restrictive security headers and exact hashes for every bu
     const [name, ...sources] = value.split(' ');
     return [name, sources];
   }));
+  assert.ok(directives.get('connect-src').includes('https://fonts.googleapis.com'));
   for (const document of html) {
     for (const {name, attrs} of inventory(document).tags) {
       const resources = [];
@@ -91,6 +92,33 @@ test('CSP hashing preserves inline script bytes and detects changed or newly add
     assert.notEqual(policy, contentSecurityPolicy([script, changed]));
   }
   assert.deepEqual(inlineScriptHashes('<script src="/assets/site.js"></script>'), []);
+});
+
+test('overview replaces only the README routing GIF with a named local video and reserved dimensions', () => {
+  const html = readFileSync(path.join(out, 'docs/overview/index.html'), 'utf8');
+  const tags = inventory(html).tags;
+  const videos = tags.filter(tag => tag.name === 'video' && tag.attrs.class === 'routing-loop');
+  assert.equal(videos.length, 1);
+  const video = videos[0].attrs;
+  const readme = readFileSync(path.join(here, '..', 'README.md'), 'utf8');
+  assert.equal(video['aria-label'], readme.match(/!\[([^\]]+)\]\(docs\/router-trailer\.gif\)/)[1]);
+  assert.equal(video.width, '960');
+  assert.equal(video.height, '540');
+  assert.equal(video.preload, 'none');
+  assert.equal(video.poster, '/assets/router-trailer-loop-poster.jpg');
+  for (const attr of ['controls', 'muted', 'loop', 'playsinline']) assert.ok(attr in video);
+  assert.ok(!('autoplay' in video), 'Playback must respect reduced motion through setupTrailer');
+  assert.deepEqual(tags.filter(tag => tag.name === 'source').map(tag => [tag.attrs.src, tag.attrs.type]), [
+    ['/assets/router-trailer-loop.mp4', 'video/mp4'], ['/assets/router-trailer-loop.webm', 'video/webm'],
+  ]);
+  for (const file of [video.poster, '/assets/router-trailer-loop.webm', '/assets/router-trailer-loop.mp4']) {
+    assert.ok(existsSync(path.join(out, file)));
+  }
+  assert.ok(!tags.some(tag => tag.name === 'img' && tag.attrs.src?.endsWith('/docs/router-trailer.gif')));
+  assert.match(renderMarkdown('![Other animation](docs/other.gif)', 'README.md'), /<img\b/);
+  assert.match(renderMarkdown('![Other source](docs/router-trailer.gif)', 'docs/install.md'), /<img\b/);
+  const named = inventory(renderMarkdown('![A "quoted" & named loop](docs/router-trailer.gif)', 'README.md')).tags;
+  assert.equal(named.find(tag => tag.name === 'video').attrs['aria-label'], 'A "quoted" & named loop');
 });
 
 test('generated code examples have named keyboard focus and content stays in landmarks', () => {

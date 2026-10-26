@@ -12,3 +12,5 @@
 
 p a,li a,.bottom a{text-decoration:underline;text-underline-offset:3px}
 .markdown pre:focus-visible{outline:2px solid var(--green);outline-offset:4px}
+
+.markdown video{display:block;max-width:100%;height:auto;aspect-ratio:16/9}
