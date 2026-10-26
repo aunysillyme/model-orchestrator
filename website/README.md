@@ -34,7 +34,6 @@ Generated code examples are named, keyboard focusable groups with a visible focu
 - Vercel project and GitHub integration: project ID `prj_HWCUc01VxliaCToJBeQbqg8pjgo0`, team `aunysillymes-projects`.
 - Cloudflare DNS: the `model-orchestrator` record under `aunysillyme.dev`. DNS-only CNAME to `bb9493e20ea5c81c.vercel-dns-016.com`, TTL 300, record ID `6028469f5b74ecc19db52364830cbd40`. Vercel reported the domain correctly configured and HTTPS served the site publicly on 2026-09-28.
 - npm registry: public, credential-free metadata for `model-orchestrator/latest`.
-- GitHub workflow badge: the build copies the public SVG artwork into `/assets/test-badge.svg`, with the bundled SVG as an offline fallback. HTML uses that local copy so visitors receive the same badge without GitHub's cross-site cookie response. The badge refreshes on each build; its workflow link and Markdown source stay intact.
 - Cloudinary: the approved silent v2 trailer, public ID `aunysillyme.dev/model-orchestrator-trailer`, version `1790569976`.
 - Google Fonts: Cormorant Garamond and JetBrains Mono, with local serif and monospace fallbacks.
 - Google Analytics: the existing `G-HK1CE993HY` measurement ID, once per HTML page.

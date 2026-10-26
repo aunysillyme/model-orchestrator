@@ -5,7 +5,7 @@ import {readFileSync, readdirSync, existsSync} from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {Parser, parseDocument, DomUtils} from 'htmlparser2';
-import {renderMarkdown, releaseEntries, documentHtml, pages, origin, populateLanding, statusBadge} from './content.mjs';
+import {renderMarkdown, releaseEntries, documentHtml, pages, origin, populateLanding} from './content.mjs';
 import {setupTrailer} from './assets/trailer.js';
 import {validRelease, refreshRelease} from './assets/releases.js';
 import {sourceDocument, discoveryFiles, publicRoutes} from './discovery.mjs';
@@ -91,14 +91,6 @@ test('CSP hashing preserves inline script bytes and detects changed or newly add
     assert.notEqual(policy, contentSecurityPolicy([script, changed]));
   }
   assert.deepEqual(inlineScriptHashes('<script src="/assets/site.js"></script>'), []);
-});
-
-test('the website serves the workflow badge locally and preserves its GitHub link', () => {
-  const workflow = statusBadge.source.replace('/badge.svg', '');
-  const html = renderMarkdown(`[![test](${statusBadge.source})](${workflow})`, 'README.md');
-  assert.ok(html.includes(`src="${statusBadge.asset}"`));
-  assert.ok(html.includes(`href="${workflow}"`));
-  assert.match(readFileSync(path.join(out, statusBadge.asset), 'utf8'), /^<svg\b/);
 });
 
 test('generated code examples have named keyboard focus and content stays in landmarks', () => {

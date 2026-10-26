@@ -47,7 +47,7 @@ export function contentSecurityPolicy(documents) {
     `script-src 'self' https://www.googletagmanager.com ${hashes.join(' ')}`,
     "style-src 'self' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
-    "img-src 'self' https://res.cloudinary.com https://raw.githubusercontent.com https://img.shields.io https://www.googletagmanager.com",
+    "img-src 'self' https://res.cloudinary.com https://raw.githubusercontent.com https://img.shields.io https://github.com https://www.googletagmanager.com",
     "media-src 'self' https://res.cloudinary.com",
     "connect-src 'self' https://registry.npmjs.org https://www.google-analytics.com https://www.googletagmanager.com",
   ].join('; ');

@@ -6,7 +6,6 @@ import {validVersion} from './assets/releases.js';
 
 export const origin = 'https://model-orchestrator.aunysillyme.dev';
 export const repository = 'https://github.com/aunysillyme/model-orchestrator';
-export const statusBadge = {source: `${repository}/actions/workflows/test.yml/badge.svg`, asset: '/assets/test-badge.svg'};
 export const pages = new Map([
   ['README.md', 'overview'], ['docs/README.md', 'guides'], ['bin/README.md', 'commands'],
   ['proof/README.md', 'proof'], ['CHANGELOG.md', 'changelog'],
@@ -29,7 +28,6 @@ export function releaseEntries(markdown) {
 }
 
 function rewriteUrl(href, source, image = false) {
-  if (image && href === statusBadge.source) return statusBadge.asset;
   if (!href || href.startsWith('#') || /^[a-z][a-z\d+.-]*:/i.test(href) || href.startsWith('//')) return href;
   const [file, fragment] = href.split('#');
   const normalized = path.posix.normalize(path.posix.join(path.posix.dirname(source), file));
