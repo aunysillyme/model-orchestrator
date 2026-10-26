@@ -2,7 +2,7 @@ import { readFile, writeFile, mkdir, cp, rm } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { documentHtml, renderMarkdown, releaseEntries, pages, origin, repository, escape, populateLanding } from './content.mjs';
+import { documentHtml, renderMarkdown, releaseEntries, pages, origin, repository, statusBadge, escape, populateLanding } from './content.mjs';
 import { validRelease } from './assets/releases.js';
 import {marked} from 'marked';
 import {sourceDocument, discoveryFiles, publicRoutes} from './discovery.mjs';
@@ -66,6 +66,16 @@ landing = landing.replace('</footer>', `<span>Source <a href="${repository}/tree
 await rm(out, {recursive: true, force: true});
 await mkdir(out, {recursive: true});
 await cp(path.join(here, 'assets'), path.join(out, 'assets'), {recursive: true});
+// Keep the badge's exact artwork without GitHub's cross-site cookie response.
+try {
+  const response = await fetch(statusBadge.source, {signal: AbortSignal.timeout(10000)});
+  if (!response.ok) throw new Error(`GitHub returned ${response.status}`);
+  const svg = await response.text();
+  if (!svg.startsWith('<svg') || Buffer.byteLength(svg) > 16384) throw new Error('Unexpected badge format');
+  await writeFile(path.join(out, statusBadge.asset), svg);
+} catch {
+  console.warn('GitHub badge unavailable; using the bundled badge.');
+}
 await writeFile(path.join(out, 'index.html'), documentHtml({title: 'Model Orchestrator: model router for Claude Code, Codex and Gemini', description: 'Model router for AI coding agents: routing rules, subagents and a CLI runner that give your AI a playbook for the model, effort and tools each task needs.', route: '/', body: landing}));
 
 const navItems = [...pages].map(([source, slug]) => `<a href="/docs/${slug}/">${escape(({overview: 'Overview', guides: 'All guides', commands: 'Commands', proof: 'Measured proof', changelog: 'Changelog'})[slug] || slug.replaceAll('-', ' '))}</a>`).join('');
@@ -73,8 +83,8 @@ const publicDocuments = new Map();
 for (const [source, slug] of pages) {
   const markdown = await readFile(path.join(root, source), 'utf8');
   const title = markdown.match(/^# (.+)$/m)?.[1].replace(/[`*_]/g, '') || slug;
-  const body = `<header class="top"><a class="brand" href="/"><img src="/assets/avatar.png" alt="AunySillyMe"><span>model-orchestrator</span></a><nav class="topnav" aria-label="Project links"><a href="/">Home</a><a href="${repository}" target="_blank" rel="noopener noreferrer">GitHub ↗</a></nav></header>
-<a class="skip" href="#document">Skip to content</a><div class="layout"><aside><p class="side-label">DOCUMENTATION</p><nav class="side-links" aria-label="Documentation">${navItems}</nav><div class="side-bottom">Questions or feedback?<a class="issue-button" href="${repository}/issues/new/choose" target="_blank" rel="noopener noreferrer">File an issue ↗</a></div></aside>
+  const body = `<header class="top"><a class="skip" href="#document">Skip to content</a><a class="brand" href="/"><img src="/assets/avatar.png" alt="AunySillyMe"><span>model-orchestrator</span></a><nav class="topnav" aria-label="Project links"><a href="/">Home</a><a href="${repository}" target="_blank" rel="noopener noreferrer">GitHub ↗</a></nav></header>
+<div class="layout"><aside><p class="side-label">DOCUMENTATION</p><nav class="side-links" aria-label="Documentation">${navItems}</nav><div class="side-bottom">Questions or feedback?<a class="issue-button" href="${repository}/issues/new/choose" target="_blank" rel="noopener noreferrer">File an issue ↗</a></div></aside>
 <main class="main document" id="document"><details class="mobile-nav"><summary>Documentation</summary><nav aria-label="Mobile documentation">${navItems}</nav></details><div class="crumb"><a href="/">model-orchestrator</a><span>/</span><span>Documentation</span></div>
 <p class="source-note">From <a href="${repository}/blob/${commit}/${source}" target="_blank" rel="noopener noreferrer">${escape(source)}</a> · <a href="${repository}/tree/${commit}" target="_blank" rel="noopener noreferrer">${commit.slice(0, 7)}</a> · Built ${built.slice(0, 10)}</p>
 <article class="markdown">${renderMarkdown(markdown, source)}</article><footer class="bottom"><a href="/">← Back to model-orchestrator</a><a href="${repository}/issues/new/choose" target="_blank" rel="noopener noreferrer">File an issue ↗</a></footer></main></div>`;

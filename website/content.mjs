@@ -6,6 +6,7 @@ import {validVersion} from './assets/releases.js';
 
 export const origin = 'https://model-orchestrator.aunysillyme.dev';
 export const repository = 'https://github.com/aunysillyme/model-orchestrator';
+export const statusBadge = {source: `${repository}/actions/workflows/test.yml/badge.svg`, asset: '/assets/test-badge.svg'};
 export const pages = new Map([
   ['README.md', 'overview'], ['docs/README.md', 'guides'], ['bin/README.md', 'commands'],
   ['proof/README.md', 'proof'], ['CHANGELOG.md', 'changelog'],
@@ -28,6 +29,7 @@ export function releaseEntries(markdown) {
 }
 
 function rewriteUrl(href, source, image = false) {
+  if (image && href === statusBadge.source) return statusBadge.asset;
   if (!href || href.startsWith('#') || /^[a-z][a-z\d+.-]*:/i.test(href) || href.startsWith('//')) return href;
   const [file, fragment] = href.split('#');
   const normalized = path.posix.normalize(path.posix.join(path.posix.dirname(source), file));
@@ -49,11 +51,12 @@ export function renderMarkdown(markdown, source) {
     allowedTags: [...sanitizeHtml.defaults.allowedTags, 'img', 'details', 'summary', 'del'],
     allowedAttributes: {
       a: ['href', 'target', 'rel', 'id'], img: ['src', 'alt', 'width', 'height', 'loading'],
-      '*': ['id'], code: ['class'],
+      '*': ['id'], code: ['class'], pre: ['tabindex', 'role', 'aria-label'],
     },
     allowedSchemes: ['http', 'https', 'mailto'],
     allowProtocolRelative: false,
     transformTags: {
+      pre: (_tag, attributes) => ({tagName: 'pre', attribs: {...attributes, tabindex: '0', role: 'group', 'aria-label': 'Code example'}}),
       a: (_tag, attributes) => {
         const href = rewriteUrl(attributes.href, source);
         const external = /^https?:\/\//i.test(href || '');

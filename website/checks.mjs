@@ -5,10 +5,11 @@ import {readFileSync, readdirSync, existsSync} from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {Parser, parseDocument, DomUtils} from 'htmlparser2';
-import {renderMarkdown, releaseEntries, documentHtml, pages, origin, populateLanding} from './content.mjs';
+import {renderMarkdown, releaseEntries, documentHtml, pages, origin, populateLanding, statusBadge} from './content.mjs';
 import {setupTrailer} from './assets/trailer.js';
 import {validRelease, refreshRelease} from './assets/releases.js';
 import {sourceDocument, discoveryFiles, publicRoutes} from './discovery.mjs';
+import {builtDocuments, contentSecurityPolicy, inlineScriptHashes} from './security.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const out = path.join(here, 'dist');
@@ -47,6 +48,77 @@ function verifyHtml(html, route, documents) {
 }
 const routes = ['/', ...[...pages.values()].map(slug => `/docs/${slug}/`)];
 const documents = new Map(routes.map(route => [route, inventory(readFileSync(path.join(out, route, 'index.html'), 'utf8'))]));
+
+test('all routes have restrictive security headers and exact hashes for every built inline script', async () => {
+  const config = JSON.parse(readFileSync(path.join(here, '..', 'vercel.json'), 'utf8'));
+  const headers = new Map(config.headers.find(rule => rule.source === '/(.*)').headers.map(header => [header.key, header.value]));
+  assert.equal(headers.get('X-Frame-Options'), 'DENY');
+  assert.equal(headers.get('Permissions-Policy'), 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
+  assert.equal(headers.get('X-Content-Type-Options'), 'nosniff');
+  assert.equal(headers.get('Referrer-Policy'), 'strict-origin-when-cross-origin');
+  assert.equal(headers.get('Cache-Control'), 'public, max-age=0, must-revalidate');
+  const html = await builtDocuments(out);
+  assert.equal(html.length, routes.length + 1);
+  assert.equal(headers.get('Content-Security-Policy'), contentSecurityPolicy(html),
+    'CSP changed. Inspect built resource origins, then run node website/security.mjs --write and rerun the website check.');
+  const directives = new Map(headers.get('Content-Security-Policy').split('; ').map(value => {
+    const [name, ...sources] = value.split(' ');
+    return [name, sources];
+  }));
+  for (const document of html) {
+    for (const {name, attrs} of inventory(document).tags) {
+      const resources = [];
+      if (name === 'script' && attrs.src) resources.push(['script-src', attrs.src]);
+      if (name === 'link' && attrs.rel === 'stylesheet') resources.push(['style-src', attrs.href]);
+      if (name === 'img' && attrs.src) resources.push(['img-src', attrs.src]);
+      if (name === 'video' && attrs.poster) resources.push(['img-src', attrs.poster]);
+      if (name === 'source' && attrs.src) resources.push(['media-src', attrs.src]);
+      for (const [directive, resource] of resources) {
+        const resourceOrigin = new URL(resource, origin).origin;
+        assert.ok(directives.get(directive).includes(resourceOrigin === origin ? "'self'" : resourceOrigin),
+          `${directive} must allow built resource ${resource}`);
+      }
+    }
+  }
+});
+
+test('CSP hashing preserves inline script bytes and detects changed or newly added scripts', () => {
+  const script = '<script>console.log("example")</script>';
+  const policy = contentSecurityPolicy([script]);
+  assert.ok(policy.includes(inlineScriptHashes(script)[0]));
+  for (const changed of [script.replace('example', 'changed'), script.replace('</script>', '\n</script>'), '<script>newScript()</script>']) {
+    assert.ok(!policy.includes(inlineScriptHashes(changed)[0]));
+    assert.notEqual(policy, contentSecurityPolicy([script, changed]));
+  }
+  assert.deepEqual(inlineScriptHashes('<script src="/assets/site.js"></script>'), []);
+});
+
+test('the website serves the workflow badge locally and preserves its GitHub link', () => {
+  const workflow = statusBadge.source.replace('/badge.svg', '');
+  const html = renderMarkdown(`[![test](${statusBadge.source})](${workflow})`, 'README.md');
+  assert.ok(html.includes(`src="${statusBadge.asset}"`));
+  assert.ok(html.includes(`href="${workflow}"`));
+  assert.match(readFileSync(path.join(out, statusBadge.asset), 'utf8'), /^<svg\b/);
+});
+
+test('generated code examples have named keyboard focus and content stays in landmarks', () => {
+  for (const route of routes) {
+    const {tags} = documents.get(route);
+    for (const {attrs} of tags.filter(tag => tag.name === 'pre')) {
+      assert.equal(attrs.tabindex, '0', `${route}: code example is keyboard focusable`);
+      assert.equal(attrs.role, 'group');
+      assert.ok(attrs['aria-label']);
+    }
+    const html = readFileSync(path.join(out, route, 'index.html'), 'utf8');
+    assert.match(html, /<header class="top"><a class="skip"/);
+    assert.match(html, /<main\b/);
+    assert.match(html, /<nav\b/);
+    assert.match(html, /<footer\b/);
+  }
+  const css = readFileSync(path.join(out, 'assets/site.css'), 'utf8');
+  assert.match(css, /p a,li a,\.bottom a\{text-decoration:underline/);
+  assert.match(css, /\.markdown pre:focus-visible\{outline:2px solid var\(--green\)/);
+});
 
 test('documentation routes avoid the index segment canonicalized away by Vercel', () => {
   assert.ok(![...pages.values()].includes('index'), 'Vercel redirects /docs/index/ to /docs/');
