@@ -112,6 +112,18 @@ test('Anthropic gateway honors resolved full IDs while other providers retain ca
   assert.ok(text.includes(providerById.openai.lanes[0][1]));
 });
 
+test('gateway exposes new model lanes only when their provider is selected', () => {
+  const openai = gatewayModels([], [providerById.openai]);
+  assert.match(openai, /model_name: second-opinion[\s\S]*openai\/gpt-6\.1-sol/);
+  assert.match(openai, /model_name: openai-vision[\s\S]*openai\/gpt-6\.1-terra/);
+  assert.match(openai, /model_name: openai-fast[\s\S]*openai\/gpt-6-luna/);
+  assert.doesNotMatch(openai, /gemini-3\.8-flash/);
+  const google = gatewayModels([], [providerById.google]);
+  assert.match(google, /model_name: long-context[\s\S]*gemini\/gemini-4-argon/);
+  assert.match(google, /model_name: google-fast[\s\S]*gemini\/gemini-3\.8-flash/);
+  assert.doesNotMatch(google, /gpt-6-luna/);
+});
+
 test('model installer dry run has no writes and default install retains inherited models', () => {
   const root = mkdtempSync(join(realpathSync(tmpdir()), 'orch-model-dry-'));
   try {
