@@ -36,7 +36,7 @@
 //              source, checked, tierModels }. A null tierModels leaves model selection
 //              to the user's plan and agent configuration.
 
-export const CATALOG_MODELS = { measuredAt: '2026-10-16', expiresAt: '2026-11-15', source:
+export const CATALOG_MODELS = { measuredAt: '2026-11-17', expiresAt: '2026-12-17', source:
   'catalog compatibility snapshot; verify with the provider before use' };
 
 // Capability policy, independent of subscriptions. Initial price ceilings come
@@ -478,12 +478,21 @@ export const toolById = Object.fromEntries(TOOLS.map((t) => [t.id, t]));
 
 export const PROVIDERS = [
   { id: 'anthropic', name: 'Anthropic API', envName: 'ANTHROPIC_API_KEY',
-    modelsChecked: MODEL_POLICY.checked, modelsExpires: '2026-11-07',
+    modelsChecked: '2026-11-17', modelsExpires: '2026-12-17',
     lanes: [['standard', 'anthropic/claude-sonnet-5-5'], ['deep', 'anthropic/claude-opus-5-5']] },
+  // https://developers.openai.com/api/docs/models; gateway compatibility is not yet live-probed.
   { id: 'openai', name: 'OpenAI API', envName: 'OPENAI_API_KEY',
-    modelsChecked: CATALOG_MODELS.measuredAt, modelsExpires: CATALOG_MODELS.expiresAt, lanes: [['second-opinion', 'openai/gpt-6.1-sol']] },
+    modelsChecked: CATALOG_MODELS.measuredAt, modelsExpires: CATALOG_MODELS.expiresAt, lanes: [
+      ['second-opinion', 'openai/gpt-6.1-sol'],
+      ['openai-vision', 'openai/gpt-6.1-terra'],
+      ['openai-fast', 'openai/gpt-6-luna']
+    ] },
+  // https://ai.google.dev/gemini-api/docs/models; gateway compatibility is not yet live-probed.
   { id: 'google', name: 'Google Gemini API', envName: 'GEMINI_API_KEY',
-    modelsChecked: CATALOG_MODELS.measuredAt, modelsExpires: CATALOG_MODELS.expiresAt, lanes: [['long-context', 'gemini/gemini-4-argon']] },
+    modelsChecked: CATALOG_MODELS.measuredAt, modelsExpires: CATALOG_MODELS.expiresAt, lanes: [
+      ['long-context', 'gemini/gemini-4-argon'],
+      ['google-fast', 'gemini/gemini-3.8-flash']
+    ] },
   { id: 'xai', name: 'xAI API', envName: 'XAI_API_KEY',
     modelsChecked: CATALOG_MODELS.measuredAt, modelsExpires: CATALOG_MODELS.expiresAt, lanes: [['live-fast', 'xai/grok-4.3']] },
   { id: 'openrouter', name: 'OpenRouter (many cheap models, one key)', envName: 'OPENROUTER_API_KEY',
