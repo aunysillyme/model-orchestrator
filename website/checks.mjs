@@ -154,6 +154,7 @@ test('every page header carries the Projects popup rendered from the pinned set'
   for (const row of rows.filter(row => row.name !== 'model-orchestrator')) assert.ok(sidebar.includes(row.url), `sidebar lists ${row.name}`);
   assert.ok(!sidebar.includes('github.com/aunysillyme/model-orchestrator"'), 'sidebar omits the current project');
 });
+
 test('documentation routes avoid the index segment canonicalized away by Vercel', () => {
   assert.ok(![...pages.values()].includes('index'), 'Vercel redirects /docs/index/ to /docs/');
   const config = JSON.parse(readFileSync(path.join(here, '..', 'vercel.json'), 'utf8'));
