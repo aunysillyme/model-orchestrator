@@ -58,7 +58,7 @@ test('every HTML page declares app site type and loads Speed Insights once with 
     const scripts = tags.filter(tag => tag.name === 'script' && tag.attrs.src === '/_vercel/speed-insights/script.js');
     assert.equal(scripts.length, 1);
     assert.ok(Object.hasOwn(scripts[0].attrs, 'defer'));
-    const types = tags.filter(tag => tag.name === 'meta' && tag.attrs.name === 'is-agentic:site-type');
+    const types = tags.filter(tag => tag.name === 'meta' && tag.attrs.name === 'is-agentic-site-type');
     assert.equal(types.length, 1);
     assert.equal(types[0].attrs.content, 'app');
   }
