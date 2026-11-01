@@ -43,11 +43,26 @@ function verifyHtml(html, route, documents) {
       if (url.hash) assert.ok(target.ids.has(decodeURIComponent(url.hash.slice(1))), `Missing anchor ${link.href} linked from ${route}`);
     }
   }
-  for (const asset of info.assets.filter(value => value.startsWith('/'))) assert.ok(existsSync(path.join(out, asset)), `Missing asset ${asset}`);
+  // Vercel serves the Speed Insights script outside the static build output.
+  for (const asset of info.assets.filter(value => value.startsWith('/') && value !== '/_vercel/speed-insights/script.js')) {
+    assert.ok(existsSync(path.join(out, asset)), `Missing asset ${asset}`);
+  }
   return info;
 }
 const routes = ['/', ...[...pages.values()].map(slug => `/docs/${slug}/`)];
 const documents = new Map(routes.map(route => [route, inventory(readFileSync(path.join(out, route, 'index.html'), 'utf8'))]));
+
+test('every HTML page declares app site type and loads Speed Insights once with defer', async () => {
+  for (const html of await builtDocuments(out)) {
+    const tags = inventory(html).tags;
+    const scripts = tags.filter(tag => tag.name === 'script' && tag.attrs.src === '/_vercel/speed-insights/script.js');
+    assert.equal(scripts.length, 1);
+    assert.ok(Object.hasOwn(scripts[0].attrs, 'defer'));
+    const types = tags.filter(tag => tag.name === 'meta' && tag.attrs.name === 'is-agentic:site-type');
+    assert.equal(types.length, 1);
+    assert.equal(types[0].attrs.content, 'app');
+  }
+});
 
 test('all routes have restrictive security headers and exact hashes for every built inline script', async () => {
   const config = JSON.parse(readFileSync(path.join(here, '..', 'vercel.json'), 'utf8'));
