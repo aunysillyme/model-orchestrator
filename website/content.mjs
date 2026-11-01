@@ -107,7 +107,7 @@ export function documentHtml({title, description, route, body, discovery = true}
 <script defer src="/_vercel/speed-insights/script.js"></script>
 <script type="application/ld+json">\n${jsonLd}\n</script>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="is-agentic:site-type" content="app">
+<meta name="is-agentic-site-type" content="app">
 <title>${escape(title)}</title><meta name="description" content="${escape(description)}">
 ${discovery ? `<link rel="describedby" href="${origin}/llms.txt"><link rel="alternate" type="text/markdown" href="${origin}${route}index.md">` : '<meta name="robots" content="noindex">'}
 <link rel="canonical" href="${origin}${route}"><meta property="og:type" content="website">
