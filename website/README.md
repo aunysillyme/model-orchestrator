@@ -35,7 +35,7 @@ Generated code examples are named, keyboard focusable groups with a visible focu
 - Cloudflare DNS: the `model-orchestrator` record under `aunysillyme.dev`. DNS-only CNAME to `bb9493e20ea5c81c.vercel-dns-016.com`, TTL 300, record ID `6028469f5b74ecc19db52364830cbd40`. Vercel reported the domain correctly configured and HTTPS served the site publicly on 2026-09-28.
 - npm registry: public, credential-free metadata for `model-orchestrator/latest`.
 - Cloudinary: the approved silent v2 trailer, public ID `aunysillyme.dev/model-orchestrator-trailer`, version `1790569976`.
-- Google Fonts: Cormorant Garamond and JetBrains Mono, with local serif and monospace fallbacks.
+- Google Fonts: JetBrains Mono, with a local monospace fallback.
 - Google Analytics: the existing `G-HK1CE993HY` measurement ID, once per HTML page.
 - Website packages: exact versions in `website/package-lock.json`; `marked` and `sanitize-html` use MIT licenses, `github-slugger` uses ISC, and `htmlparser2` uses MIT. npm metadata and installed package source were checked during implementation. No dependency is copied into the installer.
 

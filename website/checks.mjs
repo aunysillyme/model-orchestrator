@@ -155,6 +155,21 @@ test('generated code examples have named keyboard focus and content stays in lan
   assert.match(css, /\.markdown pre:focus-visible\{outline:2px solid var\(--green\)/);
 });
 
+test('every page header carries the Projects popup rendered from the pinned set', () => {
+  const {rows} = JSON.parse(readFileSync(path.join(here, '..', '.repo-build', 'set.json'), 'utf8'));
+  for (const route of routes) {
+    const html = readFileSync(path.join(out, route, 'index.html'), 'utf8');
+    assert.equal((html.match(/data-projects-trigger/g) || []).length, 1, `${route}: one popup trigger`);
+    assert.ok(html.includes('href="https://aunysillyme.dev/#projects"'), `${route}: JS-off fallback link`);
+    for (const row of rows) assert.ok(html.includes(`href="https://${row.name}.aunysillyme.dev"`), `${route}: popup lists ${row.name}`);
+    assert.ok(html.includes('aria-current="page"'), `${route}: current project is marked`);
+  }
+  const landing = readFileSync(path.join(out, 'index.html'), 'utf8');
+  const sidebar = landing.slice(landing.indexOf('Related repositories'), landing.indexOf('side-bottom'));
+  for (const row of rows.filter(row => row.name !== 'model-orchestrator')) assert.ok(sidebar.includes(row.url), `sidebar lists ${row.name}`);
+  assert.ok(!sidebar.includes('github.com/aunysillyme/model-orchestrator"'), 'sidebar omits the current project');
+});
+
 test('documentation routes avoid the index segment canonicalized away by Vercel', () => {
   assert.ok(![...pages.values()].includes('index'), 'Vercel redirects /docs/index/ to /docs/');
   const config = JSON.parse(readFileSync(path.join(here, '..', 'vercel.json'), 'utf8'));

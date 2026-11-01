@@ -6,6 +6,7 @@ import { documentHtml, renderMarkdown, releaseEntries, pages, origin, repository
 import { validRelease } from './assets/releases.js';
 import {marked} from 'marked';
 import {sourceDocument, discoveryFiles, publicRoutes} from './discovery.mjs';
+import {renderProjectsPopup} from '../scripts/lib/projects-popup-render.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.dirname(here);
@@ -58,8 +59,19 @@ if (empty) figures.push(card(`${empty.value} of ${empty.sampleSize}`, 'empty-res
 const gate = current.get('acceptance-failures-blocked');
 if (gate) figures.push(card(`${gate.value} of ${gate.sampleSize}`, 'failing acceptance-check fixtures blocked by the gate', `Measured ${gate.measuredAt} · sample ${n(gate.sampleSize)}`));
 const proofFigures = figures.length ? `<div class="proof-figures">${figures.join('')}</div>` : '';
+// The Projects popup and the sidebar sibling list both render from the pinned
+// set, so no second hand-kept list remains. The popup markup is the shared
+// component; its external links gain the target/rel this site's checks require.
+const {rows: setRows} = JSON.parse(await readFile(path.join(root, '.repo-build', 'set.json'), 'utf8'));
+const projectsPopup = renderProjectsPopup({rows: setRows, current: 'model-orchestrator', id: 'projects-popup', fallbackHref: 'https://aunysillyme.dev/#projects'})
+  .replaceAll('<a class="projects-popup__', '<a target="_blank" rel="noopener noreferrer" class="projects-popup__');
+const siblings = setRows.filter(row => row.name !== 'model-orchestrator')
+  .map(row => `<a href="${escape(row.url)}" target="_blank" rel="noopener noreferrer">${escape(row.name)} ↗</a>`).join('');
 let landing = await readFile(path.join(here, 'landing.html'), 'utf8');
 landing = populateLanding(landing, `v${published.version}`, releaseArea);
+if (!landing.includes('{{PROJECTS_POPUP}}') || !landing.includes('{{SIBLINGS}}')) throw new Error('Missing landing placeholders');
+landing = landing.replace('{{PROJECTS_POPUP}}', () => projectsPopup).replace('{{SIBLINGS}}', () => siblings);
+if (landing.includes('{{PROJECTS_POPUP}}') || landing.includes('{{SIBLINGS}}')) throw new Error('Landing placeholders left unfilled');
 landing = landing.replace('{{PROOF}}', () => proofFigures);
 landing = landing.replace('</footer>', `<span>Source <a href="${repository}/tree/${commit}" target="_blank" rel="noopener noreferrer">${commit.slice(0, 7)}</a></span></footer>`);
 
@@ -73,7 +85,7 @@ const publicDocuments = new Map();
 for (const [source, slug] of pages) {
   const markdown = await readFile(path.join(root, source), 'utf8');
   const title = markdown.match(/^# (.+)$/m)?.[1].replace(/[`*_]/g, '') || slug;
-  const body = `<header class="top"><a class="skip" href="#document">Skip to content</a><a class="brand" href="/"><img src="/assets/avatar.png" alt="AunySillyMe"><span>model-orchestrator</span></a><nav class="topnav" aria-label="Project links"><a href="/">Home</a><a href="${repository}" target="_blank" rel="noopener noreferrer">GitHub ↗</a></nav></header>
+  const body = `<header class="top"><a class="skip" href="#document">Skip to content</a><a class="brand" href="/"><img src="/assets/avatar.png" alt="AunySillyMe"><span>model-orchestrator</span></a><nav class="topnav" aria-label="Project links"><a href="/">Home</a>${projectsPopup}<a href="${repository}" target="_blank" rel="noopener noreferrer">GitHub ↗</a><a href="https://www.npmjs.com/package/model-orchestrator" target="_blank" rel="noopener noreferrer">npm ↗</a></nav></header>
 <div class="layout"><aside><p class="side-label">DOCUMENTATION</p><nav class="side-links" aria-label="Documentation">${navItems}</nav><div class="side-bottom">Questions or feedback?<a class="issue-button" href="${repository}/issues/new/choose" target="_blank" rel="noopener noreferrer">File an issue ↗</a></div></aside>
 <main class="main document" id="document"><details class="mobile-nav"><summary>Documentation</summary><nav aria-label="Mobile documentation">${navItems}</nav></details><div class="crumb"><a href="/">model-orchestrator</a><span>/</span><span>Documentation</span></div>
 <p class="source-note">From <a href="${repository}/blob/${commit}/${source}" target="_blank" rel="noopener noreferrer">${escape(source)}</a> · <a href="${repository}/tree/${commit}" target="_blank" rel="noopener noreferrer">${commit.slice(0, 7)}</a> · Built ${built.slice(0, 10)}</p>
