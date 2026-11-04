@@ -103,8 +103,11 @@ export function documentHtml({title, description, route, body, discovery = true}
   return `<!doctype html><html lang="en"><head><!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-HK1CE993HY"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-HK1CE993HY');</script>
+<script>window.si=window.si||function(){(window.siq=window.siq||[]).push(arguments);};</script>
+<script defer src="/_vercel/speed-insights/script.js"></script>
 <script type="application/ld+json">\n${jsonLd}\n</script>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="is-agentic-site-type" content="app">
 <title>${escape(title)}</title><meta name="description" content="${escape(description)}">
 ${discovery ? `<link rel="describedby" href="${origin}/llms.txt"><link rel="alternate" type="text/markdown" href="${origin}${route}index.md">` : '<meta name="robots" content="noindex">'}
 <link rel="canonical" href="${origin}${route}"><meta property="og:type" content="website">
@@ -117,6 +120,6 @@ ${discovery ? `<link rel="describedby" href="${origin}/llms.txt"><link rel="alte
 <meta name="twitter:card" content="summary_large_image"><meta name="theme-color" content="#050806">
 <link rel="icon" href="/assets/avatar.png"><link rel="apple-touch-icon" href="/assets/avatar.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/assets/site.css"><script type="module" src="/assets/site.js"></script></head><body>${body}</body></html>`;
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/site.css"><link rel="stylesheet" href="/assets/projects-popup.css"><script type="module" src="/assets/site.js"></script><script defer src="/assets/projects-popup.js"></script></head><body>${body}</body></html>`;
 }

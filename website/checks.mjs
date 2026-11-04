@@ -43,11 +43,26 @@ function verifyHtml(html, route, documents) {
       if (url.hash) assert.ok(target.ids.has(decodeURIComponent(url.hash.slice(1))), `Missing anchor ${link.href} linked from ${route}`);
     }
   }
-  for (const asset of info.assets.filter(value => value.startsWith('/'))) assert.ok(existsSync(path.join(out, asset)), `Missing asset ${asset}`);
+  // Vercel serves the Speed Insights script outside the static build output.
+  for (const asset of info.assets.filter(value => value.startsWith('/') && value !== '/_vercel/speed-insights/script.js')) {
+    assert.ok(existsSync(path.join(out, asset)), `Missing asset ${asset}`);
+  }
   return info;
 }
 const routes = ['/', ...[...pages.values()].map(slug => `/docs/${slug}/`)];
 const documents = new Map(routes.map(route => [route, inventory(readFileSync(path.join(out, route, 'index.html'), 'utf8'))]));
+
+test('every HTML page declares app site type and loads Speed Insights once with defer', async () => {
+  for (const html of await builtDocuments(out)) {
+    const tags = inventory(html).tags;
+    const scripts = tags.filter(tag => tag.name === 'script' && tag.attrs.src === '/_vercel/speed-insights/script.js');
+    assert.equal(scripts.length, 1);
+    assert.ok(Object.hasOwn(scripts[0].attrs, 'defer'));
+    const types = tags.filter(tag => tag.name === 'meta' && tag.attrs.name === 'is-agentic-site-type');
+    assert.equal(types.length, 1);
+    assert.equal(types[0].attrs.content, 'app');
+  }
+});
 
 test('all routes have restrictive security headers and exact hashes for every built inline script', async () => {
   const config = JSON.parse(readFileSync(path.join(here, '..', 'vercel.json'), 'utf8'));
@@ -138,6 +153,21 @@ test('generated code examples have named keyboard focus and content stays in lan
   const css = readFileSync(path.join(out, 'assets/site.css'), 'utf8');
   assert.match(css, /p a,li a,\.bottom a\{text-decoration:underline/);
   assert.match(css, /\.markdown pre:focus-visible\{outline:2px solid var\(--green\)/);
+});
+
+test('every page header carries the Projects popup rendered from the pinned set', () => {
+  const {rows} = JSON.parse(readFileSync(path.join(here, '..', '.repo-build', 'set.json'), 'utf8'));
+  for (const route of routes) {
+    const html = readFileSync(path.join(out, route, 'index.html'), 'utf8');
+    assert.equal((html.match(/data-projects-trigger/g) || []).length, 1, `${route}: one popup trigger`);
+    assert.ok(html.includes('href="https://aunysillyme.dev/#projects"'), `${route}: JS-off fallback link`);
+    for (const row of rows) assert.ok(html.includes(`href="https://${row.name}.aunysillyme.dev"`), `${route}: popup lists ${row.name}`);
+    assert.ok(html.includes('aria-current="page"'), `${route}: current project is marked`);
+  }
+  const landing = readFileSync(path.join(out, 'index.html'), 'utf8');
+  const sidebar = landing.slice(landing.indexOf('Related repositories'), landing.indexOf('side-bottom'));
+  for (const row of rows.filter(row => row.name !== 'model-orchestrator')) assert.ok(sidebar.includes(row.url), `sidebar lists ${row.name}`);
+  assert.ok(!sidebar.includes('github.com/aunysillyme/model-orchestrator"'), 'sidebar omits the current project');
 });
 
 test('documentation routes avoid the index segment canonicalized away by Vercel', () => {
