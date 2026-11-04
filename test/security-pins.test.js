@@ -10,6 +10,11 @@ function companionFiles() {
   return planFiles({ level: 1, selected: [byId.codex], primary: byId.codex, tools: TOOLS });
 }
 
+test('obsidian-tc pin includes the published security fixes', () => {
+  const [major, minor, patch] = toolById['obsidian-tc'].pin.split('.').map(Number);
+  assert.ok(major > 1 || (major === 1 && (minor > 31 || (minor === 31 && patch >= 4))));
+});
+
 function assertPinnedPackages(text, label) {
   for (const [pattern, spec] of [
     [/codecalc\[full\](?:==[^\s'"`\]]+)?/g, `codecalc[full]==${toolById.codecalc.pin}`],

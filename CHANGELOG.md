@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Changed
+
+- Evaluate newer catalog pins for obsidian-tc and the Level 3 container images against current advisories.
+
 ## [1.1.2] - 2026-10-22
 
 ### Fixed
