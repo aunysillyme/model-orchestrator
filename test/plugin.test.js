@@ -8,7 +8,7 @@ import { readFileSync, readdirSync, statSync, existsSync, mkdtempSync, mkdirSync
 import { join, resolve, relative, sep } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
-import { planPluginFiles, pluginManifest, marketplaceManifest, PLUGIN_DIR, ROOT, PLUGIN_HOOKS, HAND_OWNED, DEFAULT_RULES, PLUGIN_NAME } from '../src/plugin.js';
+import { planPluginFiles, pluginManifest, marketplaceManifest, PLUGIN_DIR, ROOT, PLUGIN_HOOKS, HAND_OWNED, DEFAULT_RULES, PLUGIN_NAME, PINNED_NPX } from '../src/plugin.js';
 import { claudeAgentIds, planFiles, TEMPLATES } from '../src/install.js';
 import { byId } from '../src/catalog.js';
 
@@ -35,6 +35,27 @@ test('the committed plugin/ bundle is byte-for-byte what npm run gen:plugin gene
   // The loud negative: a file in plugin/ that neither the generator nor a person owns is a stray copy.
   const known = new Set([...plan.map((f) => f.rel), ...HAND_OWNED]);
   for (const rel of pluginFiles()) assert.ok(known.has(rel), `plugin/${rel} is neither generated nor hand-owned (src/plugin.js HAND_OWNED)`);
+});
+
+test('every package run in the plugin pins this release, so the directory review has no floating version', () => {
+  const pinned = PINNED_NPX.replace('npx ', '');
+  let seen = 0;
+  for (const rel of pluginFiles()) {
+    const text = readPlugin(rel);
+    for (const m of text.matchAll(/\b(?:npx|bunx|uvx|pnpm dlx)[ \t]+(?:-\S+[ \t]+)*([^\s`'"]+)/g)) {
+      seen += 1;
+      assert.equal(m[1], pinned, `plugin/${rel} runs ${m[1]} without the pinned version ${pinned}`);
+    }
+    assert.doesNotMatch(text, /@latest/, `plugin/${rel} names @latest`);
+  }
+  assert.ok(seen >= 4, 'the scan must find the commands it guards');
+});
+
+test('the plugin ships a square svg icon of at least 128px', () => {
+  const svg = readPlugin('.claude-plugin/icon.svg');
+  const w = Number(/\bwidth="(\d+)"/.exec(svg)?.[1]);
+  const h = Number(/\bheight="(\d+)"/.exec(svg)?.[1]);
+  assert.ok(w >= 128 && w === h, `icon is ${w}x${h}`);
 });
 
 test('the drift check can go red', () => {

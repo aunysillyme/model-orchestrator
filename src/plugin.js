@@ -27,7 +27,11 @@ export const DEFAULT_TASK_BRIEF = 'ai-orchestrator/TASK_BRIEF.md';
 export const PLUGIN_HOOKS = ['route-gate.mjs', 'subagent-context.mjs'];
 
 // Files in plugin/ that are written by hand, not by planPluginFiles().
-export const HAND_OWNED = ['README.md', 'hooks/hooks.json'];
+export const HAND_OWNED = ['README.md', 'hooks/hooks.json', '.claude-plugin/icon.svg'];
+
+// Directory review refuses a package run without an exact version, so every
+// command the plugin prints pins the release it was generated from.
+export const PINNED_NPX = 'npx model-orchestrator@' + GENERATOR_VERSION;
 
 export function pluginVars() {
   return {
@@ -40,7 +44,7 @@ export function pluginVars() {
     TASK_BRIEF_REL_JSON: JSON.stringify(DEFAULT_TASK_BRIEF),
     RULES_CANDIDATES_JSON: JSON.stringify(DEFAULT_RULES),
     SETUP_HINT_JSON: JSON.stringify(
-      ("This project has no model-orchestrator routing rules yet. Running `npx model-orchestrator` in the " +
+      ("This project has no model-orchestrator routing rules yet. Running `" + PINNED_NPX + "` in the " +
         "project root writes them (") +
         DEFAULT_RULES[0] +
         ("), and this hook reads them from the next prompt on. Until then, pick the lane yourself, and name " +
@@ -48,7 +52,7 @@ export function pluginVars() {
     ),
     SETUP_NOTICE_JSON: JSON.stringify(
       ("model-orchestrator: this project has no routing rules yet, so the plugin has no routing table to " +
-        "inject. Run `npx model-orchestrator` in the project root to write them; the plugin reads them from " +
+        "inject. Run `" + PINNED_NPX + "` in the project root to write them; the plugin reads them from " +
         "your next prompt.")
     ),
     CONTEXT_SUFFIX_JSON: JSON.stringify(
