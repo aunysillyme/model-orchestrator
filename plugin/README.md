@@ -2,7 +2,7 @@
 
 Model router for Claude Code: routing hooks and subagents as a plugin. A hook reads your project's routing table and injects it on every prompt to guide task assignment. Eight subagents ship with it, one per job, each with an effort level and an explicit tool list. Their definitions omit `model:` and inherit your Claude Code model configuration; tier labels describe their intended jobs and do not select a model by themselves.
 
-This folder is generated from the same templates `npx model-orchestrator@1.1.2` installs (`npm run gen:plugin`), so the plugin and the npm install carry the same agents and hooks.
+This folder is generated from the same templates `npx model-orchestrator@1.1.3` installs (`npm run gen:plugin`), so the plugin and the npm install carry the same agents and hooks.
 
 ## Install
 
@@ -18,10 +18,10 @@ From a terminal instead of a session: `claude plugin marketplace add aunysillyme
 Generate your project-specific routing rules once, from the project root:
 
 ```
-npx model-orchestrator@1.1.2 --yes --level 2 --ais claude-code --project . --dir ./ai-orchestrator
+npx model-orchestrator@1.1.3 --yes --level 2 --ais claude-code --project . --dir ./ai-orchestrator
 ```
 
-Run `npx model-orchestrator@1.1.2` with no flags to choose interactively instead. Pick Claude Code as the main agent: only a Claude Code install writes the route-gate table the hook reads.
+Run `npx model-orchestrator@1.1.3` with no flags to choose interactively instead. Pick Claude Code as the main agent: only a Claude Code install writes the route-gate table the hook reads.
 
 Until that file exists, the plugin tells you so once at session start, and tells Claude on every prompt, naming the command above. It never fails silently and never blocks a prompt.
 
@@ -57,7 +57,7 @@ Plugin agents are namespaced: `builder` is `model-orchestrator:builder`. The hoo
 
 ## Installed by npx
 
-- **The routing log.** `npx model-orchestrator@1.1.2` also installs `route-metrics.mjs`, which appends one JSON line per routing event so you can measure whether the rules are followed. It writes to disk, and the plugin ships only hooks that read, so it is npm-only.
+- **The routing log.** `npx model-orchestrator@1.1.3` also installs `route-metrics.mjs`, which appends one JSON line per routing event so you can measure whether the rules are followed. It writes to disk, and the plugin ships only hooks that read, so it is npm-only.
 - **A custom rules folder.** The plugin reads only the installer's default `ai-orchestrator/` folder. If you installed with a different `--dir`, use the hooks the installer rendered for that folder (`.claude/hooks/` plus `settings.hooks.snippet.json`) instead of the plugin's hooks.
 
 ## Using it next to an npm install

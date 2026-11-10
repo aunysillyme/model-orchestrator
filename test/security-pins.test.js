@@ -72,5 +72,14 @@ test('release uses a reviewed exact npm version with Node 24 trusted publishing'
   assert.doesNotMatch(workflow, /npm@latest/);
   assert.match(workflow, /node-version:\s*24(?:\s|$)/);
   assert.match(workflow, /id-token:\s*write/);
-  assert.match(workflow, /npm publish --provenance --access public/);
+  assert.match(workflow, /npm publish "\$1" --provenance --access public/);
+  assert.match(workflow, /needs: verify/);
+  assert.match(workflow, /npm pack --silent --pack-destination/);
+  assert.match(workflow, /npm install --ignore-scripts --no-audit --no-fund "\$tarball"/);
+  assert.match(workflow, /node_modules\/.bin\/model-orchestrator" --help/);
+  assert.match(workflow, /actions\/upload-artifact@[a-f0-9]{40}/);
+  assert.match(workflow, /actions\/download-artifact@[a-f0-9]{40}/);
+  assert.equal((workflow.match(/id-token:\s*write/g) || []).length, 1);
+  assert.ok(workflow.indexOf('id-token: write') > workflow.indexOf('  publish:'));
+  assert.ok(workflow.indexOf('tag and package.json') < workflow.indexOf('npm pack --silent'));
 });

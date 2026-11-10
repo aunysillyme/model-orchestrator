@@ -10,6 +10,7 @@ import {setupTrailer} from './assets/trailer.js';
 import {validRelease, refreshRelease} from './assets/releases.js';
 import {sourceDocument, discoveryFiles, publicRoutes} from './discovery.mjs';
 import {builtDocuments, contentSecurityPolicy, inlineScriptHashes} from './security.mjs';
+import {isGoogleTagScript} from './tag-url.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const out = path.join(here, 'dist');
@@ -21,7 +22,7 @@ function inventory(html) {
     if (name === 'a' && attrs.href) result.links.push(attrs);
     if (['script', 'img', 'source'].includes(name) && attrs.src) result.assets.push(attrs.src);
     if (name === 'link' && attrs.href?.startsWith('/assets/')) result.assets.push(attrs.href);
-    if (attrs.src?.includes('googletagmanager.com/gtag/js')) result.google++;
+    if (attrs.src && isGoogleTagScript(attrs.src)) result.google++;
   }, ontext(text) {result.config += (text.match(/gtag\('config','G-HK1CE993HY'\)/g) || []).length;}});
   parser.write(html); parser.end(); return result;
 }
@@ -51,6 +52,14 @@ function verifyHtml(html, route, documents) {
 }
 const routes = ['/', ...[...pages.values()].map(slug => `/docs/${slug}/`)];
 const documents = new Map(routes.map(route => [route, inventory(readFileSync(path.join(out, route, 'index.html'), 'utf8'))]));
+
+test('Google tag script requires the exact hostname and path', () => {
+  assert.equal(isGoogleTagScript('https://www.googletagmanager.com/gtag/js?id=example'), true);
+  for (const src of ['https://www.googletagmanager.com.evil.test/gtag/js',
+    'https://evil.test/www.googletagmanager.com/gtag/js', '/gtag/js', 'invalid']) {
+    assert.equal(isGoogleTagScript(src), false);
+  }
+});
 
 test('every HTML page declares app site type and loads Speed Insights once with defer', async () => {
   for (const html of await builtDocuments(out)) {
