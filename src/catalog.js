@@ -479,10 +479,19 @@ export const PROVIDERS = [
   { id: 'anthropic', name: 'Anthropic API', envName: 'ANTHROPIC_API_KEY',
     modelsChecked: MODEL_POLICY.checked, modelsExpires: '2026-11-07',
     lanes: [['standard', 'anthropic/claude-sonnet-5-5'], ['deep', 'anthropic/claude-opus-5-5']] },
+  // https://developers.openai.com/api/docs/models; gateway compatibility is not yet live-probed.
   { id: 'openai', name: 'OpenAI API', envName: 'OPENAI_API_KEY',
-    modelsChecked: CATALOG_MODELS.measuredAt, modelsExpires: CATALOG_MODELS.expiresAt, lanes: [['second-opinion', 'openai/gpt-6.1-sol']] },
+    modelsChecked: '2026-10-27', modelsExpires: '2026-11-27', lanes: [
+      ['second-opinion', 'openai/gpt-6.1-sol'],
+      ['openai-vision', 'openai/gpt-6.1-terra'],
+      ['openai-fast', 'openai/gpt-6-luna']
+    ] },
+  // https://ai.google.dev/gemini-api/docs/models; gateway compatibility is not yet live-probed.
   { id: 'google', name: 'Google Gemini API', envName: 'GEMINI_API_KEY',
-    modelsChecked: CATALOG_MODELS.measuredAt, modelsExpires: CATALOG_MODELS.expiresAt, lanes: [['long-context', 'gemini/gemini-4-argon']] },
+    modelsChecked: '2026-10-27', modelsExpires: '2026-11-27', lanes: [
+      ['long-context', 'gemini/gemini-4-argon'],
+      ['google-fast', 'gemini/gemini-3.8-flash']
+    ] },
   { id: 'xai', name: 'xAI API', envName: 'XAI_API_KEY',
     modelsChecked: CATALOG_MODELS.measuredAt, modelsExpires: CATALOG_MODELS.expiresAt, lanes: [['live-fast', 'xai/grok-4.3']] },
   { id: 'openrouter', name: 'OpenRouter (many cheap models, one key)', envName: 'OPENROUTER_API_KEY',

@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- Add optional gateway lanes for GPT-6.1 Terra, GPT-6 Luna and Gemini 3.8 Flash alongside existing defaults. Provider model IDs were checked on 2026-10-27; verify gateway compatibility and account access before use.
+
 ## [1.1.2] - 2026-10-22
 
 ### Fixed
