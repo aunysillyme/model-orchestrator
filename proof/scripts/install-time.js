@@ -6,7 +6,7 @@ export function measureInstall() {
   try {
     const samples = [];
     for (let i = 0; i < 7; i++) {
-      const { result, ms } = timed(() => run([join(ROOT, 'bin', 'cli.js'), '--yes', '--level', '2', '--ais', 'claude-code,codex', '--primary', 'claude-code', '--dir', join(dir, 'rules'), '--project', dir, '--dry'], { env: fixtureEnv(dir) }));
+      const { result, ms } = timed(() => run([join(ROOT, 'bin', 'cli.js'), '--yes', '--level', '2', '--ais', 'claude-code,codex', '--primary', 'claude-code', '--dir', join(dir, 'rules'), '--project', join(dir, 'project'), '--dry'], { env: fixtureEnv(dir) }));
       if (result.status !== 0) throw new Error(`Dry install failed: ${result.stderr}`);
       samples.push(ms);
     }
