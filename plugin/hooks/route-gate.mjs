@@ -28,8 +28,8 @@ const RULES_FILE_REL = RULES_CANDIDATES.join(' or ');
 // The plugin renders a next step for a project that has no rules yet, so a
 // missing file is never a silent no-op: SETUP_HINT goes to the model on every
 // prompt, SETUP_NOTICE to the user once, at session start.
-const SETUP_HINT = "This project has no model-orchestrator routing rules yet. Running `npx model-orchestrator@1.1.2` in the project root writes them (ai-orchestrator/ROUTING.md), and this hook reads them from the next prompt on. Until then, pick the lane yourself, and name that command if the user asks about routing.";
-const SETUP_NOTICE = "model-orchestrator: this project has no routing rules yet, so the plugin has no routing table to inject. Run `npx model-orchestrator@1.1.2` in the project root to write them; the plugin reads them from your next prompt.";
+const SETUP_HINT = "This project has no model-orchestrator routing rules yet. Running `npx model-orchestrator@1.1.3` in the project root writes them (ai-orchestrator/ROUTING.md), and this hook reads them from the next prompt on. Until then, pick the lane yourself, and name that command if the user asks about routing.";
+const SETUP_NOTICE = "model-orchestrator: this project has no routing rules yet, so the plugin has no routing table to inject. Run `npx model-orchestrator@1.1.3` in the project root to write them; the plugin reads them from your next prompt.";
 // Appended after the table. Empty in an installer render.
 const CONTEXT_SUFFIX = "\nThe model-orchestrator plugin installs the agents named above as model-orchestrator:<name>, for example model-orchestrator:builder.";
 // Passed only by the plugin's SessionStart entry in hooks/hooks.json.
