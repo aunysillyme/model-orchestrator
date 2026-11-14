@@ -81,7 +81,7 @@ test('docs count protocols from source, providers carry only variable NAMES, ima
     assert.match(p.envName, /^[A-Z_]+_KEY$/, p.id);
     assert.ok(p.lanes.length >= 1, p.id);
   }
-  for (const img of Object.values(IMAGES)) assert.match(img, /:v?\d+\.\d+\.\d+$/, img + ' is not pinned');
+  for (const img of Object.values(IMAGES)) assert.match(img, /:v?\d+\.\d+\.\d+@sha256:[a-f0-9]{64}$/, img + ' is not pinned');
   for (const a of AIS) if (a.install.npm) assert.match(a.install.pin || '', /^\d+\.\d+\.\d+$/, a.id + ' npm install is not pinned');
 });
 
@@ -129,7 +129,8 @@ test('every lane with a bin declares builtAgainst, and the npm pin IS that numbe
     assert.match(a.builtAgainst || '', /^\d+\.\d+\.\d+$/, a.id + ' has no builtAgainst version');
     if (a.install.npm) assert.equal(a.install.pin, a.builtAgainst, a.id + ': the npm pin and the version this release was built against must be the same number');
   }
-  assert.equal(IMAGES.ollama, 'ollama/ollama:' + byId.ollama.builtAgainst, 'the ollama image pin and its builtAgainst version must agree');
+  assert.equal(IMAGES.ollama.split('@')[0], 'ollama/ollama:' + byId.ollama.builtAgainst,
+    'the ollama image pin and its builtAgainst version must agree');
 });
 
 test('a recorded fixture is the evidence for its lane builtAgainst version', () => {
