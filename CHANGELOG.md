@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Changed
+
+- Qualify the Gemini CLI access restriction in the catalog: Google retired Code Assist for individuals while enterprise and API-key access continue, and model-orchestrator supports `agy` for Google AI plans (#84).
+
 ### Security
 
 - Upgrade obsidian-tc from 1.26.0 to 1.34.0, LiteLLM from v1.105.1 to v1.109.1 and Ollama from 0.40.5 to 0.40.16, checked against upstream on 2026-11-14. Pin the container images to their linux/amd64 manifest digests and remove exceptions for the replaced images.

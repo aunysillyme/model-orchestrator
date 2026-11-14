@@ -91,7 +91,7 @@ Generated from `src/catalog.js`. Do not hand-edit; `npm run gen:catalog` rewrite
   - Google AI Ultra 5x (high headroom, checked 2026-09-12; tier models: unverified): https://gemini.google/subscriptions/
   - Google AI Ultra 20x (max headroom, checked 2026-09-12; tier models: unverified): https://gemini.google/subscriptions/
 - **Built against:** 1.1.27
-- **Note:** Gemini CLI was retired by Google in June 2026. agy is the successor. Do not install `gemini`.
+- **Note:** Google retired Code Assist for individuals (including consumer sign-in), though enterprise and API-key access to Gemini CLI (`gemini`) continue. model-orchestrator supports `agy` for Google AI plans; do not install `gemini` for this stack.
 
 **Capability facts.** An unverified value needs a current capability check before use. Role assignments come from the selected stack, using these facts.
 
