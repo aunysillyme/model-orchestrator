@@ -318,7 +318,7 @@ export const AIS = [
     summary: 'A local model runtime; work sent here stays on the machine',
     minLevel: 2,
     install: { url: 'https://ollama.com/download', brew: 'ollama' },
-    builtAgainst: '0.40.5',
+    builtAgainst: '0.40.16',
     auth: 'none',
     rulesFile: null,
   },
@@ -436,7 +436,7 @@ export const TOOLS = [
       "compare-and-swap writes with a confirmation gate, folder ACLs, a poison scan on inferred writes; 163 " +
       "tools, local by default"),
     get install() { return `npm install -g obsidian-tc@${this.pin} && obsidian-tc /path/to/your/vault`; },
-    pin: '1.26.0',
+    pin: '1.34.0',
     advisory: { ecosystem: 'npm', package: 'obsidian-tc' },
     mcpSnippets: { 'claude-code': 'mcp/obsidian-tc.mcpServers.json', codex: 'mcp/obsidian-tc.codex.config.toml', agy:
        'mcp/obsidian-tc.agy.mcp_config.json', qwen: 'mcp/obsidian-tc.mcpServers.json' },
@@ -492,9 +492,10 @@ export const providerById = Object.fromEntries(PROVIDERS.map((p) => [p.id, p]));
 
 // Container image pins for the level 3 templates. Bump deliberately; a
 // reviewed box should not change underneath the user on a restart.
+// Digests select the linux/amd64 manifests, checked 2026-11-14.
 export const IMAGES = {
-  litellm: 'ghcr.io/berriai/litellm:v1.105.1',
-  ollama: 'ollama/ollama:0.40.5'
+  litellm: 'ghcr.io/berriai/litellm:v1.109.1@sha256:192404922cf3ede22cfef2692a0f0e9915413c2d72e623b5d3cf0eabb0bc5eb9',
+  ollama: 'ollama/ollama:0.40.16@sha256:a372a1c0d1e15b68e9521189785c3ca17795c26c2356f8b1b10122cfb59ed0d7'
 };
 
 export const byId = Object.fromEntries(AIS.map((a) => [a.id, a]));
