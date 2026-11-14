@@ -8,7 +8,9 @@
       "scripts/**",
       "test/**",
       "!templates/agents/snippets/route-gate.mjs",
-      "!templates/agents/snippets/subagent-context.mjs"
+      "!templates/agents/snippets/subagent-context.mjs",
+      "!templates/**/*.yaml",
+      "!templates/**/*.yml"
     ]
   },
   "formatter": {
