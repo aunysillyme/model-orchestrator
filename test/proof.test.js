@@ -66,3 +66,18 @@ test('proof fixtures include passing controls and assert exact failure codes', a
     assert.equal(result.value, result.sampleSize);
   }
 });
+
+test('routing A/B harness measures route-table overhead, list cost and pass rate offline', async () => {
+  const { measureRoutingAbFixture } = await import('../proof/scripts/routing-ab.js');
+  const item = measureRoutingAbFixture();
+  assert.equal(item.id, 'routing-ab-cost-pct');
+  assert.equal(item.sampleSize, 6);
+  assert.ok(item.overhead.routeTableBytes >= 1500, `route table bytes: ${item.overhead.routeTableBytes}`);
+  assert.equal(item.control.passed, 6);
+  assert.equal(item.routed.passed, 6);
+  assert.ok(item.routed.listUsd < item.control.listUsd, 'routed list cost must stay below unrouted control on fixture');
+  assert.ok(item.value < 0, `expected negative percent change, got ${item.value}`);
+  const data = readResults();
+  data.entries = [...data.entries.filter(e => e.id !== item.id), { ...item, kind: 'author-setup' }];
+  assert.deepEqual(validateResults(data), []);
+});

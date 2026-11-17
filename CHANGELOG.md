@@ -6,6 +6,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
+- Add a reproducible 6-task routing A/B harness (`proof/scripts/routing-ab.js`) and publish whole-run token, route-table overhead, list-price dollar and pass-rate measurements on the proof page (#69).
 - Add optional gateway lanes for GPT-6.1 Terra, GPT-6 Luna and Gemini 3.8 Flash alongside existing defaults, and refresh the provider model snapshot to 2026-12-17 (checked 2026-11-17; verify gateway compatibility and account access before use).
 
 ### Changed

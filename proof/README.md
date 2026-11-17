@@ -10,6 +10,7 @@ Environment: Node v22.23.4, linux x64. Timing varies with startup caches and oth
 | Lane runner overhead | 47.58 ms median difference | 7 | 2026-11-16 | 2026-11-30 | [script](../proof/scripts/runner-overhead.js) |
 | Empty results flagged | 10 fixtures rejected | 10 | 2026-11-16 | 2026-11-30 | [script](../proof/scripts/missing-results.js) |
 | Acceptance failures blocked | 4 fixtures rejected | 4 | 2026-11-16 | 2026-11-30 | [script](../proof/scripts/check-gate.js) |
+| Routing A/B whole-run list-price cost | -47.65 % list-price USD change | 6 | 2026-11-17 | 2026-12-17 | [script](../proof/scripts/routing-ab.js) |
 
 ## Run the proof scripts
 
@@ -67,6 +68,14 @@ Run aunx checks run against nonzero, manual, missing-program and timeout fixture
 Kind: reproducible local measurement. Sample size: 4. Measured: 2026-11-16. Expires: 2026-11-30.
 
 Source: [proof/scripts/check-gate.js](../proof/scripts/check-gate.js).
+
+### Routing A/B whole-run list-price cost
+
+Run 6 fixed tasks (4 routine, 2 complex) twice against claude print mode: control arm runs every task on the planning tier; routed arm runs installed route-gate (1820 B on every prompt) and subagent-context (482 B on routine tasks) hooks, sending routine tasks to the cheap tier and complex tasks to the planning tier. Alternating execution order per task. Whole-run totals count every token (input + cache write + cache read + output), uncached MODEL_POLICY list prices ($4/$20 vs $0.10/$0.50 per MTok): control 19381 tokens ($0.0828 list, $0.0587 reported, 6/6 pass) vs routed 29008 tokens ($0.0433 list, $0.0353 reported, 5/6 pass).
+
+Kind: measured on the author's setup. Sample size: 6. Measured: 2026-11-17. Expires: 2026-12-17.
+
+Source: [proof/scripts/routing-ab.js](../proof/scripts/routing-ab.js).
 
 ## Operation and verification
 
