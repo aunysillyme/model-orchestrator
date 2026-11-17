@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CATALOG_MODELS } from '../src/catalog.js';
@@ -67,11 +68,21 @@ test('proof fixtures include passing controls and assert exact failure codes', a
   }
 });
 
-test('routing A/B harness measures route-table overhead, list cost and pass rate offline', async () => {
-  const { measureRoutingAbFixture } = await import('../proof/scripts/routing-ab.js');
+test('routing A/B harness routes tasks with aunx route, rejects fixture writes, and passes offline', async () => {
+  const { measureRoutingAbFixture, routeForTask, TASKS } = await import('../proof/scripts/routing-ab.js');
+  const tiers = TASKS.map(t => routeForTask(t).tierCfg.label);
+  assert.equal(tiers.filter(t => t === 'cheap model').length, 4, tiers.join(', '));
+  assert.equal(tiers.filter(t => t === 'working model').length, 1, tiers.join(', '));
+  assert.equal(tiers.filter(t => t === 'planning model').length, 1, tiers.join(', '));
+  const blocked = spawnSync(process.execPath, [join(ROOT, 'proof', 'scripts', 'routing-ab.js'), '--write'], {
+    encoding: 'utf8'
+  });
+  assert.equal(blocked.status, 2);
+  assert.match(blocked.stderr, /--write requires --live/);
   const item = measureRoutingAbFixture();
   assert.equal(item.id, 'routing-ab-cost-pct');
   assert.equal(item.sampleSize, 6);
+  assert.match(item.method, /^Synthetic offline fixture/);
   assert.ok(item.overhead.routeTableBytes >= 1500, `route table bytes: ${item.overhead.routeTableBytes}`);
   assert.equal(item.control.passed, 6);
   assert.equal(item.routed.passed, 6);
