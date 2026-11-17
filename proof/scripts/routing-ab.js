@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { suggestRoute } from '../../src/aunx.js';
 import { MODEL_POLICY } from '../../src/catalog.js';
 import { renderPage } from './render.js';
 import { clean, entry, fixtureEnv, isMain, readResults, RESULTS, ROOT, run, scratch, stubLane } from './lib.js';
@@ -8,24 +9,27 @@ import { clean, entry, fixtureEnv, isMain, readResults, RESULTS, ROOT, run, scra
 const RATE_BY_FAMILY = Object.fromEntries(
   Object.entries(MODEL_POLICY.tiers).map(([tier, cfg]) => [cfg.family, { tier, ...cfg }])
 );
+const TIER_BY_LABEL = Object.fromEntries(
+  Object.entries(MODEL_POLICY.tiers).map(([tier, cfg]) => [cfg.label, { tier, ...cfg }])
+);
 const PRICING_PER_M = Object.fromEntries(
   Object.entries(MODEL_POLICY.tiers).map(([, cfg]) => [cfg.family, { in: cfg.price_in, out: cfg.price_out }])
 );
 
 const CHANGELOG_TEXT = [
   'a: Stop CLI timeouts from leaving orphaned background child processes',
-  'b: Reject unpinned latest container tags during advisory validation',
+  'b: Reject unpinned container tags during advisory validation',
   'c: Drop legacy v0 installer alias flag from usage banner',
-  'd: Print per-lane token totals alongside route summary',
+  'd: Print per-lane token totals alongside summary',
   'e: Move project backups directory inside rules folder'
 ].join('\n');
 
 const CLI_HELP_TEXT = [
   'Usage: tool [--yes] [--dir PATH] [--dry]',
   'Options:',
-  '  --yes       accept default confirmation prompt',
-  '  --dir PATH  write rules into PATH',
-  '  --dry       preview planned writes without disk changes',
+  '  --yes       accept confirmation prompt',
+  '  --dir PATH  write configuration into PATH',
+  '  --dry       preview planned writes without disk writes',
   'Exits 16 when the prompt exceeds command limits.'
 ].join('\n');
 
@@ -40,27 +44,33 @@ const DOC_LINES = [
   '1: Install with npx model-orchestrator@1.1.3 --yes.',
   '2: Set CONFIG_DIR=/Users/alex/project/rules before running.',
   '3: The command prints JSON on stdout when passed --json.',
-  '4: Tests confirm behavior across Linux, macOS and Windows.',
-  '5: The suite covers 412 cases with zero network calls.',
-  '6: Pin exact version with npx model-orchestrator@latest.',
+  '4: Integration checks cover Linux, macOS and Windows.',
+  '5: The suite covers 412 cases with zero external calls.',
+  '6: Pin exact version with npx tool-cli@next.',
   '7: Run npm test from the repository root after editing.'
 ].join('\n');
 
 const WEBHOOK_CODE = [
-  'export function handleWebhook(req, secret) {',
-  '  const payload = JSON.parse(req.rawBody);',
-  '  const expected = hmacSha256Hex(secret, req.rawBody);',
-  '  if (req.headers["x-sig"] !== expected) return 401;',
-  '  return processEvent(payload);',
-  '}'
+  '1: export function handleWebhook(req, signingKey) {',
+  '2:   const payload = JSON.parse(req.rawBody);',
+  '3:   const expected = hmacSha256Hex(signingKey, req.rawBody);',
+  '4:   if (req.headers["x-sig"] !== expected) return 401;',
+  '5:   return processEvent(payload);',
+  '6: }'
 ].join('\n');
 
-const TASKS = [
+const ROLLOUT_STEPS = [
+  'a: Remove fallback reads and dual writes for the old field name.',
+  'b: Enable dual writes and fallback reads supporting both old and new fields.',
+  'c: Switch primary reads to prefer the new field name after parity passes.',
+  'd: Backfill existing stored records so every record carries the new field.'
+].join('\n');
+
+export const TASKS = [
   {
     id: 'changelog-classify',
-    kind: 'routine',
     prompt: [
-      'Classify each change line (a..e) into exactly one Keep a Changelog category:',
+      'Classify each release entry (a..e) into exactly one Keep a Changelog category:',
       'Added, Changed, Fixed, Security, Removed.',
       CHANGELOG_TEXT,
       'Return ONLY a JSON object with keys a, b, c, d, e.'
@@ -72,11 +82,10 @@ const TASKS = [
   },
   {
     id: 'flag-extract',
-    kind: 'routine',
     prompt: [
-      'From this CLI help text, return ONLY JSON with format:',
-      '{"options":[{"flag":"--yes","takesValue":false}],"limitExit":16}',
-      'List all 3 options in order.',
+      'Read these CLI reference documents and return ONLY JSON matching:',
+      '{"options":[{"flag":"--name","takesValue":true}],"limitExit":0}',
+      'List all 3 options in order with accurate types and exit code.',
       CLI_HELP_TEXT
     ].join('\n'),
     expected: {
@@ -95,22 +104,20 @@ const TASKS = [
   },
   {
     id: 'failure-triage',
-    kind: 'routine',
     prompt: [
-      'Map each failure snippet (a..d) to one class: auth, quota, rejected, timeout.',
+      'Classify each stderr snippet (a..d) into one label: expired-session, quota, rejected, timeout.',
       STDERR_SNIPPETS,
       'Return ONLY a JSON object with keys a, b, c, d.'
     ].join('\n'),
-    expected: { a: 'quota', b: 'auth', c: 'rejected', d: 'timeout' },
+    expected: { a: 'quota', b: 'expired-session', c: 'rejected', d: 'timeout' },
     grade(obj) {
       return Boolean(obj) && ['a', 'b', 'c', 'd'].every(k => obj[k] === this.expected[k]);
     }
   },
   {
     id: 'prose-audit',
-    kind: 'routine',
     prompt: [
-      'Rules: no /Users/ path, no "N cases" count, no @latest tag.',
+      'Verify acceptance checks on these 7 doc lines (no /Users/ path, no "N cases" count, no @next tag).',
       'Return ONLY JSON {"violations":[...]} with offending 1-based line numbers sorted ascending.',
       DOC_LINES
     ].join('\n'),
@@ -121,37 +128,43 @@ const TASKS = [
     }
   },
   {
-    id: 'migration-order',
-    kind: 'complex',
+    id: 'webhook-review',
     prompt: [
-      'Order these zero-downtime key-rename phases safely:',
-      'cleanup, writer-switch, dual-read, backfill.',
-      'Return ONLY JSON {"order":["..."],"verifyZeroOldReads":true}.'
+      'Review this numbered JS webhook handler and identify its two validation defects.',
+      WEBHOOK_CODE,
+      'Return ONLY JSON {"defectLines":[n1,n2],"safeCompareFn":"name"} using 1-based line numbers',
+      'sorted ascending and the Node crypto constant-time comparison function name.'
     ].join('\n'),
-    expected: { order: ['dual-read', 'writer-switch', 'backfill', 'cleanup'], verifyZeroOldReads: true },
+    expected: { defectLines: [2, 4], safeCompareFn: 'timingSafeEqual' },
     grade(obj) {
-      if (!obj || !Array.isArray(obj.order) || obj.order.length !== 4 || obj.verifyZeroOldReads !== true) return false;
-      const idx = name => obj.order.indexOf(name);
-      return idx('dual-read') === 0 && idx('writer-switch') > 0 && idx('backfill') > 0 && idx('cleanup') === 3;
+      if (!obj || !Array.isArray(obj.defectLines) || typeof obj.safeCompareFn !== 'string') return false;
+      const linesOk = obj.defectLines.length === 2 && obj.defectLines[0] === 2 && obj.defectLines[1] === 4;
+      const fnOk = obj.safeCompareFn.toLowerCase().includes('timingsafeequal');
+      return linesOk && fnOk;
     }
   },
   {
-    id: 'webhook-review',
-    kind: 'complex',
+    id: 'rollout-plan',
     prompt: [
-      'Find the 2 validation bugs in this JS webhook handler:',
-      WEBHOOK_CODE,
-      'Return ONLY JSON {"bugs":["parse-before-verify","non-constant-time-compare"],"verifyFirst":true}.',
-      'Keep exact bug tags if applicable: parse-before-verify, non-constant-time-compare.'
+      'Design and plan the safe zero-downtime rollout sequence for renaming a persisted config field.',
+      ROLLOUT_STEPS,
+      'Return ONLY JSON {"order":["a|b|c|d",...]} ordering all 4 step letters from first to last.'
     ].join('\n'),
-    expected: { bugs: ['parse-before-verify', 'non-constant-time-compare'], verifyFirst: true },
+    expected: { order: ['b', 'd', 'c', 'a'] },
     grade(obj) {
-      if (!obj || !Array.isArray(obj.bugs) || obj.verifyFirst !== true) return false;
-      const joined = obj.bugs.join(' ').toLowerCase();
-      return joined.includes('parse') && (joined.includes('timing') || joined.includes('constant'));
+      if (!obj || !Array.isArray(obj.order) || obj.order.length !== 4) return false;
+      return ['b', 'd', 'c', 'a'].every((letter, i) => obj.order[i] === letter);
     }
   }
 ];
+
+export function routeForTask(task) {
+  const suggestion = suggestRoute(task.prompt);
+  if (!suggestion || !TIER_BY_LABEL[suggestion.tier]) {
+    throw new Error(`No tier mapping from aunx route for task ${task.id}`);
+  }
+  return { suggestion, tierCfg: TIER_BY_LABEL[suggestion.tier] };
+}
 
 function extractJson(text) {
   if (typeof text !== 'string') return null;
@@ -271,21 +284,22 @@ export function measureRoutingAb({ bin = 'claude', env = process.env, live = tru
     const hooks = installHookContext(dir);
     const controlRuns = [];
     const routedRuns = [];
-    const deepFamily = MODEL_POLICY.tiers.deep.family;
-    const fastFamily = MODEL_POLICY.tiers.fast.family;
+    const deep = MODEL_POLICY.tiers.deep;
+    const fast = MODEL_POLICY.tiers.fast;
 
     const runOne = (task, arm) => {
       const routed = arm === 'routed';
-      const family = routed && task.kind === 'routine' ? fastFamily : deepFamily;
+      const { suggestion, tierCfg } = routeForTask(task);
+      const selectedCfg = routed ? tierCfg : deep;
       const prefix = routed
-        ? (task.kind === 'routine' ? `${hooks.routeGateText}\n${hooks.subagentText}\n\n` : `${hooks.routeGateText}\n\n`)
+        ? (selectedCfg.tier !== 'deep' ? `${hooks.routeGateText}\n${hooks.subagentText}\n\n` : `${hooks.routeGateText}\n\n`)
         : '';
       const fullPrompt = `${prefix}Follow only the task specification below.\n${task.prompt}`;
-      const call = callClaude({ bin, prompt: fullPrompt, family, cwd: hooks.project, env });
+      const call = callClaude({ bin, prompt: fullPrompt, family: selectedCfg.family, cwd: hooks.project, env });
       return {
         taskId: task.id,
-        kind: task.kind,
-        tier: RATE_BY_FAMILY[family].tier,
+        routedTier: selectedCfg.tier,
+        routedAgent: suggestion.agent,
         passed: task.grade(call.answer),
         promptBytes: Buffer.byteLength(fullPrompt, 'utf8'),
         inputTokens: call.inputTokens,
@@ -313,17 +327,23 @@ export function measureRoutingAb({ bin = 'claude', env = process.env, live = tru
     const listCostChangePct = pctChange(control.listUsd, routed.listUsd);
     const reportedCostChangePct = control.reportedUsd > 0 ? pctChange(control.reportedUsd, routed.reportedUsd) : null;
     const totalTokenChangePct = pctChange(control.totalTokens, routed.totalTokens);
+    const tierCounts = routedRuns.reduce((acc, r) => { acc[r.routedTier] = (acc[r.routedTier] || 0) + 1; return acc; }, {});
+    const scope = live
+      ? 'Single-turn print-mode A/B against claude CLI'
+      : 'Synthetic offline fixture (single-turn stub)';
 
     const method = [
-      `Run ${TASKS.length} fixed tasks (4 routine, 2 complex) twice against claude print mode: control arm runs every task on`,
-      `the planning tier; routed arm runs installed route-gate (${hooks.routeTableBytes} B on every prompt) and`,
-      `subagent-context (${hooks.subagentContextBytes} B on routine tasks) hooks, sending routine tasks to the cheap`,
-      'tier and complex tasks to the planning tier. Alternating execution order per task. Whole-run totals count',
-      'every token (input + cache write + cache read + output), uncached MODEL_POLICY list prices ($4/$20 vs',
-      `$0.10/$0.50 per MTok): control ${control.totalTokens} tokens ($${control.listUsd.toFixed(4)} list,` +
-      ` $${control.reportedUsd.toFixed(4)} reported, ${control.passed}/${control.totalTasks} pass) vs routed` +
-      ` ${routed.totalTokens} tokens ($${routed.listUsd.toFixed(4)} list, $${routed.reportedUsd.toFixed(4)} reported,` +
-      ` ${routed.passed}/${routed.totalTasks} pass).`
+      `${scope} across ${TASKS.length} fixed tasks: control runs every task on the planning tier; routed`,
+      `classifies each prompt with aunx route (${tierCounts.fast || 0} cheap, ${tierCounts.standard || 0} working,`,
+      `${tierCounts.deep || 0} planning), prepends installed route-gate (${hooks.routeTableBytes} B on all prompts)`,
+      `and subagent-context (${hooks.subagentContextBytes} B on delegated tiers), and runs single-turn on the`,
+      'suggested tier (excludes multi-turn subagent handoff turns). Alternating order per task. Counts every token',
+      `(input + cache write + cache read + output), uncached MODEL_POLICY list prices ($${deep.price_in}/$${deep.price_out}`,
+      `vs $${fast.price_in.toFixed(2)}/$${fast.price_out.toFixed(2)} per MTok): control ${control.totalTokens} tokens`,
+      `($${control.listUsd.toFixed(4)} list, $${control.reportedUsd.toFixed(4)} reported,`,
+      `${control.passed}/${control.totalTasks} pass) vs routed ${routed.totalTokens} tokens`,
+      `($${routed.listUsd.toFixed(4)} list, $${routed.reportedUsd.toFixed(4)} reported,`,
+      `${routed.passed}/${routed.totalTasks} pass).`
     ].join(' ');
 
     const base = entry(
@@ -350,7 +370,8 @@ export function measureRoutingAb({ bin = 'claude', env = process.env, live = tru
         },
         tasks: controlRuns.map((c, idx) => ({
           id: c.taskId,
-          kind: c.kind,
+          routedTier: routedRuns[idx].routedTier,
+          routedAgent: routedRuns[idx].routedAgent,
           controlTokens: c.totalTokens,
           routedTokens: routedRuns[idx].totalTokens,
           controlListUsd: Number(c.listUsd.toFixed(6)),
@@ -374,8 +395,7 @@ export function measureRoutingAbFixture() {
   const dir = scratch();
   try {
     const answers = Object.fromEntries(TASKS.map(t => [t.id, t.expected]));
-    const deep = MODEL_POLICY.tiers.deep;
-    const fast = MODEL_POLICY.tiers.fast;
+    const { deep, standard, fast } = MODEL_POLICY.tiers;
     const stubSource = `
       const args = process.argv.slice(2);
       const prompt = args[args.indexOf('-p') + 1] || '';
@@ -383,16 +403,16 @@ export function measureRoutingAbFixture() {
       const answers = ${JSON.stringify(answers)};
       let pick = null;
       if (prompt.includes(${JSON.stringify(CHANGELOG_TEXT.slice(0, 20))})) pick = answers['changelog-classify'];
-      else if (prompt.includes('limitExit')) pick = answers['flag-extract'];
+      else if (prompt.includes('CLI reference documents')) pick = answers['flag-extract'];
       else if (prompt.includes('rate limit exceeded')) pick = answers['failure-triage'];
       else if (prompt.includes('CONFIG_DIR=')) pick = answers['prose-audit'];
-      else if (prompt.includes('zero-downtime')) pick = answers['migration-order'];
       else if (prompt.includes('handleWebhook')) pick = answers['webhook-review'];
+      else if (prompt.includes('zero-downtime')) pick = answers['rollout-plan'];
       const hasOverhead = prompt.includes('route-gate:start');
       const inp = hasOverhead ? 1400 : 900;
-      const out = family === '${fast.family}' ? 90 : 220;
-      const rateIn = family === '${fast.family}' ? ${fast.price_in} : ${deep.price_in};
-      const rateOut = family === '${fast.family}' ? ${fast.price_out} : ${deep.price_out};
+      const out = family === '${fast.family}' ? 90 : family === '${standard.family}' ? 150 : 220;
+      const rateIn = family === '${fast.family}' ? ${fast.price_in} : family === '${standard.family}' ? ${standard.price_in} : ${deep.price_in};
+      const rateOut = family === '${fast.family}' ? ${fast.price_out} : family === '${standard.family}' ? ${standard.price_out} : ${deep.price_out};
       const usd = (inp * rateIn + out * rateOut) / 1e6;
       const key = 'fixture-' + family;
       process.stdout.write(JSON.stringify({
@@ -421,6 +441,10 @@ if (isMain(import.meta.url)) {
   const args = new Set(process.argv.slice(2));
   const live = args.has('--live');
   const write = args.has('--write');
+  if (write && !live) {
+    console.error('routing-ab: --write requires --live so synthetic fixtures never overwrite live proof data');
+    process.exit(2);
+  }
   const item = live ? measureRoutingAb({ live: true }) : measureRoutingAbFixture();
   if (write) {
     let data = { schemaVersion: 1, environment: { node: process.version, platform: process.platform, arch: process.arch }, entries: [] };
