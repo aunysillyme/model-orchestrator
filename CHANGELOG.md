@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- Add optional gateway lanes for GPT-6.1 Terra, GPT-6 Luna and Gemini 3.8 Flash alongside existing defaults, and refresh the provider model snapshot to 2026-12-17 (checked 2026-11-17; verify gateway compatibility and account access before use).
+
 ### Changed
 
 - Qualify the Gemini CLI access restriction in the catalog: Google retired Code Assist for individuals while enterprise and API-key access continue, and model-orchestrator supports `agy` for Google AI plans (#84).
