@@ -2,11 +2,9 @@
 
 Everything the installer asks, writes and accepts as a flag. The short version is in the [README](../README.md).
 
-## Upgrading companion launch commands
-
-Version 1.0.1 pins newly generated companion launch commands. Existing MCP server entries remain yours and are not silently replaced. Preview your existing selection and paths with `--update-docs --dry`, then apply that update after checking the plan. Unchanged managed snippets in `mcp/` refresh; edited snippets are preserved and named. Compare the refreshed snippets with each client's configuration and manually replace any preserved floating package command with its catalog-pinned form. Keep unrelated server settings and credentials unchanged.
-
-For a level 3 weekly job, also follow the generated `vm/jobs/README.md` migration to the separate `weekly-audit.env` file and reload any copied systemd unit.
+```bash
+npx model-orchestrator
+```
 
 ## Install walkthrough
 
@@ -109,6 +107,12 @@ npx model-orchestrator --yes --level 3 --ais claude-code,codex,agy,grok,hermes,q
 npx model-orchestrator --yes --level 2 --ais claude-code,codex --project ~/my-app --dir ~/my-app/ai-orchestrator --no-tools  # subagents into ~/my-app/.claude/agents
 npx model-orchestrator --yes --level 2 --ais claude-code,codex,grok --primary claude-code --dir ./ai-orchestrator --project . --update-docs   # added a lane: regenerate the docs you never edited
 ```
+
+## Upgrading companion launch commands
+
+Version 1.0.1 pins newly generated companion launch commands. Existing MCP server entries remain yours and are not silently replaced. Preview your existing selection and paths with `--update-docs --dry`, then apply that update after checking the plan. Unchanged managed snippets in `mcp/` refresh; edited snippets are preserved and named. Compare the refreshed snippets with each client's configuration and manually replace any preserved floating package command with its catalog-pinned form. Keep unrelated server settings and credentials unchanged.
+
+For a level 3 weekly job, also follow the generated `vm/jobs/README.md` migration to the separate `weekly-audit.env` file and reload any copied systemd unit.
 
 ## Upgrading from 0.1.x
 

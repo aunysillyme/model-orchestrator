@@ -1,7 +1,9 @@
 import { marked } from 'marked';
 import sanitizeHtml from 'sanitize-html';
 import GithubSlugger from 'github-slugger';
+import { statSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {validVersion} from './assets/releases.js';
 
 export const origin = 'https://model-orchestrator.aunysillyme.dev';
@@ -15,6 +17,11 @@ export const pages = new Map([
 export const escape = value => String(value).replace(/[&<>"']/g, char => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[char]));
 export const semver = validVersion;
 
+const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+function isRepoDirectory(file) {
+  try { return statSync(path.join(root, file)).isDirectory(); } catch { return file.endsWith('/'); }
+}
+
 export function populateLanding(template, version, releases) {
   return template.replace('{{VERSION}}', () => version).replace('{{RELEASES}}', () => releases);
 }
@@ -27,13 +34,22 @@ export function releaseEntries(markdown) {
   }] : []);
 }
 
-function rewriteUrl(href, source, image = false) {
+export function rewriteUrl(href, source, image = false, mirror = null) {
   if (!href || href.startsWith('#') || /^[a-z][a-z\d+.-]*:/i.test(href) || href.startsWith('//')) return href;
+  if (mirror && href.startsWith('/')) return `${origin}${href}`;
   const [file, fragment] = href.split('#');
   const normalized = path.posix.normalize(path.posix.join(path.posix.dirname(source), file));
+  const isDir = (mirror ? mirror.isDirectory(normalized) : isRepoDirectory(normalized)) || file.endsWith('/');
+  const trailing = isDir && !normalized.endsWith('/') ? '/' : '';
   const suffix = fragment ? `#${fragment}` : '';
+  if (mirror) {
+    if (pages.has(normalized)) return `${origin}/docs/${pages.get(normalized)}/${suffix}`;
+    const kind = image ? 'raw' : isDir ? 'tree' : 'blob';
+    return `${repository}/${kind}/${mirror.commit}/${normalized}${trailing}${suffix}`;
+  }
   if (!image && pages.has(normalized)) return `/docs/${pages.get(normalized)}/${suffix}`;
-  return `${image ? 'https://raw.githubusercontent.com/aunysillyme/model-orchestrator/main' : `${repository}/blob/main`}/${normalized}${suffix}`;
+  const htmlKind = isDir ? 'tree' : 'blob';
+  return `${image ? 'https://raw.githubusercontent.com/aunysillyme/model-orchestrator/main' : `${repository}/${htmlKind}/main`}/${normalized}${trailing}${suffix}`;
 }
 
 export function renderMarkdown(markdown, source) {
@@ -74,32 +90,88 @@ export function renderMarkdown(markdown, source) {
   });
 }
 
+const landingDescription = 'Open-source model router for Claude Code, Codex and Gemini CLI: routing rules, 8 subagents, hooks and an aunx CLI runner. Install via npx (MIT).';
+
+function buildJsonLd(route, title) {
+  const graph = [
+    {
+      "@type": "SoftwareSourceCode",
+      "@id": `${origin}/#source`,
+      "name": "model-orchestrator",
+      "description": landingDescription,
+      "url": `${origin}/`,
+      "codeRepository": repository,
+      "programmingLanguage": "JavaScript",
+      "runtimePlatform": "Node.js",
+      "version": "1.1.4",
+      "license": "https://spdx.org/licenses/MIT.html",
+      "author": { "@id": "https://aunysillyme.dev/#person" },
+      "sameAs": [
+        repository,
+        "https://www.npmjs.com/package/model-orchestrator"
+      ]
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": `${origin}/#software`,
+      "name": "Model Orchestrator",
+      "description": landingDescription,
+      "url": `${origin}/`,
+      "applicationCategory": "DeveloperApplication",
+      "operatingSystem": "macOS, Linux, Windows",
+      "softwareRequirements": "Node.js 18+",
+      "softwareVersion": "1.1.4",
+      "isAccessibleForFree": true,
+      "license": "https://spdx.org/licenses/MIT.html",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "author": { "@id": "https://aunysillyme.dev/#person" },
+      "sameAs": [
+        repository,
+        "https://www.npmjs.com/package/model-orchestrator"
+      ]
+    },
+    {
+      "@type": "Person",
+      "@id": "https://aunysillyme.dev/#person",
+      "name": "Auny Hossain",
+      "alternateName": ["Auny", "AunySillyMe"],
+      "url": "https://aunysillyme.dev/",
+      "worksFor": {
+        "@type": "Organization",
+        "@id": "https://www.aunysillyme.com/#organization",
+        "name": "AunySillyMe",
+        "legalName": "Auny LLC",
+        "url": "https://aunysillyme.com/"
+      },
+      "sameAs": [
+        "https://www.aunysillyme.com/#person",
+        "https://aunysillyme.com/",
+        "https://www.aunysillyme.com/",
+        "https://github.com/aunysillyme",
+        "https://github.com/aunysillyme-dev",
+        "https://www.npmjs.com/~aunysillyme",
+        "https://x.com/AunySillyMe"
+      ]
+    }
+  ];
+  if (route.startsWith('/docs/')) {
+    graph.push({
+      "@type": "BreadcrumbList",
+      "@id": `${origin}${route}#breadcrumb`,
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://aunysillyme.dev/" },
+        { "@type": "ListItem", "position": 2, "name": "Model Orchestrator", "item": `${origin}/` },
+        { "@type": "ListItem", "position": 3, "name": title.replace(/\s*\|\s*Model Orchestrator$/, ''), "item": `${origin}${route}` }
+      ]
+    });
+  }
+  return JSON.stringify({ "@context": "https://schema.org", "@graph": graph });
+}
+
 export function documentHtml({title, description, route, body, discovery = true}) {
   const socialImage = `${origin}/assets/social-preview.png`;
   const socialAlt = 'Model-orchestrator: the right model for the right job. Dark green repository card with Auny’s avatar and a three-tone green border.';
-  const jsonLd = JSON.stringify({
-    "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    "name": "Model Orchestrator",
-    "description": "Model router for AI coding agents: routes routine work to cheaper models with routing rules, 8 subagents, hooks and a CLI runner",
-    "applicationCategory": "DeveloperApplication",
-    "operatingSystem": "macOS, Linux, Windows",
-    "offers": {
-      "@type": "Offer",
-      "price": "0",
-      "priceCurrency": "USD"
-    },
-    "url": origin,
-    "sameAs": [
-      repository,
-      "https://www.npmjs.com/package/model-orchestrator"
-    ],
-    "author": {
-      "@type": "Organization",
-      "name": "AunySillyMe",
-      "url": "https://aunysillyme.com"
-    }
-  });
+  const jsonLd = buildJsonLd(route, title);
   return `<!doctype html><html lang="en"><head><!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-HK1CE993HY"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-HK1CE993HY');</script>
@@ -107,18 +179,20 @@ export function documentHtml({title, description, route, body, discovery = true}
 <script defer src="/_vercel/speed-insights/script.js"></script>
 <script type="application/ld+json">\n${jsonLd}\n</script>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
 <meta name="is-agentic-site-type" content="app">
 <title>${escape(title)}</title><meta name="description" content="${escape(description)}">
-${discovery ? `<link rel="describedby" href="${origin}/llms.txt"><link rel="alternate" type="text/markdown" href="${origin}${route}index.md">` : '<meta name="robots" content="noindex">'}
-<link rel="canonical" href="${origin}${route}"><meta property="og:type" content="website">
+${discovery ? `<link rel="describedby" href="${origin}/llms.txt"><link rel="alternate" type="text/markdown" href="${origin}${route}index.md"><link rel="sitemap" type="application/xml" href="${origin}/sitemap.xml">` : '<meta name="robots" content="noindex">'}
+<link rel="canonical" href="${origin}${route}"><meta property="og:type" content="website"><meta property="og:site_name" content="AunySillyMe.dev">
 <meta property="og:title" content="${escape(title)}"><meta property="og:description" content="${escape(description)}">
 <meta property="og:url" content="${origin}${route}"><meta property="og:image" content="${socialImage}">
 <meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="${escape(socialAlt)}">
+<meta name="twitter:card" content="summary_large_image"><meta name="twitter:site" content="@AunySillyMe"><meta name="twitter:creator" content="@AunySillyMe">
 <meta name="twitter:title" content="${escape(title)}"><meta name="twitter:description" content="${escape(description)}">
 <meta name="twitter:image" content="${socialImage}"><meta name="twitter:image:alt" content="${escape(socialAlt)}">
-<meta name="twitter:card" content="summary_large_image"><meta name="theme-color" content="#050806">
-<link rel="icon" href="/assets/avatar.png"><link rel="apple-touch-icon" href="/assets/avatar.png">
+<meta name="theme-color" content="#050806">
+<link rel="icon" href="/favicon.ico" sizes="any"><link rel="icon" type="image/png" href="/assets/avatar.png"><link rel="apple-touch-icon" href="/assets/avatar.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/assets/site.css"><link rel="stylesheet" href="/assets/projects-popup.css"><script type="module" src="/assets/site.js"></script><script defer src="/assets/projects-popup.js"></script></head><body>${body}</body></html>`;

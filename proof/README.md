@@ -4,6 +4,8 @@ Generated from [results.json](results.json). Each figure has a method, sample si
 
 Environment: Node v22.23.4, linux x64. Timing varies with startup caches and other work on the machine. Synthetic cases show what those fixtures exercise.
 
+Each row below lists its measurement and expiry date; an expired date signals re-measurement via the weekly workflow.
+
 | Measurement | Result | Sample size | Measured | Expires | Reproduce |
 |---|---|---|---|---|---|
 | Dry install wall time | 54.50 ms median | 7 | 2026-11-16 | 2026-11-30 | [script](../proof/scripts/install-time.js) |

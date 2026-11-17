@@ -8,7 +8,7 @@ import {Parser, parseDocument, DomUtils} from 'htmlparser2';
 import {renderMarkdown, releaseEntries, documentHtml, pages, origin, populateLanding} from './content.mjs';
 import {setupTrailer} from './assets/trailer.js';
 import {validRelease, refreshRelease} from './assets/releases.js';
-import {sourceDocument, discoveryFiles, publicRoutes} from './discovery.mjs';
+import {sourceDocument, discoveryFiles, publicRoutes, relativeTargets, mirrorMarkdown} from './discovery.mjs';
 import {builtDocuments, contentSecurityPolicy, inlineScriptHashes} from './security.mjs';
 import {isGoogleTagScript} from './tag-url.mjs';
 
@@ -52,6 +52,62 @@ function verifyHtml(html, route, documents) {
 }
 const routes = ['/', ...[...pages.values()].map(slug => `/docs/${slug}/`)];
 const documents = new Map(routes.map(route => [route, inventory(readFileSync(path.join(out, route, 'index.html'), 'utf8'))]));
+
+test('Markdown mirrors contain no relative link or image targets', () => {
+  const relative = [];
+  for (const route of routes) {
+    const markdown = readFileSync(path.join(out, route, 'index.md'), 'utf8');
+    relative.push(...relativeTargets(markdown).map(target => `${route}: ${target}`));
+  }
+  assert.deepEqual(relative, [], `${relative.length} relative targets: ${relative.slice(0, 10).join(', ')}`);
+});
+
+test('mirror links keep code and absolute targets while resolving pages, files and references', () => {
+  const sha = 'a'.repeat(40);
+  const input = '[Page](install.md#setup) [File](../src/catalog.js) [Dir](../test/fixtures/)\n' +
+    '![Image](router-trailer.gif) ![Reference image][image] [Reference][ref] [Anchor](#here) [Mail](mailto:a@example.com)\n\n' +
+    '[ref]: ../CHANGELOG.md#history\n[image]: router-trailer.gif\n\n`[inline](untouched.md)`\n\n```md\n[code](untouched.md)\n```\n';
+  const result = mirrorMarkdown(input, 'docs/README.md', sha);
+  assert.ok(result.includes(`${origin}/docs/install/#setup`));
+  assert.ok(result.includes(`https://github.com/aunysillyme/model-orchestrator/blob/${sha}/src/catalog.js`));
+  assert.ok(result.includes(`https://github.com/aunysillyme/model-orchestrator/tree/${sha}/test/fixtures/`));
+  assert.ok(result.includes(`https://github.com/aunysillyme/model-orchestrator/raw/${sha}/docs/router-trailer.gif`));
+  assert.ok(result.includes(`[image]: https://github.com/aunysillyme/model-orchestrator/raw/${sha}/docs/router-trailer.gif`));
+  assert.ok(result.includes(`[ref]: ${origin}/docs/changelog/#history`));
+  assert.ok(result.includes('[Anchor](#here) [Mail](mailto:a@example.com)'));
+  assert.ok(result.includes('`[inline](untouched.md)`\n\n```md\n[code](untouched.md)\n```'));
+  assert.deepEqual(relativeTargets(result), []);
+  assert.deepEqual(relativeTargets('[bad](relative.md) ![bad](image.png)'), ['relative.md', 'image.png']);
+});
+
+test('every public route has distinct SEO title/description, JSON-LD graph, dark color-scheme and favicon', () => {
+  assert.ok(existsSync(path.join(out, 'favicon.ico')));
+  const titles = new Set();
+  const descriptions = new Set();
+  for (const route of routes) {
+    const html = readFileSync(path.join(out, route, 'index.html'), 'utf8');
+    const titleMatch = html.match(/<title>([^<]+)<\/title>/);
+    assert.ok(titleMatch, `${route}: missing title`);
+    const titleText = titleMatch[1].replaceAll('&amp;', '&');
+    assert.ok(titleText.length <= 60, `${route}: title length ${titleText.length} > 60`);
+    assert.ok(!titles.has(titleText), `${route}: duplicate title`);
+    titles.add(titleText);
+    const {tags} = inventory(html);
+    const desc = tags.find(t => t.name === 'meta' && t.attrs.name === 'description')?.attrs.content;
+    assert.ok(desc && desc.length >= 130 && desc.length <= 155, `${route}: description length ${desc?.length}`);
+    assert.ok(!descriptions.has(desc), `${route}: duplicate description`);
+    descriptions.add(desc);
+    assert.equal(tags.find(t => t.name === 'meta' && t.attrs.name === 'color-scheme')?.attrs.content, 'dark');
+    const ldMatch = html.match(/<script type="application\/ld\+json">\s*([\s\S]*?)\s*<\/script>/);
+    assert.ok(ldMatch, `${route}: missing JSON-LD`);
+    const ld = JSON.parse(ldMatch[1]);
+    assert.ok(Array.isArray(ld['@graph']));
+    for (const type of ['SoftwareSourceCode', 'SoftwareApplication', 'Person']) {
+      assert.ok(ld['@graph'].some(item => item['@type'] === type), `${route}: missing ${type}`);
+    }
+    if (route.startsWith('/docs/')) assert.ok(ld['@graph'].some(item => item['@type'] === 'BreadcrumbList'));
+  }
+});
 
 test('Google tag script requires the exact hostname and path', () => {
   assert.equal(isGoogleTagScript('https://www.googletagmanager.com/gtag/js?id=example'), true);
@@ -221,7 +277,8 @@ test('Markdown removes scripts, event handlers and unsafe protocols', () => {
   assert.ok(output.includes('&lt;img'));
 });
 test('Markdown source-relative paths resolve locally and unknown files resolve to GitHub', () => {
-  const output = renderMarkdown('[Install](install.md#setup) [Runner](../bin/README.md) [Source](../src/index.js)', 'docs/README.md');
+  const output = renderMarkdown('[Install](install.md#setup) [Runner](../bin/README.md) [Source](../src/index.js) [Dir](../test/fixtures/)', 'docs/README.md');
+  assert.ok(output.includes('https://github.com/aunysillyme/model-orchestrator/tree/main/test/fixtures/'));
   assert.ok(output.includes('href="/docs/install/#setup"'));
   assert.ok(output.includes('href="/docs/commands/"'));
   assert.ok(output.includes('https://github.com/aunysillyme/model-orchestrator/blob/main/src/index.js'));
@@ -337,13 +394,13 @@ test('every public HTML page has a real Markdown alternate and discovery link', 
   }
 });
 
-test('discovery publishes exactly the public allowlist and preserves source Markdown', () => {
+test('discovery publishes exactly the public allowlist and rewrites source Markdown', () => {
   const full = readFileSync(path.join(out, 'llms-full.txt'), 'utf8');
   const index = readFileSync(path.join(out, 'llms.txt'), 'utf8');
   for (const [source, slug] of pages) {
     const original = readFileSync(path.join(here, '..', source), 'utf8');
     const mirror = readFileSync(path.join(out, 'docs', slug, 'index.md'), 'utf8');
-    assert.ok(mirror.endsWith(original));
+    assert.ok(mirror.endsWith(mirrorMarkdown(original, source, JSON.parse(readFileSync(path.join(out, 'build-info.json'))).commit)));
     assert.ok(mirror.includes(`Canonical page: ${origin}/docs/${slug}/`));
     assert.ok(full.includes(mirror));
     assert.ok(index.includes(`${origin}/docs/${slug}/index.md`));
