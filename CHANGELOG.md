@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [1.1.4] - 2026-11-17
+
 ### Added
 
 - Add a reproducible 6-task routing A/B harness (`proof/scripts/routing-ab.js`) and publish whole-run token, route-table overhead, list-price dollar and pass-rate measurements on the proof page (#69).
@@ -758,7 +760,8 @@ First release.
 - Tests: a case per fix, judges proven to go red, mutation checks; `npm test` prints the current count.
 - Adversarial audit: two Codex rounds plus a two-engine review (Codex, Antigravity); findings and fixes in `docs/audit-brief.md`. After the review: subagents go to the project root (`--project`), snippet paths computed from `--dir`, lane sections rendered from the selection, a primary agent required, level 3 asks for API keys separately from CLIs, images and CLI installs pinned, an activation summary at the end of every install.
 
-[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v1.1.3...HEAD
+[Unreleased]: https://github.com/aunysillyme/model-orchestrator/compare/v1.1.4...HEAD
+[1.1.4]: https://github.com/aunysillyme/model-orchestrator/compare/v1.1.3...v1.1.4
 [1.1.3]: https://github.com/aunysillyme/model-orchestrator/compare/v1.1.2...v1.1.3
 [1.1.2]: https://github.com/aunysillyme/model-orchestrator/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/aunysillyme/model-orchestrator/compare/v1.1.0...v1.1.1
