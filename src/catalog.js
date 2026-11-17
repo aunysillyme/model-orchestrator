@@ -196,7 +196,8 @@ export const AIS = [
       { id: 'ultra-5x', name: 'Google AI Ultra 5x', headroom: 'high', tierModels: null, source: 'https://gemini.google/subscriptions/', checked: '2026-09-12' },
       { id: 'ultra-20x', name: 'Google AI Ultra 20x', headroom: 'max', tierModels: null, source: 'https://gemini.google/subscriptions/', checked: '2026-09-12' }
     ],
-    note: 'Gemini CLI was retired by Google in June 2026. agy is the successor. Do not install `gemini`.'
+    note: ('Google retired Code Assist for individuals (including consumer sign-in), though enterprise and API-key access to ' +
+      'Gemini CLI (`gemini`) continue. model-orchestrator supports `agy` for Google AI plans; do not install `gemini` for this stack.')
   },
   {
     id: 'grok',
