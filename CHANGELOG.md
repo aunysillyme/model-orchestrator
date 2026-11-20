@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [1.1.5] - 2026-11-20
+
+### Security
+
+- Upgrade LiteLLM from v1.109.1 to v1.110.0 (linux/amd64 digest), checked against upstream on 2026-11-20: its image advisories drop from 25 to 8. Ollama stays on 0.40.16, still the newest release, now with 57 image advisories (53 before, 4 new). Renew the 65 dated Level 3 image exceptions, one per advisory, to 2027-01-04 from the catalog advisories report, and remove the exceptions for the replaced LiteLLM image. No npm or PyPI package advisories.
+
 ## [1.1.4] - 2026-11-17
 
 ### Added
