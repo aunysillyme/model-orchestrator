@@ -504,7 +504,7 @@ export const providerById = Object.fromEntries(PROVIDERS.map((p) => [p.id, p]));
 // reviewed box should not change underneath the user on a restart.
 // Digests select the linux/amd64 manifests, checked 2026-11-14.
 export const IMAGES = {
-  litellm: 'ghcr.io/berriai/litellm:v1.109.1@sha256:192404922cf3ede22cfef2692a0f0e9915413c2d72e623b5d3cf0eabb0bc5eb9',
+  litellm: 'ghcr.io/berriai/litellm:v1.110.0@sha256:3a6097911f8b4e739a103cf9bd4359452d8f4b3db27cb9043c183d33b09cdebe',
   ollama: 'ollama/ollama:0.40.16@sha256:a372a1c0d1e15b68e9521189785c3ca17795c26c2356f8b1b10122cfb59ed0d7'
 };
 
