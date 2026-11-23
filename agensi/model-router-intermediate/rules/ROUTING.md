@@ -69,7 +69,7 @@ When work runs in the background, check liveness and output growth every five mi
 
 
 - When reporting consequential arithmetic or code equivalence, use a computing tool (`../protocols/numbers-and-logic.md`). codecalc: optional, verify availability at setup; otherwise use the local runtime, spreadsheet or tests. When absent, use the local runtime, test suite or spreadsheet. Verify current provider rates before quoting costs.
-- When writing durable records, search first, update the index and keep one writer (`../protocols/memory-and-record.md`). obsidian-tc: optional, verify availability at setup; otherwise use project files, search and version control. When absent, use project files, search and version control.
+- When writing durable records, search first, update the index and keep one writer (`../protocols/memory-and-record.md`). reliquary-tc: optional, verify availability at setup; otherwise use project files, search and version control. When absent, use project files, search and version control.
 - When using a changing library or API, read current documentation and verify behavior (`../protocols/docs-then-prove.md`). Context7: optional, verify availability at setup; otherwise read official docs or installed source. When absent, read official docs or installed source; use the local runtime when codecalc is absent.
 
 ## Choose effort and verify the route

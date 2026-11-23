@@ -7,7 +7,7 @@ When changing a name, term, path, slug, schema field, routing rule or shared con
 - Search code, configuration, hooks, scheduled jobs and CI within the authorized repositories.
 - Search project instructions and any authorized record store for the old term and link forms.
 - Check documented external consumers such as webhooks, dashboards or generated outputs.
-- When obsidian-tc is selected, use backlinks and text search; when absent, use file search and the project's own link checker.
+- When reliquary-tc is selected, use backlinks and text search; when absent, use file search and the project's own link checker.
 - Scope recursive searches away from `.git`, `node_modules` and generated build output unless that output is explicitly part of verification.
 
 ## Update the affected surfaces

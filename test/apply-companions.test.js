@@ -129,15 +129,15 @@ test('companions: project config symlinks refuse', async (t) => {
 });
 
 test('companions: Windows stdio npx registration uses the documented command wrapper', async (t) => {
-  const s = await setup(t, ['obsidian-tc']);
+  const s = await setup(t, ['reliquary-tc']);
   const entries = s.plan({ platform: 'win32' });
-  const config = parsed(entries[0]).mcpServers['obsidian-tc'];
+  const config = parsed(entries[0]).mcpServers['reliquary-tc'];
   assert.equal(config.command, 'cmd');
   assert.deepEqual(config.args.slice(0, 3), ['/d', '/c', 'npx']);
   assert.equal(entries[0].companionRegistrations[0].needsConfiguration, true);
   const steps = s.companionRegistrationSteps({ ...s, applySnippets: true, registrations: entries });
   assert.equal(steps.length, 1);
-  assert.match(steps[0], /OBSIDIAN_TC_CONFIG/);
+  assert.match(steps[0], /RELIQUARY_TC_CONFIG/);
 });
 
 test('companions: explicit no-apply retains registration as a hand step', async (t) => {
@@ -260,13 +260,13 @@ test('companions CLI: uninstall removes auto-registered entries and preserves fo
 });
 
 test('companions CLI: selected local companions list only remaining prerequisites and vault configuration', (t) => {
-  const s = cliFixture(t, 'codecalc,obsidian-tc');
+  const s = cliFixture(t, 'codecalc,reliquary-tc');
   const result = s.run();
   assert.equal(result.status, 0, result.stdout + result.stderr);
   const config = JSON.parse(readFileSync(s.target));
-  assert.deepEqual(Object.keys(config.mcpServers), ['codecalc', 'obsidian-tc']);
+  assert.deepEqual(Object.keys(config.mcpServers), ['codecalc', 'reliquary-tc']);
   const remaining = result.stdout.split("What's left for you:")[1];
   assert.match(remaining, /codecalc: if uv or Python 3\.10\+ is missing/);
-  assert.match(remaining, /obsidian-tc: set OBSIDIAN_TC_CONFIG.*vault setup/);
+  assert.match(remaining, /reliquary-tc: set RELIQUARY_TC_CONFIG.*vault setup/);
   assert.doesNotMatch(remaining, /merge|setup --write|npm install -g/);
 });

@@ -5,8 +5,8 @@ import { preflight, ACTIVATION_JSON_BYTE_CAP } from './install.js';
 
 const object = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 const refuse = (message) => Object.assign(new Error(message), { code: 'PREFLIGHT' });
-const configPlaceholder = '/ABSOLUTE/PATH/TO/obsidian-tc.config.json';
-const needsConfiguration = (server) => server?.env?.OBSIDIAN_TC_CONFIG === configPlaceholder;
+const configPlaceholder = '/ABSOLUTE/PATH/TO/reliquary-tc.config.json';
+const needsConfiguration = (server) => server?.env?.RELIQUARY_TC_CONFIG === configPlaceholder;
 
 // Only cataloged project-local targets are eligible. A snippet for a vendor's
 // global config is useful setup guidance, never permission to edit that file.
@@ -46,7 +46,7 @@ export function planCompanionApplication({ primary, tools = [], project, files, 
     catch { throw refuse(`${tool.id}: invalid registration snippet ${rel}`); }
     if (!object(incoming)) throw refuse(`${tool.id}: missing server object in ${rel}`);
     // The installed JSON templates use npx for this stdio server. Windows
-    // requires the vendor-documented cmd wrapper (OBSIDIAN-TC.md Windows).
+    // requires the vendor-documented cmd wrapper (RELIQUARY-TC.md Windows).
     if (platform === 'win32' && incoming.command === 'npx') {
       incoming = { ...incoming, command: 'cmd', args: ['/d', '/c', 'npx', ...(incoming.args || [])] };
     }
@@ -118,11 +118,11 @@ export function companionRegistrationSteps({ primary, tools = [], project, dir, 
     }
     if (tool.id === 'codecalc') {
       steps.push(`codecalc: if uv or Python 3.10+ is missing, install it using ${join(docs, 'CODECALC.md')}`);
-    } else if (tool.id === 'obsidian-tc' && (!state || state.needsConfiguration)) {
-      steps.push(("obsidian-tc: set OBSIDIAN_TC_CONFIG in " +
+    } else if (tool.id === 'reliquary-tc' && (!state || state.needsConfiguration)) {
+      steps.push(("reliquary-tc: set RELIQUARY_TC_CONFIG in " +
         `${join(root, host.file)}` +
         " to your config file path; follow " +
-        `${join(docs, 'OBSIDIAN-TC.md')}` +
+        `${join(docs, 'RELIQUARY-TC.md')}` +
         " for vault setup"));
     }
   }

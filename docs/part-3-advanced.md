@@ -66,7 +66,7 @@ What and why · trigger · invocation chain · dependencies · reads · writes �
 
 If selected and separately installed, codecalc runs as a stdio MCP server next to the orchestrator CLI: offline, no key, nothing to bind. For jobs that need arithmetic, configure calculation through codecalc or an available calculator or runtime and supply the inputs to verify. The weekly audit collects the observations listed above and asks its selected lane to compare them with the delegation matrix. See [codecalc](https://github.com/The-40-Thieves/codecalc).
 
-## 9. obsidian-tc on the box
+## 9. reliquary-tc on the box
 
 If selected, use stdio next to the orchestrator, or the upstream Docker service against a bind-mounted vault. Without it, use a searchable notes folder with one writer. Embeddings on the box's Ollama, so nothing leaves the machine. HTTP transport stays off unless every caller is on the private mesh and auth is on.
 

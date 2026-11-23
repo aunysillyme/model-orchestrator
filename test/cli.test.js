@@ -165,7 +165,7 @@ function withSh(bin) {
 // generated text uses. Fixed in src/install.js's writeFiles(): the report
 // label is posix-normalized the same way the manifest key already was.
 
-// A regex literal like /mcp\/obsidian-tc\.mcpServers\.json/ hardcodes the
+// A regex literal like /mcp\/reliquary-tc\.mcpServers\.json/ hardcodes the
 // POSIX separator; the terminal output it matches against renders real
 // project paths with path.join(), which is backslash-separated on win32.
 // Build the pattern from join() and escape it, instead of hand-writing two
@@ -449,18 +449,18 @@ test('--no-tools remains compatible with explicit tools, and the filesystem root
   assert.match(root.stderr, /filesystem root/);
 });
 
-test('--tools obsidian-tc is accepted, --yes alone does not select it, --list says it is optional and what it needs', () => {
+test('--tools reliquary-tc is accepted, --yes alone does not select it, --list says it is optional and what it needs', () => {
   const l = run(['--list']);
-  assert.match(l.stdout, /obsidian-tc/);
+  assert.match(l.stdout, /reliquary-tc/);
   assert.match(l.stdout, /Optional and heavier/);
   assert.match(l.stdout, /Obsidian vault/);
   const dflt = run(['--yes', '--level', '1', '--ais', 'codex', '--dry']);
   assert.match(dflt.stdout, /tools    none \(companions are opt-in\)\n/);
-  assert.doesNotMatch(dflt.stdout, /OBSIDIAN-TC\.md/);
-  const both = run(['--yes', '--level', '1', '--ais', 'codex', '--tools', 'codecalc,obsidian-tc', '--dry']);
+  assert.doesNotMatch(dflt.stdout, /RELIQUARY-TC\.md/);
+  const both = run(['--yes', '--level', '1', '--ais', 'codex', '--tools', 'codecalc,reliquary-tc', '--dry']);
   assert.equal(both.status, 0, both.stderr);
-  assert.match(both.stdout, /OBSIDIAN-TC\.md/);
-  assert.match(both.stdout, reOfPath('mcp', 'obsidian-tc.mcpServers.json'));
+  assert.match(both.stdout, /RELIQUARY-TC\.md/);
+  assert.match(both.stdout, reOfPath('mcp', 'reliquary-tc.mcpServers.json'));
 });
 
 test('--tools context7 is accepted, --yes alone does not select it, --list says it needs a network call, and it pairs with codecalc', () => {
@@ -470,7 +470,7 @@ test('--tools context7 is accepted, --yes alone does not select it, --list says 
   const dflt = run(['--yes', '--level', '1', '--ais', 'codex', '--dry']);
   assert.match(dflt.stdout, /tools    none \(companions are opt-in\)\n/);
   assert.doesNotMatch(dflt.stdout, /CONTEXT7\.md/);
-  const all = run(['--yes', '--level', '1', '--ais', 'codex', '--tools', 'codecalc,obsidian-tc,context7', '--dry']);
+  const all = run(['--yes', '--level', '1', '--ais', 'codex', '--tools', 'codecalc,reliquary-tc,context7', '--dry']);
   assert.equal(all.status, 0, all.stderr);
   assert.match(all.stdout, /CONTEXT7\.md/);
   assert.match(all.stdout, reOfPath('mcp', 'context7.codex.config.toml'));

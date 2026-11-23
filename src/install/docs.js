@@ -423,7 +423,7 @@ export function vars(opts) {
     LITELLM_IMAGE: IMAGES.litellm,
     OLLAMA_IMAGE: IMAGES.ollama,
     CODECALC_PIN: pinOf('codecalc'),
-    OBSIDIAN_TC_PIN: pinOf('obsidian-tc'),
+    RELIQUARY_TC_PIN: pinOf('reliquary-tc'),
     CONTEXT7_PIN: pinOf('context7'),
     APIS_LIST: apis.length ? apis.map((prov) => '- ' + prov.name + ' (`' + prov.envName + '`)').join('\n') :
        '- none: no metered provider key was selected, so the gateway serves only a local lane if you picked one',
@@ -468,10 +468,10 @@ export function vars(opts) {
        '- none selected (re-run the installer with --tools codecalc to add the calculator and code runner)',
     CODECALC_STATUS: codecalc ? 'setup instructions selected (see `CODECALC.md`); verify your own installation before calling it' :
        'use a calculator or the project runtime to compute and verify arithmetic',
-    OBSIDIAN_TC_STATUS: tools.some((t) => t.id === 'obsidian-tc') ?
-       'setup instructions selected (see `OBSIDIAN-TC.md`); verify server access before calling these tools' :
+    RELIQUARY_TC_STATUS: tools.some((t) => t.id === 'reliquary-tc') ?
+       'setup instructions selected (see `RELIQUARY-TC.md`); verify server access before calling these tools' :
           ("not selected; the rule below still binds against whatever store you keep (a notes folder, a wiki, a " +
-      "repo of markdown), the tool names are what obsidian-tc would give you"),
+      "repo of markdown), the tool names are what reliquary-tc would give you"),
     CONTEXT7_STATUS: tools.some((t) => t.id === 'context7') ?
        'setup instructions selected (see `CONTEXT7.md`); verify server access before calling these tools' :
           'not selected; the rule below still binds, read the vendor docs or source by hand before trusting them',

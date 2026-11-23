@@ -48,7 +48,7 @@ Before delegating, probe whether the worker loads project rules; supply any miss
 ## Tools and fallbacks
 
 - When a number or logical claim affects a decision, compute it with a tool. codecalc: optional, verify availability at setup; otherwise use the local runtime, spreadsheet or tests. When absent, use the local runtime, spreadsheet or tests. See `../protocols/numbers-and-logic.md`.
-- When recording durable information, search first, update its index and keep one writer. obsidian-tc: optional, verify availability at setup; otherwise use project files, search and version control. When absent, use project files and version control. See `../protocols/memory-and-record.md`.
+- When recording durable information, search first, update its index and keep one writer. reliquary-tc: optional, verify availability at setup; otherwise use project files, search and version control. When absent, use project files and version control. See `../protocols/memory-and-record.md`.
 - When writing against a changing interface, read current docs and run a check. Context7: optional, verify availability at setup; otherwise read official docs or installed source. When absent, use official docs or installed source; when codecalc is absent, use the project's runtime. See `../protocols/docs-then-prove.md`.
 
 ## Workflow files

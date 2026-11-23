@@ -2,7 +2,7 @@
 
 When writing durable information, search existing records, update their index and use one writer for the shared record.
 
-Optional companion: **obsidian-tc**, {{OBSIDIAN_TC_STATUS}}.
+Optional companion: **reliquary-tc**, {{RELIQUARY_TC_STATUS}}.
 
 ## Record a change
 
@@ -26,6 +26,6 @@ Optional companion: **obsidian-tc**, {{OBSIDIAN_TC_STATUS}}.
 
 ## Local record workflow
 
-When obsidian-tc is absent, use scoped file search, a folder README and version control. Before editing, compare the file with the version you read; version control alone does not prevent a concurrent lost update. Keep writes within the task's authorized paths.
+When reliquary-tc is absent, use scoped file search, a folder README and version control. Before editing, compare the file with the version you read; version control alone does not prevent a concurrent lost update. Keep writes within the task's authorized paths.
 
-Companion source: https://github.com/The-40-Thieves/obsidian-tc
+Companion source: https://github.com/The-40-Thieves/reliquary-tc

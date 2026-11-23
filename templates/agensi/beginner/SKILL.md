@@ -46,7 +46,7 @@ When building, use one audit step on the final artifact with a companion checkin
 ## Optional companions and fallbacks
 
 - **codecalc absent:** compute consequential figures and execute checks with the local runtime, tests, calculator or spreadsheet. Follow [numbers-and-logic.md](protocols/numbers-and-logic.md).
-- **obsidian-tc absent:** use scoped project search, a folder index and version control; keep one writer and check for concurrent changes. Follow [memory-and-record.md](protocols/memory-and-record.md).
+- **reliquary-tc absent:** use scoped project search, a folder index and version control; keep one writer and check for concurrent changes. Follow [memory-and-record.md](protocols/memory-and-record.md).
 - **Context7 absent:** read current official documentation or installed source, then verify on the project's runtime. Follow [docs-then-prove.md](protocols/docs-then-prove.md).
 
 When another model family or CLI offers needed reach, use the intermediate pack and verify its availability before delegation.
