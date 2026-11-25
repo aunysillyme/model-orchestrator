@@ -9,7 +9,7 @@ Everything the installer can write, organized by the level that adds it. Files a
 | `agents/` | every level, one variant | the main agent's loading surface: Claude Code subagents (plus `.claude/hooks/route-gate.mjs`, `subagent-context.mjs` and `route-metrics.mjs`, and `settings.hooks.snippet.json` to wire them in), Antigravity custom agents, or a paste snippet |
 | `intermediate/` | level 2+ | `ROUTING.md`, `TIERS.md`, `DELEGATION_MATRIX.md`, `RESEARCH_TRIAGE.md`, `CLI-RUN.md`, `fallbacks.json`, `classes.json` |
 | `advanced/` | level 3 | `vm/`: gateway config, compose file, box rules, privacy gates, scheduled jobs |
-| `tools/` | when selected | companion tools the AIs call: `codecalc/`, `obsidian-tc/` and `context7/` (install doc + MCP snippets each). See `tools/README.md` |
+| `tools/` | when selected | companion tools the AIs call: `codecalc/`, `reliquary-tc/` and `context7/` (install doc + MCP snippets each). See `tools/README.md` |
 
 Agent definitions under `agents/claude-code/` and `agents/agy/` are written to the PROJECT root (`--project`), not `--dir`, because that is where those CLIs read them. A `README.md` at the root of a tier folder (like this one) documents the repo and is not installed. `common/README.md` is the exception: it is the user's start-here file. READMEs deeper in (`protocols/`, `vm/`, `vm/jobs/`) are installed as folder indexes.
 

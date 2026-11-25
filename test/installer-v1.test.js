@@ -52,7 +52,7 @@ test('default interactive and --yes installs select zero companions', () => {
       const result = spawnSync(process.execPath, [CLI, ...(yes ? ['--yes'] : []), ...args], { encoding: 'utf8', input: yes ? '' : '\n\n\ny\n' });
       assert.equal(result.status, 0, result.stderr + result.stdout);
       assert.deepEqual(readManifest(dir).tools, []);
-      for (const file of ['CODECALC.md', 'OBSIDIAN-TC.md', 'CONTEXT7.md']) assert.equal(existsSync(join(dir, file)), false, `${yes}: ${file}`);
+      for (const file of ['CODECALC.md', 'RELIQUARY-TC.md', 'CONTEXT7.md']) assert.equal(existsSync(join(dir, file)), false, `${yes}: ${file}`);
     } finally { rmSync(root, { recursive: true, force: true }); }
   }
 });

@@ -430,17 +430,17 @@ export const TOOLS = [
     optionalNote: 'Optional. Needs Python 3.10+ and uv. Everything else runs offline.'
   },
   {
-    id: 'obsidian-tc',
-    name: 'obsidian-tc (governed memory: an agent-ready MCP server over an Obsidian vault)',
-    repo: 'https://github.com/The-40-Thieves/obsidian-tc',
+    id: 'reliquary-tc',
+    name: 'reliquary-tc (governed memory: an agent-ready MCP server over an Obsidian vault)',
+    repo: 'https://github.com/The-40-Thieves/reliquary-tc',
     role: ("durable memory and record for your agents: hybrid retrieval (BM25 + dense + link graph), backlinks, " +
       "compare-and-swap writes with a confirmation gate, folder ACLs, a poison scan on inferred writes; 163 " +
       "tools, local by default"),
-    get install() { return `npm install -g obsidian-tc@${this.pin} && obsidian-tc /path/to/your/vault`; },
+    get install() { return `npm install -g reliquary-tc@${this.pin} && reliquary-tc /path/to/your/vault`; },
     pin: '1.34.0',
-    advisory: { ecosystem: 'npm', package: 'obsidian-tc' },
-    mcpSnippets: { 'claude-code': 'mcp/obsidian-tc.mcpServers.json', codex: 'mcp/obsidian-tc.codex.config.toml', agy:
-       'mcp/obsidian-tc.agy.mcp_config.json', qwen: 'mcp/obsidian-tc.mcpServers.json' },
+    advisory: { ecosystem: 'npm', package: 'reliquary-tc' },
+    mcpSnippets: { 'claude-code': 'mcp/reliquary-tc.mcpServers.json', codex: 'mcp/reliquary-tc.codex.config.toml', agy:
+       'mcp/reliquary-tc.agy.mcp_config.json', qwen: 'mcp/reliquary-tc.mcpServers.json' },
     requires: ("an Obsidian vault folder (the Obsidian app itself is only needed for live plugin bridges); Node 24+ " +
       "or Bun 1.1+ (stricter than this installer); Ollama with `nomic-embed-text` for local embeddings, or " +
       "a cloud embeddings key; the Local REST API plugin only for bridge tools"),
@@ -465,7 +465,7 @@ export const TOOLS = [
       "rate limits (it works anonymously at the base rate)"),
     autoClients: [], // The pinned MCP server does not register itself; merge its snippets.
     recommended: false,
-    optionalNote: ("Optional, and from a different maintainer than codecalc and obsidian-tc (Upstash, not " +
+    optionalNote: ("Optional, and from a different maintainer than codecalc and reliquary-tc (Upstash, not " +
       "The-40-Thieves). Needs a network call even at the anonymous rate; skip it offline. MIT.")
   }
 ];

@@ -385,25 +385,25 @@ test('--force never leaves an overwritten file changed when a later target is a 
   }
 });
 
-// ---- obsidian-tc companion ----
-test('obsidian-tc: optional, off by default, writes its doc and snippets only when selected; memory-and-record is always written', () => {
-  const { tools } = resolveTools(['obsidian-tc']);
-  assert.equal(tools[0].recommended, false, 'obsidian-tc must not be a default');
+// ---- reliquary-tc companion ----
+test('reliquary-tc: optional, off by default, writes its doc and snippets only when selected; memory-and-record is always written', () => {
+  const { tools } = resolveTools(['reliquary-tc']);
+  assert.equal(tools[0].recommended, false, 'reliquary-tc must not be a default');
   assert.match(tools[0].requires, /Obsidian vault/);
   assert.match(tools[0].requires, /Node 24/);
   assert.match(tools[0].requires, /nomic-embed-text/);
   const withTool = planFiles({ level: 1, selected: sel('codex'), primary: byId.codex, tools }).map((f) => f.rel);
-  assert.ok(withTool.includes('OBSIDIAN-TC.md'));
-  assert.ok(withTool.includes(join('mcp', 'obsidian-tc.codex.config.toml')));
+  assert.ok(withTool.includes('RELIQUARY-TC.md'));
+  assert.ok(withTool.includes(join('mcp', 'reliquary-tc.codex.config.toml')));
   assert.ok(withTool.includes(join('protocols', 'memory-and-record.md')));
   const without = planFiles({ level: 1, selected: sel('codex'), primary: byId.codex, tools: [] });
-  assert.ok(!without.some((f) => f.rel === 'OBSIDIAN-TC.md'));
+  assert.ok(!without.some((f) => f.rel === 'RELIQUARY-TC.md'));
   const mr = without.find((f) => f.rel === join('protocols', 'memory-and-record.md')).content;
   assert.match(mr, /not selected/);
-  assert.match(mr, /github\.com\/The-40-Thieves\/obsidian-tc/);
-  const both = planFiles({ level: 2, selected: sel('claude-code'), primary: byId['claude-code'], tools: resolveTools(['codecalc', 'obsidian-tc']).tools }).map((f) => f.rel);
-  assert.ok(both.includes('CODECALC.md') && both.includes('OBSIDIAN-TC.md'));
-  const doc = planFiles({ level: 1, selected: sel('codex'), primary: byId.codex, tools }).find((f) => f.rel === 'OBSIDIAN-TC.md').content;
+  assert.match(mr, /github\.com\/The-40-Thieves\/reliquary-tc/);
+  const both = planFiles({ level: 2, selected: sel('claude-code'), primary: byId['claude-code'], tools: resolveTools(['codecalc', 'reliquary-tc']).tools }).map((f) => f.rel);
+  assert.ok(both.includes('CODECALC.md') && both.includes('RELIQUARY-TC.md'));
+  const doc = planFiles({ level: 1, selected: sel('codex'), primary: byId.codex, tools }).find((f) => f.rel === 'RELIQUARY-TC.md').content;
   assert.match(doc, /\*\*Optional\.\*\*/);
   assert.match(doc, /What you need first/);
 });
@@ -414,34 +414,34 @@ test('obsidian-tc: optional, off by default, writes its doc and snippets only wh
 // cross-spawn inside the MCP TypeScript SDK, so shipping one would teach a
 // Windows user to change a config that already works. This test is the guard
 // on that: no `.windows` file, and a doc that carries the evidence.
-test('obsidian-tc on Windows: no client gets a cmd /c snippet, and the doc says which code was read for each', () => {
-  const { tools } = resolveTools(['obsidian-tc']);
+test('reliquary-tc on Windows: no client gets a cmd /c snippet, and the doc says which code was read for each', () => {
+  const { tools } = resolveTools(['reliquary-tc']);
   const plan = planFiles({ level: 1, selected: sel('codex'), primary: byId.codex, tools });
-  const mcp = plan.map((f) => f.rel).filter((r) => r.startsWith(join('mcp', 'obsidian-tc')));
+  const mcp = plan.map((f) => f.rel).filter((r) => r.startsWith(join('mcp', 'reliquary-tc')));
 
   assert.deepEqual(
     mcp.map((r) => r.replace(/^.*[\\/]/, '')).sort(),
     [
-      'obsidian-tc.agy.mcp_config.json',
-      'obsidian-tc.codex.config.toml',
-      'obsidian-tc.mcpServers.json',
-      'obsidian-tc.vscode.mcp.json',
-      'obsidian-tc.zed.settings.json'
+      'reliquary-tc.agy.mcp_config.json',
+      'reliquary-tc.codex.config.toml',
+      'reliquary-tc.mcpServers.json',
+      'reliquary-tc.vscode.mcp.json',
+      'reliquary-tc.zed.settings.json'
     ],
-    'the obsidian-tc snippet set changed; if a `.windows` file was added, the doc table has to change with it'
+    'the reliquary-tc snippet set changed; if a `.windows` file was added, the doc table has to change with it'
   );
-  assert.ok(!mcp.some((r) => r.includes('.windows.')), 'no obsidian-tc client needs a Windows snippet');
+  assert.ok(!mcp.some((r) => r.includes('.windows.')), 'no reliquary-tc client needs a Windows snippet');
 
   // Every JSON snippet spawns npx directly, on every OS.
   for (const rel of mcp.filter((r) => r.endsWith('.json'))) {
     const parsed = JSON.parse(plan.find((f) => f.rel === rel).content);
-    const server = (parsed.mcpServers || parsed.servers || parsed.context_servers)['obsidian-tc'];
+    const server = (parsed.mcpServers || parsed.servers || parsed.context_servers)['reliquary-tc'];
     assert.equal(server.command, 'npx', `${rel} must spawn npx directly`);
     assert.equal(server.args[0], '-y', `${rel} args must start at -y`);
   }
 
-  const doc = plan.find((f) => f.rel === 'OBSIDIAN-TC.md').content;
-  assert.doesNotMatch(doc, /\{\{/, 'an unrendered placeholder reached OBSIDIAN-TC.md');
+  const doc = plan.find((f) => f.rel === 'RELIQUARY-TC.md').content;
+  assert.doesNotMatch(doc, /\{\{/, 'an unrendered placeholder reached RELIQUARY-TC.md');
   assert.match(doc, /Local `npx` on Windows/);
   // One citation per client, so a future reader re-checks the claim instead of
   // trusting it. These are the files each verdict was actually read from.
@@ -472,8 +472,8 @@ test('context7: optional, off by default, writes its doc and snippets only when 
   assert.match(dp, /github\.com\/upstash\/context7/);
   // the pairing: docs-then-prove.md names codecalc's status too, selected or not
   assert.match(dp, /codecalc/i);
-  const all = planFiles({ level: 2, selected: sel('claude-code'), primary: byId['claude-code'], tools: resolveTools(['codecalc', 'obsidian-tc', 'context7']).tools }).map((f) => f.rel);
-  assert.ok(all.includes('CODECALC.md') && all.includes('OBSIDIAN-TC.md') && all.includes('CONTEXT7.md'));
+  const all = planFiles({ level: 2, selected: sel('claude-code'), primary: byId['claude-code'], tools: resolveTools(['codecalc', 'reliquary-tc', 'context7']).tools }).map((f) => f.rel);
+  assert.ok(all.includes('CODECALC.md') && all.includes('RELIQUARY-TC.md') && all.includes('CONTEXT7.md'));
   const doc = planFiles({ level: 1, selected: sel('codex'), primary: byId.codex, tools }).find((f) => f.rel === 'CONTEXT7.md').content;
   assert.match(doc, /\*\*Optional\.\*\*/);
   assert.match(doc, /What you need first/);
@@ -542,7 +542,7 @@ test('F3: the qwen context7 snippet uses httpUrl, not url, and keeps only the no
 });
 
 // F4: the Zed snippet ran unversioned npx, bypassing CONTEXT7_PIN entirely
-// (CODECALC_PIN and OBSIDIAN_TC_PIN both reach their own docs). Read the pin
+// (CODECALC_PIN and RELIQUARY_TC_PIN both reach their own docs). Read the pin
 // from the catalog itself, never hardcode the version in the test.
 test('F4: the rendered zed context7 snippet pins the npx package to the catalog version', () => {
   const rendered = planFiles({ level: 1, selected: sel('codex'), primary: byId.codex, tools: resolveTools(['context7']).tools })
@@ -673,7 +673,7 @@ test('writeFiles honours two roots and rolls back across both', () => {
 });
 
 test('pins: images and npm installs are versioned, and the pin reaches the rendered box files', () => {
-  const p = planFiles({ level: 3, selected: sel('claude-code', 'codex', 'ollama'), primary: byId['claude-code'], dir: '/x', project: '/x', tools: resolveTools(['codecalc', 'obsidian-tc', 'context7']).tools });
+  const p = planFiles({ level: 3, selected: sel('claude-code', 'codex', 'ollama'), primary: byId['claude-code'], dir: '/x', project: '/x', tools: resolveTools(['codecalc', 'reliquary-tc', 'context7']).tools });
   const compose = p.find((f) => f.rel === join('vm', 'docker-compose.yml')).content;
   assert.doesNotMatch(compose, /:latest|main-latest/);
   assert.match(compose, /litellm:v\d+\.\d+\.\d+/);
@@ -683,7 +683,7 @@ test('pins: images and npm installs are versioned, and the pin reaches the rende
   assert.match(sh, /@openai\/codex@\d+\.\d+\.\d+/);
   assert.equal(spawnSync('bash', ['-n'], { input: sh, encoding: 'utf8' }).status, 0);
   assert.match(p.find((f) => f.rel === 'CODECALC.md').content, /codecalc\[full\]==\d+\.\d+\.\d+/);
-  assert.match(p.find((f) => f.rel === 'OBSIDIAN-TC.md').content, /obsidian-tc@\d+\.\d+\.\d+/);
+  assert.match(p.find((f) => f.rel === 'RELIQUARY-TC.md').content, /reliquary-tc@\d+\.\d+\.\d+/);
   assert.match(p.find((f) => f.rel === 'CONTEXT7.md').content, /@upstash\/context7-mcp@\d+\.\d+\.\d+/);
 });
 

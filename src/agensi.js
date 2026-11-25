@@ -56,7 +56,7 @@ export function unconfiguredVars(level) {
     LIVE_ROLE: role('researcher with verified live tools'),
     BULK_ROLE: role('bounded worker, preferring eligible cheaper billing'),
     CODECALC_STATUS: 'optional, verify availability at setup; otherwise use the local runtime, spreadsheet or tests',
-    OBSIDIAN_TC_STATUS: 'optional, verify availability at setup; otherwise use project files, search and version control',
+    RELIQUARY_TC_STATUS: 'optional, verify availability at setup; otherwise use project files, search and version control',
     CONTEXT7_STATUS: 'optional, verify availability at setup; otherwise read official docs or installed source',
     DECISION_RULE5_L1: ("8. **Build:** use the working model with high effort where supported; verify write reach and " +
       "acceptance checks first."),

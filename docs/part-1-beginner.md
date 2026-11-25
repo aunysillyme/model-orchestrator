@@ -45,7 +45,7 @@ Claude Code subagents load the project's instruction hierarchy. A separate CLI o
 ## Compute, record and verify with your tools
 
 - **Numbers:** use a calculator or execution tool for figures someone will act on. codecalc is an optional companion.
-- **Notes:** search before writing, keep the index accurate and use one writer. A notes folder works; obsidian-tc adds search and controlled writes.
+- **Notes:** search before writing, keep the index accurate and use one writer. A notes folder works; reliquary-tc adds search and controlled writes.
 - **APIs:** read current official documentation and test the call. Context7 can retrieve the documentation when available.
 - **Decisions:** record Did / Why / Serves / Rejected when choosing between approaches. Keep evidence and operational consequences in the record.
 

@@ -13,7 +13,7 @@ function companionFiles() {
 function assertPinnedPackages(text, label) {
   for (const [pattern, spec] of [
     [/codecalc\[full\](?:==[^\s'"`\]]+)?/g, `codecalc[full]==${toolById.codecalc.pin}`],
-    [/(?<=["'])obsidian-tc(?:@[^"']+)?(?=["'])/g, `obsidian-tc@${toolById['obsidian-tc'].pin}`],
+    [/(?<=["'])reliquary-tc(?:@[^"\']+)?(?=["'])/g, `reliquary-tc@${toolById['reliquary-tc'].pin}`],
     [/@upstash\/context7-mcp(?:@[^\s'"`\]]+)?/g, `@upstash/context7-mcp@${toolById.context7.pin}`]
   ]) {
     for (const match of text.matchAll(pattern)) assert.equal(match[0], spec, label);
@@ -42,14 +42,14 @@ test('companion MCP launch arguments use exact catalog versions in every client 
 });
 
 test('pin regression detects floating companion commands and a mismatched catalog version', () => {
-  for (const command of ['["codecalc[full]"]', '["-y","obsidian-tc"]', '["-y","@upstash/context7-mcp"]', '["codecalc[full]==0.0.0"]']) {
+  for (const command of ['["codecalc[full]"]', '["-y","reliquary-tc"]', '["-y","@upstash/context7-mcp"]', '["codecalc[full]==0.0.0"]']) {
     assert.throws(() => assertPinnedPackages(command, command), assert.AssertionError);
   }
 });
 
 test('companion guides keep executable examples pinned to the catalog', () => {
   const files = companionFiles();
-  for (const name of ['CODECALC.md', 'OBSIDIAN-TC.md', 'CONTEXT7.md']) {
+  for (const name of ['CODECALC.md', 'RELIQUARY-TC.md', 'CONTEXT7.md']) {
     const file = files.find((f) => f.rel === name);
     assert.ok(file, name);
     assertPinnedPackages(file.content, name);
@@ -59,7 +59,7 @@ test('companion guides keep executable examples pinned to the catalog', () => {
 
 test('catalog install instructions derive package versions from each companion pin', () => {
   assert.equal(toolById.codecalc.install, `uvx 'codecalc[full]==${toolById.codecalc.pin}' setup --write`);
-  assert.equal(toolById['obsidian-tc'].install, `npm install -g obsidian-tc@${toolById['obsidian-tc'].pin} && obsidian-tc /path/to/your/vault`);
+  assert.equal(toolById['reliquary-tc'].install, `npm install -g reliquary-tc@${toolById['reliquary-tc'].pin} && reliquary-tc /path/to/your/vault`);
   assert.equal(toolById.context7.install, `npx -y @upstash/context7-mcp@${toolById.context7.pin}`);
   assert.deepEqual(toolById.context7.autoClients, []);
   assert.match(catalogMarkdown().split('### `context7`')[1], /Vendor command auto-registration:\*\* none; use project activation or merge the supplied snippets/);

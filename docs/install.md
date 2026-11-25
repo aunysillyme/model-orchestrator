@@ -46,7 +46,7 @@ Interactive installs apply activation by default as part of the one confirmation
 - **Hook ownership:** hook executables are runtime files. Unchanged owned hooks upgrade; activation refuses edited or unverified hooks. Inspect them before using `--upgrade-runtime` to replace them.
 - **Write safety:** generated files are published through temporary files in the same directory, without writing through existing hard links. Target paths containing double quotes are refused before rendering systemd commands.
 - **Hooks:** a Claude Code main agent gets its generated hooks merged into `.claude/settings.json`, preserving existing keys and hooks. A command with the same arguments already present in that event is kept once. Invalid JSON exits 2, names the file and writes nothing.
-- **Companions:** a Claude Code main agent gets selected tools registered in the project's `.mcp.json` when activation is enabled. Existing settings and server names stay; a conflicting server entry becomes a printed step. Other main agents retain manual registration steps because the catalog has no verified project config target for them. `obsidian-tc` also needs your actual configuration path. No global config is changed.
+- **Companions:** a Claude Code main agent gets selected tools registered in the project's `.mcp.json` when activation is enabled. Existing settings and server names stay; a conflicting server entry becomes a printed step. Other main agents retain manual registration steps because the catalog has no verified project config target for them. `reliquary-tc` also needs your actual configuration path. No global config is changed.
 - **Backups:** existing files changed during application get `<name>.bak-YYYYMMDDTHHMMSSZ` backups in the rules folder's gitignored `.backups/` directory, including generated files replaced on a rerun. The trailing `Z` identifies UTC. Each path is printed; unchanged and newly created files need no backup. Machine-owned `MANIFEST.json` and `bin/lanes.json` need no backup. Existing backups are preserved.
 - **Preview:** `--dry` and `--dry-run` list the proposed writes and backups without changing files or running the health check. For a headless activation preview, pass `--yes --apply-snippets --dry` with your selection and paths.
 - **Manual surfaces:** a chat app keeps one paste step. A main agent without a catalog-supported project rules file keeps its instruction step. `--no-apply` leaves the relevant rules, hook and companion merge steps in the final list.
@@ -101,7 +101,7 @@ Rules inside the project use project-relative snippet paths, so moving the whole
 npx model-orchestrator --yes --level 2 --ais claude-code,codex,grok --primary claude-code \
   --dir ./ai-orchestrator --project ./my-app
 # Companions default to none, including with --yes.
-# Add --tools codecalc,obsidian-tc,context7 to write their guides and snippets.
+# Add --tools codecalc,reliquary-tc,context7 to write their guides and snippets.
 
 npx model-orchestrator --yes --level 3 --ais claude-code,codex,agy,grok,hermes,qwen,ollama --apis anthropic,openrouter --dry   # print the plan, write nothing
 npx model-orchestrator --yes --level 2 --ais claude-code,codex --project ~/my-app --dir ~/my-app/ai-orchestrator --no-tools  # subagents into ~/my-app/.claude/agents
@@ -170,7 +170,7 @@ ai-orchestrator/
   ACCEPTANCE_CHECKS.json   executable acceptance checks
   DECISIONS.md             the decision log: Did / Why / Serves / Rejected
   protocols/                acceptance-checks · build-protocol · context-file · decision-log · deep-research · docs-then-prove · gap-analysis · memory-and-record · numbers-and-logic · propagate
-  CODECALC.md  OBSIDIAN-TC.md  CONTEXT7.md  mcp/   companion-tool install docs + per-agent registration snippets (if selected)
+  CODECALC.md  RELIQUARY-TC.md  CONTEXT7.md  mcp/   companion-tool install docs + per-agent registration snippets (if selected)
   CLAUDE.snippet.md         rules block for CLAUDE.md (Claude Code main agent)
   settings.hooks.snippet.json  hooks for .claude/settings.json (Claude Code main agent)
   GEMINI.snippet.md         rules block for GEMINI.md (Antigravity main agent)

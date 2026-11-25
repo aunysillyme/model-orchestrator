@@ -42,7 +42,7 @@ When the workflow needs an independent reviewer unavailable to this session, rep
 ## Tools and fallbacks
 
 - When a number or logical claim affects a decision, compute it with a tool. codecalc: {{CODECALC_STATUS}}. When absent, use the local runtime, spreadsheet or tests. See `protocols/numbers-and-logic.md`.
-- When recording durable information, search first, update its index and keep one writer. obsidian-tc: {{OBSIDIAN_TC_STATUS}}. When absent, use project files and version control. See `protocols/memory-and-record.md`.
+- When recording durable information, search first, update its index and keep one writer. reliquary-tc: {{RELIQUARY_TC_STATUS}}. When absent, use project files and version control. See `protocols/memory-and-record.md`.
 - When writing against a changing interface, read current docs and run a check. Context7: {{CONTEXT7_STATUS}}. When absent, use official docs or installed source; when codecalc is absent, use the project's runtime. See `protocols/docs-then-prove.md`.
 
 ## Workflow files

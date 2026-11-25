@@ -181,10 +181,10 @@ These are other authors' projects, maintained in their own repositories. All com
 | Project | Author | What it adds |
 |---|---|---|
 | [codecalc](https://github.com/The-40-Thieves/codecalc) | The-40-Thieves | Local calculation, code execution and logic checks |
-| [obsidian-tc](https://github.com/The-40-Thieves/obsidian-tc) | The-40-Thieves | Searchable notes and controlled writes over an Obsidian vault |
+| [reliquary-tc](https://github.com/The-40-Thieves/reliquary-tc) | The-40-Thieves | Searchable notes and controlled writes over an Obsidian vault |
 | [Context7](https://github.com/upstash/context7) | Upstash | Current, version-specific library documentation |
 
-Use `--tools codecalc,obsidian-tc,context7` to select them. Without a companion, use your available calculator or runtime, a searchable notes folder and official library docs. [Companion setup and upstream support](docs/companions.md).
+Use `--tools codecalc,reliquary-tc,context7` to select them. Without a companion, use your available calculator or runtime, a searchable notes folder and official library docs. [Companion setup and upstream support](docs/companions.md).
 
 ## Common questions
 

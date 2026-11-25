@@ -46,7 +46,7 @@ The verification role tries to reproduce each claim and probe the named definiti
 
 Give independent research questions to tools that can answer them, then inspect primary sources before accepting the claims. Compute consequential figures independently. Use one writer for the final shared record.
 
-Optional companions can help: codecalc for execution and calculations, obsidian-tc for searchable notes, Context7 for current library docs. Without them, use the runtime, notes and official documentation already available to your agent.
+Optional companions can help: codecalc for execution and calculations, reliquary-tc for searchable notes, Context7 for current library docs. Without them, use the runtime, notes and official documentation already available to your agent.
 
 ## Measure your own routing
 

@@ -50,7 +50,7 @@ The installer runs the doctor presence check automatically. Live canaries remain
 | `protocols/memory-and-record.md` | You are about to write anything durable. Search first, keep the index true, one writer. |
 | `protocols/docs-then-prove.md` | You are about to write code against a library, SDK, API or CLI. Current docs first, then a run proves it. |
 | `CODECALC.md` | Present when you selected codecalc: install, per-agent registration, the skill. |
-| `OBSIDIAN-TC.md` | Present when you selected obsidian-tc: what you need first, install, per-agent registration, the security posture. |
+| `RELIQUARY-TC.md` | Present when you selected reliquary-tc: what you need first, install, per-agent registration, the security posture. |
 | `CONTEXT7.md` | Present when you selected context7: what you need first, install, per-agent registration, the security posture. |
 
 Level 2 adds `ROUTING.md`, `TIERS.md`, `DELEGATION_MATRIX.md`, `RESEARCH_TRIAGE.md`, `CLI-RUN.md`, `fallbacks.json`, `classes.json` and `bin/cli-run.mjs`. Level 3 adds `vm/`. If those files are here, read `ROUTING.md` instead of `ORCHESTRATOR.md`: it is the multi-lane version, and the snippet your agent loads already points at it. `ORCHESTRATOR.md` stays as the single-agent fallback for a session where only one AI is available.

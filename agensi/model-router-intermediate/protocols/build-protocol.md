@@ -113,7 +113,7 @@ In the **same step**, run a companion consult asking a different question: scope
 
 ## Tools and fallbacks
 
-When optional companion software is selected, use codecalc for computation, Context7 for documentation, and obsidian-tc for the record store. When one is absent, use the local runtime or test suite, official documentation or installed source, and repository files with search and version control respectively. These substitutions preserve the checks. A missing capability needed by a check remains explicitly unverified until an authorized tool or person can verify it.
+When optional companion software is selected, use codecalc for computation, Context7 for documentation, and reliquary-tc for the record store. When one is absent, use the local runtime or test suite, official documentation or installed source, and repository files with search and version control respectively. These substitutions preserve the checks. A missing capability needed by a check remains explicitly unverified until an authorized tool or person can verify it.
 
 ## Roles
 

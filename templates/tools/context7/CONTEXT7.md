@@ -21,7 +21,7 @@ Context7 indexes documentation from GitHub, GitLab, Bitbucket, websites, `llms.t
 | Requirement | Why | Notes |
 |---|---|---|
 | **Node.js 18+** | runs the local server or the `ctx7` CLI | only needed for the local (`npx`) connection; the hosted endpoint needs nothing local at all |
-| **A network call to `mcp.context7.com`** | Context7 is a hosted service; there is no fully offline mode | the anonymous rate limit works with no account. Unlike codecalc (offline) and obsidian-tc (local), this tool always leaves the machine |
+| **A network call to `mcp.context7.com`** | Context7 is a hosted service; there is no fully offline mode | the anonymous rate limit works with no account. Unlike codecalc (offline) and reliquary-tc (local), this tool always leaves the machine |
 | A free **`CONTEXT7_API_KEY`** (optional) | raises the anonymous rate limit | get one at [context7.com/dashboard](https://context7.com/dashboard); it is never pasted into a snippet in `mcp/` (see "Higher rate limits" below) |
 
 ## Install

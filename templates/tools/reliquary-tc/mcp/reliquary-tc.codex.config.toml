@@ -1,0 +1,7 @@
+# Merge into ~/.codex/config.toml
+[mcp_servers.reliquary-tc]
+command = "npx"
+args = ["-y", "reliquary-tc@{{RELIQUARY_TC_PIN}}"]
+
+[mcp_servers.reliquary-tc.env]
+RELIQUARY_TC_CONFIG = "/ABSOLUTE/PATH/TO/reliquary-tc.config.json"
